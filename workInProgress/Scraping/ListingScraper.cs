@@ -1,13 +1,15 @@
 namespace workInProgress.Scraping;
 
 using workInProgress.Models;
+using workInProgress.Storage;
 
-internal sealed class ListingScraper
+public sealed class ListingScraper
 {
     private readonly HttpClient _httpClient;
     private readonly ListingsPageFetcher _pageFetcher;
     private readonly ListingCardParser _cardParser;
     private readonly DetailPageParser _detailParser;
+    private readonly SnapshotWriter _snapshotWriter;
 
     public ListingScraper(HttpClient httpClient)
     {
@@ -15,20 +17,50 @@ internal sealed class ListingScraper
         _pageFetcher = new ListingsPageFetcher(_httpClient);
         _cardParser = new ListingCardParser();
         _detailParser = new DetailPageParser();
+        _snapshotWriter = new SnapshotWriter();
+    }
+
+    public async Task RunAsync()
+    {
+        var listings = await ScrapeAllListingsAsync();
+
+        if (listings.Count == 0)
+        {
+            Console.WriteLine("No listings found.");
+            return;
+        }
+
+        var snapshotPath = await _snapshotWriter.WriteSnapshotAsync(listings);
+        Console.WriteLine($"Snapshot written: {snapshotPath}");
+        Console.WriteLine($"Total listings: {listings.Count}");
     }
 
     public async Task<List<Listing>> ScrapeAllListingsAsync(CancellationToken ct = default)
     {
         var allListings = new List<Listing>();
+        var pageNumber = 0;
+        var shouldStop = false;
 
         // Iterate through all results pages.
         await foreach (var pageHtml in _pageFetcher.FetchAllPagesHtmlAsync(ct))
         {
+            pageNumber++;
+
             // Parse listing cards from this page.
             var pageListings = _cardParser.ParsePage(pageHtml);
 
             foreach (var (listing, detailPageUrl) in pageListings)
             {
+                // Check if postcode is in Karlsruhe whitelist
+                if (!string.IsNullOrEmpty(listing.PostalCode) &&
+                    !Selectors.KarlsruhePostcodes.Contains(listing.PostalCode))
+                {
+                    Console.WriteLine(
+                        $"Stopping pagination: Found listing outside Karlsruhe postcodes (postcode: {listing.PostalCode}) on page {pageNumber}");
+                    shouldStop = true;
+                    break;
+                }
+
                 try
                 {
                     // Fetch and parse the detail page.
@@ -64,6 +96,9 @@ internal sealed class ListingScraper
                     allListings.Add(listing);
                 }
             }
+
+            if (shouldStop)
+                break;
         }
 
         return allListings;
