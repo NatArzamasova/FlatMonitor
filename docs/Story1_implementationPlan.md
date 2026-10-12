@@ -6,20 +6,28 @@
   - `Models/Listing.cs`, `Models/Details.cs`, `Json/JsonOptions.cs`
   - Status: Models created with correct nullable annotations and PascalCase JSON serialization config.
 
-- **Phase 2: HTTP Client & HTML Parser** — ⬜ Not started
-  - `Scraping/Selectors.cs`, `ListingsPageFetcher.cs`, `ListingCardParser.cs`, `DetailPageParser.cs`, `ListingScraper.cs`
-  - Add HtmlAgilityPack to `workInProgress.csproj`
+- **Phase 2: HTTP Client & HTML Parser** — ✅ **DONE**
+  - `Scraping/Selectors.cs` (URLs, XPath, German label mapping)
+  - `Scraping/ListingsPageFetcher.cs` (pagination loop, stops on first empty page)
+  - `Scraping/ListingCardParser.cs` (parses listing cards → partial Listings)
+  - `Scraping/DetailPageParser.cs` (label→value lookup → Address + Details)
+  - `Scraping/ListingScraper.cs` (orchestrator, ties fetch+parse together)
+  - HtmlAgilityPack added to `workInProgress.csproj`
 
-- **Phase 3: Snapshot Repository** — ⬜ Not started
-  - `Storage/SnapshotWriter.cs`
+- **Phase 3: Snapshot Repository** — ✅ **DONE**
+  - `Storage/SnapshotWriter.cs` (writes JSONL snapshot with UTC timestamp filename)
+  - Tests passing: file creation, JSON serialization, PascalCase, null handling
 
 - **Phase 4: Command Entry Point** — ⬜ Not started
   - Rewrite `Program.cs` with command dispatch
 
-- **Phase 5: Tests** — ⬜ Not started
+- **Phase 5: Tests** — ✅ **DONE**
   - New test project `workInProgress.Tests` with NUnit, Moq, FluentAssertions
-  - `ListingCardParserTests.cs`, `DetailPageParserTests.cs`, `SnapshotWriterTests.cs`
-  - HTML fixtures in `Fixtures/`
+  - `ListingCardParserTests.cs` (9 tests covering card parsing, field extraction, error cases)
+  - `DetailPageParserTests.cs` (12 tests covering detail page parsing, field extraction, nulls)
+  - `SnapshotWriterTests.cs` (10 tests covering file creation, JSON serialization, PascalCase, nulls)
+  - HTML fixtures: `listings-page-sample.html`, `detail-page-sample.html`
+  - Test project added to `.sln`
 
 ---
 
