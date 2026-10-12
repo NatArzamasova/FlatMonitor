@@ -42,26 +42,85 @@ Two storage layers:
 
 ## Data model
 
-Scraped per listing per run:
-`ListingId, Url, Title, PriceEur, RoomsCount, LivingAreaSqm, PropertyType,
-Address, District, PostalCode, BuildYear, Floor, Condition, Heating,
-Flooring, ServiceChargeEur, EnergyCertificateType, PrimaryEnergySource,
-ContactName, ListingStatus, CurrentUse, Availability, ScrapedAtUtc`
+### JSONL Snapshot format (canonical, git-committed)
 
-Derived (computed from snapshot history, not scraped directly):
-`FirstSeenAtUtc, LastSeenAtUtc, IsActive, RemovedAtUtc` (best-effort: first
-snapshot after its last appearance), and a `PriceHistory` table (one row
-per price change between consecutive snapshots).
+Each `data/snapshots/{utc-timestamp}.jsonl` contains one JSON object per line,
+one per listing seen in that scrape run:
+
+```json
+{
+  "ListingId": "502814",
+  "Url": "/immobilie/502814/",
+  "Title": "Altbauperle Weststadt - Zwei Appartements in einer Wohnung",
+  "Address": "Weltzienstraße 21",
+  "PostalCode": "76135",
+  "District": "Weststadt",
+  "PriceEur": 270000,
+  "RoomsCount": 3,
+  "LivingAreaSqm": 82,
+  "Details": {
+    "PropertyType": "Dachgeschosswohnung",
+    "BuildYear": 1904,
+    "Floor": "4. OG",
+    "Condition": "gepflegt",
+    "Heating": "Ofenheizung",
+    "Flooring": "Laminat",
+    "ServiceChargeEur": 405,
+    "EnergyCertificateType": "gesetzlich nicht erforderlich",
+    "PrimaryEnergySource": "Gas",
+    "ContactName": "Theresa Habich",
+    "ListingStatus": "Privatangebot",
+    "CurrentUse": "Vermietet",
+    "Availability": "Nach Vereinbarung"
+  },
+  "ScrapedAtUtc": "2026-10-09T14:30:00Z"
+}
+```
+
+### SQLite schema (derived, gitignored, rebuilt from snapshots)
+
+**`Snapshots` table** — one row per scrape run:
+- `SnapshotId` (PK, auto-increment)
+- `ScrapedAtUtc` (DATETIME, indexed)
+- `ListingCount` (INT) — how many listings in this run
+
+**`Listings` table** — deduplicated by (Url, Address); one row per unique listing ever seen:
+- `ListingId` (PK, auto-increment)
+- `Url` (TEXT, NOT NULL)
+- `Address` (TEXT, NOT NULL)
+- `Title` (TEXT)
+- `PostalCode`, `District` (TEXT)
+- `OriginalPriceEur` (DECIMAL) — first price seen
+- `CurrentPriceEur` (DECIMAL) — latest price seen
+- `RoomsCount`, `LivingAreaSqm` (INT/DECIMAL)
+- `Details` (JSON) — nested {PropertyType, BuildYear, Floor, Condition, Heating, ...}
+- `FirstSeenAtUtc` (DATETIME) — earliest snapshot containing this listing
+- `LastSeenAtUtc` (DATETIME) — latest snapshot containing this listing
+- `IsActive` (BOOLEAN) — present in the most recent snapshot
+- Unique constraint: (Url, Address)
+
+**`Statistics` table** — one row per calendar day:
+- `StatisticId` (PK, auto-increment)
+- `SnapshotDateUtc` (DATE, PK, indexed)
+- `TotalActiveListings` (INT)
+- `NewListingsCount` (INT)
+- `RemovedListingsCount` (INT)
+- `PriceChangedCount` (INT)
+- `AvgPricePerSqmEur` (DECIMAL)
+- `AvgDaysOnMarketRemoved` (DECIMAL) — for listings removed that day
 
 ## Report content
 
-Each `report` run shows:
+Each `report` run shows (comparing today's snapshot to yesterday's):
 
-- New listings since the previous snapshot.
-- Price changes since the previous snapshot (old → new, € and % delta).
-- Removed listings since the previous snapshot, with days-on-market.
-- Aggregate trends across all history: avg €/m² over time, active-listing
-  count over time, avg days-on-market for removed listings.
+- **New listings**: listings in today's snapshot not in yesterday's.
+- **Price changes**: listings where CurrentPriceEur differs from OriginalPriceEur (€ and % delta).
+- **Removed listings**: in yesterday's snapshot but not today's, with days-on-market (LastSeenAtUtc − FirstSeenAtUtc).
+- **Aggregate statistics**: pulled from the Statistics table for today's date:
+  - Total active listings.
+  - Average €/m².
+  - Average days-on-market for removed listings (that day).
+  - 7-day and 30-day rolling trends (if history exists).
 
 ## Running on a schedule
 
