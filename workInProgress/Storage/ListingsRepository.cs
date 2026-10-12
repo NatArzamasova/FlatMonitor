@@ -28,6 +28,23 @@ public sealed class ListingsRepository : IAsyncDisposable
 
     public async Task InitializeAsync(CancellationToken ct = default)
     {
+        // Check if database exists and has the Title column. If not, drop and recreate.
+        try
+        {
+            var hasTitle = await _dbContext.Database.SqlQuery<int>(
+                $@"SELECT COUNT(*) as cnt FROM pragma_table_info('Listings') WHERE name='Title'")
+                .FirstOrDefaultAsync(ct);
+
+            if (hasTitle == 0)
+            {
+                await _dbContext.Database.EnsureDeletedAsync(ct);
+            }
+        }
+        catch
+        {
+            // Table doesn't exist or query failed; EnsureCreatedAsync will handle it
+        }
+
         await _dbContext.Database.EnsureCreatedAsync(ct);
     }
 

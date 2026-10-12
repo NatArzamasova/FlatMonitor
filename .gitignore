@@ -8,5 +8,4 @@ obj/
 *.user
 *.suo
 .DS_Store
-data/snapshots/
-data/listings.db
+workInProgress/data/

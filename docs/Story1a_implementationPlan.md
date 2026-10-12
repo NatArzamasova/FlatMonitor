@@ -27,8 +27,10 @@ instead of raw SQL for cleaner connection pooling, transaction management, and t
 - **Phase 2: Load Snapshots into DB** — ✅ **DONE**
   - `Storage/SnapshotLoader.cs` — loads all snapshots from `data/snapshots/*.jsonl` in chronological order, deserializes with `JsonOptions.Snapshot`, skips malformed lines with warnings
 
-- **Phase 3: Integrate into Scraper** — Not started
-  - `ListingScraper.RunAsync()` — unchanged from original plan
+- **Phase 3: Integrate into Scraper** — ✅ **DONE**
+  - `ListingScraper.RunAsync()` — now initializes repository, upserts listings, writes snapshot
+  - Constructor instantiates `ListingsRepository` with default SQLite connection
+  - Implements `IAsyncDisposable` to clean up repository lifecycle
 
 ## Rationale for EF Core
 

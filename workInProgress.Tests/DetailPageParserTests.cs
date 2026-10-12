@@ -225,4 +225,26 @@ public class DetailPageParserTests
         // Assert
         result.Should().BeNull();
     }
+
+    [Test]
+    public void ParseDetailPage_ExtractsTitleFromH1()
+    {
+        // Arrange
+        var html = @"
+            <html>
+                <body>
+                    <h1>Büro mit Wohnoption in KA-Durlach</h1>
+                    <h2>76227 Karlsruhe (Durlach) – Baden-Württemberg</h2>
+                    <table>
+                        <tr><td><div>Baujahr</div></td><td><div>2013</div></td></tr>
+                    </table>
+                </body>
+            </html>";
+
+        // Act
+        var result = _parser.ParseDetailPage(html);
+
+        // Assert
+        result.Should().NotBeNull();
+    }
 }
