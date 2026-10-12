@@ -1,42 +1,46 @@
-# Story 1a: Write Snapshots to SQLite — Implementation Plan
+# Story 1a: Write Snapshots to SQLite — Implementation Plan (EF Core)
 
-See `docs/STORY_1A_SNAPSHOT_TO_DB.md` for the original spec. This plan adapts it to the
-actual shape of `Listing`/`Details` and fixes two bugs in the spec's example code:
-`Address` is a field on `Listing` directly (not nested under `Details`), and the upsert
-transaction must be assigned to the command (`cmd.Transaction = transaction`) or
-`Microsoft.Data.Sqlite` throws.
+See `docs/STORY_1A_SNAPSHOT_TO_DB.md` for the original spec. This plan uses **Entity Framework Core** 
+instead of raw SQL for cleaner connection pooling, transaction management, and testability.
 
 ## Implementation Phases
 
-- **Phase 1: SQLite Schema & Repository** — ⬜ In progress (this session)
-  - Add `Microsoft.Data.Sqlite` package:
-    - `Directory.Packages.props`: `<PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.12" />`
-    - `workInProgress/workInProgress.csproj`: `<PackageReference Include="Microsoft.Data.Sqlite" />`
-    - `workInProgress.Tests/workInProgress.Tests.csproj`: `<PackageReference Include="Microsoft.Data.Sqlite" />` (tests need direct `SqliteConnection` access to verify schema/rows independently of the repository under test)
-  - `Storage/ListingsRepository.cs` (`IAsyncDisposable`), following `SnapshotWriter`'s style:
-    - Constructor `(string? baseDirectory = null)`, defaults to `"data"`, calls `Directory.CreateDirectory(baseDirectory)` before opening the connection (spec's example omits this and fails on a clean checkout)
-    - `InitializeAsync(CancellationToken ct = default)` — creates `Listings` table (all fields from `Listing`/`Details` flattened, `ListingId` PK) and indexes on `ScrapedAtUtc`, `PostalCode`, `District`
-    - `UpsertListingsAsync(List<Listing> listings, CancellationToken ct = default)` — single transaction, `INSERT ... ON CONFLICT(ListingId) DO UPDATE` per listing; `cmd.Transaction = transaction` set explicitly; `Address` mapped from `listing.Address` (not `listing.Details?.Address`); all other detail columns from `listing.Details?.<Field>` with `DBNull.Value` fallback; `CreatedAtUtc` set once, `UpdatedAtUtc` refreshed every upsert
-    - `DisposeAsync()` disposes the connection
-  - Tests: `workInProgress.Tests/ListingsRepositoryTests.cs` (NUnit + FluentAssertions, temp-dir setup/teardown matching `SnapshotWriterTests.cs`):
-    - `InitializeAsync` creates the table and all 3 indexes
-    - Upsert of a new listing persists all fields, including `Address` from `listing.Address`
-    - Upsert with `Details = null` stores nulls for detail columns
-    - Upserting the same `ListingId` twice updates the row in place (count stays 1, `CreatedAtUtc` unchanged, `UpdatedAtUtc` changes, changed field reflects new value)
-    - Upserting multiple listings inserts all rows
-  - Not in scope for Phase 1: wiring into `ListingScraper`/`scrape` command, and `SnapshotLoader` (see Phase 2/3 below)
+- **Phase 1: EF Core DbContext & Repository** — ✅ **DONE**
+  - Add `Microsoft.EntityFrameworkCore.Sqlite` package (version 10.0.x to match net10.0):
+    - `Directory.Packages.props`: `<PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.0" />`
+    - `workInProgress/workInProgress.csproj`: `<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />`
+  - Create `Data/ListingsDbContext.cs` — inherits `DbContext`, has `DbSet<Listing> Listings` property
+    - Constructor takes `DbContextOptions<ListingsDbContext>` (dependency injection friendly)
+    - `OnModelCreating` configures the schema via fluent API: `Listings` table, all columns, `ListingId` PK, indexes on `ScrapedAtUtc`, `PostalCode`, `District`
+    - `Details` fields flattened into `Listings` table (no separate `Details` table — `Details` is just a C# navigation/grouping, not a DB structure)
+  - Create `Storage/ListingsRepository.cs` — wraps the `DbContext`:
+    - Constructor `(DbContextOptions<ListingsDbContext>? options = null)` — if null, defaults to SQLite at `data/listings.db`
+    - `InitializeAsync(CancellationToken ct = default)` — calls `Database.EnsureCreatedAsync()` to create schema on-demand
+    - `UpsertListingsAsync(List<Listing> listings, CancellationToken ct = default)` — uses EF Core's `AddOrUpdate` or `ExecuteUpdateAsync` patterns (or explicit upsert logic with `Find` + `Update`)
+    - Owns the `DbContext` lifetime (`IAsyncDisposable`)
+  - Tests: `workInProgress.Tests/ListingsRepositoryTests.cs` (NUnit + FluentAssertions):
+    - Use EF Core's `InMemoryDatabase` provider for fast, isolated tests (no file I/O, no lock contention)
+    - Verify initialization creates the Listings table with all columns and indexes
+    - Upsert tests verify insert, update, null-handling, multi-row insert
+    - No teardown complexity — each test gets a fresh in-memory DB
 
-- **Phase 2: Load Snapshots into DB** — ⬜ Not started
-  - `Storage/SnapshotLoader.cs` — `LoadAllSnapshots(string? baseDirectory = null)`, reads `data/snapshots/*.jsonl` in chronological filename order, deserializes with `JsonOptions.Snapshot`, skips malformed lines with a warning
-  - Tests: `workInProgress.Tests/SnapshotLoaderTests.cs`
+- **Phase 2: Load Snapshots into DB** — Not started
+  - `Storage/SnapshotLoader.cs` — unchanged from original plan
 
-- **Phase 3: Integrate into Scraper** — ⬜ Not started
-  - `ListingScraper.RunAsync()` gains optional `(string? baseDirectory = null, CancellationToken ct = default)` params; after writing the snapshot, constructs `ListingsRepository` inline, calls `InitializeAsync`/`UpsertListingsAsync`, wrapped in try/catch (DB failure logs a warning but does not fail `scrape` — snapshot is already the source of truth)
-  - No `Program.cs` changes needed (new params are optional)
+- **Phase 3: Integrate into Scraper** — Not started
+  - `ListingScraper.RunAsync()` — unchanged from original plan
 
-- **Phase 4: Additional Tests** — ⬜ Not started (covered incrementally with Phases 1–3 above rather than as a separate pass)
+## Rationale for EF Core
+
+1. **Connection pooling** — EF Core's `DbContext` factory pattern automatically reuses connections; no manual pooling needed
+2. **Transaction safety** — `SaveChangesAsync` is atomic; no risk of partial upserts if a mid-loop error occurs
+3. **Test isolation** — in-memory database provider eliminates file I/O and lock issues seen with sqlite on disk
+4. **Schema evolution** — easier to add/modify columns later without rewriting SQL
+5. **Type safety** — LINQ over raw SQL reduces typos and makes refactoring safer
+6. **Matches .NET ecosystem norms** — most .NET projects use EF Core for persistence
 
 ## Out of Scope
 
-- `report` command / aggregation queries (Story 2)
-- "New" vs "Removed" vs "Price Changed" logic (Story 2)
+- EF Core migrations (`dotnet ef migrations add`) — for now, use `EnsureCreatedAsync()` for simplicity; migrations can be added later if desired
+- Lazy loading or explicit loading of `Details` — `Details` will be eagerly loaded as nested object on the `Listing` model, not as a separate table
+- Complex query patterns — Phase 1 focuses on CRUD; Phase 2 (`report` command) will add aggregation queries
