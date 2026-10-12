@@ -6,5 +6,19 @@
         "C:\\work\\workInProgress\\Mcp\\mcp_weather_server.py"
       ]
     }
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "This is a git commit command. Have you explicitly reviewed and approved the changes to be committed? Answer 'yes' to proceed or 'no' to block.",
+            "if": "Bash(git commit*)"
+          }
+        ]
+      }
+    ]
   }
 }
