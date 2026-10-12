@@ -51,6 +51,30 @@ The `Mcp/` folder contains experimental Python-based MCP (Model Context Protocol
 
 These are exploratory; not integrated into the main .NET build.
 
+## Commit Messages
+
+Commit messages must follow the format: `type(scope): message`
+
+**Types:** `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
+
+**Scopes:** `scrape`, `parser`, `storage`, `db`, `report`, `tests`, etc.
+
+**Examples:**
+- `feat(scrape): add pagination logic`
+- `fix(parser): handle missing price fields`
+- `test(storage): add snapshot upsert tests`
+- `docs(story1): update implementation plan`
+
+### Setup Git Hooks
+
+After cloning the repository, run the hook setup script to install the commit-msg validator:
+
+```bash
+bash scripts/setup-hooks.sh
+```
+
+This installs a `commit-msg` hook that validates all commit messages match the required format. The hook will reject commits that don't follow `type(scope): message`.
+
 ## Testing
 
 For C# code, use the following testing stack:
