@@ -24,8 +24,8 @@ instead of raw SQL for cleaner connection pooling, transaction management, and t
     - Upsert tests verify insert, update, null-handling, multi-row insert
     - No teardown complexity — each test gets a fresh in-memory DB
 
-- **Phase 2: Load Snapshots into DB** — Not started
-  - `Storage/SnapshotLoader.cs` — unchanged from original plan
+- **Phase 2: Load Snapshots into DB** — ✅ **DONE**
+  - `Storage/SnapshotLoader.cs` — loads all snapshots from `data/snapshots/*.jsonl` in chronological order, deserializes with `JsonOptions.Snapshot`, skips malformed lines with warnings
 
 - **Phase 3: Integrate into Scraper** — Not started
   - `ListingScraper.RunAsync()` — unchanged from original plan
