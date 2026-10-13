@@ -2,11 +2,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project: OhneMakler Karlsruhe Monitor
+## Project: Wohnung Monitor
 
-A .NET 10 console application that scrapes apartment listings from ohne-makler.net and tracks market changes over time (new listings, price changes, removals, aggregate statistics).
+A .NET 10 console application that scrapes apartment listings from multiple German sources (ohne-makler.net, immobilienscout24.de, etc.) and tracks market changes over time (new listings, price changes, removals, aggregate statistics).
 
-See `ohneMaklerMonitor.md` for full architecture, data model, and API details.
+See `WohnungMonitor.md` for full architecture, data model, and API details.
 
 ## Common Commands
 
@@ -27,13 +27,18 @@ dotnet run -- report
 
 ## Architecture
 
+**Multi-source design:**
+- Each data source (OhneMakler, ImmobilienScout24, etc.) implements `IScraper` interface
+- Source-specific parsing logic is encapsulated in `Scraping/{Source}/` subdirectories
+- `ScraperCoordinator` orchestrates all scrapers and manages snapshots per source
+
 **Two storage layers:**
-1. **Snapshot files** (`data/snapshots/{utc-timestamp}.jsonl`) — canonical, git-committed JSON Lines format, one listing per line. Append-only, safe for CI to commit back without merge conflicts.
-2. **SQLite cache** (`data/listings.db`) — derived from replaying all snapshots, git-ignored. Used only by `report` for fast aggregates; can be deleted and rebuilt from snapshots.
+1. **Snapshot files** (`data/snapshots/{source}/{utc-timestamp}.jsonl`) — canonical, git-committed JSON Lines format, one listing per line. Append-only, safe for CI to commit back without merge conflicts. One directory per source.
+2. **SQLite cache** (`data/listings.db`) — derived from replaying all snapshots, git-ignored. Includes source attribution to allow same property across sources. Used only by `report` for fast aggregates; can be deleted and rebuilt from snapshots.
 
 **Two run modes:**
-- `scrape` — fetches current site listings, deserializes into `Listing` objects, appends to today's snapshot file
-- `report` — loads all snapshots into SQLite on demand, queries for statistics (new/removed/price-changed counts, aggregate €/m², days-on-market, rolling trends)
+- `scrape` — fetches current listings from all active sources, deserializes into `Listing` objects, appends to each source's snapshot file
+- `report` — loads all snapshots into SQLite on demand, aggregates across sources, queries for statistics (new/removed/price-changed counts, aggregate €/m², days-on-market, rolling trends, per-source breakdowns)
 
 ## Key Design Notes
 
@@ -109,5 +114,10 @@ dotnet test
 
 ## Data Flow
 
-1. **Scrape**: Site → HtmlParser (HTMLAgilityPack or similar) → `Listing` objects → Snapshot JSONL file
-2. **Report**: All Snapshot JSONL files → SQLite (upsert) → Aggregation queries → Report output
+1. **Scrape**: 
+   - For each `IScraper` (OhneMakler, ImmobilienScout24, ...):
+     - Site → Source-specific HtmlParser (HTMLAgilityPack) → `Listing` objects (with Source field) → Source-specific Snapshot JSONL file
+   - All sources run sequentially or in parallel depending on network constraints
+   
+2. **Report**: 
+   - All Snapshot JSONL files (from all sources) → SQLite (upsert with source attribution) → Aggregation queries per source → Cross-source comparison → Report output
