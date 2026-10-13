@@ -74,9 +74,11 @@ public sealed class ListingScraper : IAsyncDisposable
                     string detailHtml = await FetchDetailPageAsync(detailPageUrl, ct);
                     var details = _detailParser.ParseDetailPage(detailHtml);
 
-                    // Extract title and address from the detail page HTML.
+                    // Extract title, address, rooms, and area from the detail page HTML.
                     string? title = ExtractTitleFromDetailPage(detailHtml);
                     string? address = ExtractAddressFromDetailPage(detailHtml);
+                    int? rooms = ExtractRoomsFromDetailPage(detailHtml);
+                    int? area = ExtractAreaFromDetailPage(detailHtml);
 
                     // Update the listing with detail-page data.
                     var absoluteUrl = listing.Url.StartsWith("http")
@@ -92,8 +94,8 @@ public sealed class ListingScraper : IAsyncDisposable
                         PostalCode = listing.PostalCode,
                         District = listing.District,
                         PriceEur = listing.PriceEur,
-                        RoomsCount = listing.RoomsCount,
-                        LivingAreaSqm = listing.LivingAreaSqm,
+                        RoomsCount = rooms ?? listing.RoomsCount,
+                        LivingAreaSqm = area ?? listing.LivingAreaSqm,
                         Details = details,
                         ScrapedAtUtc = listing.ScrapedAtUtc,
                     };
@@ -204,6 +206,60 @@ public sealed class ListingScraper : IAsyncDisposable
                     }
 
                     node = node.NextSibling;
+                }
+            }
+
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static int? ExtractRoomsFromDetailPage(string html)
+    {
+        try
+        {
+            var doc = new HtmlAgilityPack.HtmlDocument();
+            doc.LoadHtml(html);
+
+            // Look for text containing "Zimmer" and extract the number before it
+            var pageText = doc.DocumentNode.InnerText;
+            var match = System.Text.RegularExpressions.Regex.Match(pageText, @"(\d+(?:,\d+)?)\s*(?:Zimmer|Zi)(?:\s|$)");
+            if (match.Success && int.TryParse(match.Groups[1].Value.Replace(",", ".").Split('.')[0], out int rooms))
+                return rooms;
+
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static int? ExtractAreaFromDetailPage(string html)
+    {
+        try
+        {
+            var doc = new HtmlAgilityPack.HtmlDocument();
+            doc.LoadHtml(html);
+
+            // Look for "Wohnfläche" label and extract the preceding number with m² or m2
+            var wohnflaecheLabel = doc.DocumentNode.SelectSingleNode("//span[contains(normalize-space(), 'Wohnfläche')]");
+            if (wohnflaecheLabel != null)
+            {
+                var prevSpan = wohnflaecheLabel.PreviousSibling;
+                while (prevSpan != null)
+                {
+                    if (prevSpan.Name == "span")
+                    {
+                        var text = prevSpan.InnerText?.Trim();
+                        if (!string.IsNullOrEmpty(text) && int.TryParse(System.Text.RegularExpressions.Regex.Replace(text, @"[^\d]", ""), out int area))
+                            return area;
+                        break;
+                    }
+                    prevSpan = prevSpan.PreviousSibling;
                 }
             }
 

@@ -27,7 +27,7 @@ public sealed class DetailPageParser
             {
                 PropertyType = ExtractField(doc, "Objektart"),
                 BuildYear = ExtractIntField(doc, "Baujahr"),
-                Floor = ExtractField(doc, "Etage") ?? ExtractField(doc, "Geschoss"),
+                Floor = ExtractField(doc, "Etage") ?? ExtractField(doc, "Geschoss") ?? ExtractField(doc, "Stockwerk"),
                 Condition = ExtractField(doc, "Zustand"),
                 Heating = ExtractField(doc, "Heizung"),
                 Flooring = ExtractField(doc, "Bodenbelag"),
@@ -37,7 +37,7 @@ public sealed class DetailPageParser
                 ContactName = ExtractContactName(doc),
                 ListingStatus = ExtractListingStatus(doc),
                 CurrentUse = ExtractCurrentUse(doc),
-                Availability = ExtractField(doc, "Verfügbarkeit"),
+                Availability = ExtractField(doc, "Verfügbarkeit") ?? ExtractField(doc, "Übernahme ab"),
             };
 
             return details;
@@ -57,8 +57,9 @@ public sealed class DetailPageParser
     private static string? ExtractField(HtmlDocument doc, string label)
     {
         // Pattern 1: Table row with label in first <td>, value in second <td>
+        // Use normalize-space() for exact text matching (ignores extra whitespace)
         var tableMatch = doc.DocumentNode.SelectNodes(
-            $"//tr[td/div[contains(text(), '{label}')]]/td[2]/div");
+            $"//tr[td/div[normalize-space()='{label}']]/td[2]/div");
         if (tableMatch != null && tableMatch.Count > 0)
         {
             var text = tableMatch[0].InnerText?.Trim();
@@ -68,7 +69,7 @@ public sealed class DetailPageParser
 
         // Pattern 2: Key facts block - value in one span, label in sibling span
         var keyFactsNodes = doc.DocumentNode.SelectNodes(
-            $"//span[contains(text(), '{label}')]/preceding-sibling::span[@class]");
+            $"//span[normalize-space()='{label}']/preceding-sibling::span[@class]");
         if (keyFactsNodes != null && keyFactsNodes.Count > 0)
         {
             var text = keyFactsNodes[0].InnerText?.Trim();
@@ -78,7 +79,7 @@ public sealed class DetailPageParser
 
         // Pattern 3: Div with label text followed by sibling div with value-text class
         var divWithLabel = doc.DocumentNode.SelectSingleNode(
-            $"//div[contains(text(), '{label}')]/following-sibling::div");
+            $"//div[normalize-space()='{label}']/following-sibling::div");
         if (divWithLabel != null)
         {
             var text = divWithLabel.InnerText?.Trim();
@@ -139,12 +140,8 @@ public sealed class DetailPageParser
     // Current use: "Vermietet" or "Eigennutzung" or similar.
     private static string? ExtractCurrentUse(HtmlDocument doc)
     {
-        var htmlText = doc.DocumentNode.InnerText;
-        if (htmlText.Contains("Vermietet", StringComparison.OrdinalIgnoreCase))
-            return "Vermietet";
-        if (htmlText.Contains("Eigennutzung", StringComparison.OrdinalIgnoreCase))
-            return "Eigennutzung";
-        // Look for explicit field
-        return ExtractField(doc, "Nutzung") ?? ExtractField(doc, "Aktuelle Nutzung");
+        // Use ExtractField for exact matching to avoid substring collisions
+        // (e.g., "Vermietet" matching "Nicht vermietet")
+        return ExtractField(doc, "Aktuelle Nutzung") ?? ExtractField(doc, "Nutzung");
     }
 }
