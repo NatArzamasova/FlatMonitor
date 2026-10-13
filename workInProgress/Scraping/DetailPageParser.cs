@@ -5,6 +5,32 @@ using workInProgress.Models;
 
 public sealed class DetailPageParser
 {
+    private static bool HasNodes(HtmlDocument doc, string xpath)
+        => doc.DocumentNode.SelectNodes(xpath)?.Count > 0;
+
+    private static string? ExtractText(HtmlNode? node)
+        => node?.InnerText?.Trim() is { Length: > 0 } text ? text : null;
+
+    private static string? ExtractFieldByMultiplePatterns(HtmlDocument doc, string label, params string[] xpaths)
+    {
+        foreach (var xpath in xpaths)
+        {
+            var nodes = doc.DocumentNode.SelectNodes(xpath);
+            if (nodes != null && nodes.Count > 0)
+            {
+                var text = ExtractText(nodes[0]);
+                if (text != null)
+                    return text;
+            }
+        }
+        return null;
+    }
+
+    private static bool HasValidStructure(HtmlDocument doc)
+        => HasNodes(doc, "//tr")
+        || HasNodes(doc, "//span[@class]")
+        || HasNodes(doc, "//div[contains(text(), 'Heizung') or contains(text(), 'Verfügbarkeit')]");
+
     public Details? ParseDetailPage(string html)
     {
         try
@@ -12,15 +38,7 @@ public sealed class DetailPageParser
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
 
-            // Check if HTML is completely empty/malformed by looking for any table or key-facts structure
-            var hasTableStructure = doc.DocumentNode.SelectNodes("//tr") != null &&
-                doc.DocumentNode.SelectNodes("//tr").Count > 0;
-            var hasKeyFactsStructure = doc.DocumentNode.SelectNodes("//span[@class]") != null &&
-                doc.DocumentNode.SelectNodes("//span[@class]").Count > 0;
-            var hasDivStructure = doc.DocumentNode.SelectNodes("//div[contains(text(), 'Heizung') or contains(text(), 'Verfügbarkeit')]") != null &&
-                doc.DocumentNode.SelectNodes("//div[contains(text(), 'Heizung') or contains(text(), 'Verfügbarkeit')]").Count > 0;
-
-            if (!hasTableStructure && !hasKeyFactsStructure && !hasDivStructure)
+            if (!HasValidStructure(doc))
                 return null;
 
             var details = new Details
@@ -55,40 +73,10 @@ public sealed class DetailPageParser
     // 2. Value <span> followed by label <span> (key facts pattern)
     // 3. Label <div> followed by value <div> (generic div pattern)
     private static string? ExtractField(HtmlDocument doc, string label)
-    {
-        // Pattern 1: Table row with label in first <td>, value in second <td>
-        // Use normalize-space() for exact text matching (ignores extra whitespace)
-        var tableMatch = doc.DocumentNode.SelectNodes(
-            $"//tr[td/div[normalize-space()='{label}']]/td[2]/div");
-        if (tableMatch != null && tableMatch.Count > 0)
-        {
-            var text = tableMatch[0].InnerText?.Trim();
-            if (!string.IsNullOrEmpty(text))
-                return text;
-        }
-
-        // Pattern 2: Key facts block - value in one span, label in sibling span
-        var keyFactsNodes = doc.DocumentNode.SelectNodes(
-            $"//span[normalize-space()='{label}']/preceding-sibling::span[@class]");
-        if (keyFactsNodes != null && keyFactsNodes.Count > 0)
-        {
-            var text = keyFactsNodes[0].InnerText?.Trim();
-            if (!string.IsNullOrEmpty(text))
-                return text;
-        }
-
-        // Pattern 3: Div with label text followed by sibling div with value-text class
-        var divWithLabel = doc.DocumentNode.SelectSingleNode(
+        => ExtractFieldByMultiplePatterns(doc, label,
+            $"//tr[td/div[normalize-space()='{label}']]/td[2]/div",
+            $"//span[normalize-space()='{label}']/preceding-sibling::span[@class]",
             $"//div[normalize-space()='{label}']/following-sibling::div");
-        if (divWithLabel != null)
-        {
-            var text = divWithLabel.InnerText?.Trim();
-            if (!string.IsNullOrEmpty(text))
-                return text;
-        }
-
-        return null;
-    }
 
     // Extract an integer field (e.g., Baujahr, Nebenkosten).
     private static int? ExtractIntField(HtmlDocument doc, string label)

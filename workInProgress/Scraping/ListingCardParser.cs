@@ -8,6 +8,9 @@ public sealed class ListingCardParser
 {
     // Extract listing ID from URL like /immobilie/502814/
     private static readonly Regex ListingIdRegex = new(@"/immobilie/(\d+)/", RegexOptions.Compiled);
+    private static readonly Regex RoomsRegex = new(@"(\d+(?:,\d+)?)\s*(?:Zimmer|Zi)", RegexOptions.Compiled);
+    private static readonly Regex AreaRegex = new(@"(\d+)\s*m[²2]", RegexOptions.Compiled);
+    private static readonly Regex LocationRegex = new(@"(\d{5})\s+(.+?)(?:\s*\((.+?)\))?(?:\s|$)", RegexOptions.Compiled);
 
     public List<(Listing Listing, string DetailPageUrl)> ParsePage(string html)
     {
@@ -87,6 +90,32 @@ public sealed class ListingCardParser
         return link;
     }
 
+    private static int? ExtractInteger(string? text, Regex? pattern = null, int groupIndex = 1)
+    {
+        if (string.IsNullOrEmpty(text))
+            return null;
+
+        if (pattern == null)
+        {
+            // Remove all non-digits (for price with thousand separators like "€ 270.000" → "270000")
+            var digitsOnly = Regex.Replace(text, @"[^\d]", "");
+            if (int.TryParse(digitsOnly, out int result))
+                return result;
+            return null;
+        }
+
+        // Use regex to extract with context (for rooms, area)
+        var match = pattern.Match(text);
+        if (!match.Success)
+            return null;
+
+        var value = match.Groups[groupIndex].Value.Replace(",", ".");
+        if (int.TryParse(value.Split('.')[0], out int result2))
+            return result2;
+
+        return null;
+    }
+
     private static string? ExtractTitle(HtmlNode card)
     {
         // Look for the listing title, usually in an <h2> or <h3> within the card.
@@ -96,20 +125,13 @@ public sealed class ListingCardParser
 
     private static int? ExtractPrice(HtmlNode card)
     {
-        // Look for price in the card. Price is typically in a prominent location.
-        // Pattern: "€ 270.000" or "270000" etc.
         var priceNodes = card.SelectNodes(".//*[contains(text(), '€') or contains(text(), '.000')]");
         if (priceNodes != null)
         {
             foreach (var node in priceNodes)
             {
-                var text = node.InnerText?.Trim();
-                if (string.IsNullOrEmpty(text))
-                    continue;
-
-                // Extract digits, remove formatting
-                var digits = System.Text.RegularExpressions.Regex.Replace(text, @"[^\d]", "");
-                if (int.TryParse(digits, out int price))
+                var price = ExtractInteger(node.InnerText?.Trim());
+                if (price.HasValue)
                     return price;
             }
         }
@@ -118,14 +140,11 @@ public sealed class ListingCardParser
 
     private static (string? PostalCode, string? District) ExtractLocation(HtmlNode card)
     {
-        // Location is typically "12345 CityName (District)" format.
         var locationText = card.InnerText;
         if (string.IsNullOrEmpty(locationText))
             return (null, null);
 
-        // Simple heuristic: look for 5-digit number (German postal code) + location name.
-        var match = System.Text.RegularExpressions.Regex.Match(
-            locationText, @"(\d{5})\s+(.+?)(?:\s*\((.+?)\))?(?:\s|$)");
+        var match = LocationRegex.Match(locationText);
         if (match.Success)
         {
             string postalCode = match.Groups[1].Value;
@@ -137,23 +156,9 @@ public sealed class ListingCardParser
         return (null, null);
     }
 
-    private static int? ExtractRooms(HtmlNode card)
-    {
-        // Rooms count, usually "3" or "2.5" Zimmer. We parse just the integer part.
-        var text = card.InnerText;
-        var match = System.Text.RegularExpressions.Regex.Match(text, @"(\d+(?:,\d+)?)\s*(?:Zimmer|Zi)");
-        if (match.Success && int.TryParse(match.Groups[1].Value.Replace(",", ".").Split('.')[0], out int rooms))
-            return rooms;
-        return null;
-    }
+    private static int? ExtractRooms(HtmlNode card) =>
+        ExtractInteger(card.InnerText, RoomsRegex);
 
-    private static int? ExtractArea(HtmlNode card)
-    {
-        // Living area, usually "82 m²" or "82m²".
-        var text = card.InnerText;
-        var match = System.Text.RegularExpressions.Regex.Match(text, @"(\d+)\s*m[²2]");
-        if (match.Success && int.TryParse(match.Groups[1].Value, out int area))
-            return area;
-        return null;
-    }
+    private static int? ExtractArea(HtmlNode card) =>
+        ExtractInteger(card.InnerText, AreaRegex);
 }
