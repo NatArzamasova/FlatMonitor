@@ -57,14 +57,18 @@ async Task<int> RunScrapeAsync()
     });
 
     services.AddScoped<OhneMaklerScraper>();
-    services.AddScoped<IScraper>(sp => sp.GetRequiredService<OhneMaklerScraper>());
+    services.AddScoped<ImmobilienScout24Scraper>();
 
     services.AddScoped<ISnapshotRepository, FlatSnapshotRepository>();
     services.AddScoped<SnapshotWriter>();
 
     services.AddScoped<ScraperCoordinator>(sp =>
     {
-        var scrapers = new[] { sp.GetRequiredService<IScraper>() };
+        var scrapers = new IScraper[]
+        {
+            sp.GetRequiredService<OhneMaklerScraper>(),
+            sp.GetRequiredService<ImmobilienScout24Scraper>(),
+        };
         var repository = sp.GetRequiredService<ISnapshotRepository>();
         var snapshotWriter = sp.GetRequiredService<SnapshotWriter>();
         return new ScraperCoordinator(scrapers, repository, snapshotWriter);

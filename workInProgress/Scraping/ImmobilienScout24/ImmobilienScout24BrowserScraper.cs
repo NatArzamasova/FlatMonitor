@@ -33,6 +33,11 @@ public class ImmobilienScout24BrowserScraper : IAsyncDisposable
             Console.WriteLine("Extracting page HTML...");
             var html = await _page.ContentAsync();
 
+            // Save HTML for debugging
+            var debugFile = Path.Combine(Path.GetTempPath(), $"is24_debug_{DateTime.UtcNow:yyyyMMdd_HHmmss}.html");
+            await File.WriteAllTextAsync(debugFile, html);
+            Console.WriteLine($"Debug HTML saved to: {debugFile}");
+
             return html;
         }
         catch (Exception ex)

@@ -9,26 +9,27 @@ using workInProgress.Scraping.Common;
 /// </summary>
 public class ImmobilienScout24Selectors : IListingSelectors
 {
-    /// <summary>Select all listing card containers on the listings page.</summary>
-    public string ListingCardXPath => "//div[@class='touchpoint-card']";
+    /// <summary>Select all listing card containers on the listings page (with data-obid attribute).</summary>
+    public string ListingCardXPath => "//div[contains(@class, 'listing-card') and @data-obid]";
 
-    /// <summary>Extract listing ID from detail URL: /expose/{ID}.</summary>
-    public string IdXPath => ".//a[contains(@href, '/expose/')]/@href";
+    /// <summary>Extract listing ID from data-obid attribute.</summary>
+    public string IdXPath => "@data-obid";
 
     /// <summary>Extract listing title/headline from headline element.</summary>
-    public string TitleXPath => ".//*[@data-testid='headline']//text()";
+    /// <summary>Extract listing title (often in alt attribute of images or heading elements).</summary>
+    public string TitleXPath => ".//img/@alt | .//h2//text() | .//h3//text()";
 
-    /// <summary>Extract price from bottomBox (contains price and key attributes).</summary>
-    public string PriceXPath => ".//*[@data-testid='bottomBox']//text()[contains(., '€')]";
+    /// <summary>Extract price from any text containing €.</summary>
+    public string PriceXPath => ".//text()[contains(., '€')] | .//*[@data-testid='bottomBox']//text()";
 
-    /// <summary>Extract size (m²) from attributes section.</summary>
-    public string SizeXPath => ".//*[@data-testid='attributes']//text()[contains(., 'm²')]";
+    /// <summary>Extract size (m²) from attributes section or any text with m².</summary>
+    public string SizeXPath => ".//text()[contains(., 'm²')] | .//*[@data-testid='attributes']//text()";
 
-    /// <summary>Extract full address from card (typically below headline).</summary>
-    public string AddressXPath => ".//div[contains(@class, 'address')]//text() | .//p[contains(@class, 'location')]//text()";
+    /// <summary>Extract full address (typically in location/address elements).</summary>
+    public string AddressXPath => ".//p[contains(@class, 'location')]//text() | .//div[contains(@class, 'address')]//text()";
 
     /// <summary>Extract number of rooms from attributes (e.g., "2 Zimmer").</summary>
-    public string? RoomsXPath => ".//*[@data-testid='attributes']//text()[contains(., 'Zimmer')]";
+    public string? RoomsXPath => ".//text()[contains(., 'Zimmer')] | .//*[@data-testid='attributes']//text()";
 
     /// <summary>Extract detail page URL from the expose link.</summary>
     public string DetailUrlXPath => ".//a[contains(@href, '/expose/')]/@href";

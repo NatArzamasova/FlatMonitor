@@ -28,7 +28,6 @@ public class ListingsDbContext : DbContext
             .HasMaxLength(50);
 
         snapshotBuilder.Property(s => s.Url)
-            .IsRequired()
             .HasMaxLength(500);
 
         snapshotBuilder.Property(s => s.Title)

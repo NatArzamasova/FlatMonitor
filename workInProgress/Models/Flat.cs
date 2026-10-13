@@ -3,7 +3,7 @@ namespace workInProgress.Models;
 public sealed class Flat
 {
     public required string ListingId { get; init; }
-    public required string Url { get; init; }
+    public string? Url { get; init; }
     public string? Title { get; init; }
     public string? Address { get; init; }
     public string? PostalCode { get; init; }

@@ -31,7 +31,7 @@ public class ListingExtractor
             {
                 Source = source,
                 ListingId = id,
-                Url = detailUrl ?? "",
+                Url = detailUrl,
                 Title = title ?? "Unknown",
                 Address = address ?? "",
                 PriceEur = price.HasValue ? (int)price.Value : null,
@@ -49,7 +49,18 @@ public class ListingExtractor
 
     private string? ExtractId(HtmlNode cardNode, IListingSelectors selectors)
     {
-        var idText = ExtractText(cardNode, selectors.IdXPath);
+        string? idText = null;
+
+        // Handle @data-obid attribute specially (direct attribute extraction)
+        if (selectors.IdXPath == "@data-obid")
+        {
+            idText = cardNode.GetAttributeValue("data-obid", null);
+        }
+        else
+        {
+            idText = ExtractText(cardNode, selectors.IdXPath);
+        }
+
         if (string.IsNullOrWhiteSpace(idText))
             return null;
 

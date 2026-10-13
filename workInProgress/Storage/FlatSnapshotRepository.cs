@@ -51,53 +51,64 @@ public sealed class FlatSnapshotRepository : ISnapshotRepository
             .Where(s => incomingSources.Contains(s.Source))
             .ToListAsync(ct);
 
-        // Filter to only those that match incoming (Source, ListingId) pairs
-        var incomingKeys = listings.Select(l => (l.Source, l.ListingId)).ToHashSet();
-        existingSnapshots = existingSnapshots
-            .Where(s => incomingKeys.Contains((s.Source, s.ListingId)))
-            .ToList();
-
+        // Build map of existing by (Source, ListingId) key
         var existingMap = existingSnapshots.ToDictionary(s => (s.Source, s.ListingId));
 
-        // Build a map of createdAt values before removing
-        var createdAtMap = existingMap.ToDictionary(
-            kvp => kvp.Key,
-            kvp => _dbContext.Entry(kvp.Value).Property<string>("CreatedAtUtc").CurrentValue ?? now);
-
-        // Remove all existing
-        foreach (var existing in existingSnapshots)
-        {
-            _dbContext.FlatsSnapshots.Remove(existing);
-        }
-
-        // Add/update all listings
         foreach (var listing in listings)
         {
-            var snapshot = new FlatSnapshot
-            {
-                Source = listing.Source,
-                ListingId = listing.ListingId,
-                Url = listing.Url,
-                Title = listing.Title,
-                Address = listing.Address,
-                PostalCode = listing.PostalCode,
-                District = listing.District,
-                PriceEur = listing.PriceEur,
-                RoomsCount = listing.RoomsCount,
-                LivingAreaSqm = listing.LivingAreaSqm,
-                Details = listing.Details,
-                ScrapedAtUtc = listing.ScrapedAtUtc,
-            };
-
             var key = (listing.Source, listing.ListingId);
-            var createdAt = createdAtMap.TryGetValue(key, out var existing) ? existing : now;
 
-            _dbContext.Entry(snapshot).Property<string>("CreatedAtUtc").CurrentValue = createdAt;
-            _dbContext.Entry(snapshot).Property<string>("UpdatedAtUtc").CurrentValue = now;
-            _dbContext.FlatsSnapshots.Add(snapshot);
+            if (existingMap.TryGetValue(key, out var existing))
+            {
+                // Update existing entity in-place (scalar properties only)
+                var entry = _dbContext.Entry(existing);
+                entry.Property(s => s.Url).CurrentValue = listing.Url;
+                entry.Property(s => s.Title).CurrentValue = listing.Title;
+                entry.Property(s => s.Address).CurrentValue = listing.Address;
+                entry.Property(s => s.PostalCode).CurrentValue = listing.PostalCode;
+                entry.Property(s => s.District).CurrentValue = listing.District;
+                entry.Property(s => s.PriceEur).CurrentValue = listing.PriceEur;
+                entry.Property(s => s.RoomsCount).CurrentValue = listing.RoomsCount;
+                entry.Property(s => s.LivingAreaSqm).CurrentValue = listing.LivingAreaSqm;
+                entry.Property(s => s.ScrapedAtUtc).CurrentValue = listing.ScrapedAtUtc;
+                entry.Property<string>("UpdatedAtUtc").CurrentValue = now;
+            }
+            else
+            {
+                // Add new entity (Details skipped — scrapers don't populate it)
+                var snapshot = new FlatSnapshot
+                {
+                    Source = listing.Source,
+                    ListingId = listing.ListingId,
+                    Url = listing.Url,
+                    Title = listing.Title,
+                    Address = listing.Address,
+                    PostalCode = listing.PostalCode,
+                    District = listing.District,
+                    PriceEur = listing.PriceEur,
+                    RoomsCount = listing.RoomsCount,
+                    LivingAreaSqm = listing.LivingAreaSqm,
+                    ScrapedAtUtc = listing.ScrapedAtUtc,
+                };
+
+                var entry = _dbContext.Entry(snapshot);
+                entry.Property<string>("CreatedAtUtc").CurrentValue = now;
+                entry.Property<string>("UpdatedAtUtc").CurrentValue = now;
+                _dbContext.FlatsSnapshots.Add(snapshot);
+            }
         }
 
-        await _dbContext.SaveChangesAsync(ct);
+        try
+        {
+            await _dbContext.SaveChangesAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Database save failed: {ex.Message}");
+            if (ex.InnerException != null)
+                Console.Error.WriteLine($"Inner exception: {ex.InnerException.Message}");
+            throw;
+        }
     }
 
     public async ValueTask DisposeAsync()
