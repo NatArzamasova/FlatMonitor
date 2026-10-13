@@ -77,7 +77,7 @@ public sealed class FlatSnapshotRepository : ISnapshotRepository
             }
             else
             {
-                // Add new entity (Details skipped — scrapers don't populate it)
+                // Add new entity
                 var snapshot = new FlatSnapshot
                 {
                     Source = listing.Source,
@@ -90,6 +90,7 @@ public sealed class FlatSnapshotRepository : ISnapshotRepository
                     PriceEur = listing.PriceEur,
                     RoomsCount = listing.RoomsCount,
                     LivingAreaSqm = listing.LivingAreaSqm,
+                    Details = listing.Details,
                     ScrapedAtUtc = listing.ScrapedAtUtc,
                 };
 
