@@ -1,4 +1,6 @@
+using workInProgress.Scraping;
 using workInProgress.Scraping.OhneMakler;
+using workInProgress.Storage;
 
 var commandArgs = Environment.GetCommandLineArgs().Skip(1).ToArray();
 
@@ -31,11 +33,16 @@ async Task<int> RunScrapeAsync()
     using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
     httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
 
-    var scraper = new OhneMaklerScraper(httpClient);
+    var ohnemaklerScraper = new OhneMaklerScraper(httpClient);
+    var repository = new OhneMaklerSnapshotRepository();
+    var snapshotWriter = new SnapshotWriter();
+
+    var scrapers = new[] { (IScraper)ohnemaklerScraper };
+    await using var coordinator = new ScraperCoordinator(scrapers, repository, snapshotWriter);
 
     try
     {
-        await scraper.RunAsync();
+        await coordinator.ScrapeAllSourcesAsync();
         return 0;
     }
     catch (Exception ex)

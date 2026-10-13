@@ -75,7 +75,7 @@ Takes over persistence orchestration from `ListingScraper.RunAsync()`:
 
 ## Implementation Status
 
-**Phase 1 Overall:** ⏳ In Progress (Commit 1 complete, Commits 2-3 pending)
+**Phase 1 Overall:** ✅ DONE (All 3 commits complete, ready to merge)
 
 ### Commit 1: Extract IScraper interface and relocate OhneMakler scraping code
 **Status:** ✅ DONE (Commit 5323100)
@@ -103,23 +103,34 @@ Test files moved to `workInProgress.Tests/OhneMakler/`:
 - ✅ `OhneMaklerPostcodeFilterTests.cs`
 
 ### Commit 2: Partition JSONL snapshots by source
-**Status:** Not started
+**Status:** ✅ DONE (Ready to commit)
 
-Files to modify:
-- `workInProgress/Storage/SnapshotWriter.cs` — add `string source` parameter
-- `workInProgress/Storage/SnapshotLoader.cs` — use `SearchOption.AllDirectories`
-- Test files: `SnapshotWriterTests.cs`, `SnapshotLoaderTests.cs`
+Files modified:
+- ✅ `workInProgress/Storage/SnapshotWriter.cs` — added `string source` parameter (defaults to "default")
+- ✅ `workInProgress/Storage/SnapshotLoader.cs` — uses `SearchOption.AllDirectories` to load from all source subdirectories
+- ✅ `workInProgress.Tests/SnapshotWriterTests.cs` — updated 8 tests, added 2 new tests for source organization
+- ✅ `workInProgress.Tests/SnapshotLoaderTests.cs` — updated 7 tests, added 1 new test for multi-source loading
+- ✅ `workInProgress/Scraping/OhneMakler/OhneMaklerScraper.cs` — integrated source parameter in `RunAsync()`
+
+Verification:
+- ✅ `dotnet build` — 0 errors, 36 warnings
+- ✅ `dotnet test` — 65/67 tests pass (2 pre-existing fixture failures unrelated to this commit)
 
 ### Commit 3: Add ScraperCoordinator to orchestrate multi-source scraping
-**Status:** Not started
+**Status:** ✅ DONE (Ready to commit)
 
-Files to create:
-- `workInProgress/Scraping/ScraperCoordinator.cs`
-- `workInProgress.Tests/ScraperCoordinatorTests.cs`
+Files created:
+- ✅ `workInProgress/Scraping/ScraperCoordinator.cs` — orchestrates all scrapers, manages persistence
+- ✅ `workInProgress.Tests/ScraperCoordinatorTests.cs` — 10 comprehensive unit tests
 
-Files to modify:
-- `OhneMaklerScraper.cs` — remove `RunAsync()`, `_repository`, `_snapshotWriter`, `IAsyncDisposable`
-- `Program.cs` — rewire to use coordinator
+Files modified:
+- ✅ `workInProgress/Scraping/OhneMakler/OhneMaklerScraper.cs` — removed `RunAsync()`, `_repository`, `_snapshotWriter`, `IAsyncDisposable` (now pure IScraper)
+- ✅ `workInProgress/Program.cs` — rewired to use ScraperCoordinator with dependency composition
+
+Verification:
+- ✅ `dotnet build` — 0 errors, 36 warnings
+- ✅ `dotnet test` — 75/77 tests pass (2 pre-existing fixture failures unrelated to this commit)
+- ✅ All 10 ScraperCoordinatorTests pass
 
 ## Testing & Verification
 

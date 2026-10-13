@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 using workInProgress.Models;
 using workInProgress.Storage;
 
-public sealed class OhneMaklerScraper : IScraper, IAsyncDisposable
+public sealed class OhneMaklerScraper : IScraper
 {
     public const string SourceName = "OhneMakler";
 
@@ -12,8 +12,6 @@ public sealed class OhneMaklerScraper : IScraper, IAsyncDisposable
     private readonly OhneMaklerListingsPageFetcher _pageFetcher;
     private readonly OhneMaklerListingCardParser _cardParser;
     private readonly OhneMaklerDetailPageParser _detailParser;
-    private readonly SnapshotWriter _snapshotWriter;
-    private readonly ISnapshotRepository _repository;
 
     public string Source => SourceName;
 
@@ -23,27 +21,6 @@ public sealed class OhneMaklerScraper : IScraper, IAsyncDisposable
         _pageFetcher = new OhneMaklerListingsPageFetcher(_httpClient);
         _cardParser = new OhneMaklerListingCardParser();
         _detailParser = new OhneMaklerDetailPageParser();
-        _snapshotWriter = new SnapshotWriter();
-        _repository = new OhneMaklerSnapshotRepository();
-    }
-
-    public async Task RunAsync()
-    {
-        var listings = await ScrapeAllListingsAsync();
-
-        if (listings.Count == 0)
-        {
-            Console.WriteLine("No listings found.");
-            return;
-        }
-
-        await _repository.InitializeAsync();
-        await _repository.UpsertListingsAsync(listings);
-
-        var snapshotPath = await _snapshotWriter.WriteSnapshotAsync(listings, source: SourceName);
-        Console.WriteLine($"Snapshot written: {snapshotPath}");
-        Console.WriteLine($"Database updated with {listings.Count} listings");
-        Console.WriteLine($"Total listings: {listings.Count}");
     }
 
     public async Task<IEnumerable<Flat>> ScrapeAsync() => await ScrapeAllListingsAsync();
@@ -284,10 +261,5 @@ public sealed class OhneMaklerScraper : IScraper, IAsyncDisposable
     private static string NormalizeWhitespace(string text)
     {
         return WhitespaceRegex.Replace(text, " ").Trim();
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        await _repository.DisposeAsync();
     }
 }
