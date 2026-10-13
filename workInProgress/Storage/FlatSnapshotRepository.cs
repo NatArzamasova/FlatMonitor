@@ -5,12 +5,12 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using workInProgress.Data;
 using workInProgress.Models;
 
-public sealed class OhneMaklerSnapshotRepository : ISnapshotRepository
+public sealed class FlatSnapshotRepository : ISnapshotRepository
 {
     private readonly ListingsDbContext _dbContext;
     private readonly bool _ownsContext;
 
-    public OhneMaklerSnapshotRepository(DbContextOptions<ListingsDbContext>? options = null)
+    public FlatSnapshotRepository(DbContextOptions<ListingsDbContext>? options = null)
     {
         if (options != null)
         {
@@ -45,13 +45,19 @@ public sealed class OhneMaklerSnapshotRepository : ISnapshotRepository
     public async Task UpsertListingsAsync(List<Flat> listings, CancellationToken ct = default)
     {
         var now = DateTime.UtcNow.ToString("O");
-        var listingIds = listings.Select(l => l.ListingId).ToList();
 
-        var existingSnapshots = await _dbContext.OhneMaklerSnapshots
-            .Where(s => listingIds.Contains(s.ListingId))
+        var incomingSources = listings.Select(l => l.Source).Distinct().ToList();
+        var existingSnapshots = await _dbContext.FlatsSnapshots
+            .Where(s => incomingSources.Contains(s.Source))
             .ToListAsync(ct);
 
-        var existingMap = existingSnapshots.ToDictionary(s => s.ListingId);
+        // Filter to only those that match incoming (Source, ListingId) pairs
+        var incomingKeys = listings.Select(l => (l.Source, l.ListingId)).ToHashSet();
+        existingSnapshots = existingSnapshots
+            .Where(s => incomingKeys.Contains((s.Source, s.ListingId)))
+            .ToList();
+
+        var existingMap = existingSnapshots.ToDictionary(s => (s.Source, s.ListingId));
 
         // Build a map of createdAt values before removing
         var createdAtMap = existingMap.ToDictionary(
@@ -61,14 +67,15 @@ public sealed class OhneMaklerSnapshotRepository : ISnapshotRepository
         // Remove all existing
         foreach (var existing in existingSnapshots)
         {
-            _dbContext.OhneMaklerSnapshots.Remove(existing);
+            _dbContext.FlatsSnapshots.Remove(existing);
         }
 
         // Add/update all listings
         foreach (var listing in listings)
         {
-            var snapshot = new OhneMaklerSnapshot
+            var snapshot = new FlatSnapshot
             {
+                Source = listing.Source,
                 ListingId = listing.ListingId,
                 Url = listing.Url,
                 Title = listing.Title,
@@ -82,11 +89,12 @@ public sealed class OhneMaklerSnapshotRepository : ISnapshotRepository
                 ScrapedAtUtc = listing.ScrapedAtUtc,
             };
 
-            var createdAt = createdAtMap.TryGetValue(listing.ListingId, out var existing) ? existing : now;
+            var key = (listing.Source, listing.ListingId);
+            var createdAt = createdAtMap.TryGetValue(key, out var existing) ? existing : now;
 
             _dbContext.Entry(snapshot).Property<string>("CreatedAtUtc").CurrentValue = createdAt;
             _dbContext.Entry(snapshot).Property<string>("UpdatedAtUtc").CurrentValue = now;
-            _dbContext.OhneMaklerSnapshots.Add(snapshot);
+            _dbContext.FlatsSnapshots.Add(snapshot);
         }
 
         await _dbContext.SaveChangesAsync(ct);

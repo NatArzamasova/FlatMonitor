@@ -5,7 +5,7 @@ using workInProgress.Models;
 
 public class ListingsDbContext : DbContext
 {
-    public DbSet<OhneMaklerSnapshot> OhneMaklerSnapshots { get; set; }
+    public DbSet<FlatSnapshot> FlatsSnapshots { get; set; }
 
     public ListingsDbContext(DbContextOptions<ListingsDbContext> options) : base(options)
     {
@@ -15,10 +15,14 @@ public class ListingsDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        var snapshotBuilder = modelBuilder.Entity<OhneMaklerSnapshot>();
+        var snapshotBuilder = modelBuilder.Entity<FlatSnapshot>();
 
-        snapshotBuilder.HasKey(s => s.ListingId);
-        snapshotBuilder.ToTable("OhneMaklerSnapshots");
+        snapshotBuilder.HasKey(s => new { s.Source, s.ListingId });
+        snapshotBuilder.ToTable("FlatsSnapshots");
+
+        snapshotBuilder.Property(s => s.Source)
+            .IsRequired()
+            .HasMaxLength(50);
 
         snapshotBuilder.Property(s => s.ListingId)
             .HasMaxLength(50);
@@ -98,6 +102,10 @@ public class ListingsDbContext : DbContext
         });
 
         // Indexes
+        snapshotBuilder.HasIndex(s => new { s.Source, s.Url, s.Address })
+            .IsUnique()
+            .HasDatabaseName("idx_Source_Url_Address");
+
         snapshotBuilder.HasIndex(s => s.ScrapedAtUtc)
             .HasDatabaseName("idx_ScrapedAtUtc");
 

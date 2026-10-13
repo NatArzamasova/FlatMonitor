@@ -9,7 +9,7 @@ using workInProgress.Scraping.OhneMakler;
 namespace workInProgress.Tests;
 
 [TestFixture]
-public class OhneMaklerSnapshotRepositoryTests
+public class FlatSnapshotRepositoryTests
 {
     private DbContextOptions<ListingsDbContext> CreateInMemoryOptions()
     {
@@ -23,14 +23,14 @@ public class OhneMaklerSnapshotRepositoryTests
     {
         // Arrange
         var options = CreateInMemoryOptions();
-        await using var repo = new OhneMaklerSnapshotRepository(options);
+        await using var repo = new FlatSnapshotRepository(options);
 
         // Act
         await repo.InitializeAsync();
 
         // Assert - verify Listings table exists by querying
         await using var dbContext = new ListingsDbContext(options);
-        var count = await dbContext.OhneMaklerSnapshots.CountAsync();
+        var count = await dbContext.FlatsSnapshots.CountAsync();
         count.Should().Be(0);
     }
 
@@ -39,7 +39,7 @@ public class OhneMaklerSnapshotRepositoryTests
     {
         // Arrange
         var options = CreateInMemoryOptions();
-        await using var repo = new OhneMaklerSnapshotRepository(options);
+        await using var repo = new FlatSnapshotRepository(options);
         await repo.InitializeAsync();
 
         var listings = new List<Flat>
@@ -56,6 +56,7 @@ public class OhneMaklerSnapshotRepositoryTests
                 RoomsCount = 3,
                 LivingAreaSqm = 85,
                 ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                Source = "OhneMakler",
             }
         };
 
@@ -64,11 +65,12 @@ public class OhneMaklerSnapshotRepositoryTests
 
         // Assert
         await using var dbContext = new ListingsDbContext(options);
-        var stored = await dbContext.OhneMaklerSnapshots.FirstOrDefaultAsync(l => l.ListingId == "1");
+        var stored = await dbContext.FlatsSnapshots.FirstOrDefaultAsync(l => l.ListingId == "1");
         stored.Should().NotBeNull();
         stored!.Title.Should().Be("Test Listing");
         stored.Address.Should().Be("123 Main St");
         stored.PriceEur.Should().Be(500000);
+        stored.Source.Should().Be("OhneMakler");
     }
 
     [Test]
@@ -76,7 +78,7 @@ public class OhneMaklerSnapshotRepositoryTests
     {
         // Arrange
         var options = CreateInMemoryOptions();
-        await using var repo = new OhneMaklerSnapshotRepository(options);
+        await using var repo = new FlatSnapshotRepository(options);
         await repo.InitializeAsync();
 
         var listings = new List<Flat>
@@ -88,6 +90,7 @@ public class OhneMaklerSnapshotRepositoryTests
                 Title = "Test",
                 Address = "Test Address",
                 ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                Source = "OhneMakler",
                 Details = new Details
                 {
                     PropertyType = "Wohnung",
@@ -106,7 +109,7 @@ public class OhneMaklerSnapshotRepositoryTests
 
         // Assert
         await using var dbContext = new ListingsDbContext(options);
-        var stored = await dbContext.OhneMaklerSnapshots.FirstOrDefaultAsync(l => l.ListingId == "1");
+        var stored = await dbContext.FlatsSnapshots.FirstOrDefaultAsync(l => l.ListingId == "1");
         stored.Should().NotBeNull();
         stored!.Details.Should().NotBeNull();
         stored.Details!.PropertyType.Should().Be("Wohnung");
@@ -121,7 +124,7 @@ public class OhneMaklerSnapshotRepositoryTests
     {
         // Arrange
         var options = CreateInMemoryOptions();
-        await using var repo = new OhneMaklerSnapshotRepository(options);
+        await using var repo = new FlatSnapshotRepository(options);
         await repo.InitializeAsync();
 
         var listings = new List<Flat>
@@ -133,6 +136,7 @@ public class OhneMaklerSnapshotRepositoryTests
                 Title = "Test",
                 Address = "Test Address",
                 ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                Source = "OhneMakler",
                 Details = null,
             }
         };
@@ -142,7 +146,7 @@ public class OhneMaklerSnapshotRepositoryTests
 
         // Assert
         await using var dbContext = new ListingsDbContext(options);
-        var stored = await dbContext.OhneMaklerSnapshots.FirstOrDefaultAsync(l => l.ListingId == "1");
+        var stored = await dbContext.FlatsSnapshots.FirstOrDefaultAsync(l => l.ListingId == "1");
         stored.Should().NotBeNull();
         stored!.Details.Should().BeNull();
     }
@@ -152,7 +156,7 @@ public class OhneMaklerSnapshotRepositoryTests
     {
         // Arrange
         var options = CreateInMemoryOptions();
-        await using var repo = new OhneMaklerSnapshotRepository(options);
+        await using var repo = new FlatSnapshotRepository(options);
         await repo.InitializeAsync();
 
         var listing1 = new List<Flat>
@@ -165,6 +169,7 @@ public class OhneMaklerSnapshotRepositoryTests
                 Address = "Original Address",
                 PriceEur = 500000,
                 ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                Source = "OhneMakler",
             }
         };
 
@@ -180,6 +185,7 @@ public class OhneMaklerSnapshotRepositoryTests
                 Address = "Updated Address",
                 PriceEur = 550000,
                 ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                Source = "OhneMakler",
             }
         };
 
@@ -188,10 +194,10 @@ public class OhneMaklerSnapshotRepositoryTests
 
         // Assert - row count should stay 1
         await using var dbContext = new ListingsDbContext(options);
-        var count = await dbContext.OhneMaklerSnapshots.CountAsync();
+        var count = await dbContext.FlatsSnapshots.CountAsync();
         count.Should().Be(1);
 
-        var stored = await dbContext.OhneMaklerSnapshots.FirstAsync();
+        var stored = await dbContext.FlatsSnapshots.FirstAsync();
         stored.Title.Should().Be("Updated Title");
         stored.PriceEur.Should().Be(550000);
     }
@@ -201,7 +207,7 @@ public class OhneMaklerSnapshotRepositoryTests
     {
         // Arrange
         var options = CreateInMemoryOptions();
-        await using var repo = new OhneMaklerSnapshotRepository(options);
+        await using var repo = new FlatSnapshotRepository(options);
         await repo.InitializeAsync();
 
         var listings = new List<Flat>
@@ -213,6 +219,7 @@ public class OhneMaklerSnapshotRepositoryTests
                 Title = "Listing 1",
                 Address = "Address 1",
                 ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                Source = "OhneMakler",
             },
             new()
             {
@@ -221,6 +228,7 @@ public class OhneMaklerSnapshotRepositoryTests
                 Title = "Listing 2",
                 Address = "Address 2",
                 ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                Source = "OhneMakler",
             },
             new()
             {
@@ -229,6 +237,7 @@ public class OhneMaklerSnapshotRepositoryTests
                 Title = "Listing 3",
                 Address = "Address 3",
                 ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                Source = "OhneMakler",
             }
         };
 
@@ -237,7 +246,54 @@ public class OhneMaklerSnapshotRepositoryTests
 
         // Assert
         await using var dbContext = new ListingsDbContext(options);
-        var count = await dbContext.OhneMaklerSnapshots.CountAsync();
+        var count = await dbContext.FlatsSnapshots.CountAsync();
         count.Should().Be(3);
+    }
+
+    [Test]
+    public async Task UpsertListingsAsync_WithMultipleSources_PersistsBothAsSeperateRows()
+    {
+        // Arrange
+        var options = CreateInMemoryOptions();
+        await using var repo = new FlatSnapshotRepository(options);
+        await repo.InitializeAsync();
+
+        var listings = new List<Flat>
+        {
+            new()
+            {
+                ListingId = "123",
+                Url = "/immobilie/123/",
+                Title = "From OhneMakler",
+                Address = "Address A",
+                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                Source = "OhneMakler",
+            },
+            new()
+            {
+                ListingId = "123",
+                Url = "/property/123",
+                Title = "From ImmobilienScout24",
+                Address = "Address B",
+                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                Source = "ImmobilienScout24",
+            }
+        };
+
+        // Act
+        await repo.UpsertListingsAsync(listings);
+
+        // Assert - both rows with same ListingId but different Source should exist
+        await using var dbContext = new ListingsDbContext(options);
+        var count = await dbContext.FlatsSnapshots.CountAsync();
+        count.Should().Be(2);
+
+        var ohmRow = await dbContext.FlatsSnapshots.FirstOrDefaultAsync(l => l.Source == "OhneMakler" && l.ListingId == "123");
+        ohmRow.Should().NotBeNull();
+        ohmRow!.Title.Should().Be("From OhneMakler");
+
+        var scoutRow = await dbContext.FlatsSnapshots.FirstOrDefaultAsync(l => l.Source == "ImmobilienScout24" && l.ListingId == "123");
+        scoutRow.Should().NotBeNull();
+        scoutRow!.Title.Should().Be("From ImmobilienScout24");
     }
 }
