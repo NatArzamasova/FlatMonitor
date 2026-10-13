@@ -1,6 +1,6 @@
 namespace workInProgress.Models;
 
-public sealed class Listing
+public sealed class Flat
 {
     public required string ListingId { get; init; }
     public required string Url { get; init; }
@@ -13,4 +13,5 @@ public sealed class Listing
     public int? LivingAreaSqm { get; init; }
     public Details? Details { get; init; }
     public required string ScrapedAtUtc { get; init; }
+    public string Source { get; init; } = "OhneMakler";
 }

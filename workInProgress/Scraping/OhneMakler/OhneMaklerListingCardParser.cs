@@ -1,10 +1,10 @@
-namespace workInProgress.Scraping;
+namespace workInProgress.Scraping.OhneMakler;
 
 using System.Text.RegularExpressions;
 using HtmlAgilityPack;
 using workInProgress.Models;
 
-public sealed class ListingCardParser
+public sealed class OhneMaklerListingCardParser
 {
     // Extract listing ID from URL like /immobilie/502814/
     private static readonly Regex ListingIdRegex = new(@"/immobilie/(\d+)/", RegexOptions.Compiled);
@@ -12,13 +12,13 @@ public sealed class ListingCardParser
     private static readonly Regex AreaRegex = new(@"(\d+)\s*m[²2]", RegexOptions.Compiled);
     private static readonly Regex LocationRegex = new(@"(\d{5})\s+(.+?)(?:\s*\((.+?)\))?(?:\s|$)", RegexOptions.Compiled);
 
-    public List<(Listing Listing, string DetailPageUrl)> ParsePage(string html)
+    public List<(Flat Flat, string DetailPageUrl)> ParsePage(string html)
     {
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
 
-        var listingLinks = doc.DocumentNode.SelectNodes(Selectors.ListingLinkXPath);
-        var results = new List<(Listing, string)>();
+        var listingLinks = doc.DocumentNode.SelectNodes(OhneMaklerSelectors.ListingLinkXPath);
+        var results = new List<(Flat, string)>();
 
         if (listingLinks == null || listingLinks.Count == 0)
             return results;
@@ -48,7 +48,7 @@ public sealed class ListingCardParser
                 int? rooms = ExtractRooms(card);
                 int? area = ExtractArea(card);
 
-                var listing = new Listing
+                var flat = new Flat
                 {
                     ListingId = listingId,
                     Url = href,
@@ -59,9 +59,10 @@ public sealed class ListingCardParser
                     RoomsCount = rooms,
                     LivingAreaSqm = area,
                     ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                    Source = OhneMaklerScraper.SourceName,
                 };
 
-                results.Add((listing, href));
+                results.Add((flat, href));
             }
             catch (Exception ex)
             {

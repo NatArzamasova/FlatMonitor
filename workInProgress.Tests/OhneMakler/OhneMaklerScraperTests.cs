@@ -1,32 +1,32 @@
-namespace workInProgress.Tests;
+namespace workInProgress.Tests.OhneMakler;
 
 using NUnit.Framework;
 using FluentAssertions;
-using workInProgress.Scraping;
+using workInProgress.Scraping.OhneMakler;
 using workInProgress.Models;
 
 [TestFixture]
-public class ListingScraperIntegrationTests
+public class OhneMaklerScraperTests
 {
     [Test]
-    public void ListingScraper_CanBeInstantiated()
+    public void OhneMaklerScraper_CanBeInstantiated()
     {
         // Arrange
         using var httpClient = new HttpClient();
 
         // Act
-        var scraper = new ListingScraper(httpClient);
+        var scraper = new OhneMaklerScraper(httpClient);
 
         // Assert
         scraper.Should().NotBeNull();
     }
 
     [Test]
-    public async Task ListingScraper_ScrapeAllListingsAsync_ReturnsListOfListings()
+    public async Task OhneMaklerScraper_ScrapeAllListingsAsync_ReturnsListOfListings()
     {
         // Arrange
         using var httpClient = new HttpClient();
-        var scraper = new ListingScraper(httpClient);
+        var scraper = new OhneMaklerScraper(httpClient);
 
         // Act & Assert
         // This test verifies the method exists and can be called.
@@ -36,7 +36,7 @@ public class ListingScraperIntegrationTests
 
         // The method should return a list (even if empty due to no live connection)
         result.Should().NotBeNull();
-        result.Should().BeOfType<List<Listing>>();
+        result.Should().BeOfType<List<Flat>>();
     }
 
     [Test]
@@ -46,7 +46,7 @@ public class ListingScraperIntegrationTests
         var addressWithSuffix = "Sophienstr. 57b, 76133 Karlsruhe (Innenstadt-West) &ndash; Baden-Württemberg";
 
         // Act
-        var result = AddressHelper.SanitizeAddress(addressWithSuffix);
+        var result = OhneMaklerAddressHelper.SanitizeAddress(addressWithSuffix);
 
         // Assert
         result.Should().Be("Sophienstr. 57b, 76133 Karlsruhe (Innenstadt-West)");
@@ -59,7 +59,7 @@ public class ListingScraperIntegrationTests
         var addressWithSuffix = "Sophienstr. 57b, 76133 Karlsruhe (Innenstadt-West) – Baden-Württemberg";
 
         // Act
-        var result = AddressHelper.SanitizeAddress(addressWithSuffix);
+        var result = OhneMaklerAddressHelper.SanitizeAddress(addressWithSuffix);
 
         // Assert
         result.Should().Be("Sophienstr. 57b, 76133 Karlsruhe (Innenstadt-West)");
@@ -72,7 +72,7 @@ public class ListingScraperIntegrationTests
         var addressWithoutSuffix = "Sophienstr. 57b, 76133 Karlsruhe (Innenstadt-West)";
 
         // Act
-        var result = AddressHelper.SanitizeAddress(addressWithoutSuffix);
+        var result = OhneMaklerAddressHelper.SanitizeAddress(addressWithoutSuffix);
 
         // Assert
         result.Should().Be("Sophienstr. 57b, 76133 Karlsruhe (Innenstadt-West)");
@@ -85,7 +85,7 @@ public class ListingScraperIntegrationTests
         var addressWithExtraWhitespace = "Sophienstr. 57b, 76133 Karlsruhe (Innenstadt-West)   &ndash; Baden-Württemberg   ";
 
         // Act
-        var result = AddressHelper.SanitizeAddress(addressWithExtraWhitespace);
+        var result = OhneMaklerAddressHelper.SanitizeAddress(addressWithExtraWhitespace);
 
         // Assert
         result.Should().Be("Sophienstr. 57b, 76133 Karlsruhe (Innenstadt-West)");

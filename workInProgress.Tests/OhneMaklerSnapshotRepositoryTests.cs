@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using workInProgress.Data;
 using workInProgress.Models;
 using workInProgress.Storage;
+using workInProgress.Scraping.OhneMakler;
 
 namespace workInProgress.Tests;
 
@@ -41,7 +42,7 @@ public class OhneMaklerSnapshotRepositoryTests
         await using var repo = new OhneMaklerSnapshotRepository(options);
         await repo.InitializeAsync();
 
-        var listings = new List<Listing>
+        var listings = new List<Flat>
         {
             new()
             {
@@ -78,7 +79,7 @@ public class OhneMaklerSnapshotRepositoryTests
         await using var repo = new OhneMaklerSnapshotRepository(options);
         await repo.InitializeAsync();
 
-        var listings = new List<Listing>
+        var listings = new List<Flat>
         {
             new()
             {
@@ -123,7 +124,7 @@ public class OhneMaklerSnapshotRepositoryTests
         await using var repo = new OhneMaklerSnapshotRepository(options);
         await repo.InitializeAsync();
 
-        var listings = new List<Listing>
+        var listings = new List<Flat>
         {
             new()
             {
@@ -154,7 +155,7 @@ public class OhneMaklerSnapshotRepositoryTests
         await using var repo = new OhneMaklerSnapshotRepository(options);
         await repo.InitializeAsync();
 
-        var listing1 = new List<Listing>
+        var listing1 = new List<Flat>
         {
             new()
             {
@@ -169,7 +170,7 @@ public class OhneMaklerSnapshotRepositoryTests
 
         await repo.UpsertListingsAsync(listing1);
 
-        var listing2 = new List<Listing>
+        var listing2 = new List<Flat>
         {
             new()
             {
@@ -203,7 +204,7 @@ public class OhneMaklerSnapshotRepositoryTests
         await using var repo = new OhneMaklerSnapshotRepository(options);
         await repo.InitializeAsync();
 
-        var listings = new List<Listing>
+        var listings = new List<Flat>
         {
             new()
             {

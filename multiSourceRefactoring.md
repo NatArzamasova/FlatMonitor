@@ -1,0 +1,147 @@
+# Multi-Source Refactoring Plan: Phase 1
+
+## Overview
+
+This document captures the implementation plan for Phase 1 of evolving the Wohnung Monitor from a single-source scraper (ohne-makler.net only) into a multi-source apartment monitor supporting multiple German real estate websites.
+
+See `WohnungMonitor.md` for the full 9-step roadmap. This plan focuses on **Steps 1-5 only**:
+1. Extract `IScraper` interface
+2. Rename and refactor `ListingScraper` → `OhneMaklerScraper`
+3. Update `OhneMaklerSnapshot` model with `Source` field
+4. Refactor `ISnapshotRepository` to be source-aware (interface prep)
+5. Create `ScraperCoordinator` orchestrator
+
+## Key Architectural Decisions
+
+### 1. IScraper Interface (Step 1)
+Created at `workInProgress/Scraping/IScraper.cs`:
+```csharp
+public interface IScraper
+{
+    string Source { get; }
+    Task<IEnumerable<Listing>> ScrapeAsync();
+}
+```
+
+### 2. Source Field Addition (Step 3)
+- Added `public string Source { get; init; } = "OhneMakler";` to `Models/Listing.cs`
+- Non-required + defaulted for backward compatibility with existing test code
+- Flows into JSONL snapshots automatically via `System.Text.Json`
+- **Not** added to EF entity `OhneMaklerSnapshot` (deferred to Phase 2 with DB migration)
+
+### 3. OhneMakler Code Relocation
+All OhneMakler-specific scraping logic moved to `workInProgress/Scraping/OhneMakler/`:
+- `OhneMaklerScraper.cs` (was `ListingScraper.cs`)
+- `OhneMaklerListingsPageFetcher.cs` (was `ListingsPageFetcher.cs`)
+- `OhneMaklerListingCardParser.cs` (was `ListingCardParser.cs`)
+- `OhneMaklerDetailPageParser.cs` (was `DetailPageParser.cs`)
+- `OhneMaklerAddressHelper.cs` (was `AddressHelper.cs`)
+- `OhneMaklerSelectors.cs` (was `Selectors.cs`)
+
+All these classes moved to namespace `workInProgress.Scraping.OhneMakler`.
+
+### 4. ISnapshotRepository (Step 4)
+- Remains **unchanged** in Phase 1 (no signature modifications)
+- Added XML-doc comment clarifying it's the SQLite layer, to be made source-aware in Phase 2 alongside DB migration
+- This avoids confusion with the conceptual "repository" mentioned in `WohnungMonitor.md` (which refers to the JSONL file layer)
+
+### 5. ScraperCoordinator (Step 5)
+New class at `workInProgress/Scraping/ScraperCoordinator.cs`:
+```csharp
+public sealed class ScraperCoordinator : IAsyncDisposable
+{
+    public ScraperCoordinator(
+        IEnumerable<IScraper> scrapers,
+        ISnapshotRepository repository,
+        SnapshotWriter snapshotWriter,
+        string? dataDirectory = null);
+
+    public async Task ScrapeAllSourcesAsync(CancellationToken ct = default);
+    public async ValueTask DisposeAsync();
+}
+```
+Takes over persistence orchestration from `ListingScraper.RunAsync()`:
+1. Calls `repository.InitializeAsync(ct)` once
+2. For each scraper: calls `ScrapeAsync()` → if empty, logs and skips → upserts listings → writes JSONL snapshot → prints summary
+
+## Explicitly Out of Scope (Phase 2+)
+
+- SQLite schema migration (`Source` column on `Listings`/`Snapshots`, unique constraints)
+- `ImmobilienScout24` source implementation
+- `report` command and reporting logic
+- DI container in `Program.cs` (manual composition only)
+- Fixing duplication between `OhneMaklerScraper`'s inline extraction helpers and parser classes
+- GitLab CI integration, cross-source deduplication, `Statistics` table changes
+
+## Implementation Status
+
+### Commit 1: Extract IScraper interface and relocate OhneMakler scraping code
+**Status:** In Progress
+
+Files created:
+- ✅ `workInProgress/Scraping/IScraper.cs`
+
+Files modified:
+- ✅ `workInProgress/Models/Listing.cs` — added `Source` property
+
+Files moved (staged for commit):
+- ✅ `ListingScraper.cs` → `OhneMakler/OhneMaklerScraper.cs`
+- ✅ `ListingsPageFetcher.cs` → `OhneMakler/OhneMaklerListingsPageFetcher.cs`
+- ✅ `ListingCardParser.cs` → `OhneMakler/OhneMaklerListingCardParser.cs`
+- ✅ `DetailPageParser.cs` → `OhneMakler/OhneMaklerDetailPageParser.cs`
+- ✅ `AddressHelper.cs` → `OhneMakler/OhneMaklerAddressHelper.cs`
+- ✅ `Selectors.cs` → `OhneMakler/OhneMaklerSelectors.cs`
+
+Still needed for Commit 1:
+- Update `OhneMaklerScraper.cs` (ex-`ListingScraper`) to implement `IScraper`
+- Update test files and fixtures (move to `OhneMakler/` subfolder)
+- Update `Program.cs` to reference new class names
+- Stage and commit with message: `refactor(scrape): extract IScraper interface and relocate OhneMakler scraping code`
+
+### Commit 2: Partition JSONL snapshots by source
+**Status:** Not started
+
+Files to modify:
+- `workInProgress/Storage/SnapshotWriter.cs` — add `string source` parameter
+- `workInProgress/Storage/SnapshotLoader.cs` — use `SearchOption.AllDirectories`
+- Test files: `SnapshotWriterTests.cs`, `SnapshotLoaderTests.cs`
+
+### Commit 3: Add ScraperCoordinator to orchestrate multi-source scraping
+**Status:** Not started
+
+Files to create:
+- `workInProgress/Scraping/ScraperCoordinator.cs`
+- `workInProgress.Tests/ScraperCoordinatorTests.cs`
+
+Files to modify:
+- `OhneMaklerScraper.cs` — remove `RunAsync()`, `_repository`, `_snapshotWriter`, `IAsyncDisposable`
+- `Program.cs` — rewire to use coordinator
+
+## Testing & Verification
+
+Each commit will be verified with:
+1. `dotnet build` — solution compiles
+2. `dotnet test` — all tests pass
+3. `dotnet run -- scrape` — manual smoke test
+4. `git diff` review — confirm scope alignment
+
+## Future Phases (Post-Phase 1)
+
+**Phase 2:** Database schema updates
+- Add `Source` column to `Listings`/`Snapshots` tables
+- Add unique constraints: `(Source, Url, Address)` on Listings
+- Update `ISnapshotRepository`/`OhneMaklerSnapshotRepository` signatures
+
+**Phase 3:** DI setup
+- Introduce dependency injection container in `Program.cs`
+- Register scrapers and coordinator with `services.AddScoped<...>()`
+
+**Phase 4:** Add ImmobilienScout24 source
+- Create `Scraping/ImmobilienScout24/` folder structure
+- Implement `ImmobilienScout24Scraper` and parsers
+- Add tests and fixtures under `workInProgress.Tests/ImmobilienScout24/`
+
+**Phase 5:** Report generation
+- Implement `report` command in `Program.cs`
+- Group statistics per source
+- Optional: `--source` CLI flag to filter by source

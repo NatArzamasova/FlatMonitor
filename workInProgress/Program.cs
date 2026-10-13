@@ -1,4 +1,4 @@
-using workInProgress.Scraping;
+using workInProgress.Scraping.OhneMakler;
 
 var commandArgs = Environment.GetCommandLineArgs().Skip(1).ToArray();
 
@@ -31,7 +31,7 @@ async Task<int> RunScrapeAsync()
     using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
     httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
 
-    var scraper = new ListingScraper(httpClient);
+    var scraper = new OhneMaklerScraper(httpClient);
 
     try
     {

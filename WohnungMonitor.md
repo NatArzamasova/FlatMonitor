@@ -55,7 +55,7 @@ parsing logic and quirks. The framework provides:
    public interface IScraper
    {
        string Source { get; }  // "OhneMakler", "ImmobilienScout24", etc.
-       Task<IEnumerable<Listing>> ScrapeAsync();
+       Task<IEnumerable<Flat>> ScrapeAsync();
    }
    ```
 

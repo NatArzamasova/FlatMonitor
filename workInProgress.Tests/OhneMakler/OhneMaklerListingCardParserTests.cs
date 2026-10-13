@@ -1,23 +1,23 @@
+namespace workInProgress.Tests.OhneMakler;
 
 using NUnit.Framework;
 using FluentAssertions;
-using workInProgress.Scraping;
+using workInProgress.Scraping.OhneMakler;
 
-namespace workInProgress.Tests;
 [TestFixture]
-public class ListingCardParserTests
+public class OhneMaklerListingCardParserTests
 {
-    private ListingCardParser _parser = null!;
+    private OhneMaklerListingCardParser _parser = null!;
 
     [SetUp]
     public void Setup()
     {
-        _parser = new ListingCardParser();
+        _parser = new OhneMaklerListingCardParser();
     }
 
     private string GetFixturePath(string filename)
     {
-        return Path.Combine(TestContext.CurrentContext.TestDirectory, "Fixtures", filename);
+        return Path.Combine(TestContext.CurrentContext.TestDirectory, "Fixtures", "OhneMakler", filename);
     }
 
     [Test]
@@ -44,15 +44,15 @@ public class ListingCardParserTests
         var result = _parser.ParsePage(html);
 
         // Assert
-        var firstListing = result[0].Listing;
-        firstListing.ListingId.Should().Be("502814");
-        firstListing.Url.Should().Be("/immobilie/502814/");
-        firstListing.Title.Should().Contain("Altbauperle");
-        firstListing.PostalCode.Should().Be("76135");
-        firstListing.District.Should().Contain("Weststadt");
-        firstListing.PriceEur.Should().Be(270000);
-        firstListing.RoomsCount.Should().Be(3);
-        firstListing.LivingAreaSqm.Should().Be(82);
+        var firstFlat = result[0].Flat;
+        firstFlat.ListingId.Should().Be("502814");
+        firstFlat.Url.Should().Be("/immobilie/502814/");
+        firstFlat.Title.Should().Contain("Altbauperle");
+        firstFlat.PostalCode.Should().Be("76135");
+        firstFlat.District.Should().Contain("Weststadt");
+        firstFlat.PriceEur.Should().Be(270000);
+        firstFlat.RoomsCount.Should().Be(3);
+        firstFlat.LivingAreaSqm.Should().Be(82);
     }
 
     [Test]
@@ -65,10 +65,10 @@ public class ListingCardParserTests
         var result = _parser.ParsePage(html);
 
         // Assert
-        var thirdListing = result[2].Listing;
-        thirdListing.ListingId.Should().Be("502816");
-        thirdListing.RoomsCount.Should().BeNull();
-        thirdListing.LivingAreaSqm.Should().Be(78);
+        var thirdFlat = result[2].Flat;
+        thirdFlat.ListingId.Should().Be("502816");
+        thirdFlat.RoomsCount.Should().BeNull();
+        thirdFlat.LivingAreaSqm.Should().Be(78);
     }
 
     [Test]
@@ -100,9 +100,9 @@ public class ListingCardParserTests
         // Assert
         result.Should().AllSatisfy(item =>
         {
-            item.Listing.ScrapedAtUtc.Should().NotBeNullOrEmpty();
+            item.Flat.ScrapedAtUtc.Should().NotBeNullOrEmpty();
             // Should be ISO-8601 format
-            DateTime.TryParse(item.Listing.ScrapedAtUtc, out _).Should().BeTrue();
+            DateTime.TryParse(item.Flat.ScrapedAtUtc, out _).Should().BeTrue();
         });
     }
 

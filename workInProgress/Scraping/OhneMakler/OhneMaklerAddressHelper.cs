@@ -1,6 +1,6 @@
-namespace workInProgress.Scraping;
+namespace workInProgress.Scraping.OhneMakler;
 
-public static class AddressHelper
+public static class OhneMaklerAddressHelper
 {
     public static string SanitizeAddress(string address)
     {

@@ -68,7 +68,7 @@ public class SnapshotLoaderTests
     public void LoadAllSnapshots_WithSingleSnapshotFile_ReturnsAllListings()
     {
         // Arrange
-        var listing1 = new Listing
+        var listing1 = new Flat
         {
             ListingId = "1",
             Url = "/immobilie/1/",
@@ -82,7 +82,7 @@ public class SnapshotLoaderTests
             ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
         };
 
-        var listing2 = new Listing
+        var listing2 = new Flat
         {
             ListingId = "2",
             Url = "/immobilie/2/",
@@ -121,7 +121,7 @@ public class SnapshotLoaderTests
     public void LoadAllSnapshots_WithMultipleSnapshotFiles_LoadsInChronologicalOrder()
     {
         // Arrange
-        var listing1 = new Listing
+        var listing1 = new Flat
         {
             ListingId = "1",
             Url = "/immobilie/1/",
@@ -129,7 +129,7 @@ public class SnapshotLoaderTests
             ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
         };
 
-        var listing2 = new Listing
+        var listing2 = new Flat
         {
             ListingId = "2",
             Url = "/immobilie/2/",
@@ -158,7 +158,7 @@ public class SnapshotLoaderTests
     public void LoadAllSnapshots_SkipsMalformedLinesWithoutThrowing()
     {
         // Arrange
-        var validListing = new Listing
+        var validListing = new Flat
         {
             ListingId = "1",
             Url = "/immobilie/1/",
@@ -190,7 +190,7 @@ public class SnapshotLoaderTests
     public void LoadAllSnapshots_WithNullFields_PreservesNulls()
     {
         // Arrange
-        var listing = new Listing
+        var listing = new Flat
         {
             ListingId = "1",
             Url = "/immobilie/1/",
@@ -221,7 +221,7 @@ public class SnapshotLoaderTests
     public void LoadAllSnapshots_WithDetailsObject_PreservesNestedData()
     {
         // Arrange
-        var listing = new Listing
+        var listing = new Flat
         {
             ListingId = "1",
             Url = "/immobilie/1/",

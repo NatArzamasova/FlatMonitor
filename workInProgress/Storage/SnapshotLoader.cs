@@ -8,11 +8,11 @@ public sealed class SnapshotLoader
 {
     private const string SnapshotsDir = "snapshots";
 
-    public List<Listing> LoadAllSnapshots(string? baseDirectory = null)
+    public List<Flat> LoadAllSnapshots(string? baseDirectory = null)
     {
         baseDirectory ??= StoragePaths.GetDefaultDataDirectory();
         var snapshotsPath = Path.Combine(baseDirectory, SnapshotsDir);
-        var listings = new List<Listing>();
+        var listings = new List<Flat>();
 
         if (!Directory.Exists(snapshotsPath))
             return listings;
@@ -27,10 +27,10 @@ public sealed class SnapshotLoader
                 if (string.IsNullOrWhiteSpace(line))
                     continue;
 
-                Listing? listing;
+                Flat? listing;
                 try
                 {
-                    listing = JsonSerializer.Deserialize<Listing>(line, JsonOptions.Snapshot);
+                    listing = JsonSerializer.Deserialize<Flat>(line, JsonOptions.Snapshot);
                 }
                 catch (JsonException ex)
                 {

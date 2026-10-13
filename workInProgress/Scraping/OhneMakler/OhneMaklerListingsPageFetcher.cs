@@ -1,14 +1,14 @@
-namespace workInProgress.Scraping;
+namespace workInProgress.Scraping.OhneMakler;
 
 using System.Runtime.CompilerServices;
 using HtmlAgilityPack;
 
-internal sealed class ListingsPageFetcher
+internal sealed class OhneMaklerListingsPageFetcher
 {
     private readonly HttpClient _httpClient;
     private const int MaxPagesLimit = 50;
 
-    public ListingsPageFetcher(HttpClient httpClient)
+    public OhneMaklerListingsPageFetcher(HttpClient httpClient)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
     }
@@ -22,7 +22,7 @@ internal sealed class ListingsPageFetcher
 
         while (pageNumber <= MaxPagesLimit)
         {
-            string url = Selectors.PageUrl(pageNumber);
+            string url = OhneMaklerSelectors.PageUrl(pageNumber);
             Console.WriteLine($"Fetching page {pageNumber}...");
 
             string html;
@@ -49,7 +49,7 @@ internal sealed class ListingsPageFetcher
             // Parse the HTML to count listing-card links; stop if this page has zero.
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
-            var listingLinks = doc.DocumentNode.SelectNodes(Selectors.ListingLinkXPath);
+            var listingLinks = doc.DocumentNode.SelectNodes(OhneMaklerSelectors.ListingLinkXPath);
             int listingCount = listingLinks?.Count ?? 0;
 
             if (listingCount == 0)

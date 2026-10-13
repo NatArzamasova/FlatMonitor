@@ -42,7 +42,7 @@ public sealed class OhneMaklerSnapshotRepository : ISnapshotRepository
         }
     }
 
-    public async Task UpsertListingsAsync(List<Listing> listings, CancellationToken ct = default)
+    public async Task UpsertListingsAsync(List<Flat> listings, CancellationToken ct = default)
     {
         var now = DateTime.UtcNow.ToString("O");
         var listingIds = listings.Select(l => l.ListingId).ToList();

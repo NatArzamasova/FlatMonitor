@@ -1,9 +1,9 @@
-namespace workInProgress.Scraping;
+namespace workInProgress.Scraping.OhneMakler;
 
 using HtmlAgilityPack;
 using workInProgress.Models;
 
-public sealed class DetailPageParser
+public sealed class OhneMaklerDetailPageParser
 {
     private static bool HasNodes(HtmlDocument doc, string xpath)
         => doc.DocumentNode.SelectNodes(xpath)?.Count > 0;

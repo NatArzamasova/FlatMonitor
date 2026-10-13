@@ -9,7 +9,7 @@ public sealed class SnapshotWriter
     private const string SnapshotsDir = "snapshots";
 
     public async Task<string> WriteSnapshotAsync(
-        List<Listing> listings,
+        List<Flat> listings,
         string? baseDirectory = null,
         CancellationToken ct = default)
     {

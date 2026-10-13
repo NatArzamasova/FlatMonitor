@@ -4,6 +4,7 @@ using FluentAssertions;
 using System.Text.Json;
 using workInProgress.Models;
 using workInProgress.Storage;
+using workInProgress.Scraping.OhneMakler;
 
 namespace workInProgress.Tests;
 [TestFixture]
@@ -31,7 +32,7 @@ public class SnapshotWriterTests
     public async Task WriteSnapshotAsync_CreatesDataSnapshotsDirectory()
     {
         // Arrange
-        var listings = new List<Listing>
+        var listings = new List<Flat>
         {
             new()
             {
@@ -54,7 +55,7 @@ public class SnapshotWriterTests
     public async Task WriteSnapshotAsync_CreatesFileWithUtcTimestampInName()
     {
         // Arrange
-        var listings = new List<Listing>
+        var listings = new List<Flat>
         {
             new()
             {
@@ -81,7 +82,7 @@ public class SnapshotWriterTests
     public async Task WriteSnapshotAsync_WritesOneJsonObjectPerLine()
     {
         // Arrange
-        var listings = new List<Listing>
+        var listings = new List<Flat>
         {
             new()
             {
@@ -118,7 +119,7 @@ public class SnapshotWriterTests
     public async Task WriteSnapshotAsync_SerializesWithPascalCase()
     {
         // Arrange
-        var listings = new List<Listing>
+        var listings = new List<Flat>
         {
             new()
             {
@@ -147,7 +148,7 @@ public class SnapshotWriterTests
     public async Task WriteSnapshotAsync_SerializesNullAsJsonNull()
     {
         // Arrange
-        var listings = new List<Listing>
+        var listings = new List<Flat>
         {
             new()
             {
@@ -176,7 +177,7 @@ public class SnapshotWriterTests
     public async Task WriteSnapshotAsync_WithDetailsObject_IncludesAllDetailsFields()
     {
         // Arrange
-        var listings = new List<Listing>
+        var listings = new List<Flat>
         {
             new()
             {
@@ -209,7 +210,7 @@ public class SnapshotWriterTests
     public async Task WriteSnapshotAsync_CreatesNewFileEachTime()
     {
         // Arrange
-        var listings = new List<Listing>
+        var listings = new List<Flat>
         {
             new()
             {
@@ -235,7 +236,7 @@ public class SnapshotWriterTests
     public async Task WriteSnapshotAsync_WithEmptyList_CreatesEmptyFile()
     {
         // Arrange
-        var listings = new List<Listing>();
+        var listings = new List<Flat>();
 
         // Act
         var path = await _writer.WriteSnapshotAsync(listings, _testDir);

@@ -1,18 +1,18 @@
-namespace workInProgress.Tests;
+namespace workInProgress.Tests.OhneMakler;
 
 using NUnit.Framework;
 using FluentAssertions;
-using workInProgress.Scraping;
+using workInProgress.Scraping.OhneMakler;
 using workInProgress.Models;
 
 [TestFixture]
-public class PostcodeFilterTests
+public class OhneMaklerPostcodeFilterTests
 {
     [Test]
     public void KarlsruhePostcodes_ContainsAllExpectedCodes()
     {
         // Arrange & Act
-        var codes = Selectors.KarlsruhePostcodes;
+        var codes = OhneMaklerSelectors.KarlsruhePostcodes;
 
         // Assert - verify all known Karlsruhe postcodes are present
         codes.Should().Contain(new[]
@@ -38,7 +38,7 @@ public class PostcodeFilterTests
     public void KarlsruhePostcodes_RejectsNonKarlsruheCode()
     {
         // Arrange
-        var codes = Selectors.KarlsruhePostcodes;
+        var codes = OhneMaklerSelectors.KarlsruhePostcodes;
 
         // Act & Assert
         codes.Should().NotContain("75001"); // Pforzheim
@@ -54,7 +54,7 @@ public class PostcodeFilterTests
     public void IsKarlsruhePostcode_WithValidCodes_ReturnsTrue(string postcode)
     {
         // Act
-        var result = Selectors.KarlsruhePostcodes.Contains(postcode);
+        var result = OhneMaklerSelectors.KarlsruhePostcodes.Contains(postcode);
 
         // Assert
         result.Should().BeTrue($"Postcode {postcode} should be in Karlsruhe whitelist");
@@ -68,7 +68,7 @@ public class PostcodeFilterTests
     public void IsKarlsruhePostcode_WithInvalidCodes_ReturnsFalse(string postcode)
     {
         // Act
-        var result = Selectors.KarlsruhePostcodes.Contains(postcode);
+        var result = OhneMaklerSelectors.KarlsruhePostcodes.Contains(postcode);
 
         // Assert
         result.Should().BeFalse($"Postcode {postcode} should NOT be in Karlsruhe whitelist");
@@ -81,7 +81,7 @@ public class PostcodeFilterTests
         // Full integration test requires mocking the page fetcher to return mixed postcodes.
         // For now, we verify the postcode list is used by the scraper.
 
-        var codes = Selectors.KarlsruhePostcodes;
+        var codes = OhneMaklerSelectors.KarlsruhePostcodes;
         codes.Should().NotBeEmpty("Postcode whitelist should exist");
 
         // The scraper checks: if (!Selectors.KarlsruhePostcodes.Contains(listing.PostalCode))

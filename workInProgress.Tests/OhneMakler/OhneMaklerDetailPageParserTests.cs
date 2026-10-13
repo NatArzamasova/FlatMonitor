@@ -1,23 +1,23 @@
-namespace workInProgress.Tests;
+namespace workInProgress.Tests.OhneMakler;
 
 using NUnit.Framework;
 using FluentAssertions;
-using workInProgress.Scraping;
+using workInProgress.Scraping.OhneMakler;
 
 [TestFixture]
-public class DetailPageParserTests
+public class OhneMaklerDetailPageParserTests
 {
-    private DetailPageParser _parser = null!;
+    private OhneMaklerDetailPageParser _parser = null!;
 
     [SetUp]
     public void Setup()
     {
-        _parser = new DetailPageParser();
+        _parser = new OhneMaklerDetailPageParser();
     }
 
     private string GetFixturePath(string filename)
     {
-        return Path.Combine(TestContext.CurrentContext.TestDirectory, "Fixtures", filename);
+        return Path.Combine(TestContext.CurrentContext.TestDirectory, "Fixtures", "OhneMakler", filename);
     }
 
     [Test]

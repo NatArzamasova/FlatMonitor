@@ -1,8 +1,8 @@
-namespace workInProgress.Scraping;
+namespace workInProgress.Scraping.OhneMakler;
 
 using workInProgress.Models;
 
-public static class Selectors
+public static class OhneMaklerSelectors
 {
     public const string ListingsBaseUrl =
         "https://www.ohne-makler.net/immobilien/wohnung-kaufen/baden-wurttemberg/karlsruhe/";

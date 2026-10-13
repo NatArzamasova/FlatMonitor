@@ -1,24 +1,28 @@
-namespace workInProgress.Scraping;
+namespace workInProgress.Scraping.OhneMakler;
 
 using System.Text.RegularExpressions;
 using workInProgress.Models;
 using workInProgress.Storage;
 
-public sealed class ListingScraper : IAsyncDisposable
+public sealed class OhneMaklerScraper : IScraper, IAsyncDisposable
 {
+    public const string SourceName = "OhneMakler";
+
     private readonly HttpClient _httpClient;
-    private readonly ListingsPageFetcher _pageFetcher;
-    private readonly ListingCardParser _cardParser;
-    private readonly DetailPageParser _detailParser;
+    private readonly OhneMaklerListingsPageFetcher _pageFetcher;
+    private readonly OhneMaklerListingCardParser _cardParser;
+    private readonly OhneMaklerDetailPageParser _detailParser;
     private readonly SnapshotWriter _snapshotWriter;
     private readonly ISnapshotRepository _repository;
 
-    public ListingScraper(HttpClient httpClient)
+    public string Source => SourceName;
+
+    public OhneMaklerScraper(HttpClient httpClient)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-        _pageFetcher = new ListingsPageFetcher(_httpClient);
-        _cardParser = new ListingCardParser();
-        _detailParser = new DetailPageParser();
+        _pageFetcher = new OhneMaklerListingsPageFetcher(_httpClient);
+        _cardParser = new OhneMaklerListingCardParser();
+        _detailParser = new OhneMaklerDetailPageParser();
         _snapshotWriter = new SnapshotWriter();
         _repository = new OhneMaklerSnapshotRepository();
     }
@@ -42,9 +46,11 @@ public sealed class ListingScraper : IAsyncDisposable
         Console.WriteLine($"Total listings: {listings.Count}");
     }
 
-    public async Task<List<Listing>> ScrapeAllListingsAsync(CancellationToken ct = default)
+    public async Task<IEnumerable<Flat>> ScrapeAsync() => await ScrapeAllListingsAsync();
+
+    public async Task<List<Flat>> ScrapeAllListingsAsync(CancellationToken ct = default)
     {
-        var allListings = new List<Listing>();
+        var allListings = new List<Flat>();
         var pageNumber = 0;
         var shouldStop = false;
 
@@ -60,7 +66,7 @@ public sealed class ListingScraper : IAsyncDisposable
             {
                 // Check if postcode is in Karlsruhe whitelist
                 if (!string.IsNullOrEmpty(listing.PostalCode) &&
-                    !Selectors.KarlsruhePostcodes.Contains(listing.PostalCode))
+                    !OhneMaklerSelectors.KarlsruhePostcodes.Contains(listing.PostalCode))
                 {
                     Console.WriteLine(
                         $"Stopping pagination: Found listing outside Karlsruhe postcodes (postcode: {listing.PostalCode}) on page {pageNumber}");
@@ -83,9 +89,9 @@ public sealed class ListingScraper : IAsyncDisposable
                     // Update the listing with detail-page data.
                     var absoluteUrl = listing.Url.StartsWith("http")
                         ? listing.Url
-                        : new Uri(new Uri(Selectors.ListingsBaseUrl), listing.Url).AbsoluteUri;
+                        : new Uri(new Uri(OhneMaklerSelectors.ListingsBaseUrl), listing.Url).AbsoluteUri;
 
-                    var enrichedListing = new Listing
+                    var enrichedFlat = new Flat
                     {
                         ListingId = listing.ListingId,
                         Url = absoluteUrl,
@@ -98,18 +104,19 @@ public sealed class ListingScraper : IAsyncDisposable
                         LivingAreaSqm = area ?? listing.LivingAreaSqm,
                         Details = details,
                         ScrapedAtUtc = listing.ScrapedAtUtc,
+                        Source = SourceName,
                     };
 
-                    allListings.Add(enrichedListing);
+                    allListings.Add(enrichedFlat);
                 }
                 catch (Exception ex)
                 {
                     // Per confirmed behavior: log warning, still include listing with partial data.
                     var absoluteUrl = listing.Url.StartsWith("http")
                         ? listing.Url
-                        : new Uri(new Uri(Selectors.ListingsBaseUrl), listing.Url).AbsoluteUri;
+                        : new Uri(new Uri(OhneMaklerSelectors.ListingsBaseUrl), listing.Url).AbsoluteUri;
 
-                    var partialListing = new Listing
+                    var partialFlat = new Flat
                     {
                         ListingId = listing.ListingId,
                         Url = absoluteUrl,
@@ -122,11 +129,12 @@ public sealed class ListingScraper : IAsyncDisposable
                         LivingAreaSqm = listing.LivingAreaSqm,
                         Details = listing.Details,
                         ScrapedAtUtc = listing.ScrapedAtUtc,
+                        Source = SourceName,
                     };
 
                     Console.WriteLine(
                         $"Warning: Failed to fetch/parse detail page for listing {listing.ListingId} ({absoluteUrl}): {ex.Message}");
-                    allListings.Add(partialListing);
+                    allListings.Add(partialFlat);
                 }
             }
 
@@ -141,7 +149,7 @@ public sealed class ListingScraper : IAsyncDisposable
     {
         var absoluteUrl = relativeUrl.StartsWith("http")
             ? relativeUrl
-            : new Uri(new Uri(Selectors.ListingsBaseUrl), relativeUrl).AbsoluteUri;
+            : new Uri(new Uri(OhneMaklerSelectors.ListingsBaseUrl), relativeUrl).AbsoluteUri;
 
         var response = await _httpClient.GetAsync(absoluteUrl, ct);
         response.EnsureSuccessStatusCode();
@@ -196,13 +204,13 @@ public sealed class ListingScraper : IAsyncDisposable
                     {
                         var text = node.InnerText?.Trim();
                         if (!string.IsNullOrEmpty(text) && text.Length > 5) // Likely address, not just whitespace
-                            return AddressHelper.SanitizeAddress(NormalizeWhitespace(text));
+                            return OhneMaklerAddressHelper.SanitizeAddress(NormalizeWhitespace(text));
                     }
                     else if (node.Name == "a" || node.Name == "div" || node.Name == "p")
                     {
                         var text = node.InnerText?.Trim();
                         if (!string.IsNullOrEmpty(text) && text.Length > 5 && text.Contains(' '))
-                            return AddressHelper.SanitizeAddress(NormalizeWhitespace(text));
+                            return OhneMaklerAddressHelper.SanitizeAddress(NormalizeWhitespace(text));
                     }
 
                     node = node.NextSibling;
