@@ -1,22 +1,42 @@
 namespace workInProgress.Scraping.OhneMakler;
 
 using workInProgress.Models;
+using workInProgress.Scraping.Common;
 
-public static class OhneMaklerSelectors
+/// <summary>
+/// OhneMakler-specific selectors for the ListingExtractor.
+/// Implements IListingSelectors for the common parser, plus static members for legacy code.
+/// </summary>
+public class OhneMaklerSelectors : IListingSelectors
 {
+    // IListingSelectors interface implementation
+    public string ListingCardXPath => "//div[@class='angebot']";
+
+    public string IdXPath => ".//a/@href[contains(., '/immobilie/')]";
+
+    public string TitleXPath => ".//h2[@class='headline']/text()";
+
+    public string PriceXPath => ".//span[@class='price']/text()";
+
+    public string SizeXPath => ".//span[@class='objekttyp']/text()";
+
+    public string AddressXPath => ".//p[@class='location']/text()";
+
+    public string? RoomsXPath => ".//span[@class='rooms']/text()";
+
+    public string DetailUrlXPath => ".//a/@href[contains(., '/immobilie/')]";
+
+    public string BaseUrl => "https://www.ohne-makler.net";
+
+    // Static members for legacy code
     public const string ListingsBaseUrl =
         "https://www.ohne-makler.net/immobilien/wohnung-kaufen/baden-wurttemberg/karlsruhe/";
 
-    // Confirmed empirically: ?page=N is a real server-rendered pagination parameter.
-    // page=1 and page=2 return disjoint listing sets; pages beyond the last one return zero listing links.
     public static string PageUrl(int pageNumber) =>
         pageNumber <= 1 ? ListingsBaseUrl : $"{ListingsBaseUrl}?page={pageNumber}";
 
-    // Listing-card detail links look like /immobilie/{id}/
     public const string ListingLinkXPath = "//a[contains(@href, '/immobilie/')]";
 
-    // Karlsruhe postcode whitelist. Scraper stops pagination when encountering a listing outside this list.
-    // Includes all districts and Postfach (76006).
     public static readonly HashSet<string> KarlsruhePostcodes = new()
     {
         "76006", // Post Office Box (Postfach)
@@ -35,8 +55,6 @@ public static class OhneMaklerSelectors
         "76229", // Kleinsteinbach, Palmbach
     };
 
-    // German detail-page labels (exact wording from the site) → Details field mappings.
-    // Used by DetailPageParser to extract label→value pairs generically.
     internal static readonly Dictionary<string, string> LabelToDetailsField = new()
     {
         { "Objektart", nameof(Details.PropertyType) },
