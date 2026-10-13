@@ -149,6 +149,28 @@ Structure:
 4. **Model mapping**: ✅ Decided - Reuse `Flat` model; `Source` field differentiates listings
 5. **Test fixtures**: ✅ Planned - Save real HTML samples from authenticated page
 
+## Future Optimizations
+
+### Concurrent Detail Page Fetching (Post-Phase-4)
+Currently, detail pages are fetched sequentially (one at a time). For performance, consider:
+
+**Approach**: Create multiple Playwright pages from the authenticated browser concurrently
+- Keep browser session alive for entire scrape
+- Open 5-10 concurrent pages (configurable)
+- Fetch details in parallel using `Task.WhenAll`
+- Implement producer-consumer or batch queue pattern
+
+**Benefits**:
+- Significant speed improvement (e.g., 48 pages × 20 listings = 960 detail fetches could complete in minutes instead of hours)
+
+**Trade-offs**:
+- Higher memory usage (each page holds DOM state)
+- Risk of rate-limiting or IP blocking from concurrent requests
+- More complex error handling across parallel tasks
+- May need per-source rate-limiting config
+
+**Decision**: Defer until details are needed for all listings. Start with sequential approach for stability.
+
 ## Questions
 
 *Resolved. Ready to proceed with Phase 4b (parser implementation).*

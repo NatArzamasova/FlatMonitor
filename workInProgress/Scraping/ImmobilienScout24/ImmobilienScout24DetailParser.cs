@@ -23,6 +23,7 @@ public class ImmobilienScout24DetailParser
             doc.LoadHtml(html);
             var root = doc.DocumentNode;
 
+            var address = ExtractText(root, _selectors.AddressXPath);
             var propertyType = ExtractText(root, _selectors.PropertyTypeXPath);
             var buildYear = ParseInt(ExtractText(root, _selectors.BuildYearXPath));
             var heating = ExtractText(root, _selectors.HeatingXPath);
@@ -31,7 +32,7 @@ public class ImmobilienScout24DetailParser
             var energyEffClass = ExtractText(root, _selectors.EnergyEfficiencyClassXPath);
             var primaryEnergy = ExtractText(root, _selectors.PrimaryEnergySourceXPath);
 
-            Console.WriteLine($"Extracted: PropertyType={propertyType}, BuildYear={buildYear}, Heating={heating}");
+            Console.WriteLine($"Extracted: Address={address}, PropertyType={propertyType}, BuildYear={buildYear}, Heating={heating}");
             Console.WriteLine($"Extracted: EnergyCertType={energyCertType}, EnergyConsumption={energyConsumption}");
             Console.WriteLine($"Extracted: EnergyEffClass={energyEffClass}, PrimaryEnergy={primaryEnergy}");
 
@@ -51,6 +52,22 @@ public class ImmobilienScout24DetailParser
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Error parsing detail fields: {ex.Message}");
+            return null;
+        }
+    }
+
+    public string? ExtractAddress(string html)
+    {
+        try
+        {
+            var doc = new HtmlDocument();
+            doc.LoadHtml(html);
+            var root = doc.DocumentNode;
+            return ExtractText(root, _selectors.AddressXPath);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error extracting address: {ex.Message}");
             return null;
         }
     }

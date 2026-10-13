@@ -61,6 +61,8 @@ public sealed class ImmobilienScout24Scraper : IScraper
 
                     if (details != null)
                     {
+                        var detailAddress = await detailScraper.ExtractAddressFromCurrentPageAsync();
+
                         // Create new listing with details and update in allListings
                         allListings[0] = new Flat
                         {
@@ -68,7 +70,7 @@ public sealed class ImmobilienScout24Scraper : IScraper
                             ListingId = firstListing.ListingId,
                             Url = firstListing.Url,
                             Title = firstListing.Title,
-                            Address = firstListing.Address,
+                            Address = detailAddress ?? firstListing.Address,
                             PostalCode = firstListing.PostalCode,
                             District = firstListing.District,
                             PriceEur = firstListing.PriceEur,

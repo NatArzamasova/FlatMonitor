@@ -52,4 +52,23 @@ public class ImmobilienScout24DetailScraper
             return null;
         }
     }
+
+    /// <summary>
+    /// Extract address from the currently loaded page.
+    /// Must be called after FetchAndParseDetailPageAsync.
+    /// </summary>
+    public async Task<string?> ExtractAddressFromCurrentPageAsync()
+    {
+        try
+        {
+            var html = await _page.ContentAsync();
+            var parser = new ImmobilienScout24DetailParser();
+            return parser.ExtractAddress(html);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error extracting address: {ex.Message}");
+            return null;
+        }
+    }
 }

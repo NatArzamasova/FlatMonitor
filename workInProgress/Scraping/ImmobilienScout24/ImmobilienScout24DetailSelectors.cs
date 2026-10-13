@@ -6,6 +6,7 @@ namespace workInProgress.Scraping.ImmobilienScout24;
 /// </summary>
 public class ImmobilienScout24DetailSelectors
 {
+    public string AddressXPath => "//*[@data-qa='is24-expose-address']//span[@class='address-text']";
     public string PropertyTypeXPath => ".//dd[@class='is24qa-typ grid-item three-fifths']//text()";
     public string BuildYearXPath => ".//dd[@class='is24qa-baujahr grid-item three-fifths']//text()";
     public string HeatingXPath => ".//dd[@class='is24qa-heizungsart grid-item three-fifths']//text()";
