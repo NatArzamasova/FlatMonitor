@@ -49,19 +49,55 @@ public sealed class ImmobilienScout24Scraper : IScraper
             allListings.AddRange(firstPageListings);
             Console.WriteLine($"Page 1: added {firstPageListings.Count} listings");
 
-            // Use pagination fetcher for subsequent pages
-            var pageFetcher = new ImmobilienScout24ListingsPageFetcher(browser, page);
-            int pageNumber = 2;
-
-            await foreach (var pageHtml in pageFetcher.FetchAllPagesHtmlAsync(ct))
+            // Fetch detail page for first listing (test phase)
+            if (firstPageListings.Count > 0)
             {
-                var listings = ParseListingsPage(pageHtml);
-                allListings.AddRange(listings);
-                Console.WriteLine($"Page {pageNumber}: added {listings.Count} listings");
-                pageNumber++;
+                var firstListing = firstPageListings[0];
+                if (!string.IsNullOrEmpty(firstListing.Url))
+                {
+                    Console.WriteLine($"\n--- Testing detail page scraper ---");
+                    var detailScraper = new ImmobilienScout24DetailScraper(page);
+                    var details = await detailScraper.FetchAndParseDetailPageAsync(firstListing.Url);
+
+                    if (details != null)
+                    {
+                        // Create new listing with details and update in allListings
+                        allListings[0] = new Flat
+                        {
+                            Source = firstListing.Source,
+                            ListingId = firstListing.ListingId,
+                            Url = firstListing.Url,
+                            Title = firstListing.Title,
+                            Address = firstListing.Address,
+                            PostalCode = firstListing.PostalCode,
+                            District = firstListing.District,
+                            PriceEur = firstListing.PriceEur,
+                            RoomsCount = firstListing.RoomsCount,
+                            LivingAreaSqm = firstListing.LivingAreaSqm,
+                            Details = details,
+                            ScrapedAtUtc = firstListing.ScrapedAtUtc,
+                        };
+                        Console.WriteLine($"Details merged into listing {firstListing.ListingId}");
+                    }
+
+                    Console.WriteLine($"--- Detail page test complete ---\n");
+                    return allListings; // Stop here for test phase
+                }
             }
 
-            Console.WriteLine($"ImmobilienScout24 scraper fetched {pageNumber - 1} pages with {allListings.Count} listings total.");
+            // Use pagination fetcher for subsequent pages (commented out for now)
+            // var pageFetcher = new ImmobilienScout24ListingsPageFetcher(browser, page);
+            // int pageNumber = 2;
+            //
+            // await foreach (var pageHtml in pageFetcher.FetchAllPagesHtmlAsync(ct))
+            // {
+            //     var listings = ParseListingsPage(pageHtml);
+            //     allListings.AddRange(listings);
+            //     Console.WriteLine($"Page {pageNumber}: added {listings.Count} listings");
+            //     pageNumber++;
+            // }
+            //
+            // Console.WriteLine($"ImmobilienScout24 scraper fetched {pageNumber - 1} pages with {allListings.Count} listings total.");
 
             await browserScraper.DisposeAsync();
         }

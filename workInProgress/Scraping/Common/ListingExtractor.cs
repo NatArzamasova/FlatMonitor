@@ -1,5 +1,6 @@
 namespace workInProgress.Scraping.Common;
 
+using System.Linq;
 using HtmlAgilityPack;
 using workInProgress.Models;
 
@@ -21,7 +22,7 @@ public class ListingExtractor
             var priceText = ExtractText(cardNode, selectors.PriceXPath);
             var sizeText = ExtractText(cardNode, selectors.SizeXPath);
             var address = ExtractText(cardNode, selectors.AddressXPath);
-            var detailUrl = ExtractDetailUrl(cardNode, selectors);
+            var detailUrl = ExtractDetailUrl(cardNode, selectors, id);
 
             var price = ParsePrice(priceText);
             var size = ParseSize(sizeText);
@@ -69,11 +70,17 @@ public class ListingExtractor
         return match.Success ? match.Value : idText;
     }
 
-    private string? ExtractDetailUrl(HtmlNode cardNode, IListingSelectors selectors)
+    private string? ExtractDetailUrl(HtmlNode cardNode, IListingSelectors selectors, string? id = null)
     {
         var url = ExtractText(cardNode, selectors.DetailUrlXPath);
         if (string.IsNullOrWhiteSpace(url))
-            return null;
+        {
+            // If no URL found and we have an ID, construct URL from ID (e.g., /expose/{id})
+            if (!string.IsNullOrWhiteSpace(id) && id.All(char.IsDigit))
+                url = $"/expose/{id}";
+            else
+                return null;
+        }
 
         // Convert relative URLs to absolute
         if (url.StartsWith("/"))

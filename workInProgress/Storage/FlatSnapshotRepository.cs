@@ -60,17 +60,19 @@ public sealed class FlatSnapshotRepository : ISnapshotRepository
 
             if (existingMap.TryGetValue(key, out var existing))
             {
-                // Update existing entity in-place (scalar properties only)
+                // Update existing entity in-place
+                existing.Url = listing.Url;
+                existing.Title = listing.Title;
+                existing.Address = listing.Address;
+                existing.PostalCode = listing.PostalCode;
+                existing.District = listing.District;
+                existing.PriceEur = listing.PriceEur;
+                existing.RoomsCount = listing.RoomsCount;
+                existing.LivingAreaSqm = listing.LivingAreaSqm;
+                existing.Details = listing.Details;
+                existing.ScrapedAtUtc = listing.ScrapedAtUtc;
+
                 var entry = _dbContext.Entry(existing);
-                entry.Property(s => s.Url).CurrentValue = listing.Url;
-                entry.Property(s => s.Title).CurrentValue = listing.Title;
-                entry.Property(s => s.Address).CurrentValue = listing.Address;
-                entry.Property(s => s.PostalCode).CurrentValue = listing.PostalCode;
-                entry.Property(s => s.District).CurrentValue = listing.District;
-                entry.Property(s => s.PriceEur).CurrentValue = listing.PriceEur;
-                entry.Property(s => s.RoomsCount).CurrentValue = listing.RoomsCount;
-                entry.Property(s => s.LivingAreaSqm).CurrentValue = listing.LivingAreaSqm;
-                entry.Property(s => s.ScrapedAtUtc).CurrentValue = listing.ScrapedAtUtc;
                 entry.Property<string>("UpdatedAtUtc").CurrentValue = now;
             }
             else

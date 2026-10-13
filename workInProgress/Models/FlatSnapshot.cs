@@ -4,14 +4,14 @@ public sealed class FlatSnapshot
 {
     public required string Source { get; init; }
     public required string ListingId { get; init; }
-    public string? Url { get; init; }
-    public string? Title { get; init; }
-    public string? Address { get; init; }
-    public string? PostalCode { get; init; }
-    public string? District { get; init; }
-    public int? PriceEur { get; init; }
-    public int? RoomsCount { get; init; }
-    public int? LivingAreaSqm { get; init; }
-    public Details? Details { get; init; }
-    public required string ScrapedAtUtc { get; init; }
+    public string? Url { get; set; }
+    public string? Title { get; set; }
+    public string? Address { get; set; }
+    public string? PostalCode { get; set; }
+    public string? District { get; set; }
+    public int? PriceEur { get; set; }
+    public int? RoomsCount { get; set; }
+    public int? LivingAreaSqm { get; set; }
+    public Details? Details { get; set; }
+    public required string ScrapedAtUtc { get; set; }
 }
