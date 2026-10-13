@@ -1,5 +1,8 @@
+using dotenv.net;
 using Microsoft.Extensions.DependencyInjection;
+using System.Runtime.InteropServices;
 using workInProgress.Scraping;
+using workInProgress.Scraping.ImmobilienScout24;
 using workInProgress.Scraping.OhneMakler;
 using workInProgress.Storage;
 
@@ -7,6 +10,18 @@ var commandArgs = Environment.GetCommandLineArgs().Skip(1).ToArray();
 
 try
 {
+    // Change to solution root to find .env
+    var solutionRoot = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..");
+    solutionRoot = Path.GetFullPath(solutionRoot);
+    Console.WriteLine($"AppContext.BaseDirectory: {AppContext.BaseDirectory}");
+    Console.WriteLine($"Solution root: {solutionRoot}");
+    var envFile = Path.Combine(solutionRoot, ".env");
+    Console.WriteLine($".env path: {envFile}");
+    Console.WriteLine($".env exists: {File.Exists(envFile)}");
+
+    Directory.SetCurrentDirectory(solutionRoot);
+    DotEnv.Load();
+
     if (commandArgs.Length == 0 || commandArgs[0] == "--help" || commandArgs[0] == "-h")
     {
         PrintUsage();
@@ -16,6 +31,7 @@ try
     return commandArgs[0] switch
     {
         "scrape" => await RunScrapeAsync(),
+        "explore-is24" => await ExploreImmobilienScout24Async(),
         _ => PrintUsageAndFail($"Unknown command: {commandArgs[0]}")
     };
 }
@@ -73,6 +89,44 @@ async Task<int> RunScrapeAsync()
     }
 }
 
+async Task<int> ExploreImmobilienScout24Async()
+{
+    Console.WriteLine("ImmobilienScout24 Explorer with Playwright");
+    Console.WriteLine("==========================================\n");
+
+    await using var scraper = new ImmobilienScout24BrowserScraper();
+
+    try
+    {
+        var html = await scraper.FetchListingsPageAsync();
+
+        if (html == null)
+        {
+            Console.Error.WriteLine("Failed to fetch listings page.");
+            return 1;
+        }
+
+        Console.WriteLine("\n✓ Page fetched successfully!");
+        Console.WriteLine($"Page size: {html.Length} bytes");
+
+        // Save the HTML for analysis
+        var outputPath = Path.Combine(
+            Path.GetTempPath(),
+            $"immobilienscout24_listings_{DateTime.UtcNow:yyyyMMdd_HHmmss}.html");
+
+        await File.WriteAllTextAsync(outputPath, html);
+        Console.WriteLine($"\n✓ HTML saved to: {outputPath}");
+        Console.WriteLine("You can now analyze the page structure by opening this file.");
+
+        return 0;
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"Error: {ex.Message}");
+        return 1;
+    }
+}
+
 int PrintUsageAndFail(string? message = null)
 {
     if (message != null)
@@ -85,6 +139,7 @@ void PrintUsage()
 {
     Console.Error.WriteLine("Usage: dotnet run -- <command>");
     Console.Error.WriteLine("Commands:");
-    Console.Error.WriteLine("  scrape    Fetch current listings and write snapshot");
-    Console.Error.WriteLine("  --help    Show this message");
+    Console.Error.WriteLine("  scrape        Fetch current listings and write snapshot");
+    Console.Error.WriteLine("  explore-is24  Login and fetch ImmobilienScout24 listings page for analysis");
+    Console.Error.WriteLine("  --help        Show this message");
 }
