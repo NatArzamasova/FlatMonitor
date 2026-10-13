@@ -16,14 +16,14 @@ Implement the scraper that fetches current apartment listings from ohne-makler.n
 
 ### Phase 1: Models & Serialization
 - [ ] Create `Listing` model class with properties: ListingId, Url, Title, Address, PostalCode, District, PriceEur, RoomsCount, LivingAreaSqm, Details, ScrapedAtUtc
-- [ ] Create `Details` model class with nested properties: PropertyType, BuildYear, Floor, Condition, Heating, Flooring, ServiceChargeEur, EnergyCertificateType, PrimaryEnergySource, ContactName, ListingStatus, CurrentUse, Availability
+- [ ] Create `Details` model class with nested properties: PropertyType, BuildYear, Floor, Condition, Heating, Flooring, ServiceChargeEur, EnergyCertificateType, PrimaryEnergySource, EnergyEfficiencyClass, EnergyConsumption, ListingStatus, CurrentUse, Availability
 - [ ] Configure JSON serialization (System.Text.Json or Newtonsoft.Json) to match schema exactly
 
 ### Phase 2: HTTP Client & HTML Parser
 - [ ] Set up HttpClient for fetching site pages
 - [ ] Create HTML parser (HtmlAgilityPack or AngleSharp) to extract:
   - Search results page: listing cards (title, price, postal code, district, rooms, area, listing URL)
-  - Detail page: extended info (property type, build year, floor, condition, heating, flooring, service charge, energy cert, contact, listing status, current use, availability)
+  - Detail page: extended info (property type, build year, floor, condition, heating, flooring, service charge, energy cert, energy efficiency class, energy consumption, listing status, current use, availability)
 - [ ] Handle pagination (or confirm single page is sufficient for initial MVP)
 - [ ] Implement error handling (retry logic? fail-fast? logging?)
 

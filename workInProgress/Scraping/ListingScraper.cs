@@ -11,7 +11,7 @@ public sealed class ListingScraper : IAsyncDisposable
     private readonly ListingCardParser _cardParser;
     private readonly DetailPageParser _detailParser;
     private readonly SnapshotWriter _snapshotWriter;
-    private readonly ListingsRepository _repository;
+    private readonly ISnapshotRepository _repository;
 
     public ListingScraper(HttpClient httpClient)
     {
@@ -20,7 +20,7 @@ public sealed class ListingScraper : IAsyncDisposable
         _cardParser = new ListingCardParser();
         _detailParser = new DetailPageParser();
         _snapshotWriter = new SnapshotWriter();
-        _repository = new ListingsRepository();
+        _repository = new OhneMaklerSnapshotRepository();
     }
 
     public async Task RunAsync()
@@ -196,13 +196,13 @@ public sealed class ListingScraper : IAsyncDisposable
                     {
                         var text = node.InnerText?.Trim();
                         if (!string.IsNullOrEmpty(text) && text.Length > 5) // Likely address, not just whitespace
-                            return NormalizeWhitespace(text);
+                            return AddressHelper.SanitizeAddress(NormalizeWhitespace(text));
                     }
                     else if (node.Name == "a" || node.Name == "div" || node.Name == "p")
                     {
                         var text = node.InnerText?.Trim();
                         if (!string.IsNullOrEmpty(text) && text.Length > 5 && text.Contains(' '))
-                            return NormalizeWhitespace(text);
+                            return AddressHelper.SanitizeAddress(NormalizeWhitespace(text));
                     }
 
                     node = node.NextSibling;

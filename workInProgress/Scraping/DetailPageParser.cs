@@ -48,11 +48,11 @@ public sealed class DetailPageParser
                 Floor = ExtractField(doc, "Etage") ?? ExtractField(doc, "Geschoss") ?? ExtractField(doc, "Stockwerk"),
                 Condition = ExtractField(doc, "Zustand"),
                 Heating = ExtractField(doc, "Heizung"),
-                Flooring = ExtractField(doc, "Bodenbelag"),
-                ServiceChargeEur = ExtractIntField(doc, "Nebenkosten"),
+                ServiceChargeEur = ExtractIntField(doc, "Hausgeld mtl.") ?? ExtractIntField(doc, "Nebenkosten"),
                 EnergyCertificateType = ExtractField(doc, "Energieausweistyp"),
                 PrimaryEnergySource = ExtractField(doc, "Wesentlicher Energieträger"),
-                ContactName = ExtractContactName(doc),
+                EnergyEfficiencyClass = ExtractField(doc, "Energieeffizienzklasse"),
+                EnergyConsumption = ExtractField(doc, "Endenergieverbrauch"),
                 ListingStatus = ExtractListingStatus(doc),
                 CurrentUse = ExtractCurrentUse(doc),
                 Availability = ExtractField(doc, "Verfügbarkeit") ?? ExtractField(doc, "Übernahme ab"),
@@ -91,27 +91,6 @@ public sealed class DetailPageParser
             return result;
 
         return null;
-    }
-
-    // Contact name can appear as plain text in the page (often near a contact section or form).
-    private static string? ExtractContactName(HtmlDocument doc)
-    {
-        // Look for a name in common contact sections
-        var contactSection = doc.DocumentNode.SelectSingleNode("//div[contains(@class, 'contact') or contains(text(), 'Kontakt')]");
-        if (contactSection != null)
-        {
-            // Try to find a name within the contact section
-            var nameNode = contactSection.SelectSingleNode(".//p | .//div[@class]");
-            if (nameNode != null)
-            {
-                var text = nameNode.InnerText?.Trim();
-                if (!string.IsNullOrEmpty(text) && text.Length < 100) // Rough filter
-                    return text;
-            }
-        }
-
-        // Fallback: look for "Ansprechpartner" label in the details table
-        return ExtractField(doc, "Ansprechpartner");
     }
 
     // Listing status: "Privatangebot" or "Gewerbliches Angebot"

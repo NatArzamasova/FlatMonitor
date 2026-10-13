@@ -5,7 +5,7 @@ using workInProgress.Models;
 
 public class ListingsDbContext : DbContext
 {
-    public DbSet<Listing> Listings { get; set; }
+    public DbSet<OhneMaklerSnapshot> OhneMaklerSnapshots { get; set; }
 
     public ListingsDbContext(DbContextOptions<ListingsDbContext> options) : base(options)
     {
@@ -15,36 +15,36 @@ public class ListingsDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        var listingBuilder = modelBuilder.Entity<Listing>();
+        var snapshotBuilder = modelBuilder.Entity<OhneMaklerSnapshot>();
 
-        listingBuilder.HasKey(l => l.ListingId);
-        listingBuilder.ToTable("Listings");
+        snapshotBuilder.HasKey(s => s.ListingId);
+        snapshotBuilder.ToTable("OhneMaklerSnapshots");
 
-        listingBuilder.Property(l => l.ListingId)
+        snapshotBuilder.Property(s => s.ListingId)
             .HasMaxLength(50);
 
-        listingBuilder.Property(l => l.Url)
+        snapshotBuilder.Property(s => s.Url)
             .IsRequired()
             .HasMaxLength(500);
 
-        listingBuilder.Property(l => l.Title)
+        snapshotBuilder.Property(s => s.Title)
             .HasMaxLength(500);
 
-        listingBuilder.Property(l => l.Address)
+        snapshotBuilder.Property(s => s.Address)
             .HasMaxLength(500);
 
-        listingBuilder.Property(l => l.PostalCode)
+        snapshotBuilder.Property(s => s.PostalCode)
             .HasMaxLength(10);
 
-        listingBuilder.Property(l => l.District)
+        snapshotBuilder.Property(s => s.District)
             .HasMaxLength(100);
 
-        listingBuilder.Property(l => l.ScrapedAtUtc)
+        snapshotBuilder.Property(s => s.ScrapedAtUtc)
             .IsRequired()
             .HasMaxLength(50);
 
-        // Owned type for Details — flattened into the Listings table
-        listingBuilder.OwnsOne(l => l.Details, detailsBuilder =>
+        // Owned type for Details — flattened into the OhneMaklerSnapshots table
+        snapshotBuilder.OwnsOne(s => s.Details, detailsBuilder =>
         {
             detailsBuilder.Property(d => d.PropertyType)
                 .HasColumnName("PropertyType")
@@ -65,10 +65,6 @@ public class ListingsDbContext : DbContext
                 .HasColumnName("Heating")
                 .HasMaxLength(100);
 
-            detailsBuilder.Property(d => d.Flooring)
-                .HasColumnName("Flooring")
-                .HasMaxLength(100);
-
             detailsBuilder.Property(d => d.ServiceChargeEur)
                 .HasColumnName("ServiceChargeEur");
 
@@ -80,9 +76,13 @@ public class ListingsDbContext : DbContext
                 .HasColumnName("PrimaryEnergySource")
                 .HasMaxLength(100);
 
-            detailsBuilder.Property(d => d.ContactName)
-                .HasColumnName("ContactName")
-                .HasMaxLength(200);
+            detailsBuilder.Property(d => d.EnergyEfficiencyClass)
+                .HasColumnName("EnergyEfficiencyClass")
+                .HasMaxLength(10);
+
+            detailsBuilder.Property(d => d.EnergyConsumption)
+                .HasColumnName("EnergyConsumption")
+                .HasMaxLength(100);
 
             detailsBuilder.Property(d => d.ListingStatus)
                 .HasColumnName("ListingStatus")
@@ -98,21 +98,21 @@ public class ListingsDbContext : DbContext
         });
 
         // Indexes
-        listingBuilder.HasIndex(l => l.ScrapedAtUtc)
+        snapshotBuilder.HasIndex(s => s.ScrapedAtUtc)
             .HasDatabaseName("idx_ScrapedAtUtc");
 
-        listingBuilder.HasIndex(l => l.PostalCode)
+        snapshotBuilder.HasIndex(s => s.PostalCode)
             .HasDatabaseName("idx_PostalCode");
 
-        listingBuilder.HasIndex(l => l.District)
+        snapshotBuilder.HasIndex(s => s.District)
             .HasDatabaseName("idx_District");
 
         // Audit columns
-        listingBuilder.Property<string>("CreatedAtUtc")
+        snapshotBuilder.Property<string>("CreatedAtUtc")
             .IsRequired()
             .HasMaxLength(50);
 
-        listingBuilder.Property<string>("UpdatedAtUtc")
+        snapshotBuilder.Property<string>("UpdatedAtUtc")
             .IsRequired()
             .HasMaxLength(50);
     }

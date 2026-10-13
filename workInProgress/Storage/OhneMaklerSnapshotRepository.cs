@@ -1,15 +1,16 @@
 namespace workInProgress.Storage;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using workInProgress.Data;
 using workInProgress.Models;
 
-public sealed class ListingsRepository : IAsyncDisposable
+public sealed class OhneMaklerSnapshotRepository : ISnapshotRepository
 {
     private readonly ListingsDbContext _dbContext;
     private readonly bool _ownsContext;
 
-    public ListingsRepository(DbContextOptions<ListingsDbContext>? options = null)
+    public OhneMaklerSnapshotRepository(DbContextOptions<ListingsDbContext>? options = null)
     {
         if (options != null)
         {
@@ -28,24 +29,17 @@ public sealed class ListingsRepository : IAsyncDisposable
 
     public async Task InitializeAsync(CancellationToken ct = default)
     {
-        // Check if database exists and has the Title column. If not, drop and recreate.
-        try
+        // For in-memory databases (tests), use EnsureCreatedAsync.
+        // For SQLite (production), use MigrateAsync to apply migrations while preserving data.
+        var provider = _dbContext.Database.ProviderName;
+        if (provider?.Contains("InMemory") ?? false)
         {
-            var hasTitle = await _dbContext.Database.SqlQuery<int>(
-                $@"SELECT COUNT(*) as cnt FROM pragma_table_info('Listings') WHERE name='Title'")
-                .FirstOrDefaultAsync(ct);
-
-            if (hasTitle == 0)
-            {
-                await _dbContext.Database.EnsureDeletedAsync(ct);
-            }
+            await _dbContext.Database.EnsureCreatedAsync(ct);
         }
-        catch
+        else
         {
-            // Table doesn't exist or query failed; EnsureCreatedAsync will handle it
+            await _dbContext.Database.MigrateAsync(ct);
         }
-
-        await _dbContext.Database.EnsureCreatedAsync(ct);
     }
 
     public async Task UpsertListingsAsync(List<Listing> listings, CancellationToken ct = default)
@@ -53,11 +47,11 @@ public sealed class ListingsRepository : IAsyncDisposable
         var now = DateTime.UtcNow.ToString("O");
         var listingIds = listings.Select(l => l.ListingId).ToList();
 
-        var existingListings = await _dbContext.Listings
-            .Where(l => listingIds.Contains(l.ListingId))
+        var existingSnapshots = await _dbContext.OhneMaklerSnapshots
+            .Where(s => listingIds.Contains(s.ListingId))
             .ToListAsync(ct);
 
-        var existingMap = existingListings.ToDictionary(l => l.ListingId);
+        var existingMap = existingSnapshots.ToDictionary(s => s.ListingId);
 
         // Build a map of createdAt values before removing
         var createdAtMap = existingMap.ToDictionary(
@@ -65,19 +59,34 @@ public sealed class ListingsRepository : IAsyncDisposable
             kvp => _dbContext.Entry(kvp.Value).Property<string>("CreatedAtUtc").CurrentValue ?? now);
 
         // Remove all existing
-        foreach (var existing in existingListings)
+        foreach (var existing in existingSnapshots)
         {
-            _dbContext.Listings.Remove(existing);
+            _dbContext.OhneMaklerSnapshots.Remove(existing);
         }
 
         // Add/update all listings
         foreach (var listing in listings)
         {
+            var snapshot = new OhneMaklerSnapshot
+            {
+                ListingId = listing.ListingId,
+                Url = listing.Url,
+                Title = listing.Title,
+                Address = listing.Address,
+                PostalCode = listing.PostalCode,
+                District = listing.District,
+                PriceEur = listing.PriceEur,
+                RoomsCount = listing.RoomsCount,
+                LivingAreaSqm = listing.LivingAreaSqm,
+                Details = listing.Details,
+                ScrapedAtUtc = listing.ScrapedAtUtc,
+            };
+
             var createdAt = createdAtMap.TryGetValue(listing.ListingId, out var existing) ? existing : now;
 
-            _dbContext.Entry(listing).Property<string>("CreatedAtUtc").CurrentValue = createdAt;
-            _dbContext.Entry(listing).Property<string>("UpdatedAtUtc").CurrentValue = now;
-            _dbContext.Listings.Add(listing);
+            _dbContext.Entry(snapshot).Property<string>("CreatedAtUtc").CurrentValue = createdAt;
+            _dbContext.Entry(snapshot).Property<string>("UpdatedAtUtc").CurrentValue = now;
+            _dbContext.OhneMaklerSnapshots.Add(snapshot);
         }
 
         await _dbContext.SaveChangesAsync(ct);

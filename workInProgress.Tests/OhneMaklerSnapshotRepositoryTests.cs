@@ -8,7 +8,7 @@ using workInProgress.Storage;
 namespace workInProgress.Tests;
 
 [TestFixture]
-public class ListingsRepositoryTests
+public class OhneMaklerSnapshotRepositoryTests
 {
     private DbContextOptions<ListingsDbContext> CreateInMemoryOptions()
     {
@@ -22,14 +22,14 @@ public class ListingsRepositoryTests
     {
         // Arrange
         var options = CreateInMemoryOptions();
-        await using var repo = new ListingsRepository(options);
+        await using var repo = new OhneMaklerSnapshotRepository(options);
 
         // Act
         await repo.InitializeAsync();
 
         // Assert - verify Listings table exists by querying
         await using var dbContext = new ListingsDbContext(options);
-        var count = await dbContext.Listings.CountAsync();
+        var count = await dbContext.OhneMaklerSnapshots.CountAsync();
         count.Should().Be(0);
     }
 
@@ -38,7 +38,7 @@ public class ListingsRepositoryTests
     {
         // Arrange
         var options = CreateInMemoryOptions();
-        await using var repo = new ListingsRepository(options);
+        await using var repo = new OhneMaklerSnapshotRepository(options);
         await repo.InitializeAsync();
 
         var listings = new List<Listing>
@@ -63,7 +63,7 @@ public class ListingsRepositoryTests
 
         // Assert
         await using var dbContext = new ListingsDbContext(options);
-        var stored = await dbContext.Listings.FirstOrDefaultAsync(l => l.ListingId == "1");
+        var stored = await dbContext.OhneMaklerSnapshots.FirstOrDefaultAsync(l => l.ListingId == "1");
         stored.Should().NotBeNull();
         stored!.Title.Should().Be("Test Listing");
         stored.Address.Should().Be("123 Main St");
@@ -75,7 +75,7 @@ public class ListingsRepositoryTests
     {
         // Arrange
         var options = CreateInMemoryOptions();
-        await using var repo = new ListingsRepository(options);
+        await using var repo = new OhneMaklerSnapshotRepository(options);
         await repo.InitializeAsync();
 
         var listings = new List<Listing>
@@ -95,7 +95,6 @@ public class ListingsRepositoryTests
                     Condition = "Renoviert",
                     Heating = "Gas",
                     ServiceChargeEur = 150,
-                    ContactName = "John Doe",
                     ListingStatus = "Privatangebot",
                 }
             }
@@ -106,7 +105,7 @@ public class ListingsRepositoryTests
 
         // Assert
         await using var dbContext = new ListingsDbContext(options);
-        var stored = await dbContext.Listings.FirstOrDefaultAsync(l => l.ListingId == "1");
+        var stored = await dbContext.OhneMaklerSnapshots.FirstOrDefaultAsync(l => l.ListingId == "1");
         stored.Should().NotBeNull();
         stored!.Details.Should().NotBeNull();
         stored.Details!.PropertyType.Should().Be("Wohnung");
@@ -114,7 +113,6 @@ public class ListingsRepositoryTests
         stored.Details.Floor.Should().Be("2");
         stored.Details.Heating.Should().Be("Gas");
         stored.Details.ServiceChargeEur.Should().Be(150);
-        stored.Details.ContactName.Should().Be("John Doe");
     }
 
     [Test]
@@ -122,7 +120,7 @@ public class ListingsRepositoryTests
     {
         // Arrange
         var options = CreateInMemoryOptions();
-        await using var repo = new ListingsRepository(options);
+        await using var repo = new OhneMaklerSnapshotRepository(options);
         await repo.InitializeAsync();
 
         var listings = new List<Listing>
@@ -143,7 +141,7 @@ public class ListingsRepositoryTests
 
         // Assert
         await using var dbContext = new ListingsDbContext(options);
-        var stored = await dbContext.Listings.FirstOrDefaultAsync(l => l.ListingId == "1");
+        var stored = await dbContext.OhneMaklerSnapshots.FirstOrDefaultAsync(l => l.ListingId == "1");
         stored.Should().NotBeNull();
         stored!.Details.Should().BeNull();
     }
@@ -153,7 +151,7 @@ public class ListingsRepositoryTests
     {
         // Arrange
         var options = CreateInMemoryOptions();
-        await using var repo = new ListingsRepository(options);
+        await using var repo = new OhneMaklerSnapshotRepository(options);
         await repo.InitializeAsync();
 
         var listing1 = new List<Listing>
@@ -189,10 +187,10 @@ public class ListingsRepositoryTests
 
         // Assert - row count should stay 1
         await using var dbContext = new ListingsDbContext(options);
-        var count = await dbContext.Listings.CountAsync();
+        var count = await dbContext.OhneMaklerSnapshots.CountAsync();
         count.Should().Be(1);
 
-        var stored = await dbContext.Listings.FirstAsync();
+        var stored = await dbContext.OhneMaklerSnapshots.FirstAsync();
         stored.Title.Should().Be("Updated Title");
         stored.PriceEur.Should().Be(550000);
     }
@@ -202,7 +200,7 @@ public class ListingsRepositoryTests
     {
         // Arrange
         var options = CreateInMemoryOptions();
-        await using var repo = new ListingsRepository(options);
+        await using var repo = new OhneMaklerSnapshotRepository(options);
         await repo.InitializeAsync();
 
         var listings = new List<Listing>
@@ -238,7 +236,7 @@ public class ListingsRepositoryTests
 
         // Assert
         await using var dbContext = new ListingsDbContext(options);
-        var count = await dbContext.Listings.CountAsync();
+        var count = await dbContext.OhneMaklerSnapshots.CountAsync();
         count.Should().Be(3);
     }
 }

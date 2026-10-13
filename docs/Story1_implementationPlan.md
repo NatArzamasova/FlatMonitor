@@ -54,7 +54,7 @@ Confirmed decisions driving this plan:
 - The site is Tailwind-utility-class soup with no semantic selectors — detail-page extraction must use a **label→value lookup** approach (generic, resilient to markup churn) rather than positional/hardcoded XPath per field:
   1. "Key facts" blocks: value `<span>` immediately followed by sibling label `<span>` (confirmed for Zimmer/Wohnfläche).
   2. Table rows: label `<td>` followed by value `<td>` (confirmed for Baujahr, Objektart, Zustand, Energieausweistyp, "Wesentlicher Energieträger" — exact wording matters).
-  3. Labels not seen on the one sampled listing (Etage, Bodenbelag, Nebenkosten, Verfügbarkeit, Ansprechpartner) need re-verification against 2-3 real listings during implementation — they may be optional fields (consistent with "missing → null") or use different wording.
+  3. Labels not seen on the one sampled listing (Etage, Bodenbelag, Verfügbarkeit, Ansprechpartner) need re-verification against 2-3 real listings during implementation — they may be optional fields (consistent with "missing → null") or use different wording. **Note:** ServiceCharge is labeled "Hausgeld mtl." on the site (verified against listing 254281), with fallback to "Nebenkosten".
 
 ## NuGet packages
 
@@ -126,7 +126,8 @@ public sealed class Details
     public int? ServiceChargeEur { get; init; }
     public string? EnergyCertificateType { get; init; }
     public string? PrimaryEnergySource { get; init; }
-    public string? ContactName { get; init; }
+    public string? EnergyEfficiencyClass { get; init; }
+    public string? EnergyConsumption { get; init; }
     public string? ListingStatus { get; init; }
     public string? CurrentUse { get; init; }
     public string? Availability { get; init; }

@@ -17,8 +17,8 @@ Checked live on 2026-10-09 against
   rooms, m², thumbnail.
 - Detail page (e.g. `/immobilie/502814/`): price, rooms, living area,
   property type, address, build year, floor, condition, heating, flooring,
-  service charge, energy certificate type, primary energy source, contact
-  name, listing status (private/commercial), current use, availability.
+  service charge, energy certificate type, primary energy source, energy
+  efficiency class, energy consumption, listing status (private/commercial), current use, availability.
 - **No date field anywhere** — not on search results, not on detail pages.
 
 ## Architecture
@@ -68,7 +68,8 @@ one per listing seen in that scrape run:
     "ServiceChargeEur": 405,
     "EnergyCertificateType": "gesetzlich nicht erforderlich",
     "PrimaryEnergySource": "Gas",
-    "ContactName": "Theresa Habich",
+    "EnergyEfficiencyClass": "C",
+    "EnergyConsumption": "120 kWh/(m²·a)",
     "ListingStatus": "Privatangebot",
     "CurrentUse": "Vermietet",
     "Availability": "Nach Vereinbarung"

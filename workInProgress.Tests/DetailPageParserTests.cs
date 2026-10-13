@@ -90,20 +90,6 @@ public class DetailPageParserTests
     }
 
     [Test]
-    public void ParseDetailPage_ExtractsFlooringCorrectly()
-    {
-        // Arrange
-        var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
-
-        // Act
-        var result = _parser.ParseDetailPage(html);
-
-        // Assert
-        result.Should().NotBeNull();
-        result!.Flooring.Should().Be("Laminat");
-    }
-
-    [Test]
     public void ParseDetailPage_ExtractsServiceChargeAsInteger()
     {
         // Arrange
@@ -115,6 +101,82 @@ public class DetailPageParserTests
         // Assert
         result.Should().NotBeNull();
         result!.ServiceChargeEur.Should().Be(405);
+    }
+
+    [Test]
+    public void ParseDetailPage_ExtractsServiceChargeFromHausgeldMtl()
+    {
+        // Arrange
+        var html = @"
+            <html>
+                <body>
+                    <table>
+                        <tr>
+                            <td><div>Hausgeld mtl.</div></td>
+                            <td><div>300 €</div></td>
+                        </tr>
+                    </table>
+                </body>
+            </html>";
+
+        // Act
+        var result = _parser.ParseDetailPage(html);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.ServiceChargeEur.Should().Be(300);
+    }
+
+    [Test]
+    public void ParseDetailPage_PrefersHausgeldMtlOverNebenkosten()
+    {
+        // Arrange
+        var html = @"
+            <html>
+                <body>
+                    <table>
+                        <tr>
+                            <td><div>Hausgeld mtl.</div></td>
+                            <td><div>300 €</div></td>
+                        </tr>
+                        <tr>
+                            <td><div>Nebenkosten</div></td>
+                            <td><div>200 €</div></td>
+                        </tr>
+                    </table>
+                </body>
+            </html>";
+
+        // Act
+        var result = _parser.ParseDetailPage(html);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.ServiceChargeEur.Should().Be(300, "should prefer 'Hausgeld mtl.' over 'Nebenkosten'");
+    }
+
+    [Test]
+    public void ParseDetailPage_FallsBackToNebenkosten()
+    {
+        // Arrange
+        var html = @"
+            <html>
+                <body>
+                    <table>
+                        <tr>
+                            <td><div>Nebenkosten</div></td>
+                            <td><div>250 €</div></td>
+                        </tr>
+                    </table>
+                </body>
+            </html>";
+
+        // Act
+        var result = _parser.ParseDetailPage(html);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.ServiceChargeEur.Should().Be(250, "should extract from 'Nebenkosten' when 'Hausgeld mtl.' is not present");
     }
 
     [Test]
@@ -246,5 +308,53 @@ public class DetailPageParserTests
 
         // Assert
         result.Should().NotBeNull();
+    }
+
+    [Test]
+    public void ParseDetailPage_ExtractsEnergyEfficiencyClass()
+    {
+        // Arrange
+        var html = @"
+            <html>
+                <body>
+                    <table>
+                        <tr>
+                            <td><div>Energieeffizienzklasse</div></td>
+                            <td><div>C</div></td>
+                        </tr>
+                    </table>
+                </body>
+            </html>";
+
+        // Act
+        var result = _parser.ParseDetailPage(html);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.EnergyEfficiencyClass.Should().Be("C");
+    }
+
+    [Test]
+    public void ParseDetailPage_ExtractsEnergyConsumption()
+    {
+        // Arrange
+        var html = @"
+            <html>
+                <body>
+                    <table>
+                        <tr>
+                            <td><div>Endenergieverbrauch</div></td>
+                            <td><div>120 kWh/(m²·a)</div></td>
+                        </tr>
+                    </table>
+                </body>
+            </html>";
+
+        // Act
+        var result = _parser.ParseDetailPage(html);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.EnergyConsumption.Should().Be("120 kWh/(m²·a)");
     }
 }
