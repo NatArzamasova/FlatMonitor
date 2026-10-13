@@ -8,6 +8,7 @@
     <PackageVersion Include="HtmlAgilityPack" Version="1.11.61" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.0" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
 
     <!-- Test packages -->
     <PackageVersion Include="NUnit" Version="4.1.0" />

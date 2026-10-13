@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using workInProgress.Scraping;
 using workInProgress.Scraping.OhneMakler;
 using workInProgress.Storage;
@@ -30,18 +31,34 @@ async Task<int> RunScrapeAsync()
 {
     Console.WriteLine("Starting scraper...");
 
-    using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-    httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+    var services = new ServiceCollection();
 
-    var ohnemaklerScraper = new OhneMaklerScraper(httpClient);
-    var repository = new FlatSnapshotRepository();
-    var snapshotWriter = new SnapshotWriter();
+    services.AddSingleton<HttpClient>(sp =>
+    {
+        var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+        return client;
+    });
 
-    var scrapers = new[] { (IScraper)ohnemaklerScraper };
-    await using var coordinator = new ScraperCoordinator(scrapers, repository, snapshotWriter);
+    services.AddScoped<OhneMaklerScraper>();
+    services.AddScoped<IScraper>(sp => sp.GetRequiredService<OhneMaklerScraper>());
+
+    services.AddScoped<ISnapshotRepository, FlatSnapshotRepository>();
+    services.AddScoped<SnapshotWriter>();
+
+    services.AddScoped<ScraperCoordinator>(sp =>
+    {
+        var scrapers = new[] { sp.GetRequiredService<IScraper>() };
+        var repository = sp.GetRequiredService<ISnapshotRepository>();
+        var snapshotWriter = sp.GetRequiredService<SnapshotWriter>();
+        return new ScraperCoordinator(scrapers, repository, snapshotWriter);
+    });
+
+    var serviceProvider = services.BuildServiceProvider();
 
     try
     {
+        await using var coordinator = serviceProvider.GetRequiredService<ScraperCoordinator>();
         await coordinator.ScrapeAllSourcesAsync();
         return 0;
     }
@@ -49,6 +66,10 @@ async Task<int> RunScrapeAsync()
     {
         Console.Error.WriteLine($"Scrape failed: {ex.Message}");
         return 1;
+    }
+    finally
+    {
+        await serviceProvider.DisposeAsync();
     }
 }
 

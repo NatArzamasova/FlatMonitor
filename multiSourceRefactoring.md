@@ -177,23 +177,37 @@ Each commit will be verified with:
 3. `dotnet run -- scrape` — manual smoke test
 4. `git diff` review — confirm scope alignment
 
-## Future Phases (Post-Phase 1)
+## Phase 3: Dependency Injection setup
+**Status:** ✅ DONE (All changes implemented and tested)
 
-**Phase 2:** Database schema updates
-- Add `Source` column to `Listings`/`Snapshots` tables
-- Add unique constraints: `(Source, Url, Address)` on Listings
-- Update `ISnapshotRepository`/`OhneMaklerSnapshotRepository` signatures
+### Key Architectural Decisions
 
-**Phase 3:** DI setup
-- Introduce dependency injection container in `Program.cs`
-- Register scrapers and coordinator with `services.AddScoped<...>()`
+1. **Service Collection:** Use `Microsoft.Extensions.DependencyInjection` to manage scraper registration and lifecycle.
+2. **Scoped Lifestyle:** Register scrapers, repositories, and snapshot writer as scoped services (one instance per scrape command execution).
+3. **Multi-Scraper Registration:** Each `IScraper` implementation is registered, enabling the coordinator to loop over all registered scrapers. Adding a new source is now just registering it in DI.
+4. **Lazy ScraperCoordinator:** Coordinator is instantiated with all registered `IScraper` instances, preparing for Phase 4 (multi-source orchestration).
+
+### Files Modified
+
+Files modified:
+- ✅ `workInProgress/workInProgress.csproj` — added `Microsoft.Extensions.DependencyInjection` package reference
+- ✅ `Directory.Packages.props` — added `Microsoft.Extensions.DependencyInjection` version `10.0.0`
+- ✅ `workInProgress/Program.cs` — replaced manual instantiation with DI container setup; `RunScrapeAsync()` now uses `ServiceCollection` to register and resolve all dependencies
+
+Verification:
+- ✅ `dotnet build` — 0 errors
+- ✅ `dotnet test` — 76/78 tests pass (same 2 pre-existing fixture failures)
+
+## Future Phases (Post-Phase 3)
 
 **Phase 4:** Add ImmobilienScout24 source
 - Create `Scraping/ImmobilienScout24/` folder structure
 - Implement `ImmobilienScout24Scraper` and parsers
+- Register `ImmobilienScout24Scraper` in DI alongside `OhneMaklerScraper`
 - Add tests and fixtures under `workInProgress.Tests/ImmobilienScout24/`
 
 **Phase 5:** Report generation
 - Implement `report` command in `Program.cs`
+- Load all JSONL snapshots into SQLite
 - Group statistics per source
 - Optional: `--source` CLI flag to filter by source
