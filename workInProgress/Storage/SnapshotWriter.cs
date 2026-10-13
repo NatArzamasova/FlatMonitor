@@ -11,12 +11,14 @@ public sealed class SnapshotWriter
     public async Task<string> WriteSnapshotAsync(
         List<Flat> listings,
         string? baseDirectory = null,
+        string? source = null,
         CancellationToken ct = default)
     {
         baseDirectory ??= StoragePaths.GetDefaultDataDirectory();
+        source ??= "default";
 
-        // Ensure data/snapshots directory exists
-        var snapshotsPath = Path.Combine(baseDirectory, SnapshotsDir);
+        // Ensure data/snapshots/{source} directory exists
+        var snapshotsPath = Path.Combine(baseDirectory, SnapshotsDir, source);
         Directory.CreateDirectory(snapshotsPath);
 
         // Generate timestamped filename: {utc-timestamp}.jsonl

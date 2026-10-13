@@ -19,6 +19,8 @@ public class SnapshotLoaderTests
         _testDir = Path.Combine(Path.GetTempPath(), $"OhneMaklerTests_{Guid.NewGuid()}");
         _snapshotsDir = Path.Combine(_testDir, "snapshots");
         Directory.CreateDirectory(_snapshotsDir);
+        // Create default source subdirectory for backward compatibility
+        Directory.CreateDirectory(Path.Combine(_snapshotsDir, "default"));
     }
 
     [TearDown]
@@ -96,7 +98,9 @@ public class SnapshotLoaderTests
             ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
         };
 
-        var snapshotPath = Path.Combine(_snapshotsDir, "2026-10-12T10-00-00.jsonl");
+        var sourceDir = Path.Combine(_snapshotsDir, "OhneMakler");
+        Directory.CreateDirectory(sourceDir);
+        var snapshotPath = Path.Combine(sourceDir, "2026-10-12T10-00-00.jsonl");
         var lines = new[]
         {
             JsonSerializer.Serialize(listing1, JsonOptions.Snapshot),
@@ -137,10 +141,12 @@ public class SnapshotLoaderTests
             ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
         };
 
-        var file1Path = Path.Combine(_snapshotsDir, "2026-10-11T10-00-00.jsonl");
+        var sourceDir = Path.Combine(_snapshotsDir, "OhneMakler");
+        Directory.CreateDirectory(sourceDir);
+        var file1Path = Path.Combine(sourceDir, "2026-10-11T10-00-00.jsonl");
         File.WriteAllText(file1Path, JsonSerializer.Serialize(listing1, JsonOptions.Snapshot));
 
-        var file2Path = Path.Combine(_snapshotsDir, "2026-10-12T10-00-00.jsonl");
+        var file2Path = Path.Combine(sourceDir, "2026-10-12T10-00-00.jsonl");
         File.WriteAllText(file2Path, JsonSerializer.Serialize(listing2, JsonOptions.Snapshot));
 
         var loader = new SnapshotLoader();
@@ -166,7 +172,9 @@ public class SnapshotLoaderTests
             ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
         };
 
-        var snapshotPath = Path.Combine(_snapshotsDir, "2026-10-12T10-00-00.jsonl");
+        var sourceDir = Path.Combine(_snapshotsDir, "OhneMakler");
+        Directory.CreateDirectory(sourceDir);
+        var snapshotPath = Path.Combine(sourceDir, "2026-10-12T10-00-00.jsonl");
         var lines = new[]
         {
             JsonSerializer.Serialize(validListing, JsonOptions.Snapshot),
@@ -201,7 +209,9 @@ public class SnapshotLoaderTests
             ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
         };
 
-        var snapshotPath = Path.Combine(_snapshotsDir, "2026-10-12T10-00-00.jsonl");
+        var sourceDir = Path.Combine(_snapshotsDir, "OhneMakler");
+        Directory.CreateDirectory(sourceDir);
+        var snapshotPath = Path.Combine(sourceDir, "2026-10-12T10-00-00.jsonl");
         File.WriteAllText(snapshotPath, JsonSerializer.Serialize(listing, JsonOptions.Snapshot));
 
         var loader = new SnapshotLoader();
@@ -238,7 +248,9 @@ public class SnapshotLoaderTests
             }
         };
 
-        var snapshotPath = Path.Combine(_snapshotsDir, "2026-10-12T10-00-00.jsonl");
+        var sourceDir = Path.Combine(_snapshotsDir, "OhneMakler");
+        Directory.CreateDirectory(sourceDir);
+        var snapshotPath = Path.Combine(sourceDir, "2026-10-12T10-00-00.jsonl");
         File.WriteAllText(snapshotPath, JsonSerializer.Serialize(listing, JsonOptions.Snapshot));
 
         var loader = new SnapshotLoader();
@@ -253,5 +265,46 @@ public class SnapshotLoaderTests
         storedListing.Details!.PropertyType.Should().Be("Wohnung");
         storedListing.Details.BuildYear.Should().Be(2010);
         storedListing.Details.Heating.Should().Be("Gas");
+    }
+
+    [Test]
+    public void LoadAllSnapshots_WithMultipleSources_LoadsFromAllSourceDirectories()
+    {
+        // Arrange
+        var listing1 = new Flat
+        {
+            ListingId = "1",
+            Url = "/immobilie/1/",
+            Title = "From OhneMakler",
+            ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+        };
+
+        var listing2 = new Flat
+        {
+            ListingId = "2",
+            Url = "/property/2",
+            Title = "From ImmobilienScout24",
+            ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+        };
+
+        var ohneDir = Path.Combine(_snapshotsDir, "OhneMakler");
+        var scoutDir = Path.Combine(_snapshotsDir, "ImmobilienScout24");
+        Directory.CreateDirectory(ohneDir);
+        Directory.CreateDirectory(scoutDir);
+
+        var file1 = Path.Combine(ohneDir, "2026-10-12T10-00-00.jsonl");
+        var file2 = Path.Combine(scoutDir, "2026-10-12T10-00-00.jsonl");
+        File.WriteAllText(file1, JsonSerializer.Serialize(listing1, JsonOptions.Snapshot));
+        File.WriteAllText(file2, JsonSerializer.Serialize(listing2, JsonOptions.Snapshot));
+
+        var loader = new SnapshotLoader();
+
+        // Act
+        var listings = loader.LoadAllSnapshots(_testDir);
+
+        // Assert
+        listings.Should().HaveCount(2);
+        listings.Should().Contain(l => l.Title == "From OhneMakler");
+        listings.Should().Contain(l => l.Title == "From ImmobilienScout24");
     }
 }

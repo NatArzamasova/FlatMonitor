@@ -75,16 +75,20 @@ Takes over persistence orchestration from `ListingScraper.RunAsync()`:
 
 ## Implementation Status
 
+**Phase 1 Overall:** ⏳ In Progress (Commit 1 complete, Commits 2-3 pending)
+
 ### Commit 1: Extract IScraper interface and relocate OhneMakler scraping code
-**Status:** In Progress
+**Status:** ✅ DONE (Commit 5323100)
 
 Files created:
 - ✅ `workInProgress/Scraping/IScraper.cs`
 
 Files modified:
 - ✅ `workInProgress/Models/Listing.cs` — added `Source` property
+- ✅ `workInProgress/Scraping/OhneMakler/OhneMaklerScraper.cs` — implements `IScraper`
+- ✅ `workInProgress/Program.cs` — references `OhneMaklerScraper` with new namespace
 
-Files moved (staged for commit):
+Files moved:
 - ✅ `ListingScraper.cs` → `OhneMakler/OhneMaklerScraper.cs`
 - ✅ `ListingsPageFetcher.cs` → `OhneMakler/OhneMaklerListingsPageFetcher.cs`
 - ✅ `ListingCardParser.cs` → `OhneMakler/OhneMaklerListingCardParser.cs`
@@ -92,11 +96,11 @@ Files moved (staged for commit):
 - ✅ `AddressHelper.cs` → `OhneMakler/OhneMaklerAddressHelper.cs`
 - ✅ `Selectors.cs` → `OhneMakler/OhneMaklerSelectors.cs`
 
-Still needed for Commit 1:
-- Update `OhneMaklerScraper.cs` (ex-`ListingScraper`) to implement `IScraper`
-- Update test files and fixtures (move to `OhneMakler/` subfolder)
-- Update `Program.cs` to reference new class names
-- Stage and commit with message: `refactor(scrape): extract IScraper interface and relocate OhneMakler scraping code`
+Test files moved to `workInProgress.Tests/OhneMakler/`:
+- ✅ `OhneMaklerScraperTests.cs`
+- ✅ `OhneMaklerDetailPageParserTests.cs`
+- ✅ `OhneMaklerListingCardParserTests.cs`
+- ✅ `OhneMaklerPostcodeFilterTests.cs`
 
 ### Commit 2: Partition JSONL snapshots by source
 **Status:** Not started

@@ -44,10 +44,10 @@ public class SnapshotWriterTests
         };
 
         // Act
-        var path = await _writer.WriteSnapshotAsync(listings, _testDir);
+        var path = await _writer.WriteSnapshotAsync(listings, _testDir, "OhneMakler");
 
         // Assert
-        var snapshotsDir = Path.Combine(_testDir, "snapshots");
+        var snapshotsDir = Path.Combine(_testDir, "snapshots", "OhneMakler");
         Directory.Exists(snapshotsDir).Should().BeTrue();
     }
 
@@ -67,11 +67,12 @@ public class SnapshotWriterTests
         };
 
         // Act
-        var path = await _writer.WriteSnapshotAsync(listings, _testDir);
+        var path = await _writer.WriteSnapshotAsync(listings, _testDir, "OhneMakler");
 
         // Assert
         File.Exists(path).Should().BeTrue();
         path.Should().Contain("snapshots");
+        path.Should().Contain("OhneMakler");
         path.Should().EndWith(".jsonl");
         // Filename should match timestamp format: YYYY-MM-DDTHH-mm-ss
         var filename = Path.GetFileNameWithoutExtension(path);
@@ -101,7 +102,7 @@ public class SnapshotWriterTests
         };
 
         // Act
-        var path = await _writer.WriteSnapshotAsync(listings, _testDir);
+        var path = await _writer.WriteSnapshotAsync(listings, _testDir, "OhneMakler");
 
         // Assert
         var lines = File.ReadAllLines(path);
@@ -133,7 +134,7 @@ public class SnapshotWriterTests
         };
 
         // Act
-        var path = await _writer.WriteSnapshotAsync(listings, _testDir);
+        var path = await _writer.WriteSnapshotAsync(listings, _testDir, "OhneMakler");
 
         // Assert
         var content = File.ReadAllText(path);
@@ -163,7 +164,7 @@ public class SnapshotWriterTests
         };
 
         // Act
-        var path = await _writer.WriteSnapshotAsync(listings, _testDir);
+        var path = await _writer.WriteSnapshotAsync(listings, _testDir, "OhneMakler");
 
         // Assert
         var content = File.ReadAllText(path);
@@ -196,7 +197,7 @@ public class SnapshotWriterTests
         };
 
         // Act
-        var path = await _writer.WriteSnapshotAsync(listings, _testDir);
+        var path = await _writer.WriteSnapshotAsync(listings, _testDir, "OhneMakler");
 
         // Assert
         var content = File.ReadAllText(path);
@@ -222,9 +223,9 @@ public class SnapshotWriterTests
         };
 
         // Act
-        var path1 = await _writer.WriteSnapshotAsync(listings, _testDir);
+        var path1 = await _writer.WriteSnapshotAsync(listings, _testDir, "OhneMakler");
         await Task.Delay(1100); // Ensure different timestamp
-        var path2 = await _writer.WriteSnapshotAsync(listings, _testDir);
+        var path2 = await _writer.WriteSnapshotAsync(listings, _testDir, "OhneMakler");
 
         // Assert
         path1.Should().NotBe(path2);
@@ -239,11 +240,60 @@ public class SnapshotWriterTests
         var listings = new List<Flat>();
 
         // Act
-        var path = await _writer.WriteSnapshotAsync(listings, _testDir);
+        var path = await _writer.WriteSnapshotAsync(listings, _testDir, "OhneMakler");
 
         // Assert
         File.Exists(path).Should().BeTrue();
         var content = File.ReadAllText(path);
         content.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task WriteSnapshotAsync_WithDifferentSources_OrganizesIntoSeparateDirectories()
+    {
+        // Arrange
+        var listings = new List<Flat>
+        {
+            new()
+            {
+                ListingId = "1",
+                Url = "/immobilie/1/",
+                Title = "Test",
+                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+            }
+        };
+
+        // Act
+        var path1 = await _writer.WriteSnapshotAsync(listings, _testDir, "OhneMakler");
+        var path2 = await _writer.WriteSnapshotAsync(listings, _testDir, "ImmobilienScout24");
+
+        // Assert
+        path1.Should().Contain("snapshots" + Path.DirectorySeparatorChar + "OhneMakler");
+        path2.Should().Contain("snapshots" + Path.DirectorySeparatorChar + "ImmobilienScout24");
+        File.Exists(path1).Should().BeTrue();
+        File.Exists(path2).Should().BeTrue();
+    }
+
+    [Test]
+    public async Task WriteSnapshotAsync_WithNullSource_UsesDefaultSource()
+    {
+        // Arrange
+        var listings = new List<Flat>
+        {
+            new()
+            {
+                ListingId = "1",
+                Url = "/immobilie/1/",
+                Title = "Test",
+                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+            }
+        };
+
+        // Act
+        var path = await _writer.WriteSnapshotAsync(listings, _testDir, source: null);
+
+        // Assert
+        path.Should().Contain("snapshots" + Path.DirectorySeparatorChar + "default");
+        File.Exists(path).Should().BeTrue();
     }
 }

@@ -17,7 +17,7 @@ public sealed class SnapshotLoader
         if (!Directory.Exists(snapshotsPath))
             return listings;
 
-        var snapshotFiles = Directory.GetFiles(snapshotsPath, "*.jsonl")
+        var snapshotFiles = Directory.GetFiles(snapshotsPath, "*.jsonl", SearchOption.AllDirectories)
             .OrderBy(f => f, StringComparer.Ordinal);
 
         foreach (var file in snapshotFiles)

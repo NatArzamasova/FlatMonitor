@@ -40,7 +40,7 @@ public sealed class OhneMaklerScraper : IScraper, IAsyncDisposable
         await _repository.InitializeAsync();
         await _repository.UpsertListingsAsync(listings);
 
-        var snapshotPath = await _snapshotWriter.WriteSnapshotAsync(listings);
+        var snapshotPath = await _snapshotWriter.WriteSnapshotAsync(listings, source: SourceName);
         Console.WriteLine($"Snapshot written: {snapshotPath}");
         Console.WriteLine($"Database updated with {listings.Count} listings");
         Console.WriteLine($"Total listings: {listings.Count}");
