@@ -10,7 +10,7 @@ public sealed class SnapshotLoader
 
     public List<Listing> LoadAllSnapshots(string? baseDirectory = null)
     {
-        baseDirectory ??= "data";
+        baseDirectory ??= StoragePaths.GetDefaultDataDirectory();
         var snapshotsPath = Path.Combine(baseDirectory, SnapshotsDir);
         var listings = new List<Listing>();
 

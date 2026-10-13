@@ -91,7 +91,7 @@ public sealed class ListingsRepository : IAsyncDisposable
 
     private static string GetDefaultConnectionString()
     {
-        var dataDir = Path.Combine("data");
+        var dataDir = StoragePaths.GetDefaultDataDirectory();
         if (!Directory.Exists(dataDir))
             Directory.CreateDirectory(dataDir);
 

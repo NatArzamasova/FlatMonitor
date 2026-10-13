@@ -13,7 +13,7 @@ public sealed class SnapshotWriter
         string? baseDirectory = null,
         CancellationToken ct = default)
     {
-        baseDirectory ??= "data";
+        baseDirectory ??= StoragePaths.GetDefaultDataDirectory();
 
         // Ensure data/snapshots directory exists
         var snapshotsPath = Path.Combine(baseDirectory, SnapshotsDir);
