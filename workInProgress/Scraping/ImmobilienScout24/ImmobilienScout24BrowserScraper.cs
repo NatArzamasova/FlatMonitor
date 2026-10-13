@@ -7,7 +7,7 @@ public class ImmobilienScout24BrowserScraper : IAsyncDisposable
     private IBrowser? _browser;
     private IPage? _page;
 
-    public async Task<string?> FetchListingsPageAsync()
+    public async Task<(IBrowser? browser, IPage? page)> LaunchAndAuthenticateAsync()
     {
         try
         {
@@ -30,20 +30,12 @@ public class ImmobilienScout24BrowserScraper : IAsyncDisposable
 
             Console.ReadLine();
 
-            Console.WriteLine("Extracting page HTML...");
-            var html = await _page.ContentAsync();
-
-            // Save HTML for debugging
-            var debugFile = Path.Combine(Path.GetTempPath(), $"is24_debug_{DateTime.UtcNow:yyyyMMdd_HHmmss}.html");
-            await File.WriteAllTextAsync(debugFile, html);
-            Console.WriteLine($"Debug HTML saved to: {debugFile}");
-
-            return html;
+            return (_browser, _page);
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Error: {ex.Message}");
-            return null;
+            return (null, null);
         }
     }
 

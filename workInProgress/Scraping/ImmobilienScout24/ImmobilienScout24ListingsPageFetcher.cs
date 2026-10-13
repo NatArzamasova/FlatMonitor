@@ -13,6 +13,7 @@ internal sealed class ImmobilienScout24ListingsPageFetcher : IAsyncDisposable
     private readonly IBrowser _browser;
     private readonly IPage _page;
     private const int MaxPagesLimit = 50;
+    private bool _isLastPage = false;
 
     public ImmobilienScout24ListingsPageFetcher(IBrowser browser, IPage page)
     {
@@ -21,13 +22,14 @@ internal sealed class ImmobilienScout24ListingsPageFetcher : IAsyncDisposable
     }
 
     /// <summary>
-    /// Yields raw HTML for each listings page, starting at the first page, stopping when
-    /// the next-page button is disabled or after reaching the safety limit.
+    /// Yields raw HTML for subsequent pages, starting from the next page after the current one.
+    /// Assumes the browser is already on page 1; fetches pages 2, 3, etc.
+    /// Stops when the next-page button is disabled or after reaching the safety limit.
     /// </summary>
     public async IAsyncEnumerable<string> FetchAllPagesHtmlAsync(
         [EnumeratorCancellation] CancellationToken ct = default)
     {
-        int pageNumber = 1;
+        int pageNumber = 2;
 
         while (pageNumber <= MaxPagesLimit)
         {
@@ -41,6 +43,14 @@ internal sealed class ImmobilienScout24ListingsPageFetcher : IAsyncDisposable
             }
 
             yield return pageResult;
+
+            // Check if this was the last page
+            if (_isLastPage)
+            {
+                Console.WriteLine("Pagination complete.");
+                yield break;
+            }
+
             pageNumber++;
         }
 
@@ -52,17 +62,22 @@ internal sealed class ImmobilienScout24ListingsPageFetcher : IAsyncDisposable
     {
         try
         {
-            // Wait for listings to load (NetworkIdle ensures page is stable)
-            await _page.WaitForLoadStateAsync(LoadState.NetworkIdle, new() { Timeout = 30000 });
+            Console.WriteLine($"Fetching page {pageNumber}: Waiting for page load...");
+            // Wait for DOM content first, then allow some network time for listings to load
+            await _page.WaitForLoadStateAsync(LoadState.DOMContentLoaded, new() { Timeout = 60000 });
+            await Task.Delay(2000); // Give it 2 more seconds for listings to render
+            Console.WriteLine($"Fetching page {pageNumber}: Page loaded, extracting HTML...");
 
             // Extract current page HTML
             var html = await _page.ContentAsync();
+            Console.WriteLine($"Fetching page {pageNumber}: HTML extracted ({html.Length} bytes), parsing...");
 
             // Count listing cards on this page
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
-            var listingCards = doc.DocumentNode.SelectNodes("//div[@class='touchpoint-card']");
+            var listingCards = doc.DocumentNode.SelectNodes("//div[contains(@class, 'listing-card') and @data-obid]");
             int listingCount = listingCards?.Count ?? 0;
+            Console.WriteLine($"Fetching page {pageNumber}: Found {listingCount} listing cards");
 
             if (listingCount == 0)
             {
@@ -73,14 +88,17 @@ internal sealed class ImmobilienScout24ListingsPageFetcher : IAsyncDisposable
             Console.WriteLine($"Page {pageNumber}: {listingCount} listings found.");
 
             // Check if next page button exists and is enabled
+            Console.WriteLine($"Fetching page {pageNumber}: Checking for next page button...");
             var nextButton = await _page.QuerySelectorAsync("button[data-testid='pagination-button-next']:not([disabled])");
             if (nextButton == null)
             {
                 Console.WriteLine($"Next page button not found or disabled. Pagination complete after this page.");
+                _isLastPage = true;
             }
             else
             {
                 // Click next page button
+                Console.WriteLine($"Fetching page {pageNumber}: Clicking next page button...");
                 await nextButton.ClickAsync();
             }
 
@@ -91,12 +109,17 @@ internal sealed class ImmobilienScout24ListingsPageFetcher : IAsyncDisposable
             if (pageNumber == 1)
             {
                 // Page 1 is fatal
+                Console.Error.WriteLine($"Error on page {pageNumber}: {ex.Message}");
+                if (ex.InnerException != null)
+                    Console.Error.WriteLine($"Inner exception: {ex.InnerException.Message}");
                 throw new InvalidOperationException(
                     $"Failed to fetch the first page from immobilienscout24.de. Scrape cannot continue.", ex);
             }
 
             // Later pages: log warning and stop
             Console.WriteLine($"Warning: Failed to fetch page {pageNumber}: {ex.Message}");
+            if (ex.InnerException != null)
+                Console.WriteLine($"Inner exception: {ex.InnerException.Message}");
             return null;
         }
     }

@@ -98,17 +98,19 @@ async Task<int> ExploreImmobilienScout24Async()
     Console.WriteLine("ImmobilienScout24 Explorer with Playwright");
     Console.WriteLine("==========================================\n");
 
-    await using var scraper = new ImmobilienScout24BrowserScraper();
+    var scraper = new ImmobilienScout24BrowserScraper();
 
     try
     {
-        var html = await scraper.FetchListingsPageAsync();
+        var (browser, page) = await scraper.LaunchAndAuthenticateAsync();
 
-        if (html == null)
+        if (browser == null || page == null)
         {
-            Console.Error.WriteLine("Failed to fetch listings page.");
+            Console.Error.WriteLine("Failed to launch browser or authenticate.");
             return 1;
         }
+
+        var html = await page.ContentAsync();
 
         Console.WriteLine("\n✓ Page fetched successfully!");
         Console.WriteLine($"Page size: {html.Length} bytes");
@@ -122,6 +124,7 @@ async Task<int> ExploreImmobilienScout24Async()
         Console.WriteLine($"\n✓ HTML saved to: {outputPath}");
         Console.WriteLine("You can now analyze the page structure by opening this file.");
 
+        await scraper.DisposeAsync();
         return 0;
     }
     catch (Exception ex)

@@ -34,22 +34,34 @@ public sealed class ImmobilienScout24Scraper : IScraper
         {
             // Use browser scraper to log in and get authenticated session
             var browserScraper = new ImmobilienScout24BrowserScraper();
-            var firstPageHtml = await browserScraper.FetchListingsPageAsync();
+            var (browser, page) = await browserScraper.LaunchAndAuthenticateAsync();
 
-            if (string.IsNullOrEmpty(firstPageHtml))
+            if (browser == null || page == null)
             {
-                Console.WriteLine("Failed to fetch initial listings page.");
+                Console.WriteLine("Failed to launch browser or authenticate.");
                 return allListings;
             }
 
-            // Parse first page
-            var listings = ParseListingsPage(firstPageHtml);
-            allListings.AddRange(listings);
+            // Extract and parse first page (already authenticated and loaded)
+            Console.WriteLine("Extracting first page HTML...");
+            var firstPageHtml = await page.ContentAsync();
+            var firstPageListings = ParseListingsPage(firstPageHtml);
+            allListings.AddRange(firstPageListings);
+            Console.WriteLine($"Page 1: added {firstPageListings.Count} listings");
 
-            // For now, we only scrape the first authenticated page.
-            // Pagination via next-page button would require keeping the browser open,
-            // which is complex in the current architecture. Can be added in a future phase.
-            Console.WriteLine($"ImmobilienScout24 scraper fetched 1 page with {listings.Count} listings total.");
+            // Use pagination fetcher for subsequent pages
+            var pageFetcher = new ImmobilienScout24ListingsPageFetcher(browser, page);
+            int pageNumber = 2;
+
+            await foreach (var pageHtml in pageFetcher.FetchAllPagesHtmlAsync(ct))
+            {
+                var listings = ParseListingsPage(pageHtml);
+                allListings.AddRange(listings);
+                Console.WriteLine($"Page {pageNumber}: added {listings.Count} listings");
+                pageNumber++;
+            }
+
+            Console.WriteLine($"ImmobilienScout24 scraper fetched {pageNumber - 1} pages with {allListings.Count} listings total.");
 
             await browserScraper.DisposeAsync();
         }
