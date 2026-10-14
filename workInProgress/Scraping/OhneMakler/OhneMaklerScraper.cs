@@ -55,7 +55,7 @@ public sealed class OhneMaklerScraper : IScraper
                 {
                     // Fetch and parse the detail page.
                     string detailHtml = await FetchDetailPageAsync(detailPageUrl, ct);
-                    var details = _detailParser.ParseDetailPage(detailHtml);
+                    var details = _detailParser.ParseDetailFields(detailHtml);
 
                     // Extract title, address, rooms, and area from the detail page HTML.
                     string? title = ExtractTitleFromDetailPage(detailHtml);

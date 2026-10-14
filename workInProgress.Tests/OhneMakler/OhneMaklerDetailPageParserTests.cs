@@ -21,26 +21,26 @@ public class OhneMaklerDetailPageParserTests
     }
 
     [Test]
-    public void ParseDetailPage_WithValidHtml_ReturnsDetails()
+    public void ParseDetailFields_WithValidHtml_ReturnsDetails()
     {
         // Arrange
         var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
 
         // Act
-        var result = _parser.ParseDetailPage(html);
+        var result = _parser.ParseDetailFields(html);
 
         // Assert
         result.Should().NotBeNull();
     }
 
     [Test]
-    public void ParseDetailPage_ExtractsPropertyTypeCorrectly()
+    public void ParseDetailFields_ExtractsPropertyTypeCorrectly()
     {
         // Arrange
         var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
 
         // Act
-        var result = _parser.ParseDetailPage(html);
+        var result = _parser.ParseDetailFields(html);
 
         // Assert
         result.Should().NotBeNull();
@@ -48,13 +48,13 @@ public class OhneMaklerDetailPageParserTests
     }
 
     [Test]
-    public void ParseDetailPage_ExtractsBuildYearAsInteger()
+    public void ParseDetailFields_ExtractsBuildYearAsInteger()
     {
         // Arrange
         var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
 
         // Act
-        var result = _parser.ParseDetailPage(html);
+        var result = _parser.ParseDetailFields(html);
 
         // Assert
         result.Should().NotBeNull();
@@ -62,13 +62,13 @@ public class OhneMaklerDetailPageParserTests
     }
 
     [Test]
-    public void ParseDetailPage_ExtractsConditionCorrectly()
+    public void ParseDetailFields_ExtractsConditionCorrectly()
     {
         // Arrange
         var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
 
         // Act
-        var result = _parser.ParseDetailPage(html);
+        var result = _parser.ParseDetailFields(html);
 
         // Assert
         result.Should().NotBeNull();
@@ -76,13 +76,13 @@ public class OhneMaklerDetailPageParserTests
     }
 
     [Test]
-    public void ParseDetailPage_ExtractsHeatingCorrectly()
+    public void ParseDetailFields_ExtractsHeatingCorrectly()
     {
         // Arrange
         var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
 
         // Act
-        var result = _parser.ParseDetailPage(html);
+        var result = _parser.ParseDetailFields(html);
 
         // Assert
         result.Should().NotBeNull();
@@ -90,13 +90,13 @@ public class OhneMaklerDetailPageParserTests
     }
 
     [Test]
-    public void ParseDetailPage_ExtractsServiceChargeAsInteger()
+    public void ParseDetailFields_ExtractsServiceChargeAsInteger()
     {
         // Arrange
         var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
 
         // Act
-        var result = _parser.ParseDetailPage(html);
+        var result = _parser.ParseDetailFields(html);
 
         // Assert
         result.Should().NotBeNull();
@@ -104,7 +104,7 @@ public class OhneMaklerDetailPageParserTests
     }
 
     [Test]
-    public void ParseDetailPage_ExtractsServiceChargeFromHausgeldMtl()
+    public void ParseDetailFields_ExtractsServiceChargeFromHausgeldMtl()
     {
         // Arrange
         var html = @"
@@ -120,7 +120,7 @@ public class OhneMaklerDetailPageParserTests
             </html>";
 
         // Act
-        var result = _parser.ParseDetailPage(html);
+        var result = _parser.ParseDetailFields(html);
 
         // Assert
         result.Should().NotBeNull();
@@ -128,7 +128,7 @@ public class OhneMaklerDetailPageParserTests
     }
 
     [Test]
-    public void ParseDetailPage_PrefersHausgeldMtlOverNebenkosten()
+    public void ParseDetailFields_PrefersHausgeldMtlOverNebenkosten()
     {
         // Arrange
         var html = @"
@@ -148,7 +148,7 @@ public class OhneMaklerDetailPageParserTests
             </html>";
 
         // Act
-        var result = _parser.ParseDetailPage(html);
+        var result = _parser.ParseDetailFields(html);
 
         // Assert
         result.Should().NotBeNull();
@@ -156,7 +156,7 @@ public class OhneMaklerDetailPageParserTests
     }
 
     [Test]
-    public void ParseDetailPage_FallsBackToNebenkosten()
+    public void ParseDetailFields_FallsBackToNebenkosten()
     {
         // Arrange
         var html = @"
@@ -172,7 +172,7 @@ public class OhneMaklerDetailPageParserTests
             </html>";
 
         // Act
-        var result = _parser.ParseDetailPage(html);
+        var result = _parser.ParseDetailFields(html);
 
         // Assert
         result.Should().NotBeNull();
@@ -180,13 +180,13 @@ public class OhneMaklerDetailPageParserTests
     }
 
     [Test]
-    public void ParseDetailPage_ExtractsEnergyCertificateType()
+    public void ParseDetailFields_ExtractsEnergyCertificateType()
     {
         // Arrange
         var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
 
         // Act
-        var result = _parser.ParseDetailPage(html);
+        var result = _parser.ParseDetailFields(html);
 
         // Assert
         result.Should().NotBeNull();
@@ -194,13 +194,13 @@ public class OhneMaklerDetailPageParserTests
     }
 
     [Test]
-    public void ParseDetailPage_ExtractsPrimaryEnergySource()
+    public void ParseDetailFields_ExtractsPrimaryEnergySource()
     {
         // Arrange
         var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
 
         // Act
-        var result = _parser.ParseDetailPage(html);
+        var result = _parser.ParseDetailFields(html);
 
         // Assert
         result.Should().NotBeNull();
@@ -208,13 +208,13 @@ public class OhneMaklerDetailPageParserTests
     }
 
     [Test]
-    public void ParseDetailPage_ExtractsListingStatus()
+    public void ParseDetailFields_ExtractsListingStatus()
     {
         // Arrange
         var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
 
         // Act
-        var result = _parser.ParseDetailPage(html);
+        var result = _parser.ParseDetailFields(html);
 
         // Assert
         result.Should().NotBeNull();
@@ -222,13 +222,13 @@ public class OhneMaklerDetailPageParserTests
     }
 
     [Test]
-    public void ParseDetailPage_ExtractsCurrentUse()
+    public void ParseDetailFields_ExtractsCurrentUse()
     {
         // Arrange
         var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
 
         // Act
-        var result = _parser.ParseDetailPage(html);
+        var result = _parser.ParseDetailFields(html);
 
         // Assert
         result.Should().NotBeNull();
@@ -236,13 +236,13 @@ public class OhneMaklerDetailPageParserTests
     }
 
     [Test]
-    public void ParseDetailPage_ExtractsAvailability()
+    public void ParseDetailFields_ExtractsAvailability()
     {
         // Arrange
         var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
 
         // Act
-        var result = _parser.ParseDetailPage(html);
+        var result = _parser.ParseDetailFields(html);
 
         // Assert
         result.Should().NotBeNull();
@@ -250,7 +250,7 @@ public class OhneMaklerDetailPageParserTests
     }
 
     [Test]
-    public void ParseDetailPage_WithMissingField_ReturnsNullForThatField()
+    public void ParseDetailFields_WithMissingField_ReturnsNullForThatField()
     {
         // Arrange
         var html = @"
@@ -266,7 +266,7 @@ public class OhneMaklerDetailPageParserTests
             </html>";
 
         // Act
-        var result = _parser.ParseDetailPage(html);
+        var result = _parser.ParseDetailFields(html);
 
         // Assert
         result.Should().NotBeNull();
@@ -276,20 +276,20 @@ public class OhneMaklerDetailPageParserTests
     }
 
     [Test]
-    public void ParseDetailPage_WithMalformedHtml_ReturnsNull()
+    public void ParseDetailFields_WithMalformedHtml_ReturnsNull()
     {
         // Arrange
         var html = "<html><body>invalid structure</body></html>";
 
         // Act
-        var result = _parser.ParseDetailPage(html);
+        var result = _parser.ParseDetailFields(html);
 
         // Assert
         result.Should().BeNull();
     }
 
     [Test]
-    public void ParseDetailPage_ExtractsTitleFromH1()
+    public void ParseDetailFields_ExtractsTitleFromH1()
     {
         // Arrange
         var html = @"
@@ -304,14 +304,14 @@ public class OhneMaklerDetailPageParserTests
             </html>";
 
         // Act
-        var result = _parser.ParseDetailPage(html);
+        var result = _parser.ParseDetailFields(html);
 
         // Assert
         result.Should().NotBeNull();
     }
 
     [Test]
-    public void ParseDetailPage_ExtractsEnergyEfficiencyClass()
+    public void ParseDetailFields_ExtractsEnergyEfficiencyClass()
     {
         // Arrange
         var html = @"
@@ -327,7 +327,7 @@ public class OhneMaklerDetailPageParserTests
             </html>";
 
         // Act
-        var result = _parser.ParseDetailPage(html);
+        var result = _parser.ParseDetailFields(html);
 
         // Assert
         result.Should().NotBeNull();
@@ -335,7 +335,7 @@ public class OhneMaklerDetailPageParserTests
     }
 
     [Test]
-    public void ParseDetailPage_ExtractsEnergyConsumption()
+    public void ParseDetailFields_ExtractsEnergyConsumption()
     {
         // Arrange
         var html = @"
@@ -351,7 +351,7 @@ public class OhneMaklerDetailPageParserTests
             </html>";
 
         // Act
-        var result = _parser.ParseDetailPage(html);
+        var result = _parser.ParseDetailFields(html);
 
         // Assert
         result.Should().NotBeNull();

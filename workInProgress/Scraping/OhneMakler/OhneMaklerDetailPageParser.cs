@@ -2,60 +2,50 @@ namespace workInProgress.Scraping.OhneMakler;
 
 using HtmlAgilityPack;
 using workInProgress.Models;
+using workInProgress.Storage;
 
-public sealed class OhneMaklerDetailPageParser
+/// <summary>
+/// Parses detail fields from ohne-makler.net detail pages.
+/// Delegates selector definitions to OhneMaklerDetailSelectors for easy maintenance.
+/// </summary>
+public sealed class OhneMaklerDetailPageParser : IDetailParser
 {
-    private static bool HasNodes(HtmlDocument doc, string xpath)
-        => doc.DocumentNode.SelectNodes(xpath)?.Count > 0;
+    private readonly OhneMaklerDetailSelectors _selectors;
 
-    private static string? ExtractText(HtmlNode? node)
-        => node?.InnerText?.Trim() is { Length: > 0 } text ? text : null;
-
-    private static string? ExtractFieldByMultiplePatterns(HtmlDocument doc, string label, params string[] xpaths)
+    public OhneMaklerDetailPageParser()
     {
-        foreach (var xpath in xpaths)
-        {
-            var nodes = doc.DocumentNode.SelectNodes(xpath);
-            if (nodes != null && nodes.Count > 0)
-            {
-                var text = ExtractText(nodes[0]);
-                if (text != null)
-                    return text;
-            }
-        }
-        return null;
+        _selectors = new OhneMaklerDetailSelectors();
     }
 
-    private static bool HasValidStructure(HtmlDocument doc)
-        => HasNodes(doc, "//tr")
-        || HasNodes(doc, "//span[@class]")
-        || HasNodes(doc, "//div[contains(text(), 'Heizung') or contains(text(), 'Verfügbarkeit')]");
-
-    public Details? ParseDetailPage(string html)
+    public Details? ParseDetailFields(string html)
     {
         try
         {
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
 
-            if (!HasValidStructure(doc))
+            if (!DetailExtractors.HasValidStructure(doc, _selectors.ValidStructurePatterns))
                 return null;
 
             var details = new Details
             {
-                PropertyType = ExtractField(doc, "Objektart"),
-                BuildYear = ExtractIntField(doc, "Baujahr"),
-                Floor = ExtractField(doc, "Etage") ?? ExtractField(doc, "Geschoss") ?? ExtractField(doc, "Stockwerk"),
-                Condition = ExtractField(doc, "Zustand"),
-                Heating = ExtractField(doc, "Heizung"),
-                ServiceChargeEur = ExtractIntField(doc, "Hausgeld mtl.") ?? ExtractIntField(doc, "Nebenkosten"),
-                EnergyCertificateType = ExtractField(doc, "Energieausweistyp"),
-                PrimaryEnergySource = ExtractField(doc, "Wesentlicher Energieträger"),
-                EnergyEfficiencyClass = ExtractField(doc, "Energieeffizienzklasse"),
-                EnergyConsumption = ExtractField(doc, "Endenergieverbrauch"),
+                PropertyType = DetailExtractors.ExtractText(doc, _selectors.PropertyTypeXPath),
+                BuildYear = DetailExtractors.ExtractIntField(DetailExtractors.ExtractText(doc, _selectors.BuildYearXPath)),
+                Floor = DetailExtractors.ExtractText(doc, _selectors.FloorXPath)
+                    ?? DetailExtractors.ExtractText(doc, _selectors.FloorAlternate1XPath)
+                    ?? DetailExtractors.ExtractText(doc, _selectors.FloorAlternate2XPath),
+                Condition = DetailExtractors.ExtractText(doc, _selectors.ConditionXPath),
+                Heating = DetailExtractors.ExtractText(doc, _selectors.HeatingXPath),
+                ServiceChargeEur = DetailExtractors.ExtractIntField(DetailExtractors.ExtractText(doc, _selectors.ServiceChargeHausgeldXPath))
+                    ?? DetailExtractors.ExtractIntField(DetailExtractors.ExtractText(doc, _selectors.ServiceChargeNebenkostenXPath)),
+                EnergyCertificateType = DetailExtractors.ExtractText(doc, _selectors.EnergyCertificateTypeXPath),
+                PrimaryEnergySource = DetailExtractors.ExtractText(doc, _selectors.PrimaryEnergySourceXPath),
+                EnergyEfficiencyClass = DetailExtractors.ExtractText(doc, _selectors.EnergyEfficiencyClassXPath),
+                EnergyConsumption = DetailExtractors.ExtractText(doc, _selectors.EnergyConsumptionXPath),
                 ListingStatus = ExtractListingStatus(doc),
                 CurrentUse = ExtractCurrentUse(doc),
-                Availability = ExtractField(doc, "Verfügbarkeit") ?? ExtractField(doc, "Übernahme ab"),
+                Availability = DetailExtractors.ExtractText(doc, _selectors.AvailabilityXPath)
+                    ?? DetailExtractors.ExtractText(doc, _selectors.AvailabilityAlternateXPath),
             };
 
             return details;
@@ -67,34 +57,7 @@ public sealed class OhneMaklerDetailPageParser
         }
     }
 
-    // Extract a string field by looking for a label and its associated value.
-    // Three patterns:
-    // 1. Label in <td> followed by value in next <td>
-    // 2. Value <span> followed by label <span> (key facts pattern)
-    // 3. Label <div> followed by value <div> (generic div pattern)
-    private static string? ExtractField(HtmlDocument doc, string label)
-        => ExtractFieldByMultiplePatterns(doc, label,
-            $"//tr[td/div[normalize-space()='{label}']]/td[2]/div",
-            $"//span[normalize-space()='{label}']/preceding-sibling::span[@class]",
-            $"//div[normalize-space()='{label}']/following-sibling::div");
-
-    // Extract an integer field (e.g., Baujahr, Nebenkosten).
-    private static int? ExtractIntField(HtmlDocument doc, string label)
-    {
-        var value = ExtractField(doc, label);
-        if (string.IsNullOrEmpty(value))
-            return null;
-
-        // Remove non-digit characters and parse
-        var digits = System.Text.RegularExpressions.Regex.Replace(value, @"[^\d]", "");
-        if (int.TryParse(digits, out int result))
-            return result;
-
-        return null;
-    }
-
-    // Listing status: "Privatangebot" or "Gewerbliches Angebot"
-    private static string? ExtractListingStatus(HtmlDocument doc)
+    private string? ExtractListingStatus(HtmlDocument doc)
     {
         var htmlText = doc.DocumentNode.InnerText;
         if (htmlText.Contains("Privatangebot", StringComparison.OrdinalIgnoreCase))
@@ -104,11 +67,13 @@ public sealed class OhneMaklerDetailPageParser
         return null;
     }
 
-    // Current use: "Vermietet" or "Eigennutzung" or similar.
-    private static string? ExtractCurrentUse(HtmlDocument doc)
-    {
-        // Use ExtractField for exact matching to avoid substring collisions
-        // (e.g., "Vermietet" matching "Nicht vermietet")
-        return ExtractField(doc, "Aktuelle Nutzung") ?? ExtractField(doc, "Nutzung");
-    }
+    private string? ExtractCurrentUse(HtmlDocument doc)
+        => DetailExtractors.ExtractFieldByMultiplePatterns(doc, "Aktuelle Nutzung",
+            $"//tr[td/div[normalize-space()='Aktuelle Nutzung']]/td[2]/div",
+            $"//span[normalize-space()='Aktuelle Nutzung']/preceding-sibling::span[@class]",
+            $"//div[normalize-space()='Aktuelle Nutzung']/following-sibling::div")
+        ?? DetailExtractors.ExtractFieldByMultiplePatterns(doc, "Nutzung",
+            $"//tr[td/div[normalize-space()='Nutzung']]/td[2]/div",
+            $"//span[normalize-space()='Nutzung']/preceding-sibling::span[@class]",
+            $"//div[normalize-space()='Nutzung']/following-sibling::div");
 }
