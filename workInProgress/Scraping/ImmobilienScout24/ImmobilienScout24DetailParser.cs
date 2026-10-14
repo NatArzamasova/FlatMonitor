@@ -80,7 +80,7 @@ public class ImmobilienScout24DetailParser : IDetailParser
     }
 
     /// <summary>
-    /// Extract listing metadata (address, postal code, district, living area, rooms, price, commission) from embedded JSON in page.
+    /// Extract listing metadata using regex extraction to avoid JSON parsing issues with unescaped quotes in string values.
     /// The page contains a script tag with commissionSplitConfig object containing courtage and expose sub-object.
     /// </summary>
     public ExposeMetadata? ExtractExposeMetadata(string html)
@@ -96,188 +96,56 @@ public class ImmobilienScout24DetailParser : IDetailParser
 
             var scriptContent = scriptNodes[0].InnerText;
 
-            // Extract entire commissionSplitConfig object to get both courtage and expose
-            // Use a more robust approach: find commissionSplitConfig: { and match braces carefully
-            var startIdx = scriptContent.IndexOf("commissionSplitConfig:");
-            if (startIdx == -1)
-                return null;
+            // Extract courtage value using regex (handles both single and double quoted strings)
+            var courtageMatch = System.Text.RegularExpressions.Regex.Match(scriptContent, @"courtage\s*:\s*['""]([^""]*)['""]");
+            var courtageStr = courtageMatch.Success ? courtageMatch.Groups[1].Value : null;
+            var commissionPercent = ParseCommission(courtageStr);
 
-            var openBraceIdx = scriptContent.IndexOf('{', startIdx);
-            if (openBraceIdx == -1)
-                return null;
+            // Extract expose object and its properties using regex
+            var exposeMatch = System.Text.RegularExpressions.Regex.Match(scriptContent, @"expose\s*:\s*\{([^}]+)\}", System.Text.RegularExpressions.RegexOptions.Singleline);
+            if (!exposeMatch.Success)
+                return new ExposeMetadata { CommissionPercent = commissionPercent };
 
-            // Count braces to find the matching closing brace, accounting for string delimiters
-            int braceCount = 0;
-            int endIdx = -1;
-            bool inBraceString = false;
-            char braceStringDelimiter = '\0';
-            bool braceEscaped = false;
+            var exposeContent = exposeMatch.Groups[1].Value;
 
-            for (int i = openBraceIdx; i < scriptContent.Length; i++)
+            // Extract individual expose properties (handles both quoted and unquoted keys)
+            var address = ExtractPropertyValue(exposeContent, "address");
+            var zip = ExtractPropertyValue(exposeContent, "zip");
+            var location = ExtractPropertyValue(exposeContent, "location");
+            var livingSpace = ExtractPropertyValue(exposeContent, "livingSpace");
+            var noRooms = ExtractPropertyValue(exposeContent, "noRooms");
+            var price = ExtractPropertyValue(exposeContent, "price");
+
+            var metadata = new ExposeMetadata
             {
-                char c = scriptContent[i];
+                Address = address,
+                PostalCode = zip,
+                District = location,
+                LivingAreaSqm = ParseDouble(livingSpace),
+                RoomsCount = string.IsNullOrWhiteSpace(noRooms) ? null : double.TryParse(noRooms, System.Globalization.CultureInfo.InvariantCulture, out var rooms) ? rooms : null,
+                PriceEur = ParsePrice(price),
+                CommissionPercent = commissionPercent,
+            };
 
-                if (braceEscaped)
-                {
-                    braceEscaped = false;
-                    continue;
-                }
-                if (c == '\\')
-                {
-                    braceEscaped = true;
-                    continue;
-                }
-
-                if ((c == '"' || c == '\'') && !inBraceString)
-                {
-                    inBraceString = true;
-                    braceStringDelimiter = c;
-                    continue;
-                }
-                if (inBraceString && c == braceStringDelimiter)
-                {
-                    inBraceString = false;
-                    braceStringDelimiter = '\0';
-                    continue;
-                }
-
-                if (!inBraceString)
-                {
-                    if (c == '{')
-                        braceCount++;
-                    else if (c == '}')
-                    {
-                        braceCount--;
-                        if (braceCount == 0)
-                        {
-                            endIdx = i;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            if (endIdx == -1)
-                return null;
-
-            var configJson = scriptContent.Substring(openBraceIdx, endIdx - openBraceIdx + 1);
-
-            // Escape inner quotes and newlines in string values before converting quotes
-            var sb = new System.Text.StringBuilder();
-            bool inJsonString = false;
-            char jsonStringDelimiter = '\0';
-            bool jsonEscaped = false;
-            for (int i = 0; i < configJson.Length; i++)
-            {
-                char c = configJson[i];
-                if (jsonEscaped)
-                {
-                    sb.Append(c);
-                    jsonEscaped = false;
-                    continue;
-                }
-                if (c == '\\')
-                {
-                    sb.Append(c);
-                    jsonEscaped = true;
-                    continue;
-                }
-                if ((c == '"' || c == '\'') && !inJsonString)
-                {
-                    inJsonString = true;
-                    jsonStringDelimiter = c;
-                    sb.Append(c);
-                    continue;
-                }
-                if (inJsonString && c == jsonStringDelimiter)
-                {
-                    inJsonString = false;
-                    jsonStringDelimiter = '\0';
-                    sb.Append(c);
-                    continue;
-                }
-                if (inJsonString && c == '\n')
-                {
-                    sb.Append("\\n");
-                    continue;
-                }
-                if (inJsonString && c == '\r')
-                {
-                    sb.Append("\\r");
-                    continue;
-                }
-                // Escape quotes that appear inside strings
-                if (inJsonString && c == '"' && jsonStringDelimiter == '"')
-                {
-                    sb.Append("\\\"");
-                    continue;
-                }
-                if (inJsonString && c == '"' && jsonStringDelimiter == '\'')
-                {
-                    sb.Append("\\\"");
-                    continue;
-                }
-                if (inJsonString && c == '\'' && jsonStringDelimiter == '"')
-                {
-                    sb.Append("\\'");
-                    continue;
-                }
-                sb.Append(c);
-            }
-            configJson = sb.ToString();
-
-            // Remove JavaScript-style properties and convert to valid JSON
-            configJson = System.Text.RegularExpressions.Regex.Replace(configJson, @"(\w+):", "\"$1\":");
-            configJson = configJson.Replace("'", "\"");
-            // Convert JavaScript undefined to JSON null
-            configJson = System.Text.RegularExpressions.Regex.Replace(configJson, @"\bundefined\b", "null");
-            // Remove trailing commas before } or ]
-            configJson = System.Text.RegularExpressions.Regex.Replace(configJson, @",(\s*[}\]])", "$1");
-
-            JsonDocument jsonDoc;
-            try
-            {
-                jsonDoc = JsonDocument.Parse(configJson);
-            }
-            catch (Exception parseEx)
-            {
-                Console.Error.WriteLine($"JSON parsing error: {parseEx.Message}");
-                Console.Error.WriteLine($"JSON (first 1000 chars): {configJson.Substring(0, Math.Min(1000, configJson.Length))}");
-                Console.Error.WriteLine($"JSON length: {configJson.Length}");
-                throw;
-            }
-
-            using (jsonDoc)
-            {
-                var config = jsonDoc.RootElement;
-
-                // Extract courtage at config level
-                var courtageStr = GetJsonString(config, "courtage");
-                var commissionPercent = ParseCommission(courtageStr);
-
-                // Extract expose sub-object
-                if (!config.TryGetProperty("expose", out var exposeObj) || exposeObj.ValueKind != JsonValueKind.Object)
-                    return new ExposeMetadata { CommissionPercent = commissionPercent };
-
-                var metadata = new ExposeMetadata
-                {
-                    Address = GetJsonString(exposeObj, "address"),
-                    PostalCode = GetJsonString(exposeObj, "zip"),
-                    District = GetJsonString(exposeObj, "location"),
-                    LivingAreaSqm = ParseDouble(GetJsonString(exposeObj, "livingSpace")),
-                    RoomsCount = GetJsonDouble(exposeObj, "noRooms"),
-                    PriceEur = ParsePrice(GetJsonString(exposeObj, "price")),
-                    CommissionPercent = commissionPercent,
-                };
-
-                return metadata;
-            }
+            return metadata;
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Error extracting expose metadata: {ex.Message}");
             return null;
         }
+    }
+
+    private string? ExtractPropertyValue(string content, string propertyName)
+    {
+        // Match: propertyName: "value" or propertyName: 'value' or propertyName: value (for numbers)
+        var pattern = $@"{propertyName}\s*:\s*(?:""([^""]*)""|'([^']*)'|(\d+(?:\.\d+)?))";
+        var match = System.Text.RegularExpressions.Regex.Match(content, pattern);
+        if (!match.Success)
+            return null;
+
+        // Return whichever group matched (quoted string group 1 or 2, or number group 3)
+        return match.Groups[1].Value ?? match.Groups[2].Value ?? match.Groups[3].Value;
     }
 
     private string? GetJsonString(JsonElement element, string propertyName)

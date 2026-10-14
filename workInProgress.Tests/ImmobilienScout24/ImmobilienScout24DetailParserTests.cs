@@ -404,4 +404,74 @@ public class ImmobilienScout24DetailParserTests
         result.RoomsCount.Should().BeNull();
         result.PriceEur.Should().BeNull();
     }
+
+    [Test]
+    public void ExtractExposeMetadata_WithUnescapedQuotesInCourtageNote_ExtractsSuccessfully()
+    {
+        // Arrange - real-world case with unescaped quotes in courtageNote field
+        var html = @"<script>
+            var config = {
+                commissionSplitConfig: {
+                    courtage: '3,57 % inkl. 19% MwSt.',
+                    courtageNote: ' Provisionshinweis bei ""Objekten"": Bei Abschluss eines notariellen Kaufvertrages ist eine Käuferprovision vom Käufer in Höhe von 3,57 % inkl. MwSt. aus dem Kaufpreis fällig.',
+                    expose: {
+                        city: 'Karlsruhe',
+                        zip: '76135',
+                        isFullAddress: false,
+                        location: 'Beiertheim-Bulach',
+                        address: 'Beiertheim-Bulach, 76135 Karlsruhe',
+                        livingSpace: '27',
+                        noRooms: 1,
+                        price: '99.500 €'
+                    }
+                }
+            };
+        </script>";
+
+        // Act
+        var result = _parser.ExtractExposeMetadata(html);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.PostalCode.Should().Be("76135");
+        result!.District.Should().Be("Beiertheim-Bulach");
+        result!.LivingAreaSqm.Should().Be(27);
+        result!.RoomsCount.Should().Be(1);
+        result!.PriceEur.Should().Be(99500);
+        result!.CommissionPercent.Should().Be(3.57);
+    }
+
+    [Test]
+    public void ExtractExposeMetadata_WithSingleQuotedStrings_ExtractsAllFields()
+    {
+        // Arrange - test with single-quoted strings (JavaScript style)
+        var html = @"<script>
+            var config = {
+                commissionSplitConfig: {
+                    courtage: '3,57 % inkl. MwSt.',
+                    expose: {
+                        'address': 'Daxlanden, 76189 Karlsruhe',
+                        'zip': '76189',
+                        'location': 'Daxlanden',
+                        'livingSpace': '104',
+                        'noRooms': 4,
+                        'price': '347.000 €'
+                    }
+                }
+            };
+        </script>";
+
+        // Act
+        var result = _parser.ExtractExposeMetadata(html);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.Address.Should().Be("Daxlanden, 76189 Karlsruhe");
+        result!.PostalCode.Should().Be("76189");
+        result!.District.Should().Be("Daxlanden");
+        result!.LivingAreaSqm.Should().Be(104);
+        result!.RoomsCount.Should().Be(4);
+        result!.PriceEur.Should().Be(347000);
+        result!.CommissionPercent.Should().Be(3.57);
+    }
 }
