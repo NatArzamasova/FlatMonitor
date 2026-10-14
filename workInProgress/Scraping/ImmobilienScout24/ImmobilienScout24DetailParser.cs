@@ -138,14 +138,21 @@ public class ImmobilienScout24DetailParser : IDetailParser
 
     private string? ExtractPropertyValue(string content, string propertyName)
     {
-        // Match: propertyName: "value" or propertyName: 'value' or propertyName: value (for numbers)
-        var pattern = $@"{propertyName}\s*:\s*(?:""([^""]*)""|'([^']*)'|(\d+(?:\.\d+)?))";
+        // Match: "propertyName": "value" or 'propertyName': 'value' or propertyName: "value" or propertyName: value
+        var pattern = $@"[""']?{propertyName}[""']?\s*:\s*(?:""([^""]*)""|'([^']*)'|(\d+(?:\.\d+)?))";
         var match = System.Text.RegularExpressions.Regex.Match(content, pattern);
         if (!match.Success)
             return null;
 
-        // Return whichever group matched (quoted string group 1 or 2, or number group 3)
-        return match.Groups[1].Value ?? match.Groups[2].Value ?? match.Groups[3].Value;
+        // Check which group actually matched (not just has a value, but was actually captured)
+        if (match.Groups[1].Success)
+            return match.Groups[1].Value;
+        if (match.Groups[2].Success)
+            return match.Groups[2].Value;
+        if (match.Groups[3].Success)
+            return match.Groups[3].Value;
+
+        return null;
     }
 
     private string? GetJsonString(JsonElement element, string propertyName)
