@@ -1,6 +1,8 @@
 using dotenv.net;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using System.Runtime.InteropServices;
+using workInProgress.Data;
 using workInProgress.Scraping;
 using workInProgress.Scraping.ImmobilienScout24;
 using workInProgress.Scraping.OhneMakler;
@@ -49,6 +51,11 @@ async Task<int> RunScrapeAsync()
 
     var services = new ServiceCollection();
 
+    // Add DbContext
+    var dbPath = Path.Combine(Directory.GetCurrentDirectory(), "workInProgress", "data", "listings.db");
+    services.AddDbContext<ListingsDbContext>(options =>
+        options.UseSqlite($"Data Source={dbPath}"));
+
     services.AddSingleton<HttpClient>(sp =>
     {
         var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
@@ -59,7 +66,7 @@ async Task<int> RunScrapeAsync()
     services.AddScoped<OhneMaklerScraper>();
     services.AddScoped<ImmobilienScout24Scraper>();
 
-    services.AddScoped<ISnapshotRepository, FlatSnapshotRepository>();
+    services.AddScoped<ISnapshotRepository>(sp => new FlatSnapshotRepository(sp.GetRequiredService<DbContextOptions<ListingsDbContext>>()));
     services.AddScoped<SnapshotWriter>();
 
     services.AddScoped<ScraperCoordinator>(sp =>
@@ -78,6 +85,10 @@ async Task<int> RunScrapeAsync()
 
     try
     {
+        // Apply migrations
+        await using var dbContext = serviceProvider.GetRequiredService<ListingsDbContext>();
+        await dbContext.Database.MigrateAsync();
+
         await using var coordinator = serviceProvider.GetRequiredService<ScraperCoordinator>();
         await coordinator.ScrapeAllSourcesAsync();
         return 0;

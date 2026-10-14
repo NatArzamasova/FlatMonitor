@@ -39,8 +39,8 @@ namespace workInProgress.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
-                    b.Property<int?>("LivingAreaSqm")
-                        .HasColumnType("INTEGER");
+                    b.Property<double?>("LivingAreaSqm")
+                        .HasColumnType("REAL");
 
                     b.Property<string>("PostalCode")
                         .HasMaxLength(10)
@@ -49,16 +49,12 @@ namespace workInProgress.Migrations
                     b.Property<int?>("PriceEur")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int?>("RoomsCount")
-                        .HasColumnType("INTEGER");
+                    b.Property<double?>("RoomsCount")
+                        .HasColumnType("REAL");
 
                     b.Property<string>("ScrapedAtUtc")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Title")
-                        .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("UpdatedAtUtc")
@@ -164,6 +160,11 @@ namespace workInProgress.Migrations
                             b1.Property<int?>("ServiceChargeEur")
                                 .HasColumnType("INTEGER")
                                 .HasColumnName("ServiceChargeEur");
+
+                            b1.Property<string>("Title")
+                                .HasMaxLength(500)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("Title");
 
                             b1.HasKey("FlatSnapshotSource", "FlatSnapshotListingId");
 

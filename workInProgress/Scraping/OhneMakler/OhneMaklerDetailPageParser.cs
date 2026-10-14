@@ -27,8 +27,10 @@ public sealed class OhneMaklerDetailPageParser : IDetailParser
             if (!DetailExtractors.HasValidStructure(doc, _selectors.ValidStructurePatterns))
                 return null;
 
+            var title = DetailExtractors.ExtractText(doc, _selectors.TitleXPath);
             var details = new Details
             {
+                Title = title,
                 PropertyType = DetailExtractors.ExtractText(doc, _selectors.PropertyTypeXPath),
                 BuildYear = DetailExtractors.ExtractIntField(DetailExtractors.ExtractText(doc, _selectors.BuildYearXPath)),
                 Floor = DetailExtractors.ExtractText(doc, _selectors.FloorXPath)

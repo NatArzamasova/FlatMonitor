@@ -49,47 +49,55 @@ public sealed class ImmobilienScout24Scraper : IScraper
             allListings.AddRange(firstPageListings);
             Console.WriteLine($"Page 1: added {firstPageListings.Count} listings");
 
-            // Fetch detail page for first listing (test phase)
-            if (firstPageListings.Count > 0)
+            // Fetch detail pages for all listings from first page
+            var detailScraper = new ImmobilienScout24DetailScraper(page);
+            var detailParser = new ImmobilienScout24DetailParser();
+            var listingsToEnrich = firstPageListings.Count;
+
+            Console.WriteLine($"\n--- Scraping detail pages for all {listingsToEnrich} listings from first page ---");
+            for (int i = 0; i < listingsToEnrich; i++)
             {
-                var firstListing = firstPageListings[0];
-                if (!string.IsNullOrEmpty(firstListing.Url))
+                var listing = firstPageListings[i];
+                if (!string.IsNullOrEmpty(listing.Url))
                 {
-                    Console.WriteLine($"\n--- Testing detail page scraper ---");
-                    var detailScraper = new ImmobilienScout24DetailScraper(page);
-                    var detailPageHtml = await detailScraper.FetchAndParseDetailPageAsync(firstListing.Url);
-                    var detailParser = new ImmobilienScout24DetailParser();
-
-                    if (detailPageHtml != null)
+                    try
                     {
-                        var html = await page.ContentAsync();
-                        var details = detailParser.ParseDetailFields(html);
-                        var metadata = detailParser.ExtractExposeMetadata(html);
-
-                        // Create new listing with details and expose metadata
-                        allListings[0] = new Flat
+                        var detailPageHtml = await detailScraper.FetchAndParseDetailPageAsync(listing.Url);
+                        if (detailPageHtml != null)
                         {
-                            Source = firstListing.Source,
-                            ListingId = firstListing.ListingId,
-                            Url = firstListing.Url,
-                            Title = firstListing.Title,
-                            Address = metadata?.Address ?? firstListing.Address,
-                            PostalCode = metadata?.PostalCode ?? firstListing.PostalCode,
-                            District = metadata?.District ?? firstListing.District,
-                            PriceEur = metadata?.PriceEur ?? firstListing.PriceEur,
-                            RoomsCount = metadata?.RoomsCount ?? firstListing.RoomsCount,
-                            LivingAreaSqm = metadata?.LivingAreaSqm ?? firstListing.LivingAreaSqm,
-                            CommissionPercent = metadata?.CommissionPercent,
-                            Details = details,
-                            ScrapedAtUtc = firstListing.ScrapedAtUtc,
-                        };
-                        Console.WriteLine($"Details and expose metadata merged into listing {firstListing.ListingId}");
-                    }
+                            var html = await page.ContentAsync();
+                            var details = detailParser.ParseDetailFields(html);
+                            var metadata = detailParser.ExtractExposeMetadata(html);
 
-                    Console.WriteLine($"--- Detail page test complete ---\n");
-                    return allListings; // Stop here for test phase
+                            // Create new listing with details and expose metadata
+                            // Always use commissionSplitConfig.expose fields (no fallbacks)
+                            allListings[i] = new Flat
+                            {
+                                Source = listing.Source,
+                                ListingId = listing.ListingId,
+                                Url = listing.Url,
+                                Title = details?.Title ?? listing.Title,
+                                Address = metadata?.Address,
+                                PostalCode = metadata?.PostalCode,
+                                District = metadata?.District,
+                                PriceEur = metadata?.PriceEur,
+                                RoomsCount = metadata?.RoomsCount,
+                                LivingAreaSqm = metadata?.LivingAreaSqm,
+                                CommissionPercent = metadata?.CommissionPercent,
+                                Details = details,
+                                ScrapedAtUtc = listing.ScrapedAtUtc,
+                            };
+                            Console.WriteLine($"Listing {i+1}/{listingsToEnrich}: {listing.ListingId} - Address: {metadata?.Address}, LivingAreaSqm: {metadata?.LivingAreaSqm}, Commission: {metadata?.CommissionPercent}%");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Listing {i+1}/{listingsToEnrich}: Error fetching detail page: {ex.Message}");
+                    }
                 }
             }
+            Console.WriteLine($"--- Detail page scraping complete ---\n");
+            return allListings;
 
             // Use pagination fetcher for subsequent pages (commented out for now)
             // var pageFetcher = new ImmobilienScout24ListingsPageFetcher(browser, page);

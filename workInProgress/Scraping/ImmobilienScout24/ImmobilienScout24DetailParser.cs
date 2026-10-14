@@ -26,6 +26,7 @@ public class ImmobilienScout24DetailParser : IDetailParser
             doc.LoadHtml(html);
             var root = doc.DocumentNode;
 
+            var title = DetailExtractors.ExtractText(doc, _selectors.TitleXPath);
             var address = DetailExtractors.ExtractText(doc, _selectors.AddressXPath);
             var propertyType = DetailExtractors.ExtractText(doc, _selectors.PropertyTypeXPath);
             var buildYear = DetailExtractors.ExtractIntField(DetailExtractors.ExtractText(doc, _selectors.BuildYearXPath));
@@ -34,6 +35,7 @@ public class ImmobilienScout24DetailParser : IDetailParser
             var energyConsumption = DetailExtractors.ExtractText(doc, _selectors.EnergyConsumptionXPath);
             var energyEffClass = DetailExtractors.ExtractAttribute(doc, _selectors.EnergyEfficiencyClassXPath, _selectors.EnergyEfficiencyClassAttributeName);
             var primaryEnergy = DetailExtractors.ExtractText(doc, _selectors.PrimaryEnergySourceXPath);
+            var serviceCharge = DetailExtractors.ExtractIntField(DetailExtractors.ExtractText(doc, _selectors.ServiceChargeXPath));
 
             // Extract commission percent from expose metadata
             var metadata = ExtractExposeMetadata(html);
@@ -41,6 +43,7 @@ public class ImmobilienScout24DetailParser : IDetailParser
 
             var details = new Details
             {
+                Title = title,
                 PropertyType = propertyType,
                 BuildYear = buildYear,
                 Heating = heating,
@@ -48,6 +51,7 @@ public class ImmobilienScout24DetailParser : IDetailParser
                 EnergyConsumption = energyConsumption,
                 EnergyEfficiencyClass = energyEffClass,
                 PrimaryEnergySource = primaryEnergy,
+                ServiceChargeEur = serviceCharge,
                 CommissionPercent = commissionPercent,
             };
 
@@ -93,15 +97,134 @@ public class ImmobilienScout24DetailParser : IDetailParser
             var scriptContent = scriptNodes[0].InnerText;
 
             // Extract entire commissionSplitConfig object to get both courtage and expose
-            var configMatch = System.Text.RegularExpressions.Regex.Match(
-                scriptContent,
-                @"commissionSplitConfig:\s*(\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\}))*\}))*\})",
-                System.Text.RegularExpressions.RegexOptions.Singleline);
-
-            if (!configMatch.Success)
+            // Use a more robust approach: find commissionSplitConfig: { and match braces carefully
+            var startIdx = scriptContent.IndexOf("commissionSplitConfig:");
+            if (startIdx == -1)
                 return null;
 
-            var configJson = configMatch.Groups[1].Value;
+            var openBraceIdx = scriptContent.IndexOf('{', startIdx);
+            if (openBraceIdx == -1)
+                return null;
+
+            // Count braces to find the matching closing brace, accounting for string delimiters
+            int braceCount = 0;
+            int endIdx = -1;
+            bool inBraceString = false;
+            char braceStringDelimiter = '\0';
+            bool braceEscaped = false;
+
+            for (int i = openBraceIdx; i < scriptContent.Length; i++)
+            {
+                char c = scriptContent[i];
+
+                if (braceEscaped)
+                {
+                    braceEscaped = false;
+                    continue;
+                }
+                if (c == '\\')
+                {
+                    braceEscaped = true;
+                    continue;
+                }
+
+                if ((c == '"' || c == '\'') && !inBraceString)
+                {
+                    inBraceString = true;
+                    braceStringDelimiter = c;
+                    continue;
+                }
+                if (inBraceString && c == braceStringDelimiter)
+                {
+                    inBraceString = false;
+                    braceStringDelimiter = '\0';
+                    continue;
+                }
+
+                if (!inBraceString)
+                {
+                    if (c == '{')
+                        braceCount++;
+                    else if (c == '}')
+                    {
+                        braceCount--;
+                        if (braceCount == 0)
+                        {
+                            endIdx = i;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (endIdx == -1)
+                return null;
+
+            var configJson = scriptContent.Substring(openBraceIdx, endIdx - openBraceIdx + 1);
+
+            // Escape inner quotes and newlines in string values before converting quotes
+            var sb = new System.Text.StringBuilder();
+            bool inJsonString = false;
+            char jsonStringDelimiter = '\0';
+            bool jsonEscaped = false;
+            for (int i = 0; i < configJson.Length; i++)
+            {
+                char c = configJson[i];
+                if (jsonEscaped)
+                {
+                    sb.Append(c);
+                    jsonEscaped = false;
+                    continue;
+                }
+                if (c == '\\')
+                {
+                    sb.Append(c);
+                    jsonEscaped = true;
+                    continue;
+                }
+                if ((c == '"' || c == '\'') && !inJsonString)
+                {
+                    inJsonString = true;
+                    jsonStringDelimiter = c;
+                    sb.Append(c);
+                    continue;
+                }
+                if (inJsonString && c == jsonStringDelimiter)
+                {
+                    inJsonString = false;
+                    jsonStringDelimiter = '\0';
+                    sb.Append(c);
+                    continue;
+                }
+                if (inJsonString && c == '\n')
+                {
+                    sb.Append("\\n");
+                    continue;
+                }
+                if (inJsonString && c == '\r')
+                {
+                    sb.Append("\\r");
+                    continue;
+                }
+                // Escape quotes that appear inside strings
+                if (inJsonString && c == '"' && jsonStringDelimiter == '"')
+                {
+                    sb.Append("\\\"");
+                    continue;
+                }
+                if (inJsonString && c == '"' && jsonStringDelimiter == '\'')
+                {
+                    sb.Append("\\\"");
+                    continue;
+                }
+                if (inJsonString && c == '\'' && jsonStringDelimiter == '"')
+                {
+                    sb.Append("\\'");
+                    continue;
+                }
+                sb.Append(c);
+            }
+            configJson = sb.ToString();
 
             // Remove JavaScript-style properties and convert to valid JSON
             configJson = System.Text.RegularExpressions.Regex.Replace(configJson, @"(\w+):", "\"$1\":");
@@ -111,29 +234,44 @@ public class ImmobilienScout24DetailParser : IDetailParser
             // Remove trailing commas before } or ]
             configJson = System.Text.RegularExpressions.Regex.Replace(configJson, @",(\s*[}\]])", "$1");
 
-            using var jsonDoc = JsonDocument.Parse(configJson);
-            var config = jsonDoc.RootElement;
-
-            // Extract courtage at config level
-            var courtageStr = GetJsonString(config, "courtage");
-            var commissionPercent = ParseCommission(courtageStr);
-
-            // Extract expose sub-object
-            if (!config.TryGetProperty("expose", out var exposeObj) || exposeObj.ValueKind != JsonValueKind.Object)
-                return new ExposeMetadata { CommissionPercent = commissionPercent };
-
-            var metadata = new ExposeMetadata
+            JsonDocument jsonDoc;
+            try
             {
-                Address = GetJsonString(exposeObj, "address"),
-                PostalCode = GetJsonString(exposeObj, "zip"),
-                District = GetJsonString(exposeObj, "location"),
-                LivingAreaSqm = ParseInt(GetJsonString(exposeObj, "livingSpace")),
-                RoomsCount = GetJsonInt(exposeObj, "noRooms"),
-                PriceEur = ParsePrice(GetJsonString(exposeObj, "price")),
-                CommissionPercent = commissionPercent,
-            };
+                jsonDoc = JsonDocument.Parse(configJson);
+            }
+            catch (Exception parseEx)
+            {
+                Console.Error.WriteLine($"JSON parsing error: {parseEx.Message}");
+                Console.Error.WriteLine($"JSON (first 1000 chars): {configJson.Substring(0, Math.Min(1000, configJson.Length))}");
+                Console.Error.WriteLine($"JSON length: {configJson.Length}");
+                throw;
+            }
 
-            return metadata;
+            using (jsonDoc)
+            {
+                var config = jsonDoc.RootElement;
+
+                // Extract courtage at config level
+                var courtageStr = GetJsonString(config, "courtage");
+                var commissionPercent = ParseCommission(courtageStr);
+
+                // Extract expose sub-object
+                if (!config.TryGetProperty("expose", out var exposeObj) || exposeObj.ValueKind != JsonValueKind.Object)
+                    return new ExposeMetadata { CommissionPercent = commissionPercent };
+
+                var metadata = new ExposeMetadata
+                {
+                    Address = GetJsonString(exposeObj, "address"),
+                    PostalCode = GetJsonString(exposeObj, "zip"),
+                    District = GetJsonString(exposeObj, "location"),
+                    LivingAreaSqm = ParseDouble(GetJsonString(exposeObj, "livingSpace")),
+                    RoomsCount = GetJsonDouble(exposeObj, "noRooms"),
+                    PriceEur = ParsePrice(GetJsonString(exposeObj, "price")),
+                    CommissionPercent = commissionPercent,
+                };
+
+                return metadata;
+            }
         }
         catch (Exception ex)
         {
@@ -152,11 +290,11 @@ public class ImmobilienScout24DetailParser : IDetailParser
         return null;
     }
 
-    private int? GetJsonInt(JsonElement element, string propertyName)
+    private double? GetJsonDouble(JsonElement element, string propertyName)
     {
         if (element.TryGetProperty(propertyName, out var prop) && prop.ValueKind == JsonValueKind.Number)
         {
-            return prop.GetInt32();
+            return prop.GetDouble();
         }
         return null;
     }
@@ -167,6 +305,15 @@ public class ImmobilienScout24DetailParser : IDetailParser
             return null;
         var digits = System.Text.RegularExpressions.Regex.Replace(value, @"[^\d]", "");
         return int.TryParse(digits, out var result) ? result : null;
+    }
+
+    private double? ParseDouble(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+        var normalized = System.Text.RegularExpressions.Regex.Replace(value, @"[^\d.,]", "");
+        normalized = normalized.Replace(",", ".");
+        return double.TryParse(normalized, System.Globalization.CultureInfo.InvariantCulture, out var result) ? result : null;
     }
 
     private int? ParsePrice(string? value)
@@ -197,8 +344,8 @@ public class ImmobilienScout24DetailParser : IDetailParser
         public string? Address { get; set; }
         public string? PostalCode { get; set; }
         public string? District { get; set; }
-        public int? LivingAreaSqm { get; set; }
-        public int? RoomsCount { get; set; }
+        public double? LivingAreaSqm { get; set; }
+        public double? RoomsCount { get; set; }
         public int? PriceEur { get; set; }
         public double? CommissionPercent { get; set; }
     }

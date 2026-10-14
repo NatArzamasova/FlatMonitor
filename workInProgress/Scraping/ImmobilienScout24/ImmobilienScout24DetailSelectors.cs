@@ -6,6 +6,7 @@ namespace workInProgress.Scraping.ImmobilienScout24;
 /// </summary>
 public class ImmobilienScout24DetailSelectors
 {
+    public string TitleXPath => "//title/text()";
     public string AddressXPath => "//*[@data-qa='is24-expose-address']//span[@class='address-text']";
     public string PropertyTypeXPath => ".//dd[@class='is24qa-typ grid-item three-fifths']//text()";
     public string BuildYearXPath => ".//dd[@class='is24qa-baujahr grid-item three-fifths']//text()";
@@ -15,4 +16,5 @@ public class ImmobilienScout24DetailSelectors
     public string EnergyEfficiencyClassXPath => ".//dd[@class='is24qa-energieeffizienzklasse grid-item three-fifths']//img[@alt]";
     public string EnergyEfficiencyClassAttributeName => "alt";
     public string PrimaryEnergySourceXPath => ".//dd[@class='is24qa-wesentliche-energietraeger grid-item three-fifths']//text()";
+    public string ServiceChargeXPath => ".//dd[@class='is24qa-hausgeld grid-item three-fifths']//text()";
 }

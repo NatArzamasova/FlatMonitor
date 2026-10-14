@@ -10,7 +10,7 @@ using workInProgress.Data;
 namespace workInProgress.Migrations
 {
     [DbContext(typeof(ListingsDbContext))]
-    [Migration("20261013084443_InitialCreate")]
+    [Migration("20261014103945_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -19,8 +19,12 @@ namespace workInProgress.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.0");
 
-            modelBuilder.Entity("workInProgress.Models.OhneMaklerSnapshot", b =>
+            modelBuilder.Entity("workInProgress.Models.FlatSnapshot", b =>
                 {
+                    b.Property<string>("Source")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("ListingId")
                         .HasMaxLength(50)
                         .HasColumnType("TEXT");
@@ -38,8 +42,8 @@ namespace workInProgress.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
-                    b.Property<int?>("LivingAreaSqm")
-                        .HasColumnType("INTEGER");
+                    b.Property<double?>("LivingAreaSqm")
+                        .HasColumnType("REAL");
 
                     b.Property<string>("PostalCode")
                         .HasMaxLength(10)
@@ -48,16 +52,12 @@ namespace workInProgress.Migrations
                     b.Property<int?>("PriceEur")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int?>("RoomsCount")
-                        .HasColumnType("INTEGER");
+                    b.Property<double?>("RoomsCount")
+                        .HasColumnType("REAL");
 
                     b.Property<string>("ScrapedAtUtc")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Title")
-                        .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("UpdatedAtUtc")
@@ -66,11 +66,10 @@ namespace workInProgress.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Url")
-                        .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
-                    b.HasKey("ListingId");
+                    b.HasKey("Source", "ListingId");
 
                     b.HasIndex("District")
                         .HasDatabaseName("idx_District");
@@ -81,14 +80,21 @@ namespace workInProgress.Migrations
                     b.HasIndex("ScrapedAtUtc")
                         .HasDatabaseName("idx_ScrapedAtUtc");
 
-                    b.ToTable("OhneMaklerSnapshots", (string)null);
+                    b.HasIndex("Source", "Url", "Address")
+                        .IsUnique()
+                        .HasDatabaseName("idx_Source_Url_Address");
+
+                    b.ToTable("FlatsSnapshots", (string)null);
                 });
 
-            modelBuilder.Entity("workInProgress.Models.OhneMaklerSnapshot", b =>
+            modelBuilder.Entity("workInProgress.Models.FlatSnapshot", b =>
                 {
                     b.OwnsOne("workInProgress.Models.Details", "Details", b1 =>
                         {
-                            b1.Property<string>("OhneMaklerSnapshotListingId")
+                            b1.Property<string>("FlatSnapshotSource")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("FlatSnapshotListingId")
                                 .HasColumnType("TEXT");
 
                             b1.Property<string>("Availability")
@@ -99,6 +105,10 @@ namespace workInProgress.Migrations
                             b1.Property<int?>("BuildYear")
                                 .HasColumnType("INTEGER")
                                 .HasColumnName("BuildYear");
+
+                            b1.Property<double?>("CommissionPercent")
+                                .HasColumnType("REAL")
+                                .HasColumnName("CommissionPercent");
 
                             b1.Property<string>("Condition")
                                 .HasMaxLength(100)
@@ -154,12 +164,17 @@ namespace workInProgress.Migrations
                                 .HasColumnType("INTEGER")
                                 .HasColumnName("ServiceChargeEur");
 
-                            b1.HasKey("OhneMaklerSnapshotListingId");
+                            b1.Property<string>("Title")
+                                .HasMaxLength(500)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("Title");
 
-                            b1.ToTable("OhneMaklerSnapshots");
+                            b1.HasKey("FlatSnapshotSource", "FlatSnapshotListingId");
+
+                            b1.ToTable("FlatsSnapshots");
 
                             b1.WithOwner()
-                                .HasForeignKey("OhneMaklerSnapshotListingId");
+                                .HasForeignKey("FlatSnapshotSource", "FlatSnapshotListingId");
                         });
 
                     b.Navigation("Details");

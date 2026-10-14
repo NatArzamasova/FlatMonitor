@@ -67,7 +67,7 @@ public class FlatSnapshotRepositoryTests
         await using var dbContext = new ListingsDbContext(options);
         var stored = await dbContext.FlatsSnapshots.FirstOrDefaultAsync(l => l.ListingId == "1");
         stored.Should().NotBeNull();
-        stored!.Title.Should().Be("Test Listing");
+        stored!.Details!.Title.Should().Be("Test Listing");
         stored.Address.Should().Be("123 Main St");
         stored.PriceEur.Should().Be(500000);
         stored.Source.Should().Be("OhneMakler");
@@ -198,7 +198,7 @@ public class FlatSnapshotRepositoryTests
         count.Should().Be(1);
 
         var stored = await dbContext.FlatsSnapshots.FirstAsync();
-        stored.Title.Should().Be("Updated Title");
+        stored.Details!.Title.Should().Be("Updated Title");
         stored.PriceEur.Should().Be(550000);
     }
 
@@ -290,10 +290,10 @@ public class FlatSnapshotRepositoryTests
 
         var ohmRow = await dbContext.FlatsSnapshots.FirstOrDefaultAsync(l => l.Source == "OhneMakler" && l.ListingId == "123");
         ohmRow.Should().NotBeNull();
-        ohmRow!.Title.Should().Be("From OhneMakler");
+        ohmRow!.Details!.Title.Should().Be("From OhneMakler");
 
         var scoutRow = await dbContext.FlatsSnapshots.FirstOrDefaultAsync(l => l.Source == "ImmobilienScout24" && l.ListingId == "123");
         scoutRow.Should().NotBeNull();
-        scoutRow!.Title.Should().Be("From ImmobilienScout24");
+        scoutRow!.Details!.Title.Should().Be("From ImmobilienScout24");
     }
 }

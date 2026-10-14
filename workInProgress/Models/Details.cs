@@ -2,6 +2,7 @@ namespace workInProgress.Models;
 
 public sealed class Details
 {
+    public string? Title { get; init; }
     public string? PropertyType { get; init; }
     public int? BuildYear { get; init; }
     public string? Floor { get; init; }

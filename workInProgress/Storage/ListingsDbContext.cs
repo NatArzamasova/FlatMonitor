@@ -30,9 +30,6 @@ public class ListingsDbContext : DbContext
         snapshotBuilder.Property(s => s.Url)
             .HasMaxLength(500);
 
-        snapshotBuilder.Property(s => s.Title)
-            .HasMaxLength(500);
-
         snapshotBuilder.Property(s => s.Address)
             .HasMaxLength(500);
 
@@ -49,6 +46,10 @@ public class ListingsDbContext : DbContext
         // Owned type for Details — flattened into the OhneMaklerSnapshots table
         snapshotBuilder.OwnsOne(s => s.Details, detailsBuilder =>
         {
+            detailsBuilder.Property(d => d.Title)
+                .HasColumnName("Title")
+                .HasMaxLength(500);
+
             detailsBuilder.Property(d => d.PropertyType)
                 .HasColumnName("PropertyType")
                 .HasMaxLength(50);

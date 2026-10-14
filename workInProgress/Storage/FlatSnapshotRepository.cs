@@ -62,7 +62,6 @@ public sealed class FlatSnapshotRepository : ISnapshotRepository
             {
                 // Update existing entity in-place
                 existing.Url = listing.Url;
-                existing.Title = listing.Title;
                 existing.Address = listing.Address;
                 existing.PostalCode = listing.PostalCode;
                 existing.District = listing.District;
@@ -83,7 +82,6 @@ public sealed class FlatSnapshotRepository : ISnapshotRepository
                     Source = listing.Source,
                     ListingId = listing.ListingId,
                     Url = listing.Url,
-                    Title = listing.Title,
                     Address = listing.Address,
                     PostalCode = listing.PostalCode,
                     District = listing.District,
