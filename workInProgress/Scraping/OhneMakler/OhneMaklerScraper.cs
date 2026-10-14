@@ -2,44 +2,85 @@ namespace workInProgress.Scraping.OhneMakler;
 
 using System.Text.RegularExpressions;
 using workInProgress.Models;
+using workInProgress.Scraping.Common;
 using workInProgress.Storage;
 
-public sealed class OhneMaklerScraper : IScraper
+/// <summary>
+/// Scraper for ohne-makler.net apartment listings.
+/// Uses HttpClient for fetching pages, processes each listing's details immediately.
+/// Saves listings to database in batches to avoid memory bloat on large datasets.
+/// </summary>
+public sealed class OhneMaklerScraper : DetailedListingScraper
 {
     public const string SourceName = "OhneMakler";
 
     private readonly HttpClient _httpClient;
-    private readonly OhneMaklerListingsPageFetcher _pageFetcher;
+    private readonly ISnapshotRepository _repository;
+    private OhneMaklerListingsPageFetcher? _pageFetcher;
     private readonly OhneMaklerListingCardParser _cardParser;
     private readonly OhneMaklerDetailPageParser _detailParser;
 
-    public string Source => SourceName;
+    public override string Source => SourceName;
 
-    public OhneMaklerScraper(HttpClient httpClient)
+    public OhneMaklerScraper(HttpClient httpClient, ISnapshotRepository? repository = null)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-        _pageFetcher = new OhneMaklerListingsPageFetcher(_httpClient);
+        _repository = repository ?? new FlatSnapshotRepository();
         _cardParser = new OhneMaklerListingCardParser();
         _detailParser = new OhneMaklerDetailPageParser();
     }
 
-    public async Task<IEnumerable<Flat>> ScrapeAsync() => await ScrapeAllListingsAsync();
-
-    public async Task<List<Flat>> ScrapeAllListingsAsync(CancellationToken ct = default)
+    protected override Task InitializeAsync(CancellationToken ct)
     {
-        var allListings = new List<Flat>();
-        var pageNumber = 0;
-        var shouldStop = false;
+        _pageFetcher = new OhneMaklerListingsPageFetcher(_httpClient);
+        return Task.CompletedTask;
+    }
+
+    protected override Task ClearPreviousSnapshotsAsync(CancellationToken ct)
+    {
+        try
+        {
+            var dataDir = workInProgress.Storage.StoragePaths.GetDefaultDataDirectory();
+            var htmlDir = Path.Combine(dataDir, "snapshots", "html", "OhneMakler");
+
+            if (Directory.Exists(htmlDir))
+            {
+                var files = Directory.GetFiles(htmlDir, "*.html");
+                foreach (var file in files)
+                {
+                    File.Delete(file);
+                }
+                Console.WriteLine($"Cleared {files.Length} previous HTML snapshots from {htmlDir}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Warning: Could not clear previous HTML snapshots: {ex.Message}");
+        }
+
+        return Task.CompletedTask;
+    }
+
+    protected override async IAsyncEnumerable<List<Flat>> FetchAndParseAllPagesAsync(CancellationToken ct)
+    {
+        if (_pageFetcher == null)
+        {
+            yield break;
+        }
+
+        bool shouldStop = false;
+        int pageNumber = 0;
 
         // Iterate through all results pages.
         await foreach (var pageHtml in _pageFetcher.FetchAllPagesHtmlAsync(ct))
         {
             pageNumber++;
+            var pageListings = new List<Flat>();
 
             // Parse listing cards from this page.
-            var pageListings = _cardParser.ParsePage(pageHtml);
+            var cardListings = _cardParser.ParsePage(pageHtml);
 
-            foreach (var (listing, detailPageUrl) in pageListings)
+            foreach (var (listing, detailPageUrl) in cardListings)
             {
                 // Check if postcode is in Karlsruhe whitelist
                 if (!string.IsNullOrEmpty(listing.PostalCode) &&
@@ -51,75 +92,110 @@ public sealed class OhneMaklerScraper : IScraper
                     break;
                 }
 
-                try
-                {
-                    // Fetch and parse the detail page.
-                    string detailHtml = await FetchDetailPageAsync(detailPageUrl, ct);
-                    var details = _detailParser.ParseDetailFields(detailHtml);
-
-                    // Extract title, address, rooms, and area from the detail page HTML.
-                    string? title = ExtractTitleFromDetailPage(detailHtml);
-                    string? address = ExtractAddressFromDetailPage(detailHtml);
-                    int? rooms = ExtractRoomsFromDetailPage(detailHtml);
-                    int? area = ExtractAreaFromDetailPage(detailHtml);
-
-                    // Update the listing with detail-page data.
-                    var absoluteUrl = listing.Url.StartsWith("http")
-                        ? listing.Url
-                        : new Uri(new Uri(OhneMaklerSelectors.ListingsBaseUrl), listing.Url).AbsoluteUri;
-
-                    var enrichedFlat = new Flat
-                    {
-                        ListingId = listing.ListingId,
-                        Url = absoluteUrl,
-                        Title = title ?? listing.Title,
-                        Address = address,
-                        PostalCode = listing.PostalCode,
-                        District = listing.District,
-                        PriceEur = listing.PriceEur,
-                        RoomsCount = rooms ?? listing.RoomsCount,
-                        LivingAreaSqm = area ?? listing.LivingAreaSqm,
-                        Details = details,
-                        ScrapedAtUtc = listing.ScrapedAtUtc,
-                        Source = SourceName,
-                    };
-
-                    allListings.Add(enrichedFlat);
-                }
-                catch (Exception ex)
-                {
-                    // Per confirmed behavior: log warning, still include listing with partial data.
-                    var absoluteUrl = listing.Url.StartsWith("http")
-                        ? listing.Url
-                        : new Uri(new Uri(OhneMaklerSelectors.ListingsBaseUrl), listing.Url).AbsoluteUri;
-
-                    var partialFlat = new Flat
-                    {
-                        ListingId = listing.ListingId,
-                        Url = absoluteUrl,
-                        Title = listing.Title,
-                        Address = null,
-                        PostalCode = listing.PostalCode,
-                        District = listing.District,
-                        PriceEur = listing.PriceEur,
-                        RoomsCount = listing.RoomsCount,
-                        LivingAreaSqm = listing.LivingAreaSqm,
-                        Details = listing.Details,
-                        ScrapedAtUtc = listing.ScrapedAtUtc,
-                        Source = SourceName,
-                    };
-
-                    Console.WriteLine(
-                        $"Warning: Failed to fetch/parse detail page for listing {listing.ListingId} ({absoluteUrl}): {ex.Message}");
-                    allListings.Add(partialFlat);
-                }
+                pageListings.Add(listing);
             }
 
+            // Return listings for this page
+            yield return pageListings;
+
             if (shouldStop)
-                break;
+                yield break;
+        }
+    }
+
+    protected override async Task<Flat> EnrichListingWithDetailsAsync(Flat baseListing, CancellationToken ct)
+    {
+        if (string.IsNullOrEmpty(baseListing.DetailPageUrl))
+        {
+            return baseListing;
         }
 
-        return allListings;
+        try
+        {
+            // Fetch and parse the detail page.
+            string detailHtml = await FetchDetailPageAsync(baseListing.DetailPageUrl, ct);
+            var details = _detailParser.ParseDetailFields(detailHtml);
+
+            // Extract title, address, rooms, and area from the detail page HTML.
+            string? title = ExtractTitleFromDetailPage(detailHtml);
+            string? address = ExtractAddressFromDetailPage(detailHtml);
+            int? rooms = ExtractRoomsFromDetailPage(detailHtml);
+            int? area = ExtractAreaFromDetailPage(detailHtml);
+
+            // Update the listing with detail-page data.
+            var absoluteUrl = baseListing.Url?.StartsWith("http") ?? false
+                ? baseListing.Url
+                : new Uri(new Uri(OhneMaklerSelectors.ListingsBaseUrl), baseListing.Url ?? "").AbsoluteUri;
+
+            var enrichedFlat = new Flat
+            {
+                ListingId = baseListing.ListingId,
+                Url = absoluteUrl,
+                Title = title ?? baseListing.Title,
+                Address = address,
+                PostalCode = baseListing.PostalCode,
+                District = baseListing.District,
+                PriceEur = baseListing.PriceEur,
+                RoomsCount = rooms ?? baseListing.RoomsCount,
+                LivingAreaSqm = area ?? baseListing.LivingAreaSqm,
+                Details = details,
+                ScrapedAtUtc = baseListing.ScrapedAtUtc,
+                Source = SourceName,
+                DetailPageUrl = baseListing.DetailPageUrl,
+            };
+
+            return enrichedFlat;
+        }
+        catch (Exception ex)
+        {
+            // Per confirmed behavior: log warning, still include listing with partial data.
+            var absoluteUrl = baseListing.Url?.StartsWith("http") ?? false
+                ? baseListing.Url
+                : new Uri(new Uri(OhneMaklerSelectors.ListingsBaseUrl), baseListing.Url ?? "").AbsoluteUri;
+
+            var partialFlat = new Flat
+            {
+                ListingId = baseListing.ListingId,
+                Url = absoluteUrl,
+                Title = baseListing.Title,
+                Address = null,
+                PostalCode = baseListing.PostalCode,
+                District = baseListing.District,
+                PriceEur = baseListing.PriceEur,
+                RoomsCount = baseListing.RoomsCount,
+                LivingAreaSqm = baseListing.LivingAreaSqm,
+                Details = baseListing.Details,
+                ScrapedAtUtc = baseListing.ScrapedAtUtc,
+                Source = SourceName,
+                DetailPageUrl = baseListing.DetailPageUrl,
+            };
+
+            Console.WriteLine(
+                $"Warning: Failed to fetch/parse detail page for listing {baseListing.ListingId} ({absoluteUrl}): {ex.Message}");
+            return partialFlat;
+        }
+    }
+
+    protected override async Task SaveListingsAsync(List<Flat> listings, CancellationToken ct)
+    {
+        if (listings.Count == 0)
+            return;
+
+        try
+        {
+            await _repository.UpsertListingsAsync(listings, ct);
+            Console.WriteLine($"Saved {listings.Count} listings to database");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error saving listings to database: {ex.Message}");
+            throw;
+        }
+    }
+
+    protected override async Task CleanupAsync()
+    {
+        _httpClient?.Dispose();
     }
 
     private async Task<string> FetchDetailPageAsync(string relativeUrl, CancellationToken ct)
@@ -130,7 +206,49 @@ public sealed class OhneMaklerScraper : IScraper
 
         var response = await _httpClient.GetAsync(absoluteUrl, ct);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadAsStringAsync(ct);
+        var html = await response.Content.ReadAsStringAsync(ct);
+
+        // Save HTML snapshot
+        _ = Task.Run(() => SaveDetailHtmlSnapshotAsync(absoluteUrl, html), ct);
+
+        return html;
+    }
+
+    private async Task SaveDetailHtmlSnapshotAsync(string url, string html)
+    {
+        try
+        {
+            var dataDir = workInProgress.Storage.StoragePaths.GetDefaultDataDirectory();
+            var htmlDir = Path.Combine(dataDir, "snapshots", "html", "OhneMakler");
+            if (!Directory.Exists(htmlDir))
+            {
+                Directory.CreateDirectory(htmlDir);
+            }
+
+            var listingId = ExtractListingIdFromUrl(url);
+            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+            var fileName = $"{listingId}_{timestamp}.html";
+            var filePath = Path.Combine(htmlDir, fileName);
+
+            await File.WriteAllTextAsync(filePath, html);
+        }
+        catch
+        {
+            // Silently fail - don't interrupt scraping for snapshot saving
+        }
+    }
+
+    private static string ExtractListingIdFromUrl(string url)
+    {
+        // Extract listing ID from URL like: https://ohne-makler.net/immobilie/502814/
+        var parts = url.Split('/');
+        var immobilieIndex = Array.IndexOf(parts, "immobilie");
+        if (immobilieIndex >= 0 && immobilieIndex < parts.Length - 1)
+        {
+            return parts[immobilieIndex + 1];
+        }
+        // Fallback to hash of URL if ID cannot be extracted
+        return Math.Abs(url.GetHashCode()).ToString();
     }
 
     private static string? ExtractTitleFromDetailPage(string html)

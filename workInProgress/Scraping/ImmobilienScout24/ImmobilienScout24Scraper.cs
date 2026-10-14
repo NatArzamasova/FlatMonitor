@@ -4,123 +4,178 @@ using HtmlAgilityPack;
 using Microsoft.Playwright;
 using workInProgress.Models;
 using workInProgress.Scraping.Common;
+using workInProgress.Storage;
 
 /// <summary>
 /// Scraper for immobilienscout24.de apartment listings.
 /// Uses Playwright for browser automation (Google OAuth, robot guard), then parses listings with the generic ListingExtractor.
+/// Processes each listing's details immediately as pages are fetched.
+/// Saves listings to database in batches to avoid memory bloat on large datasets.
 /// </summary>
-public sealed class ImmobilienScout24Scraper : IScraper
+public sealed class ImmobilienScout24Scraper : DetailedListingScraper
 {
     public const string SourceName = "ImmobilienScout24";
 
     private readonly ListingExtractor _extractor;
     private readonly IListingSelectors _selectors;
+    private readonly ISnapshotRepository _repository;
+    private IBrowser? _browser;
+    private IPage? _page;
+    private ImmobilienScout24DetailScraper? _detailScraper;
+    private ImmobilienScout24DetailParser? _detailParser;
+    private ImmobilienScout24ListingsPageFetcher? _pageFetcher;
 
-    public string Source => SourceName;
+    public override string Source => SourceName;
 
-    public ImmobilienScout24Scraper()
+    public ImmobilienScout24Scraper(ISnapshotRepository? repository = null)
     {
         _extractor = new ListingExtractor();
         _selectors = new ImmobilienScout24Selectors();
+        _repository = repository ?? new FlatSnapshotRepository();
     }
 
-    public async Task<IEnumerable<Flat>> ScrapeAsync() => await ScrapeAllListingsAsync();
-
-    public async Task<List<Flat>> ScrapeAllListingsAsync(CancellationToken ct = default)
+    protected override async Task InitializeAsync(CancellationToken ct)
     {
-        var allListings = new List<Flat>();
+        var browserScraper = new ImmobilienScout24BrowserScraper();
+        var (browser, page) = await browserScraper.LaunchAndAuthenticateAsync();
 
+        if (browser == null || page == null)
+        {
+            throw new InvalidOperationException("Failed to launch browser or authenticate.");
+        }
+
+        _browser = browser;
+        _page = page;
+        _detailScraper = new ImmobilienScout24DetailScraper(page);
+        _detailParser = new ImmobilienScout24DetailParser();
+        _pageFetcher = new ImmobilienScout24ListingsPageFetcher(browser, page);
+    }
+
+    protected override Task ClearPreviousSnapshotsAsync(CancellationToken ct)
+    {
         try
         {
-            // Use browser scraper to log in and get authenticated session
-            var browserScraper = new ImmobilienScout24BrowserScraper();
-            var (browser, page) = await browserScraper.LaunchAndAuthenticateAsync();
+            var dataDir = workInProgress.Storage.StoragePaths.GetDefaultDataDirectory();
+            var htmlDir = Path.Combine(dataDir, "snapshots", "html", "ImmobilienScout24");
 
-            if (browser == null || page == null)
+            if (Directory.Exists(htmlDir))
             {
-                Console.WriteLine("Failed to launch browser or authenticate.");
-                return allListings;
-            }
-
-            // Extract and parse first page (already authenticated and loaded)
-            Console.WriteLine("Extracting first page HTML...");
-            var firstPageHtml = await page.ContentAsync();
-            var firstPageListings = ParseListingsPage(firstPageHtml);
-            allListings.AddRange(firstPageListings);
-            Console.WriteLine($"Page 1: added {firstPageListings.Count} listings");
-
-            // Fetch detail pages for all listings from first page
-            var detailScraper = new ImmobilienScout24DetailScraper(page);
-            var detailParser = new ImmobilienScout24DetailParser();
-            var listingsToEnrich = firstPageListings.Count;
-
-            Console.WriteLine($"\n--- Scraping detail pages for all {listingsToEnrich} listings from first page ---");
-            for (int i = 0; i < listingsToEnrich; i++)
-            {
-                var listing = firstPageListings[i];
-                if (!string.IsNullOrEmpty(listing.Url))
+                var files = Directory.GetFiles(htmlDir, "*.html");
+                foreach (var file in files)
                 {
-                    try
-                    {
-                        var detailPageHtml = await detailScraper.FetchAndParseDetailPageAsync(listing.Url);
-                        if (detailPageHtml != null)
-                        {
-                            var html = await page.ContentAsync();
-                            var details = detailParser.ParseDetailFields(html);
-                            var metadata = detailParser.ExtractExposeMetadata(html);
-
-                            // Create new listing with details and expose metadata
-                            // Always use commissionSplitConfig.expose fields (no fallbacks)
-                            allListings[i] = new Flat
-                            {
-                                Source = listing.Source,
-                                ListingId = listing.ListingId,
-                                Url = listing.Url,
-                                Title = details?.Title ?? listing.Title,
-                                Address = metadata?.Address,
-                                PostalCode = metadata?.PostalCode,
-                                District = metadata?.District,
-                                PriceEur = metadata?.PriceEur,
-                                RoomsCount = metadata?.RoomsCount,
-                                LivingAreaSqm = metadata?.LivingAreaSqm,
-                                CommissionPercent = metadata?.CommissionPercent,
-                                Details = details,
-                                ScrapedAtUtc = listing.ScrapedAtUtc,
-                            };
-                            Console.WriteLine($"Listing {i+1}/{listingsToEnrich}: {listing.ListingId} - Address: {metadata?.Address}, LivingAreaSqm: {metadata?.LivingAreaSqm}, Commission: {metadata?.CommissionPercent}%");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Listing {i+1}/{listingsToEnrich}: Error fetching detail page: {ex.Message}");
-                    }
+                    File.Delete(file);
                 }
+                Console.WriteLine($"Cleared {files.Length} previous HTML snapshots from {htmlDir}");
             }
-            Console.WriteLine($"--- Detail page scraping complete ---\n");
-            return allListings;
-
-            // Use pagination fetcher for subsequent pages (commented out for now)
-            // var pageFetcher = new ImmobilienScout24ListingsPageFetcher(browser, page);
-            // int pageNumber = 2;
-            //
-            // await foreach (var pageHtml in pageFetcher.FetchAllPagesHtmlAsync(ct))
-            // {
-            //     var listings = ParseListingsPage(pageHtml);
-            //     allListings.AddRange(listings);
-            //     Console.WriteLine($"Page {pageNumber}: added {listings.Count} listings");
-            //     pageNumber++;
-            // }
-            //
-            // Console.WriteLine($"ImmobilienScout24 scraper fetched {pageNumber - 1} pages with {allListings.Count} listings total.");
-
-            await browserScraper.DisposeAsync();
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error scraping ImmobilienScout24: {ex.Message}");
+            Console.WriteLine($"Warning: Could not clear previous HTML snapshots: {ex.Message}");
         }
 
-        return allListings;
+        return Task.CompletedTask;
+    }
+
+    protected override async IAsyncEnumerable<List<Flat>> FetchAndParseAllPagesAsync(CancellationToken ct)
+    {
+        if (_page == null)
+        {
+            yield break;
+        }
+
+        // Fetch and parse first page
+        Console.WriteLine("Processing first page...");
+        var firstPageHtml = await _page.ContentAsync();
+        var firstPageListings = ParseListingsPage(firstPageHtml);
+        yield return firstPageListings;
+
+        // Fetch and parse remaining pages
+        if (_pageFetcher != null)
+        {
+            await foreach (var pageHtml in _pageFetcher.FetchAllPagesHtmlAsync(ct))
+            {
+                var listings = ParseListingsPage(pageHtml);
+                yield return listings;
+            }
+        }
+    }
+
+    protected override async Task<Flat> EnrichListingWithDetailsAsync(Flat baseListing, CancellationToken ct)
+    {
+        if (_detailScraper == null || _detailParser == null)
+        {
+            return baseListing;
+        }
+
+        if (string.IsNullOrEmpty(baseListing.Url))
+        {
+            Console.WriteLine($"Listing: {baseListing.ListingId} - No URL, skipping details");
+            return baseListing;
+        }
+
+        Console.WriteLine($"Listing: {baseListing.ListingId} - Opening detail page...");
+        var detailPageHtml = await _detailScraper.FetchAndParseDetailPageAsync(baseListing.Url);
+
+        if (detailPageHtml == null)
+        {
+            Console.WriteLine($"Listing: {baseListing.ListingId} - Failed to fetch detail page");
+            return baseListing;
+        }
+
+        var html = await _detailScraper.GetPageAsync();
+        var details = _detailParser.ParseDetailFields(html);
+        var metadata = _detailParser.ExtractExposeMetadata(html);
+
+        // Create enriched listing with details and expose metadata
+        var enrichedListing = new Flat
+        {
+            Source = baseListing.Source,
+            ListingId = baseListing.ListingId,
+            Url = baseListing.Url,
+            Title = details?.Title ?? baseListing.Title,
+            Address = metadata?.Address,
+            PostalCode = metadata?.PostalCode,
+            District = metadata?.District,
+            PriceEur = metadata?.PriceEur,
+            RoomsCount = metadata?.RoomsCount,
+            LivingAreaSqm = metadata?.LivingAreaSqm,
+            CommissionPercent = metadata?.CommissionPercent,
+            Details = details,
+            ScrapedAtUtc = baseListing.ScrapedAtUtc,
+        };
+
+        Console.WriteLine($"Listing: {baseListing.ListingId} - Address: {metadata?.Address}, LivingAreaSqm: {metadata?.LivingAreaSqm}, Commission: {metadata?.CommissionPercent}%");
+        return enrichedListing;
+    }
+
+    protected override async Task SaveListingsAsync(List<Flat> listings, CancellationToken ct)
+    {
+        if (listings.Count == 0)
+            return;
+
+        try
+        {
+            await _repository.UpsertListingsAsync(listings, ct);
+            Console.WriteLine($"Saved {listings.Count} listings to database");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error saving listings to database: {ex.Message}");
+            throw;
+        }
+    }
+
+    protected override async Task CleanupAsync()
+    {
+        if (_page != null)
+        {
+            await _page.CloseAsync();
+        }
+
+        if (_browser != null)
+        {
+            await _browser.CloseAsync();
+        }
     }
 
     /// <summary>

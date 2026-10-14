@@ -60,6 +60,7 @@ public sealed class OhneMaklerListingCardParser
                     LivingAreaSqm = area,
                     ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
                     Source = OhneMaklerScraper.SourceName,
+                    DetailPageUrl = href,
                 };
 
                 results.Add((flat, href));

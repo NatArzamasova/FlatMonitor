@@ -15,4 +15,8 @@ public sealed class Flat
     public Details? Details { get; init; }
     public required string ScrapedAtUtc { get; init; }
     public string Source { get; init; } = "OhneMakler";
+    /// <summary>
+    /// Optional detail page URL used by some scrapers (e.g., OhneMakler) where detail URL differs from listing URL.
+    /// </summary>
+    public string? DetailPageUrl { get; init; }
 }

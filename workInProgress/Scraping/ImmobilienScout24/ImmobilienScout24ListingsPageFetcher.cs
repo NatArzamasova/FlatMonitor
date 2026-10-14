@@ -22,13 +22,14 @@ internal sealed class ImmobilienScout24ListingsPageFetcher : IAsyncDisposable
     }
 
     /// <summary>
-    /// Yields raw HTML for subsequent pages, starting from the next page after the current one.
+    /// Yields raw HTML for all pages, starting from page 2 onwards.
     /// Assumes the browser is already on page 1; fetches pages 2, 3, etc.
     /// Stops when the next-page button is disabled or after reaching the safety limit.
     /// </summary>
     public async IAsyncEnumerable<string> FetchAllPagesHtmlAsync(
         [EnumeratorCancellation] CancellationToken ct = default)
     {
+        _isLastPage = false; // Reset for each new scrape
         int pageNumber = 2;
 
         while (pageNumber <= MaxPagesLimit)
@@ -62,13 +63,25 @@ internal sealed class ImmobilienScout24ListingsPageFetcher : IAsyncDisposable
     {
         try
         {
+            // Click next page button to navigate to the target page
+            Console.WriteLine($"Fetching page {pageNumber}: Clicking next page button...");
+            var nextButton = await _page.QuerySelectorAsync("button[data-testid='pagination-button-next']:not([disabled])");
+            if (nextButton == null)
+            {
+                Console.WriteLine($"Next page button not found or disabled. Pagination complete.");
+                _isLastPage = true;
+                return null;
+            }
+
+            await nextButton.ClickAsync();
+
+            // Wait for the next page to load after clicking
             Console.WriteLine($"Fetching page {pageNumber}: Waiting for page load...");
-            // Wait for DOM content first, then allow some network time for listings to load
             await _page.WaitForLoadStateAsync(LoadState.DOMContentLoaded, new() { Timeout = 60000 });
             await Task.Delay(2000); // Give it 2 more seconds for listings to render
             Console.WriteLine($"Fetching page {pageNumber}: Page loaded, extracting HTML...");
 
-            // Extract current page HTML
+            // Extract current page HTML (now on the new page)
             var html = await _page.ContentAsync();
             Console.WriteLine($"Fetching page {pageNumber}: HTML extracted ({html.Length} bytes), parsing...");
 
@@ -86,37 +99,10 @@ internal sealed class ImmobilienScout24ListingsPageFetcher : IAsyncDisposable
             }
 
             Console.WriteLine($"Page {pageNumber}: {listingCount} listings found.");
-
-            // Check if next page button exists and is enabled
-            Console.WriteLine($"Fetching page {pageNumber}: Checking for next page button...");
-            var nextButton = await _page.QuerySelectorAsync("button[data-testid='pagination-button-next']:not([disabled])");
-            if (nextButton == null)
-            {
-                Console.WriteLine($"Next page button not found or disabled. Pagination complete after this page.");
-                _isLastPage = true;
-            }
-            else
-            {
-                // Click next page button
-                Console.WriteLine($"Fetching page {pageNumber}: Clicking next page button...");
-                await nextButton.ClickAsync();
-            }
-
             return html;
         }
         catch (Exception ex)
         {
-            if (pageNumber == 1)
-            {
-                // Page 1 is fatal
-                Console.Error.WriteLine($"Error on page {pageNumber}: {ex.Message}");
-                if (ex.InnerException != null)
-                    Console.Error.WriteLine($"Inner exception: {ex.InnerException.Message}");
-                throw new InvalidOperationException(
-                    $"Failed to fetch the first page from immobilienscout24.de. Scrape cannot continue.", ex);
-            }
-
-            // Later pages: log warning and stop
             Console.WriteLine($"Warning: Failed to fetch page {pageNumber}: {ex.Message}");
             if (ex.InnerException != null)
                 Console.WriteLine($"Inner exception: {ex.InnerException.Message}");
