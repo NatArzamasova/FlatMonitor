@@ -12,6 +12,7 @@ public class ImmobilienScout24DetailSelectors
     public string HeatingXPath => ".//dd[@class='is24qa-heizungsart grid-item three-fifths']//text()";
     public string EnergyCertificateTypeXPath => ".//dd[@class='is24qa-energieausweistyp grid-item three-fifths']//text()";
     public string EnergyConsumptionXPath => ".//dd[@class='is24qa-endenergieverbrauch grid-item three-fifths']//text()";
-    public string EnergyEfficiencyClassXPath => ".//dd[@class='is24qa-energieeffizienzklasse grid-item three-fifths']//text()";
+    public string EnergyEfficiencyClassXPath => ".//dd[@class='is24qa-energieeffizienzklasse grid-item three-fifths']//img[@alt]";
+    public string EnergyEfficiencyClassAttributeName => "alt";
     public string PrimaryEnergySourceXPath => ".//dd[@class='is24qa-wesentliche-energietraeger grid-item three-fifths']//text()";
 }

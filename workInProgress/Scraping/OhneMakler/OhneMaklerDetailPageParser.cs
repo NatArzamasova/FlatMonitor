@@ -46,6 +46,7 @@ public sealed class OhneMaklerDetailPageParser : IDetailParser
                 CurrentUse = ExtractCurrentUse(doc),
                 Availability = DetailExtractors.ExtractText(doc, _selectors.AvailabilityXPath)
                     ?? DetailExtractors.ExtractText(doc, _selectors.AvailabilityAlternateXPath),
+                CommissionPercent = 0,
             };
 
             return details;

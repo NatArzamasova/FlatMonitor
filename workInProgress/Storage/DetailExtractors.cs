@@ -24,6 +24,19 @@ public static class DetailExtractors
         }
     }
 
+    public static string? ExtractAttribute(HtmlDocument doc, string xpath, string attributeName)
+    {
+        try
+        {
+            var value = doc.DocumentNode.SelectSingleNode(xpath)?.GetAttributeValue(attributeName, null)?.Trim();
+            return string.IsNullOrWhiteSpace(value) ? null : value;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public static string? ExtractFieldByMultiplePatterns(HtmlDocument doc, string label, params string[] xpaths)
     {
         foreach (var xpath in xpaths)

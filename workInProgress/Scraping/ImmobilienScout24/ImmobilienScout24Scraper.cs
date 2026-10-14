@@ -57,29 +57,33 @@ public sealed class ImmobilienScout24Scraper : IScraper
                 {
                     Console.WriteLine($"\n--- Testing detail page scraper ---");
                     var detailScraper = new ImmobilienScout24DetailScraper(page);
-                    var details = await detailScraper.FetchAndParseDetailPageAsync(firstListing.Url);
+                    var detailPageHtml = await detailScraper.FetchAndParseDetailPageAsync(firstListing.Url);
+                    var detailParser = new ImmobilienScout24DetailParser();
 
-                    if (details != null)
+                    if (detailPageHtml != null)
                     {
-                        var detailAddress = await detailScraper.ExtractAddressFromCurrentPageAsync();
+                        var html = await page.ContentAsync();
+                        var details = detailParser.ParseDetailFields(html);
+                        var metadata = detailParser.ExtractExposeMetadata(html);
 
-                        // Create new listing with details and update in allListings
+                        // Create new listing with details and expose metadata
                         allListings[0] = new Flat
                         {
                             Source = firstListing.Source,
                             ListingId = firstListing.ListingId,
                             Url = firstListing.Url,
                             Title = firstListing.Title,
-                            Address = detailAddress ?? firstListing.Address,
-                            PostalCode = firstListing.PostalCode,
-                            District = firstListing.District,
-                            PriceEur = firstListing.PriceEur,
-                            RoomsCount = firstListing.RoomsCount,
-                            LivingAreaSqm = firstListing.LivingAreaSqm,
+                            Address = metadata?.Address ?? firstListing.Address,
+                            PostalCode = metadata?.PostalCode ?? firstListing.PostalCode,
+                            District = metadata?.District ?? firstListing.District,
+                            PriceEur = metadata?.PriceEur ?? firstListing.PriceEur,
+                            RoomsCount = metadata?.RoomsCount ?? firstListing.RoomsCount,
+                            LivingAreaSqm = metadata?.LivingAreaSqm ?? firstListing.LivingAreaSqm,
+                            CommissionPercent = metadata?.CommissionPercent,
                             Details = details,
                             ScrapedAtUtc = firstListing.ScrapedAtUtc,
                         };
-                        Console.WriteLine($"Details merged into listing {firstListing.ListingId}");
+                        Console.WriteLine($"Details and expose metadata merged into listing {firstListing.ListingId}");
                     }
 
                     Console.WriteLine($"--- Detail page test complete ---\n");

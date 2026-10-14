@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Immobilienscout24 Detail Page Sample</title>
+</head>
+<body>
+    <h1>Test Property</h1>
+
+    <!-- Property Type -->
+    <dl class="grid" role="presentation">
+        <dt class="is24qa-typ-label grid-item two-fifths">Typ</dt>
+        <dd class="is24qa-typ grid-item three-fifths">
+            Etagenwohnung
+        </dd>
+    </dl>
+
+    <!-- Build Year -->
+    <dl class="grid" role="presentation">
+        <dt class="is24qa-baujahr-label grid-item two-fifths">Baujahr</dt>
+        <dd class="is24qa-baujahr grid-item three-fifths">1976</dd>
+    </dl>
+
+    <!-- Heating -->
+    <dl class="grid" role="presentation">
+        <dt class="is24qa-heizungsart-label grid-item two-fifths">Heizungsart</dt>
+        <dd class="is24qa-heizungsart grid-item three-fifths">
+            Fernwärme
+        </dd>
+    </dl>
+
+    <!-- Primary Energy Source -->
+    <dl class="grid" role="presentation">
+        <dt class="is24qa-wesentliche-energietraeger-label grid-item two-fifths">Wesentliche Energieträger</dt>
+        <dd class="is24qa-wesentliche-energietraeger grid-item three-fifths">
+            Fernwärme
+        </dd>
+    </dl>
+
+    <!-- Energy Efficiency Class with img alt attribute -->
+    <dl class="grid" role="presentation">
+        <dt class="is24qa-energieeffizienzklasse-label grid-item two-fifths">Energieeffizienzklasse</dt>
+        <dd class="is24qa-energieeffizienzklasse grid-item three-fifths">
+            <span class="energy-efficiency-class">
+                <img alt="D" src="/expose/img/energyEfficiencyClass/D.svg">
+            </span>
+        </dd>
+    </dl>
+
+    <!-- Energy Certificate -->
+    <dl class="grid" role="presentation">
+        <dt class="is24qa-energieausweis-label grid-item two-fifths">Energieausweis</dt>
+        <dd class="is24qa-energieausweis grid-item three-fifths">
+            liegt vor
+        </dd>
+    </dl>
+
+    <!-- Embedded configuration with expose metadata (JSON) -->
+    <script>
+        var globalConfig = {
+            commissionSplitConfig: {
+                courtage: "3,57% inkl. MwSt.",
+                expose: {
+                    address: "Daxlanden, 76189 Karlsruhe",
+                    zip: "76189",
+                    location: "Daxlanden",
+                    livingSpace: "104",
+                    noRooms: 4,
+                    price: "347.000 €"
+                }
+            }
+        };
+    </script>
+</body>
+</html>

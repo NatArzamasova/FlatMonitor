@@ -98,6 +98,9 @@ public class ListingsDbContext : DbContext
             detailsBuilder.Property(d => d.Availability)
                 .HasColumnName("Availability")
                 .HasMaxLength(100);
+
+            detailsBuilder.Property(d => d.CommissionPercent)
+                .HasColumnName("CommissionPercent");
         });
 
         // Indexes

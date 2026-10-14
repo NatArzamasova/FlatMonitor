@@ -15,4 +15,5 @@ public sealed class Details
     public string? ListingStatus { get; init; }
     public string? CurrentUse { get; init; }
     public string? Availability { get; init; }
+    public double? CommissionPercent { get; init; }
 }

@@ -107,6 +107,10 @@ namespace workInProgress.Migrations
                                 .HasColumnType("INTEGER")
                                 .HasColumnName("BuildYear");
 
+                            b1.Property<double?>("CommissionPercent")
+                                .HasColumnType("REAL")
+                                .HasColumnName("CommissionPercent");
+
                             b1.Property<string>("Condition")
                                 .HasMaxLength(100)
                                 .HasColumnType("TEXT")
