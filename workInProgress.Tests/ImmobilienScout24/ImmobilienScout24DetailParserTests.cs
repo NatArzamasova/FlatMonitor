@@ -474,4 +474,134 @@ public class ImmobilienScout24DetailParserTests
         result!.PriceEur.Should().Be(347000);
         result!.CommissionPercent.Should().Be(3.57);
     }
+
+    [Test]
+    public void ExtractOriginalPrice_WithStrikeThroughPrice_ExtractsCorrectly()
+    {
+        // Arrange - test with <s> tag (real HTML format)
+        var html = @"
+            <html>
+                <body>
+                    <s>790.000 €</s>
+                </body>
+            </html>";
+
+        // Act
+        var result = _parser.ExtractOriginalPrice(html);
+
+        // Assert
+        result.Should().Be(790000);
+    }
+
+    [Test]
+    public void ExtractOriginalPrice_WithSpanFontStrike_ExtractsCorrectly()
+    {
+        // Arrange - fallback format
+        var html = @"
+            <html>
+                <body>
+                    <span class='font-strike'>790.000 €</span>
+                </body>
+            </html>";
+
+        // Act
+        var result = _parser.ExtractOriginalPrice(html);
+
+        // Assert
+        result.Should().Be(790000);
+    }
+
+    [Test]
+    public void ExtractOriginalPrice_WithMultipleStrikePrices_ExtractsFirst()
+    {
+        // Arrange
+        var html = @"
+            <html>
+                <body>
+                    <s>790.000 €</s>
+                    <s>800.000 €</s>
+                </body>
+            </html>";
+
+        // Act
+        var result = _parser.ExtractOriginalPrice(html);
+
+        // Assert
+        result.Should().Be(790000);
+    }
+
+    [Test]
+    public void ExtractOriginalPrice_WithoutStrikeThrough_ReturnsNull()
+    {
+        // Arrange
+        var html = @"
+            <html>
+                <body>
+                    <span>790.000 €</span>
+                </body>
+            </html>";
+
+        // Act
+        var result = _parser.ExtractOriginalPrice(html);
+
+        // Assert
+        result.Should().BeNull();
+    }
+
+    [Test]
+    public void ExtractOriginalPrice_WithoutEuroSign_ReturnsNull()
+    {
+        // Arrange
+        var html = @"
+            <html>
+                <body>
+                    <s>790.000</s>
+                </body>
+            </html>";
+
+        // Act
+        var result = _parser.ExtractOriginalPrice(html);
+
+        // Assert
+        result.Should().BeNull();
+    }
+
+    [Test]
+    public void ExtractOriginalPrice_WithEmptyHtml_ReturnsNull()
+    {
+        // Arrange
+        var html = "<html><body></body></html>";
+
+        // Act
+        var result = _parser.ExtractOriginalPrice(html);
+
+        // Assert
+        result.Should().BeNull();
+    }
+
+    [Test]
+    public void ExtractOriginalPrice_WithVariousPriceFormats()
+    {
+        // Arrange - test different price formats
+        var testCases = new[]
+        {
+            ("100 €", 100),
+            ("1.000 €", 1000),
+            ("10.000 €", 10000),
+            ("100.000 €", 100000),
+            ("790.000 €", 790000),
+            ("1.250.000 €", 1250000),
+        };
+
+        foreach (var (priceText, expectedPrice) in testCases)
+        {
+            var html = $@"<html><body><s>{priceText}</s></body></html>";
+
+            // Act
+            var result = _parser.ExtractOriginalPrice(html);
+
+            // Assert
+            result.Should().Be(expectedPrice, $"for price text '{priceText}'");
+        }
+    }
 }

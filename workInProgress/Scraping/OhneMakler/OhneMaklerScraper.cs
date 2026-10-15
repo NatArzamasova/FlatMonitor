@@ -116,11 +116,12 @@ public sealed class OhneMaklerScraper : DetailedListingScraper
             string detailHtml = await FetchDetailPageAsync(baseListing.DetailPageUrl, ct);
             var details = _detailParser.ParseDetailFields(detailHtml);
 
-            // Extract title, address, rooms, and area from the detail page HTML.
+            // Extract all data from detail page (detail page is the source of truth)
             string? title = ExtractTitleFromDetailPage(detailHtml);
             string? address = ExtractAddressFromDetailPage(detailHtml);
             int? rooms = ExtractRoomsFromDetailPage(detailHtml);
-            int? area = ExtractAreaFromDetailPage(detailHtml);
+            double? area = ExtractAreaFromDetailPage(detailHtml);
+            int? priceFromDetail = _detailParser.ExtractPrice(detailHtml);
 
             // Update the listing with detail-page data.
             var absoluteUrl = baseListing.Url?.StartsWith("http") ?? false
@@ -135,7 +136,8 @@ public sealed class OhneMaklerScraper : DetailedListingScraper
                 Address = address,
                 PostalCode = baseListing.PostalCode,
                 District = baseListing.District,
-                PriceEur = baseListing.PriceEur,
+                PriceEur = priceFromDetail ?? baseListing.PriceEur,
+                OriginalPriceEur = priceFromDetail ?? baseListing.PriceEur,
                 RoomsCount = rooms ?? baseListing.RoomsCount,
                 LivingAreaSqm = area ?? baseListing.LivingAreaSqm,
                 Details = details,
@@ -162,6 +164,7 @@ public sealed class OhneMaklerScraper : DetailedListingScraper
                 PostalCode = baseListing.PostalCode,
                 District = baseListing.District,
                 PriceEur = baseListing.PriceEur,
+                OriginalPriceEur = baseListing.PriceEur,
                 RoomsCount = baseListing.RoomsCount,
                 LivingAreaSqm = baseListing.LivingAreaSqm,
                 Details = baseListing.Details,
@@ -341,28 +344,36 @@ public sealed class OhneMaklerScraper : DetailedListingScraper
         }
     }
 
-    private static int? ExtractAreaFromDetailPage(string html)
+    private static double? ExtractAreaFromDetailPage(string html)
     {
         try
         {
             var doc = new HtmlAgilityPack.HtmlDocument();
             doc.LoadHtml(html);
 
-            // Look for "Wohnfläche" label and extract the preceding number with m² or m2
-            var wohnflaecheLabel = doc.DocumentNode.SelectSingleNode("//span[contains(normalize-space(), 'Wohnfläche')]");
-            if (wohnflaecheLabel != null)
+            // Search for any element containing "m²" or "m2" and extract the area from it
+            // This directly finds spans like <span>17,90 m²</span>
+            var nodes = doc.DocumentNode.SelectNodes("//*[contains(., 'm²') or contains(., 'm2')]");
+            if (nodes != null)
             {
-                var prevSpan = wohnflaecheLabel.PreviousSibling;
-                while (prevSpan != null)
+                foreach (var node in nodes)
                 {
-                    if (prevSpan.Name == "span")
+                    var text = node.InnerText?.Trim();
+                    if (!string.IsNullOrEmpty(text))
                     {
-                        var text = prevSpan.InnerText?.Trim();
-                        if (!string.IsNullOrEmpty(text) && int.TryParse(System.Text.RegularExpressions.Regex.Replace(text, @"[^\d]", ""), out int area))
-                            return area;
-                        break;
+                        // Match pattern: number with optional comma/period followed by m² or m2
+                        var match = System.Text.RegularExpressions.Regex.Match(text, @"(\d+[.,]\d+|\d+)\s*(?:m²|m2)");
+                        if (match.Success)
+                        {
+                            var numericPart = match.Groups[1].Value.Replace(",", ".");
+                            if (double.TryParse(numericPart, System.Globalization.CultureInfo.InvariantCulture, out double area) && area > 0)
+                            {
+                                // Found a valid area - check if it's reasonable (between 5 and 500 sqm for apartments)
+                                if (area >= 5 && area <= 500)
+                                    return area;
+                            }
+                        }
                     }
-                    prevSpan = prevSpan.PreviousSibling;
                 }
             }
 

@@ -125,6 +125,7 @@ public sealed class ImmobilienScout24Scraper : DetailedListingScraper
         var html = await _detailScraper.GetPageAsync();
         var details = _detailParser.ParseDetailFields(html);
         var metadata = _detailParser.ExtractExposeMetadata(html);
+        var originalPrice = _detailParser.ExtractOriginalPrice(html);
 
         // Create enriched listing with details and expose metadata
         var enrichedListing = new Flat
@@ -137,6 +138,7 @@ public sealed class ImmobilienScout24Scraper : DetailedListingScraper
             PostalCode = metadata?.PostalCode,
             District = metadata?.District,
             PriceEur = metadata?.PriceEur,
+            OriginalPriceEur = originalPrice ?? metadata?.OriginalPriceEur ?? metadata?.PriceEur,
             RoomsCount = metadata?.RoomsCount,
             LivingAreaSqm = metadata?.LivingAreaSqm,
             CommissionPercent = metadata?.CommissionPercent,
@@ -144,7 +146,6 @@ public sealed class ImmobilienScout24Scraper : DetailedListingScraper
             ScrapedAtUtc = baseListing.ScrapedAtUtc,
         };
 
-        Console.WriteLine($"Listing: {baseListing.ListingId} - Address: {metadata?.Address}, LivingAreaSqm: {metadata?.LivingAreaSqm}, Commission: {metadata?.CommissionPercent}%");
         return enrichedListing;
     }
 

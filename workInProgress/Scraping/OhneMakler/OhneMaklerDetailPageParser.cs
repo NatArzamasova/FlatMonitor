@@ -60,6 +60,21 @@ public sealed class OhneMaklerDetailPageParser : IDetailParser
         }
     }
 
+    public int? ExtractPrice(string html)
+    {
+        try
+        {
+            var doc = new HtmlDocument();
+            doc.LoadHtml(html);
+            var priceText = DetailExtractors.ExtractText(doc, _selectors.PriceXPath);
+            return DetailExtractors.ExtractIntField(priceText);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private string? ExtractListingStatus(HtmlDocument doc)
     {
         var htmlText = doc.DocumentNode.InnerText;

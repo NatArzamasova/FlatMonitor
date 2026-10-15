@@ -66,6 +66,8 @@ public sealed class FlatSnapshotRepository : ISnapshotRepository
                 existing.PostalCode = listing.PostalCode;
                 existing.District = listing.District;
                 existing.PriceEur = listing.PriceEur;
+                existing.OriginalPriceEur = listing.OriginalPriceEur;
+                existing.PricePerMeter = CalculatePricePerMeter(listing.PriceEur, listing.LivingAreaSqm);
                 existing.RoomsCount = listing.RoomsCount;
                 existing.LivingAreaSqm = listing.LivingAreaSqm;
                 existing.Details = listing.Details;
@@ -86,6 +88,8 @@ public sealed class FlatSnapshotRepository : ISnapshotRepository
                     PostalCode = listing.PostalCode,
                     District = listing.District,
                     PriceEur = listing.PriceEur,
+                    OriginalPriceEur = listing.OriginalPriceEur,
+                    PricePerMeter = CalculatePricePerMeter(listing.PriceEur, listing.LivingAreaSqm),
                     RoomsCount = listing.RoomsCount,
                     LivingAreaSqm = listing.LivingAreaSqm,
                     Details = listing.Details,
@@ -116,6 +120,14 @@ public sealed class FlatSnapshotRepository : ISnapshotRepository
     {
         if (_ownsContext)
             await _dbContext.DisposeAsync();
+    }
+
+    private static int? CalculatePricePerMeter(int? priceEur, double? livingAreaSqm)
+    {
+        if (!priceEur.HasValue || !livingAreaSqm.HasValue || livingAreaSqm == 0)
+            return null;
+
+        return (int)Math.Round((double)priceEur.Value / livingAreaSqm.Value);
     }
 
     private static string GetDefaultConnectionString()

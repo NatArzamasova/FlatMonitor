@@ -64,6 +64,51 @@ public class ImmobilienScout24DetailParser : IDetailParser
         }
     }
 
+    public int? ExtractOriginalPrice(string html)
+    {
+        try
+        {
+            var doc = new HtmlDocument();
+            doc.LoadHtml(html);
+
+            // Look for <s> tag (HTML semantic for strikethrough)
+            var struckNodes = doc.DocumentNode.SelectNodes("//s");
+
+            // Fallback to span with font-strike class
+            if (struckNodes == null || struckNodes.Count == 0)
+            {
+                struckNodes = doc.DocumentNode.SelectNodes("//span[@class='font-strike']");
+            }
+
+            // Fallback to span containing font-strike class
+            if (struckNodes == null || struckNodes.Count == 0)
+            {
+                struckNodes = doc.DocumentNode.SelectNodes("//span[contains(@class, 'font-strike')]");
+            }
+
+            if (struckNodes != null && struckNodes.Count > 0)
+            {
+                foreach (var node in struckNodes)
+                {
+                    var priceText = node.InnerText?.Trim();
+                    if (!string.IsNullOrEmpty(priceText) && priceText.Contains("€"))
+                    {
+                        var price = ParsePrice(priceText);
+                        if (price.HasValue)
+                            return price;
+                    }
+                }
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error extracting original price: {ex.Message}");
+            return null;
+        }
+    }
+
     public string? ExtractAddress(string html)
     {
         try
@@ -222,6 +267,7 @@ public class ImmobilienScout24DetailParser : IDetailParser
         public double? LivingAreaSqm { get; set; }
         public double? RoomsCount { get; set; }
         public int? PriceEur { get; set; }
+        public int? OriginalPriceEur { get; set; }
         public double? CommissionPercent { get; set; }
     }
 }

@@ -39,6 +39,10 @@ public class ListingsDbContext : DbContext
         snapshotBuilder.Property(s => s.District)
             .HasMaxLength(100);
 
+        snapshotBuilder.Property(s => s.OriginalPriceEur);
+
+        snapshotBuilder.Property(s => s.PricePerMeter);
+
         snapshotBuilder.Property(s => s.ScrapedAtUtc)
             .IsRequired()
             .HasMaxLength(50);

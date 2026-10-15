@@ -9,6 +9,8 @@ public sealed class Flat
     public string? PostalCode { get; init; }
     public string? District { get; init; }
     public int? PriceEur { get; init; }
+    public int? OriginalPriceEur { get; init; }
+    public int? PricePerMeter { get; init; }
     public double? RoomsCount { get; init; }
     public double? LivingAreaSqm { get; init; }
     public double? CommissionPercent { get; init; }

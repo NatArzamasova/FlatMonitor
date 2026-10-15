@@ -27,6 +27,7 @@ public class OhneMaklerDetailSelectors
     public string EnergyConsumptionXPath => BuildXPathPatterns("Endenergieverbrauch");
     public string AvailabilityXPath => BuildXPathPatterns("Verfügbarkeit");
     public string AvailabilityAlternateXPath => BuildXPathPatterns("Übernahme ab");
+    public string PriceXPath => BuildXPathPatterns("Kaufpreis");
 
     // Structure validation XPaths
     public string[] ValidStructurePatterns => new[]

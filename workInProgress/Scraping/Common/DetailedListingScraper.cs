@@ -52,14 +52,14 @@ public abstract class DetailedListingScraper : IScraper
                 try
                 {
                     var enrichedListing = await EnrichListingWithDetailsAsync(listing, ct);
-                    Console.WriteLine($"{Source}: ({totalProcessed}/{totalListings}) {listing.ListingId} - enriched successfully");
+                    DetailScraperLogger.LogEnrichedListing(Source, enrichedListing, totalProcessed, totalListings);
                     pageBuffer.Add(enrichedListing);
                     allListings.Add(enrichedListing);
                 }
                 catch (Exception ex)
                 {
                     // Log error but continue with partial data
-                    Console.WriteLine($"{Source}: ({totalProcessed}/{totalListings}) {listing.ListingId} - Error enriching details: {ex.Message}");
+                    DetailScraperLogger.LogEnrichmentFailed(Source, listing.ListingId, ex.Message, totalProcessed, totalListings);
                     pageBuffer.Add(listing);
                     allListings.Add(listing);
                 }

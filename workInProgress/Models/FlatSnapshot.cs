@@ -9,6 +9,8 @@ public sealed class FlatSnapshot
     public string? PostalCode { get; set; }
     public string? District { get; set; }
     public int? PriceEur { get; set; }
+    public int? OriginalPriceEur { get; set; }
+    public int? PricePerMeter { get; set; }
     public double? RoomsCount { get; set; }
     public double? LivingAreaSqm { get; set; }
     public Details? Details { get; set; }

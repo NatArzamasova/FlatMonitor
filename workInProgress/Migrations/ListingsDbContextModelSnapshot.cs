@@ -42,11 +42,17 @@ namespace workInProgress.Migrations
                     b.Property<double?>("LivingAreaSqm")
                         .HasColumnType("REAL");
 
+                    b.Property<int?>("OriginalPriceEur")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("PostalCode")
                         .HasMaxLength(10)
                         .HasColumnType("TEXT");
 
                     b.Property<int?>("PriceEur")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("PricePerMeter")
                         .HasColumnType("INTEGER");
 
                     b.Property<double?>("RoomsCount")

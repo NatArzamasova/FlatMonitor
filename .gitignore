@@ -9,3 +9,4 @@ obj/
 *.suo
 .DS_Store
 workInProgress/data/
+workInProgress.Tests/data/
