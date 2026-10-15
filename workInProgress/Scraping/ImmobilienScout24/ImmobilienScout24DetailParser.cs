@@ -30,12 +30,24 @@ public class ImmobilienScout24DetailParser : IDetailParser
             var address = DetailExtractors.ExtractText(doc, _selectors.AddressXPath);
             var propertyType = DetailExtractors.ExtractText(doc, _selectors.PropertyTypeXPath);
             var buildYear = DetailExtractors.ExtractIntField(DetailExtractors.ExtractText(doc, _selectors.BuildYearXPath));
+            var floor = DetailExtractors.ExtractText(doc, _selectors.FloorXPath);
             var heating = DetailExtractors.ExtractText(doc, _selectors.HeatingXPath);
             var energyCertType = DetailExtractors.ExtractText(doc, _selectors.EnergyCertificateTypeXPath);
             var energyConsumption = DetailExtractors.ExtractText(doc, _selectors.EnergyConsumptionXPath);
             var energyEffClass = DetailExtractors.ExtractAttribute(doc, _selectors.EnergyEfficiencyClassXPath, _selectors.EnergyEfficiencyClassAttributeName);
             var primaryEnergy = DetailExtractors.ExtractText(doc, _selectors.PrimaryEnergySourceXPath);
             var serviceCharge = DetailExtractors.ExtractIntField(DetailExtractors.ExtractText(doc, _selectors.ServiceChargeXPath));
+            var availability = DetailExtractors.ExtractText(doc, _selectors.AvailabilityXPath);
+
+            // Map Availability to CurrentUse
+            string? currentUse = null;
+            if (!string.IsNullOrWhiteSpace(availability))
+            {
+                if (availability.Contains("Vermitet", StringComparison.OrdinalIgnoreCase))
+                    currentUse = "Vermitet";
+                else if (availability.Contains("Sofort", StringComparison.OrdinalIgnoreCase))
+                    currentUse = "Nicht vermietet";
+            }
 
             // Extract commission percent from expose metadata
             var metadata = ExtractExposeMetadata(html);
@@ -46,12 +58,15 @@ public class ImmobilienScout24DetailParser : IDetailParser
                 Title = title,
                 PropertyType = propertyType,
                 BuildYear = buildYear,
+                Floor = floor,
                 Heating = heating,
                 EnergyCertificateType = energyCertType,
                 EnergyConsumption = energyConsumption,
                 EnergyEfficiencyClass = energyEffClass,
                 PrimaryEnergySource = primaryEnergy,
                 ServiceChargeEur = serviceCharge,
+                Availability = availability,
+                CurrentUse = currentUse,
                 CommissionPercent = commissionPercent,
             };
 

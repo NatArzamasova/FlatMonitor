@@ -10,6 +10,7 @@ public class ImmobilienScout24DetailSelectors
     public string AddressXPath => "//*[@data-qa='is24-expose-address']//span[@class='address-text']";
     public string PropertyTypeXPath => ".//dd[@class='is24qa-typ grid-item three-fifths']//text()";
     public string BuildYearXPath => ".//dd[@class='is24qa-baujahr grid-item three-fifths']//text()";
+    public string FloorXPath => ".//dd[contains(@class, 'is24qa-etage')]//text()";
     public string HeatingXPath => ".//dd[@class='is24qa-heizungsart grid-item three-fifths']//text()";
     public string EnergyCertificateTypeXPath => ".//dd[@class='is24qa-energieausweistyp grid-item three-fifths']//text()";
     public string EnergyConsumptionXPath => ".//dd[@class='is24qa-endenergieverbrauch grid-item three-fifths']//text()";
@@ -17,4 +18,5 @@ public class ImmobilienScout24DetailSelectors
     public string EnergyEfficiencyClassAttributeName => "alt";
     public string PrimaryEnergySourceXPath => ".//dd[@class='is24qa-wesentliche-energietraeger grid-item three-fifths']//text()";
     public string ServiceChargeXPath => ".//dd[@class='is24qa-hausgeld grid-item three-fifths']//text()";
+    public string AvailabilityXPath => ".//dd[contains(@class, 'is24qa-bezugsfrei-ab')]//text()";
 }

@@ -604,4 +604,235 @@ public class ImmobilienScout24DetailParserTests
             result.Should().Be(expectedPrice, $"for price text '{priceText}'");
         }
     }
+
+    [Test]
+    public void ParseDetailFields_ExtractsFloorCorrectly()
+    {
+        // Arrange
+        var html = @"
+            <html>
+                <body>
+                    <dl class='grid' role='presentation'>
+                        <dt class='is24qa-etage-label grid-item two-fifths'>Etage</dt>
+                        <dd class='is24qa-etage grid-item three-fifths'>2 von 4</dd>
+                    </dl>
+                </body>
+            </html>";
+
+        // Act
+        var result = _parser.ParseDetailFields(html);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.Floor.Should().Be("2 von 4");
+    }
+
+    [Test]
+    public void ParseDetailFields_WithMissingFloor_ReturnsNullForFloor()
+    {
+        // Arrange
+        var html = @"
+            <html>
+                <body>
+                    <dl class='grid' role='presentation'>
+                        <dt class='is24qa-typ-label'>Typ</dt>
+                        <dd class='is24qa-typ grid-item three-fifths'>Etagenwohnung</dd>
+                    </dl>
+                </body>
+            </html>";
+
+        // Act
+        var result = _parser.ParseDetailFields(html);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.Floor.Should().BeNull();
+    }
+
+    [Test]
+    public void ParseDetailFields_ExtractsAvailabilityCorrectly()
+    {
+        // Arrange
+        var html = @"
+            <html>
+                <body>
+                    <dl class='grid' role='presentation'>
+                        <dt class='is24qa-bezugsfrei-ab-label grid-item two-fifths'>Bezugsfrei ab</dt>
+                        <dd class='is24qa-bezugsfrei-ab grid-item three-fifths'>nach Absprache</dd>
+                    </dl>
+                </body>
+            </html>";
+
+        // Act
+        var result = _parser.ParseDetailFields(html);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.Availability.Should().Be("nach Absprache");
+    }
+
+    [Test]
+    public void ParseDetailFields_MapsAvailabilityVermitetToCurrentUse()
+    {
+        // Arrange
+        var html = @"
+            <html>
+                <body>
+                    <dl class='grid' role='presentation'>
+                        <dd class='is24qa-bezugsfrei-ab grid-item three-fifths'>Vermitet</dd>
+                    </dl>
+                </body>
+            </html>";
+
+        // Act
+        var result = _parser.ParseDetailFields(html);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.Availability.Should().Be("Vermitet");
+        result!.CurrentUse.Should().Be("Vermitet");
+    }
+
+    [Test]
+    public void ParseDetailFields_MapsAvailabilitySofortToCurrentUse()
+    {
+        // Arrange
+        var html = @"
+            <html>
+                <body>
+                    <dl class='grid' role='presentation'>
+                        <dd class='is24qa-bezugsfrei-ab grid-item three-fifths'>Sofort</dd>
+                    </dl>
+                </body>
+            </html>";
+
+        // Act
+        var result = _parser.ParseDetailFields(html);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.Availability.Should().Be("Sofort");
+        result!.CurrentUse.Should().Be("Nicht vermietet");
+    }
+
+    [Test]
+    public void ParseDetailFields_WithAvailabilityVermitetCasInsensitive_MapsToCurrentUse()
+    {
+        // Arrange - test case insensitivity
+        var testCases = new[] { "vermitet", "VERMITET", "Vermitet", "VerMitet" };
+
+        foreach (var availability in testCases)
+        {
+            var html = $@"
+                <html>
+                    <body>
+                        <dd class='is24qa-bezugsfrei-ab'>{availability}</dd>
+                    </body>
+                </html>";
+
+            // Act
+            var result = _parser.ParseDetailFields(html);
+
+            // Assert
+            result.Should().NotBeNull();
+            result!.CurrentUse.Should().Be("Vermitet", $"for availability '{availability}'");
+        }
+    }
+
+    [Test]
+    public void ParseDetailFields_WithAvailabilitySofortCaseInsensitive_MapsToCurrentUse()
+    {
+        // Arrange - test case insensitivity for "Sofort"
+        var testCases = new[] { "sofort", "SOFORT", "Sofort", "SoFoRt" };
+
+        foreach (var availability in testCases)
+        {
+            var html = $@"
+                <html>
+                    <body>
+                        <dd class='is24qa-bezugsfrei-ab'>{availability}</dd>
+                    </body>
+                </html>";
+
+            // Act
+            var result = _parser.ParseDetailFields(html);
+
+            // Assert
+            result.Should().NotBeNull();
+            result!.CurrentUse.Should().Be("Nicht vermietet", $"for availability '{availability}'");
+        }
+    }
+
+    [Test]
+    public void ParseDetailFields_WithUnmappedAvailability_ReturnsNullForCurrentUse()
+    {
+        // Arrange
+        var html = @"
+            <html>
+                <body>
+                    <dl class='grid' role='presentation'>
+                        <dd class='is24qa-bezugsfrei-ab grid-item three-fifths'>nach Absprache</dd>
+                    </dl>
+                </body>
+            </html>";
+
+        // Act
+        var result = _parser.ParseDetailFields(html);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.Availability.Should().Be("nach Absprache");
+        result!.CurrentUse.Should().BeNull("unmapped availability should not set CurrentUse");
+    }
+
+    [Test]
+    public void ParseDetailFields_WithMissingAvailability_ReturnsNullForBoth()
+    {
+        // Arrange
+        var html = @"
+            <html>
+                <body>
+                    <dl class='grid' role='presentation'>
+                        <dt class='is24qa-typ-label'>Typ</dt>
+                        <dd class='is24qa-typ grid-item three-fifths'>Etagenwohnung</dd>
+                    </dl>
+                </body>
+            </html>";
+
+        // Act
+        var result = _parser.ParseDetailFields(html);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.Availability.Should().BeNull();
+        result!.CurrentUse.Should().BeNull();
+    }
+
+    [Test]
+    public void ParseDetailFields_WithFloorAndAvailabilityTogether()
+    {
+        // Arrange - comprehensive test with both floor and availability
+        var html = @"
+            <html>
+                <body>
+                    <dl class='grid' role='presentation'>
+                        <dt class='is24qa-etage-label'>Etage</dt>
+                        <dd class='is24qa-etage'>3 von 5</dd>
+                    </dl>
+                    <dl class='grid' role='presentation'>
+                        <dt class='is24qa-bezugsfrei-ab-label'>Bezugsfrei ab</dt>
+                        <dd class='is24qa-bezugsfrei-ab'>Vermitet</dd>
+                    </dl>
+                </body>
+            </html>";
+
+        // Act
+        var result = _parser.ParseDetailFields(html);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.Floor.Should().Be("3 von 5");
+        result!.Availability.Should().Be("Vermitet");
+        result!.CurrentUse.Should().Be("Vermitet");
+    }
 }
