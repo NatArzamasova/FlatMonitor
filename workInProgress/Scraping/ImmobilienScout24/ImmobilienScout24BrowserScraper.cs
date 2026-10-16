@@ -22,13 +22,7 @@ public class ImmobilienScout24BrowserScraper : IAsyncDisposable
             Console.WriteLine($"Navigating to {listingsUrl}...");
             await _page.GotoAsync(listingsUrl, new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
 
-            Console.WriteLine("\n✓ Browser opened and page loaded.");
-            Console.WriteLine("\nPlease:");
-            Console.WriteLine("  1. Log in with your Google account");
-            Console.WriteLine("  2. Complete any robot guard verification");
-            Console.WriteLine("  3. When logged in and the listings are visible, press Enter here...\n");
-
-            Console.ReadLine();
+            Console.WriteLine("✓ Browser opened and page loaded.");
 
             return (_browser, _page);
         }
@@ -50,5 +44,7 @@ public class ImmobilienScout24BrowserScraper : IAsyncDisposable
         {
             await _browser.CloseAsync();
         }
+
+        GC.SuppressFinalize(this);
     }
 }
