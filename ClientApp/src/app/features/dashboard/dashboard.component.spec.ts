@@ -82,7 +82,9 @@ describe('DashboardComponent', () => {
   });
 
   afterEach(() => {
-    fixture.destroy();
+    if (fixture) {
+      fixture.destroy();
+    }
   });
 
   describe('Initialization', () => {
@@ -341,6 +343,189 @@ describe('DashboardComponent', () => {
       component.loadAggregatedData();
 
       expect(component.error).toBe('Failed to load data');
+    });
+  });
+
+  describe('Filtering and Grouping', () => {
+    beforeEach(() => {
+      flatsService.getScrapeStatus.and.returnValue(of(mockScrapingStatusNotRunning));
+    });
+
+    const multiRoomData: ApiResponse<FlatAggregation[]> = {
+      success: true,
+      data: [
+        { district: 'Mitte', roomsCount: 1, count: 3, avgPricePerMeter: 15.00, postalCode: '10115' },
+        { district: 'Mitte', roomsCount: 2, count: 5, avgPricePerMeter: 12.50, postalCode: '10115' },
+        { district: 'Mitte', roomsCount: 3, count: 2, avgPricePerMeter: 10.00, postalCode: '10115' },
+        { district: 'Prenzlauer Berg', roomsCount: 1, count: 4, avgPricePerMeter: 14.00, postalCode: '10119' },
+        { district: 'Prenzlauer Berg', roomsCount: 2, count: 6, avgPricePerMeter: 11.20, postalCode: '10119' }
+      ],
+      message: 'Success'
+    };
+
+    it('should populate available districts and rooms from data', () => {
+      flatsService.getAggregated.and.returnValue(of(multiRoomData));
+
+      component.loadAggregatedData();
+
+      expect(component.availableDistricts).toEqual(['Mitte', 'Prenzlauer Berg']);
+      expect(component.availableRooms).toEqual([1, 2, 3]);
+    });
+
+    it('should filter by single district', () => {
+      flatsService.getAggregated.and.returnValue(of(multiRoomData));
+      component.loadAggregatedData();
+
+      component.selectedDistricts = ['Mitte'];
+      component.onFiltersChange();
+
+      expect(component.aggregatedData.length).toBe(3);
+      expect(component.aggregatedData.every(item => item.district === 'Mitte')).toBe(true);
+    });
+
+    it('should filter by multiple districts', () => {
+      flatsService.getAggregated.and.returnValue(of(multiRoomData));
+      component.loadAggregatedData();
+
+      component.selectedDistricts = ['Mitte', 'Prenzlauer Berg'];
+      component.onFiltersChange();
+
+      expect(component.aggregatedData.length).toBe(5);
+      expect(component.aggregatedData.every(item =>
+        item.district === 'Mitte' || item.district === 'Prenzlauer Berg'
+      )).toBe(true);
+    });
+
+    it('should filter by single room count', () => {
+      flatsService.getAggregated.and.returnValue(of(multiRoomData));
+      component.loadAggregatedData();
+
+      component.selectedRoomCounts = [2];
+      component.onFiltersChange();
+
+      expect(component.aggregatedData.length).toBe(2);
+      expect(component.aggregatedData.every(item => item.roomsCount === 2)).toBe(true);
+    });
+
+    it('should filter by multiple room counts', () => {
+      flatsService.getAggregated.and.returnValue(of(multiRoomData));
+      component.loadAggregatedData();
+
+      component.selectedRoomCounts = [1, 2];
+      component.onFiltersChange();
+
+      expect(component.aggregatedData.length).toBe(4);
+      expect(component.aggregatedData.every(item =>
+        item.roomsCount === 1 || item.roomsCount === 2
+      )).toBe(true);
+    });
+
+    it('should filter by both districts and rooms', () => {
+      flatsService.getAggregated.and.returnValue(of(multiRoomData));
+      component.loadAggregatedData();
+
+      component.selectedDistricts = ['Mitte'];
+      component.selectedRoomCounts = [2];
+      component.onFiltersChange();
+
+      expect(component.aggregatedData.length).toBe(1);
+      expect(component.aggregatedData[0].district).toBe('Mitte');
+      expect(component.aggregatedData[0].roomsCount).toBe(2);
+    });
+
+    it('should aggregate by district only when groupByRooms is false', () => {
+      flatsService.getAggregated.and.returnValue(of(multiRoomData));
+      component.loadAggregatedData();
+
+      component.groupByDistrict = true;
+      component.groupByRooms = false;
+      component.onGroupingToggle();
+
+      expect(component.aggregatedData.length).toBe(2);
+      expect(component.aggregatedData[0].district).toBe('Mitte');
+      expect(component.aggregatedData[0].roomsCount).toBeUndefined();
+      expect(component.aggregatedData[0].count).toBe(10); // 3 + 5 + 2
+    });
+
+    it('should aggregate by rooms only when groupByDistrict is false', () => {
+      flatsService.getAggregated.and.returnValue(of(multiRoomData));
+      component.loadAggregatedData();
+
+      component.groupByDistrict = false;
+      component.groupByRooms = true;
+      component.onGroupingToggle();
+
+      expect(component.aggregatedData.length).toBe(3);
+      expect(component.aggregatedData[0].roomsCount).toBe(1);
+      expect(component.aggregatedData[0].district).toBeUndefined();
+      expect(component.aggregatedData[0].count).toBe(7); // 3 + 4
+    });
+
+    it('should aggregate all data when both grouping options are disabled', () => {
+      flatsService.getAggregated.and.returnValue(of(multiRoomData));
+      component.loadAggregatedData();
+
+      component.groupByDistrict = false;
+      component.groupByRooms = false;
+      component.onGroupingToggle();
+
+      expect(component.aggregatedData.length).toBe(1);
+      expect(component.aggregatedData[0].district).toBeUndefined();
+      expect(component.aggregatedData[0].roomsCount).toBeUndefined();
+      expect(component.aggregatedData[0].count).toBe(20); // Total of all counts
+    });
+
+    it('should calculate weighted average price correctly when aggregating by district', () => {
+      flatsService.getAggregated.and.returnValue(of(multiRoomData));
+      component.loadAggregatedData();
+
+      component.groupByDistrict = true;
+      component.groupByRooms = false;
+      component.onGroupingToggle();
+
+      const mitteRow = component.aggregatedData.find(item => item.district === 'Mitte');
+      // Mitte: (3*15 + 5*12.5 + 2*10) / 10 = (45 + 62.5 + 20) / 10 = 127.5 / 10 = 12.75
+      expect(mitteRow?.avgPricePerMeter).toBeCloseTo(12.75, 2);
+    });
+
+    it('should calculate weighted average price correctly when aggregating by rooms', () => {
+      flatsService.getAggregated.and.returnValue(of(multiRoomData));
+      component.loadAggregatedData();
+
+      component.groupByDistrict = false;
+      component.groupByRooms = true;
+      component.onGroupingToggle();
+
+      const room1Row = component.aggregatedData.find(item => item.roomsCount === 1);
+      // Room 1: (3*15 + 4*14) / 7 = (45 + 56) / 7 = 101 / 7 ≈ 14.43
+      expect(room1Row?.avgPricePerMeter).toBeCloseTo(14.43, 2);
+    });
+
+    it('should calculate weighted average price correctly when aggregating all', () => {
+      flatsService.getAggregated.and.returnValue(of(multiRoomData));
+      component.loadAggregatedData();
+
+      component.groupByDistrict = false;
+      component.groupByRooms = false;
+      component.onGroupingToggle();
+
+      // All: (3*15 + 5*12.5 + 2*10 + 4*14 + 6*11.2) / 20
+      // = (45 + 62.5 + 20 + 56 + 67.2) / 20 = 250.7 / 20 = 12.535
+      expect(component.aggregatedData[0].avgPricePerMeter).toBeCloseTo(12.535, 2);
+    });
+
+    it('should apply filter and then aggregate correctly', () => {
+      flatsService.getAggregated.and.returnValue(of(multiRoomData));
+      component.loadAggregatedData();
+
+      component.selectedDistricts = ['Mitte'];
+      component.groupByDistrict = true;
+      component.groupByRooms = false;
+      component.onFiltersChange();
+
+      expect(component.aggregatedData.length).toBe(1);
+      expect(component.aggregatedData[0].count).toBe(10);
+      expect(component.aggregatedData[0].avgPricePerMeter).toBeCloseTo(12.75, 2);
     });
   });
 });

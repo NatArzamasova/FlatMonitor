@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { interval, Subject } from 'rxjs';
 import { takeUntil, switchMap } from 'rxjs/operators';
 import { FlatsService } from '../../core/services/flats.service';
@@ -9,12 +10,13 @@ import { ScrapingStatusResponse, ScrapingHistoryDto } from '../../core/models/sc
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']
 })
 export class DashboardComponent implements OnInit, OnDestroy {
   aggregatedData: FlatAggregation[] = [];
+  rawData: FlatAggregation[] = [];
   loading = false;
   scraping = false;
   error: string | null = null;
@@ -23,6 +25,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
   lastScrapingTime: Date | null = null;
   lastScrapingStatus: string | null = null;
   lastScrapingCount = 0;
+
+  selectedDistricts: string[] = [];
+  selectedRoomCounts: number[] = [];
+  groupByDistrict = true;
+  groupByRooms = true;
+
+  availableDistricts: string[] = [];
+  availableRooms: (number | null)[] = [];
+
   private destroy$ = new Subject<void>();
 
   constructor(private flatsService: FlatsService) {}
@@ -60,7 +71,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.flatsService.getAggregated().subscribe({
       next: (response) => {
         if (response.success && response.data) {
-          this.aggregatedData = response.data;
+          this.rawData = response.data;
+          this.updateAvailableFilters();
+          this.applyFiltersAndGrouping();
           this.lastUpdated = new Date();
         } else {
           this.error = response.message || 'Failed to load data';
@@ -72,6 +85,159 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.loading = false;
       }
     });
+  }
+
+  private updateAvailableFilters(): void {
+    const districts = new Set<string>();
+    const rooms = new Set<number | null>();
+
+    this.rawData.forEach(item => {
+      if (item.district) {
+        districts.add(item.district);
+      }
+      if (item.roomsCount !== undefined && item.roomsCount !== null) {
+        rooms.add(item.roomsCount);
+      }
+    });
+
+    this.availableDistricts = Array.from(districts).sort();
+    this.availableRooms = Array.from(rooms).sort((a, b) => {
+      if (a === null) return 1;
+      if (b === null) return -1;
+      return a - b;
+    });
+  }
+
+  applyFiltersAndGrouping(): void {
+    let filtered = this.rawData;
+
+    // Apply district filter
+    if (this.selectedDistricts.length > 0) {
+      filtered = filtered.filter(item => this.selectedDistricts.includes(item.district || ''));
+    }
+
+    // Apply rooms filter
+    if (this.selectedRoomCounts.length > 0) {
+      filtered = filtered.filter(item =>
+        item.roomsCount !== undefined && this.selectedRoomCounts.includes(item.roomsCount)
+      );
+    }
+
+    // Apply grouping after filters
+    if (this.groupByDistrict && this.groupByRooms) {
+      this.aggregatedData = filtered;
+    } else if (this.groupByDistrict && !this.groupByRooms) {
+      this.aggregatedData = this.aggregateByDistrict(filtered);
+    } else if (!this.groupByDistrict && this.groupByRooms) {
+      this.aggregatedData = this.aggregateByRooms(filtered);
+    } else {
+      this.aggregatedData = this.aggregateAll(filtered);
+    }
+  }
+
+  onFiltersChange(): void {
+    this.applyFiltersAndGrouping();
+  }
+
+  private aggregateByDistrict(data: FlatAggregation[]): FlatAggregation[] {
+    const grouped = new Map<string | undefined, FlatAggregation>();
+
+    data.forEach(item => {
+      const key = item.district;
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          district: item.district,
+          roomsCount: undefined,
+          count: 0,
+          avgPricePerMeter: 0,
+          postalCode: item.postalCode,
+          availability: item.availability
+        });
+      }
+
+      const current = grouped.get(key)!;
+      const oldCount = current.count;
+      const newTotalCount = oldCount + item.count;
+
+      current.avgPricePerMeter =
+        (oldCount * current.avgPricePerMeter + item.count * item.avgPricePerMeter) /
+        newTotalCount;
+      current.count = newTotalCount;
+    });
+
+    return Array.from(grouped.values()).sort((a, b) => {
+      const districtA = a.district || '';
+      const districtB = b.district || '';
+      return districtA.localeCompare(districtB);
+    });
+  }
+
+  private aggregateByRooms(data: FlatAggregation[]): FlatAggregation[] {
+    const grouped = new Map<number | undefined, FlatAggregation>();
+
+    data.forEach(item => {
+      const key = item.roomsCount;
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          district: undefined,
+          roomsCount: item.roomsCount,
+          count: 0,
+          avgPricePerMeter: 0,
+          postalCode: item.postalCode,
+          availability: item.availability
+        });
+      }
+
+      const current = grouped.get(key)!;
+      const oldCount = current.count;
+      const newTotalCount = oldCount + item.count;
+
+      current.avgPricePerMeter =
+        (oldCount * current.avgPricePerMeter + item.count * item.avgPricePerMeter) /
+        newTotalCount;
+      current.count = newTotalCount;
+    });
+
+    return Array.from(grouped.values()).sort((a, b) => {
+      const roomsA = a.roomsCount ?? -1;
+      const roomsB = b.roomsCount ?? -1;
+      return roomsA - roomsB;
+    });
+  }
+
+  private aggregateAll(data: FlatAggregation[]): FlatAggregation[] {
+    if (data.length === 0) {
+      return [];
+    }
+
+    const aggregated: FlatAggregation = {
+      district: undefined,
+      roomsCount: undefined,
+      count: 0,
+      avgPricePerMeter: 0,
+      postalCode: undefined,
+      availability: undefined
+    };
+
+    data.forEach(item => {
+      const oldCount = aggregated.count;
+      const newTotalCount = oldCount + item.count;
+
+      aggregated.avgPricePerMeter =
+        (oldCount * aggregated.avgPricePerMeter + item.count * item.avgPricePerMeter) /
+        newTotalCount;
+      aggregated.count = newTotalCount;
+    });
+
+    return [aggregated];
+  }
+
+  onFilterChange(): void {
+    this.applyFiltersAndGrouping();
+  }
+
+  onGroupingToggle(): void {
+    this.applyFiltersAndGrouping();
   }
 
   loadScrapingStatus(): void {
