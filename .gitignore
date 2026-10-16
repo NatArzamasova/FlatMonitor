@@ -8,5 +8,5 @@ obj/
 *.user
 *.suo
 .DS_Store
-workInProgress/data/
-workInProgress.Tests/data/
+FlatMonitor/data/
+FlatMonitor.Tests/data/
