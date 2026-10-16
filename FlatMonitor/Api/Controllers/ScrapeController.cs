@@ -57,8 +57,19 @@ public class ScrapeController : ControllerBase
             // Get cancellation token
             var cancellationToken = _stateService.StartScraping();
 
+            // Set callback to update history as each batch is saved
+            _coordinator.SetOnBatchSavedCallback(async (batchCount) =>
+            {
+                history.FlatsScrapedCount += batchCount;
+                _context.ScrapingHistories.Update(history);
+                await _context.SaveChangesAsync();
+                Console.WriteLine($"📊 Batch saved: +{batchCount} flats. Total: {history.FlatsScrapedCount}");
+            });
+
             // Run scraper with cancellation token
-            await _coordinator.ScrapeAllSourcesAsync(cancellationToken);
+            Console.WriteLine("🔄 Running scraper...");
+            var flatsCount = await _coordinator.ScrapeAllSourcesAsync(cancellationToken);
+            Console.WriteLine($"✓ Scraping completed. Coordinator returned: {flatsCount} flats");
 
             // Update history on success
             var endTime = DateTime.UtcNow;
@@ -66,6 +77,7 @@ public class ScrapeController : ControllerBase
             history.Status = "Successful";
             _context.ScrapingHistories.Update(history);
             await _context.SaveChangesAsync();
+            Console.WriteLine($"✓ History saved successfully. ID={history.Id}, FlatsScrapedCount={history.FlatsScrapedCount}");
 
             return Ok(new ScrapeResponse
             {
@@ -130,7 +142,8 @@ public class ScrapeController : ControllerBase
                 StartTimeUtc = lastHistory.StartTimeUtc,
                 EndTimeUtc = lastHistory.EndTimeUtc,
                 Status = lastHistory.Status,
-                ErrorMessage = lastHistory.ErrorMessage
+                ErrorMessage = lastHistory.ErrorMessage,
+                FlatsScrapedCount = lastHistory.FlatsScrapedCount
             } : null
         };
 

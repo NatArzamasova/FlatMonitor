@@ -22,6 +22,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   scrapedCount = 0;
   lastScrapingTime: Date | null = null;
   lastScrapingStatus: string | null = null;
+  lastScrapingCount = 0;
   private destroy$ = new Subject<void>();
 
   constructor(private flatsService: FlatsService) {}
@@ -30,8 +31,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.loadAggregatedData();
     this.loadScrapingStatus();
 
-    // Poll scraping status every 2 seconds while scraping
-    interval(2000)
+    // Poll scraping status: fast while scraping, slow otherwise
+    interval(2000)  // Poll every 2 seconds when scraping
       .pipe(
         switchMap(() => this.flatsService.getScrapeStatus()),
         takeUntil(this.destroy$)
@@ -89,6 +90,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (status.lastScrapingHistory) {
       this.lastScrapingTime = new Date(status.lastScrapingHistory.startTimeUtc);
       this.lastScrapingStatus = status.lastScrapingHistory.status;
+      this.lastScrapingCount = status.lastScrapingHistory.flatsScrapedCount;
     }
   }
 
@@ -98,6 +100,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
       next: (response) => {
         if (response.success) {
           this.scrapedCount = response.flatsCount;
+          // Immediately check status to update UI
+          this.loadScrapingStatus();
         } else {
           this.error = response.message || 'Scrape failed';
         }

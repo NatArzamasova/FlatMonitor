@@ -9,6 +9,7 @@ public sealed class ScraperCoordinator : IAsyncDisposable
     private readonly ISnapshotRepository _repository;
     private readonly SnapshotWriter _snapshotWriter;
     private readonly string _dataDirectory;
+    private Func<int, Task>? _onBatchSaved;
 
     public ScraperCoordinator(
         IEnumerable<IScraper> scrapers,
@@ -22,9 +23,15 @@ public sealed class ScraperCoordinator : IAsyncDisposable
         _dataDirectory = dataDirectory ?? StoragePaths.GetDefaultDataDirectory();
     }
 
-    public async Task ScrapeAllSourcesAsync(CancellationToken ct = default)
+    public void SetOnBatchSavedCallback(Func<int, Task> callback)
+    {
+        _onBatchSaved = callback;
+    }
+
+    public async Task<int> ScrapeAllSourcesAsync(CancellationToken ct = default)
     {
         await _repository.InitializeAsync(ct);
+        int totalFlats = 0;
 
         foreach (var scraper in _scrapers)
         {
@@ -33,7 +40,7 @@ public sealed class ScraperCoordinator : IAsyncDisposable
             try
             {
                 Console.WriteLine($"Starting scrape for source: {scraper.Source}");
-                var listings = (await scraper.ScrapeAsync(ct)).ToList();
+                var listings = (await scraper.ScrapeAsync(ct, _onBatchSaved)).ToList();
 
                 ct.ThrowIfCancellationRequested();
 
@@ -43,6 +50,7 @@ public sealed class ScraperCoordinator : IAsyncDisposable
                     continue;
                 }
 
+                totalFlats += listings.Count;
                 await _repository.UpsertListingsAsync(listings);
 
                 var snapshotPath = await _snapshotWriter.WriteSnapshotAsync(
@@ -66,6 +74,8 @@ public sealed class ScraperCoordinator : IAsyncDisposable
                     Console.Error.WriteLine(ex.StackTrace);
             }
         }
+
+        return totalFlats;
     }
 
     public async ValueTask DisposeAsync()

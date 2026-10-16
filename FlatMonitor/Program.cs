@@ -96,7 +96,8 @@ async Task<int> RunScrapeAsync()
         await dbContext.Database.MigrateAsync();
 
         await using var coordinator = serviceProvider.GetRequiredService<ScraperCoordinator>();
-        await coordinator.ScrapeAllSourcesAsync();
+        var flatsCount = await coordinator.ScrapeAllSourcesAsync();
+        Console.WriteLine($"✓ Scraping completed. Total flats scraped: {flatsCount}");
         return 0;
     }
     catch (Exception ex)

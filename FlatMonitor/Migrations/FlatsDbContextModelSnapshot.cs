@@ -104,6 +104,11 @@ namespace workInProgress.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("FlatsScrapedCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
                     b.Property<DateTime>("StartTimeUtc")
                         .HasColumnType("TEXT");
 

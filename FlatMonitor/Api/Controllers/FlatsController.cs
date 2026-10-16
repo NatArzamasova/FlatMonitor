@@ -22,7 +22,7 @@ public class FlatsController : ControllerBase
         try
         {
             var flats = await _context.FlatsSnapshots
-                .Where(f => f.District != null)
+                .Where(f => f.District != null && f.PriceEur.HasValue && f.PriceEur > 0)
                 .ToListAsync();
 
             var aggregated = flats

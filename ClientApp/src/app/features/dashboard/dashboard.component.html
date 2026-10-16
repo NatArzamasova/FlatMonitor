@@ -14,6 +14,9 @@
             'bg-warning': lastScrapingStatus === 'Canceled',
             'bg-info': lastScrapingStatus === 'Running'
           }">{{ lastScrapingStatus }}</span>
+          <span class="badge bg-secondary ms-2" *ngIf="lastScrapingCount > 0">
+            {{ lastScrapingCount }} flats
+          </span>
         </p>
       </div>
     </div>

@@ -9,4 +9,5 @@ export interface ScrapingHistoryDto {
   endTimeUtc?: Date;
   status: string; // "Running", "Successful", "Failed", "Canceled"
   errorMessage?: string;
+  flatsScrapedCount: number;
 }

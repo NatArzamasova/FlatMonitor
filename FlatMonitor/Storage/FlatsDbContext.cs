@@ -141,5 +141,6 @@ public class FlatsDbContext : DbContext
         historyBuilder.Property(h => h.EndTimeUtc);
         historyBuilder.Property(h => h.Status).IsRequired().HasMaxLength(50);
         historyBuilder.Property(h => h.ErrorMessage).HasMaxLength(500);
+        historyBuilder.Property(h => h.FlatsScrapedCount).IsRequired().HasDefaultValue(0);
     }
 }
