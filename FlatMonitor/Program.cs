@@ -197,6 +197,8 @@ async Task<int> RunWebServerAsync(string[] args)
         });
 
         builder.Services.AddSingleton<workInProgress.Api.Services.ScrapeStateService>();
+        builder.Services.AddSingleton<workInProgress.Api.Services.ScrapeJobService>();
+        builder.Services.AddHostedService<workInProgress.Api.Services.ScrapeBackgroundService>();
 
         builder.Services.AddControllers();
         builder.Services.AddSwaggerGen();

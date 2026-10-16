@@ -57,6 +57,7 @@ public class FlatSnapshotRepositoryTests
                 LivingAreaSqm = 85,
                 ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
                 Source = "OhneMakler",
+                Details = new FlatDetails { Title = "Test Listing" }
             }
         };
 
@@ -67,7 +68,8 @@ public class FlatSnapshotRepositoryTests
         await using var dbContext = new FlatsDbContext(options);
         var stored = await dbContext.FlatsSnapshots.FirstOrDefaultAsync(l => l.ListingId == "1");
         stored.Should().NotBeNull();
-        stored!.Details!.Title.Should().Be("Test Listing");
+        stored!.Details.Should().NotBeNull();
+        stored.Details!.Title.Should().Be("Test Listing");
         stored.Address.Should().Be("123 Main St");
         stored.PriceEur.Should().Be(500000);
         stored.Source.Should().Be("OhneMakler");
@@ -170,6 +172,7 @@ public class FlatSnapshotRepositoryTests
                 PriceEur = 500000,
                 ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
                 Source = "OhneMakler",
+                Details = new FlatDetails { Title = "Original Title" }
             }
         };
 
@@ -186,6 +189,7 @@ public class FlatSnapshotRepositoryTests
                 PriceEur = 550000,
                 ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
                 Source = "OhneMakler",
+                Details = new FlatDetails { Title = "Updated Title" }
             }
         };
 
@@ -198,6 +202,7 @@ public class FlatSnapshotRepositoryTests
         count.Should().Be(1);
 
         var stored = await dbContext.FlatsSnapshots.FirstAsync();
+        stored.Details.Should().NotBeNull();
         stored.Details!.Title.Should().Be("Updated Title");
         stored.PriceEur.Should().Be(550000);
     }
@@ -268,6 +273,7 @@ public class FlatSnapshotRepositoryTests
                 Address = "Address A",
                 ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
                 Source = "OhneMakler",
+                Details = new FlatDetails { Title = "From OhneMakler" }
             },
             new()
             {
@@ -277,6 +283,7 @@ public class FlatSnapshotRepositoryTests
                 Address = "Address B",
                 ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
                 Source = "ImmobilienScout24",
+                Details = new FlatDetails { Title = "From ImmobilienScout24" }
             }
         };
 
@@ -290,10 +297,12 @@ public class FlatSnapshotRepositoryTests
 
         var ohmRow = await dbContext.FlatsSnapshots.FirstOrDefaultAsync(l => l.Source == "OhneMakler" && l.ListingId == "123");
         ohmRow.Should().NotBeNull();
-        ohmRow!.Details!.Title.Should().Be("From OhneMakler");
+        ohmRow!.Details.Should().NotBeNull();
+        ohmRow.Details!.Title.Should().Be("From OhneMakler");
 
         var scoutRow = await dbContext.FlatsSnapshots.FirstOrDefaultAsync(l => l.Source == "ImmobilienScout24" && l.ListingId == "123");
         scoutRow.Should().NotBeNull();
-        scoutRow!.Details!.Title.Should().Be("From ImmobilienScout24");
+        scoutRow!.Details.Should().NotBeNull();
+        scoutRow.Details!.Title.Should().Be("From ImmobilienScout24");
     }
 }

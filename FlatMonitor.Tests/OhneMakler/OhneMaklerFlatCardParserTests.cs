@@ -75,7 +75,7 @@ public class OhneMaklerFlatCardParserTests
     public void ParsePage_WithValidListings_ExtractsDetailPageUrls()
     {
         // Arrange
-        var html = File.ReadAllText("Fixtures/listings-page-sample.html");
+        var html = File.ReadAllText(GetFixturePath("listings-page-sample.html"));
 
         // Act
         var result = _parser.ParsePage(html);
@@ -92,7 +92,7 @@ public class OhneMaklerFlatCardParserTests
     public void ParsePage_AlwaysIncludesScrapedAtUtcTimestamp()
     {
         // Arrange
-        var html = File.ReadAllText("Fixtures/listings-page-sample.html");
+        var html = File.ReadAllText(GetFixturePath("listings-page-sample.html"));
 
         // Act
         var result = _parser.ParsePage(html);
