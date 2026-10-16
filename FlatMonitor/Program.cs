@@ -52,7 +52,8 @@ async Task<int> RunScrapeAsync()
     var services = new ServiceCollection();
 
     // Add DbContext
-    var dbPath = Path.Combine(Directory.GetCurrentDirectory(), "workInProgress", "data", "listings.db");
+    var dbPath = Path.Combine(Directory.GetCurrentDirectory(), "FlatMonitor", "data", "listings.db");
+    Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
     services.AddDbContext<FlatsDbContext>(options =>
         options.UseSqlite($"Data Source={dbPath}"));
 

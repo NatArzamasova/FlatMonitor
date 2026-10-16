@@ -17,7 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\workInProgress\FlatMonitor.csproj" />
+    <ProjectReference Include="..\FlatMonitor\FlatMonitor.csproj" />
   </ItemGroup>
 
   <ItemGroup>

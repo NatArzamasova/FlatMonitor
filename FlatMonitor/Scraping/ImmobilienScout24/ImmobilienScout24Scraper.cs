@@ -87,6 +87,15 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
         // Fetch and parse first page
         Console.WriteLine("Processing first page...");
         var firstPageHtml = await _page.ContentAsync();
+
+        // Debug: save raw HTML for inspection if it's suspiciously small
+        if (firstPageHtml.Length < 10000)
+        {
+            var debugPath = Path.Combine(Path.GetTempPath(), $"immobilienscout24_debug_{DateTime.Now:yyyyMMdd_HHmmss}.html");
+            await File.WriteAllTextAsync(debugPath, firstPageHtml);
+            Console.WriteLine($"Debug: Page HTML is only {firstPageHtml.Length} bytes, saved to {debugPath}");
+        }
+
         var firstPageListings = ParseListingsPage(firstPageHtml);
         yield return firstPageListings;
 
