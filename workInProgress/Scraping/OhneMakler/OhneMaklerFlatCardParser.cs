@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 using HtmlAgilityPack;
 using workInProgress.Models;
 
-public sealed class OhneMaklerListingCardParser
+public sealed class OhneMaklerFlatCardParser
 {
     // Extract listing ID from URL like /immobilie/502814/
     private static readonly Regex ListingIdRegex = new(@"/immobilie/(\d+)/", RegexOptions.Compiled);

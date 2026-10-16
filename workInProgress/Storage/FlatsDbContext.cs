@@ -3,11 +3,11 @@ namespace workInProgress.Data;
 using Microsoft.EntityFrameworkCore;
 using workInProgress.Models;
 
-public class ListingsDbContext : DbContext
+public class FlatsDbContext : DbContext
 {
     public DbSet<FlatSnapshot> FlatsSnapshots { get; set; }
 
-    public ListingsDbContext(DbContextOptions<ListingsDbContext> options) : base(options)
+    public FlatsDbContext(DbContextOptions<FlatsDbContext> options) : base(options)
     {
     }
 

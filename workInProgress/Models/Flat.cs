@@ -14,7 +14,7 @@ public sealed class Flat
     public double? RoomsCount { get; init; }
     public double? LivingAreaSqm { get; init; }
     public double? CommissionPercent { get; init; }
-    public Details? Details { get; init; }
+    public FlatDetails? Details { get; init; }
     public required string ScrapedAtUtc { get; init; }
     public string Source { get; init; } = "OhneMakler";
     /// <summary>

@@ -5,12 +5,12 @@ using HtmlAgilityPack;
 using workInProgress.Models;
 
 /// <summary>
-/// Generic listing extractor that works with any site via IListingSelectors.
+/// Generic flat extractor that works with any site via IFlatSelectors.
 /// Contains all parsing logic; site-specific selectors are provided at runtime.
 /// </summary>
-public class ListingExtractor
+public class FlatExtractor
 {
-    public Flat? ExtractListing(HtmlNode cardNode, IListingSelectors selectors, string source)
+    public Flat? ExtractFlat(HtmlNode cardNode, IFlatSelectors selectors, string source)
     {
         try
         {
@@ -43,12 +43,12 @@ public class ListingExtractor
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error extracting listing: {ex.Message}");
+            Console.Error.WriteLine($"Error extracting flat: {ex.Message}");
             return null;
         }
     }
 
-    private string? ExtractId(HtmlNode cardNode, IListingSelectors selectors)
+    private string? ExtractId(HtmlNode cardNode, IFlatSelectors selectors)
     {
         string? idText = null;
 
@@ -70,7 +70,7 @@ public class ListingExtractor
         return match.Success ? match.Value : idText;
     }
 
-    private string? ExtractDetailUrl(HtmlNode cardNode, IListingSelectors selectors, string? id = null)
+    private string? ExtractDetailUrl(HtmlNode cardNode, IFlatSelectors selectors, string? id = null)
     {
         var url = ExtractText(cardNode, selectors.DetailUrlXPath);
         if (string.IsNullOrWhiteSpace(url))

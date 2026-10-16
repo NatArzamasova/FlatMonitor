@@ -6,18 +6,18 @@ using workInProgress.Scraping.Common;
 using workInProgress.Storage;
 
 /// <summary>
-/// Scraper for ohne-makler.net apartment listings.
+/// Scraper for ohne-makler.net flats.
 /// Uses HttpClient for fetching pages, processes each listing's details immediately.
-/// Saves listings to database in batches to avoid memory bloat on large datasets.
+/// Saves flats to database in batches to avoid memory bloat on large datasets.
 /// </summary>
-public sealed class OhneMaklerScraper : DetailedListingScraper
+public sealed class OhneMaklerScraper : FlatScraper
 {
     public const string SourceName = "OhneMakler";
 
     private readonly HttpClient _httpClient;
     private readonly ISnapshotRepository _repository;
-    private OhneMaklerListingsPageFetcher? _pageFetcher;
-    private readonly OhneMaklerListingCardParser _cardParser;
+    private OhneMaklerFlatsPageFetcher? _pageFetcher;
+    private readonly OhneMaklerFlatCardParser _cardParser;
     private readonly OhneMaklerDetailPageParser _detailParser;
 
     public override string Source => SourceName;
@@ -26,13 +26,13 @@ public sealed class OhneMaklerScraper : DetailedListingScraper
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _repository = repository ?? new FlatSnapshotRepository();
-        _cardParser = new OhneMaklerListingCardParser();
+        _cardParser = new OhneMaklerFlatCardParser();
         _detailParser = new OhneMaklerDetailPageParser();
     }
 
     protected override Task InitializeAsync(CancellationToken ct)
     {
-        _pageFetcher = new OhneMaklerListingsPageFetcher(_httpClient);
+        _pageFetcher = new OhneMaklerFlatsPageFetcher(_httpClient);
         return Task.CompletedTask;
     }
 

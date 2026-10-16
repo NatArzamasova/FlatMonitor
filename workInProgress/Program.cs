@@ -53,7 +53,7 @@ async Task<int> RunScrapeAsync()
 
     // Add DbContext
     var dbPath = Path.Combine(Directory.GetCurrentDirectory(), "workInProgress", "data", "listings.db");
-    services.AddDbContext<ListingsDbContext>(options =>
+    services.AddDbContext<FlatsDbContext>(options =>
         options.UseSqlite($"Data Source={dbPath}"));
 
     services.AddSingleton<HttpClient>(sp =>
@@ -66,7 +66,7 @@ async Task<int> RunScrapeAsync()
     services.AddScoped<OhneMaklerScraper>();
     services.AddScoped<ImmobilienScout24Scraper>();
 
-    services.AddScoped<ISnapshotRepository>(sp => new FlatSnapshotRepository(sp.GetRequiredService<DbContextOptions<ListingsDbContext>>()));
+    services.AddScoped<ISnapshotRepository>(sp => new FlatSnapshotRepository(sp.GetRequiredService<DbContextOptions<FlatsDbContext>>()));
     services.AddScoped<SnapshotWriter>();
 
     services.AddScoped<ScraperCoordinator>(sp =>
@@ -86,7 +86,7 @@ async Task<int> RunScrapeAsync()
     try
     {
         // Apply migrations
-        await using var dbContext = serviceProvider.GetRequiredService<ListingsDbContext>();
+        await using var dbContext = serviceProvider.GetRequiredService<FlatsDbContext>();
         await dbContext.Database.MigrateAsync();
 
         await using var coordinator = serviceProvider.GetRequiredService<ScraperCoordinator>();

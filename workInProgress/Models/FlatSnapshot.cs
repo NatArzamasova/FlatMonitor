@@ -13,6 +13,6 @@ public sealed class FlatSnapshot
     public int? PricePerMeter { get; set; }
     public double? RoomsCount { get; set; }
     public double? LivingAreaSqm { get; set; }
-    public Details? Details { get; set; }
+    public FlatDetails? Details { get; set; }
     public required string ScrapedAtUtc { get; set; }
 }

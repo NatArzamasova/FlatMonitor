@@ -186,7 +186,7 @@ public class SnapshotWriterTests
                 Url = "/immobilie/1/",
                 Title = "Test",
                 ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
-                Details = new Details
+                Details = new FlatDetails
                 {
                     PropertyType = "Wohnung",
                     BuildYear = 2020,

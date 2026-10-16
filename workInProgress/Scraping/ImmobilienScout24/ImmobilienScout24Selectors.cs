@@ -3,11 +3,11 @@ namespace workInProgress.Scraping.ImmobilienScout24;
 using workInProgress.Scraping.Common;
 
 /// <summary>
-/// ImmobilienScout24-specific selectors for the ListingExtractor.
-/// Maps immobilienscout24.de's React-rendered HTML structure to the common IListingSelectors interface.
+/// ImmobilienScout24-specific selectors for the FlatExtractor.
+/// Maps immobilienscout24.de's React-rendered HTML structure to the common IFlatSelectors interface.
 /// Uses data-testid attributes for reliable selection across site updates.
 /// </summary>
-public class ImmobilienScout24Selectors : IListingSelectors
+public class ImmobilienScout24Selectors : IFlatSelectors
 {
     /// <summary>Select all listing card containers on the listings page (with data-obid attribute).</summary>
     public string ListingCardXPath => "//div[contains(@class, 'listing-card') and @data-obid]";

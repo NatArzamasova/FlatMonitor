@@ -3,12 +3,12 @@ namespace workInProgress.Scraping.Common;
 using workInProgress.Models;
 
 /// <summary>
-/// Base class for scrapers that fetch all pages first, then enrich listings with details.
-/// Provides the common flow: fetch all pages (on listings index) → collect all listings → enrich all with details (navigate to detail pages) → save to DB each page.
+/// Base class for scrapers that fetch all pages first, then enrich flat with details.
+/// Provides the common flow: fetch all pages (on flats index) → collect all falts → enrich all with details (navigate to detail pages) → save to DB each page.
 /// This avoids losing pagination context when navigating to detail pages, and saves to DB immediately to avoid memory bloat on large datasets.
-/// Derived classes implement how to fetch pages, enrich listings, and save to database.
+/// Derived classes implement how to fetch pages, enrich falts, and save to database.
 /// </summary>
-public abstract class DetailedListingScraper : IScraper
+public abstract class FlatScraper : IScraper
 {
     public abstract string Source { get; }
 
@@ -16,8 +16,8 @@ public abstract class DetailedListingScraper : IScraper
 
     public async Task<List<Flat>> ScrapeAllListingsAsync(CancellationToken ct = default)
     {
-        var allListings = new List<Flat>();
-        var allPageListings = new List<Flat>();
+        var allFlats = new List<Flat>();
+        var allPageFlats = new List<Flat>();
         int totalProcessed = 0;
         int pageNumber = 1;
 
@@ -29,44 +29,44 @@ public abstract class DetailedListingScraper : IScraper
             // Clear previous HTML snapshots from last run
             await ClearPreviousSnapshotsAsync(ct);
 
-            // First, fetch and parse all pages to collect all listings
-            // This must happen while on the listings index (before detail navigation)
+            // First, fetch and parse all pages to collect all flats
+            // This must happen while on the flats index (before detail navigation)
             await foreach (var pageListings in FetchAndParseAllPagesAsync(ct))
             {
-                Console.WriteLine($"--- Collected {pageListings.Count} listings from page {pageNumber} ---");
-                allPageListings.AddRange(pageListings);
+                Console.WriteLine($"--- Collected {pageListings.Count} flats from page {pageNumber} ---");
+                allPageFlats.AddRange(pageListings);
                 pageNumber++;
             }
 
-            Console.WriteLine($"\n=== {Source}: All pages fetched: {pageNumber - 1} total pages, {allPageListings.Count} listings collected ===\n");
+            Console.WriteLine($"\n=== {Source}: All pages fetched: {pageNumber - 1} total pages, {allPageFlats.Count} flats collected ===\n");
 
-            // Then, enrich listings page by page and save to DB immediately
-            Console.WriteLine($"=== {Source}: Enriching and saving {allPageListings.Count} listings with details ===");
+            // Then, enrich page by page and save to DB immediately
+            Console.WriteLine($"=== {Source}: Enriching and saving {allPageFlats.Count}flats with details ===");
             pageNumber = 1;
             var pageBuffer = new List<Flat>();
-            int totalListings = allPageListings.Count;
+            int totalFlats = allPageFlats.Count;
 
-            foreach (var listing in allPageListings)
+            foreach (var flat in allPageFlats)
             {
                 totalProcessed++;
                 try
                 {
-                    var enrichedListing = await EnrichListingWithDetailsAsync(listing, ct);
-                    DetailScraperLogger.LogEnrichedListing(Source, enrichedListing, totalProcessed, totalListings);
-                    pageBuffer.Add(enrichedListing);
-                    allListings.Add(enrichedListing);
+                    var enrichedFlat = await EnrichListingWithDetailsAsync(flat, ct);
+                    FlatScraperLogger.LogEnrichedFlat(Source, enrichedFlat, totalProcessed, totalFlats);
+                    pageBuffer.Add(enrichedFlat);
+                    allFlats.Add(enrichedFlat);
                 }
                 catch (Exception ex)
                 {
                     // Log error but continue with partial data
-                    DetailScraperLogger.LogEnrichmentFailed(Source, listing.ListingId, ex.Message, totalProcessed, totalListings);
-                    pageBuffer.Add(listing);
-                    allListings.Add(listing);
+                    FlatScraperLogger.LogEnrichmentFailed(Source, flat.ListingId, ex.Message, totalProcessed, totalFlats);
+                    pageBuffer.Add(flat);
+                    allFlats.Add(flat);
                 }
 
-                // Estimate when a "page" of listings is done (e.g., every 20 items) and save to DB
+                // Estimate when a "page" of flats is done (e.g., every 20 items) and save to DB
                 // This prevents memory bloat on large datasets like 600+ items
-                if (totalProcessed % 20 == 0 || totalProcessed == allPageListings.Count)
+                if (totalProcessed % 20 == 0 || totalProcessed == allPageFlats.Count)
                 {
                     Console.WriteLine($"--- {Source}: Saving {pageBuffer.Count} listings to database (batch {pageNumber}) ---");
                     await SaveListingsAsync(pageBuffer, ct);
@@ -75,7 +75,7 @@ public abstract class DetailedListingScraper : IScraper
                 }
             }
 
-            Console.WriteLine($"\n=== {Source}: Scraping complete: {pageNumber - 1} batches saved, {totalProcessed}/{totalListings} listings processed ===\n");
+            Console.WriteLine($"\n=== {Source}: Scraping complete: {pageNumber - 1} batches saved, {totalProcessed}/{totalFlats} listings processed ===\n");
         }
         catch (Exception ex)
         {
@@ -87,7 +87,7 @@ public abstract class DetailedListingScraper : IScraper
             await CleanupAsync();
         }
 
-        return allListings;
+        return allFlats;
     }
 
     /// <summary>

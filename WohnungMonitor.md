@@ -2,20 +2,20 @@
 
 ## Purpose
 
-Track apartment-for-sale listings from multiple German sources (ohne-makler.net, immobilienscout24.de, etc.) 
+Track apartment-for-sale flats from multiple German sources (ohne-makler.net, immobilienscout24.de, etc.) 
 for Karlsruhe over time. These sites have no archive of their own — no posted/updated dates, and removed 
-listings just vanish. This tool builds our own history by scraping repeatedly from all sources and 
+flats just vanish. This tool builds our own history by scraping repeatedly from all sources and 
 recording what we see, timestamped by scrape time and attributed by source.
 
 ## Supported Sources
 
 ### OhneMakler (ohne-makler.net)
 Checked live on 2026-10-09 against `/immobilien/wohnung-kaufen/baden-wurttemberg/karlsruhe/`:
-- Search results page: paginated list of active listings, each linking to `/immobilie/{id}/`.
-- Per-listing: price, title, postal code + district, rooms, m², thumbnail.
+- Search results page: paginated list of active flats, each linking to `/immobilie/{id}/`.
+- Per-flat: price, title, postal code + district, rooms, m², thumbnail.
 - Detail page (e.g. `/immobilie/502814/`): price, rooms, living area, property type, address, 
   build year, floor, condition, heating, flooring, service charge, energy certificate type, 
-  primary energy source, energy efficiency class, energy consumption, listing status, current use, availability.
+  primary energy source, energy efficiency class, energy consumption, flat status, current use, availability.
 - **No date field anywhere** — not on search results, not on detail pages.
 
 ### ImmobilienScout24 (immobilienscout24.de)
@@ -30,17 +30,17 @@ by implementing the `IScraper` interface.
 ### Run modes
 Two run modes, one executable:
 
-- `dotnet run -- scrape` — fetch current listings from all sources, append to the archive.
+- `dotnet run -- scrape` — fetch current flats from all sources, append to the archive.
 - `dotnet run -- report`  — read the archive, print a statistics report.
 
 ### Storage layers
 
 1. **Snapshot files (canonical, git-committed)** — each `scrape` run writes
    one JSON Lines file per source to `data/snapshots/{source}/{utc-timestamp}.jsonl`, 
-   one line per listing seen. Append-only, plain text, diffs cleanly, never
+   one line per flat seen. Append-only, plain text, diffs cleanly, never
    rewritten — safe for a scheduled CI job to commit back to the repo
    without merge conflicts.
-2. **SQLite cache (derived, gitignored)** — `data/listings.db`, rebuilt on
+2. **SQLite cache (derived, gitignored)** — `data/flats.db`, rebuilt on
    demand by replaying all snapshot files in order. Used only by `report`
    for fast queries/aggregates. Never a source of truth — if it's deleted,
    it's just rebuilt from the snapshot history.
@@ -60,15 +60,15 @@ parsing logic and quirks. The framework provides:
    ```
 
 2. **Source-specific parsers** — live in `Scraping/{SourceName}/` folders:
-   - `Scraping/OhneMakler/` — OhneMaklerScraper, OhneMaklerListingCardParser, OhneMaklerDetailPageParser
-   - `Scraping/ImmobilienScout24/` — ImmobilienScout24Scraper, IS24ListingCardParser, IS24DetailPageParser
+   - `Scraping/OhneMakler/` — OhneMaklerScraper, OhneMaklerFlatCardParser, OhneMaklerDetailPageParser
+   - `Scraping/ImmobilienScout24/` — ImmobilienScout24Scraper, IS24FlatCardParser, IS24DetailPageParser
    - `Scraping/{NewSource}/` — pluggable for future sources
 
 3. **Snapshot format changes** — add `Source` field:
    ```json
    {
      "Source": "OhneMakler",
-     "ListingId": "502814",
+     "FlatId": "502814",
      ...rest unchanged...
      "ScrapedAtUtc": "2026-10-09T14:30:00Z"
    }
@@ -85,18 +85,18 @@ parsing logic and quirks. The framework provides:
        {
            foreach (var scraper in scrapers)
            {
-               var listings = await scraper.ScrapeAsync();
-               await snapshotRepository.AppendSnapshotAsync(scraper.Source, listings);
+               var flats = await scraper.ScrapeAsync();
+               await snapshotRepository.AppendSnapshotAsync(scraper.Source, flats);
            }
        }
    }
    ```
 
-5. **Database schema update** — add source attribution to Listings:
+5. **Database schema update** — add source attribution to Flats:
    ```sql
-   ALTER TABLE Listings ADD Source TEXT NOT NULL DEFAULT 'OhneMakler';
+   ALTER TABLE Flats ADD Source TEXT NOT NULL DEFAULT 'OhneMakler';
    -- Later: add composite unique constraint on (Source, Url, Address)
-   -- to allow same listing URL across different sources
+   -- to allow same flat URL across different sources
    ```
 
 ## Data model
@@ -104,13 +104,13 @@ parsing logic and quirks. The framework provides:
 ### JSONL Snapshot format (canonical, git-committed)
 
 Each `data/snapshots/{source}/{utc-timestamp}.jsonl` contains one JSON object per line,
-one per listing seen in that scrape run. The `Source` field identifies which data source
-the listing came from:
+one per flat seen in that scrape run. The `Source` field identifies which data source
+the flat came from:
 
 ```json
 {
   "Source": "OhneMakler",
-  "ListingId": "502814",
+  "FlatId": "502814",
   "Url": "/immobilie/502814/",
   "Title": "Altbauperle Weststadt - Zwei Appartements in einer Wohnung",
   "Address": "Weltzienstraße 21",
@@ -131,7 +131,7 @@ the listing came from:
     "PrimaryEnergySource": "Gas",
     "EnergyEfficiencyClass": "C",
     "EnergyConsumption": "120 kWh/(m²·a)",
-    "ListingStatus": "Privatangebot",
+    "FlatStatus": "Privatangebot",
     "CurrentUse": "Vermietet",
     "Availability": "Nach Vereinbarung"
   },
@@ -149,12 +149,12 @@ the listing came from:
 - `SnapshotId` (PK, auto-increment)
 - `Source` (TEXT, NOT NULL) — "OhneMakler", "ImmobilienScout24", etc.
 - `ScrapedAtUtc` (DATETIME, indexed)
-- `ListingCount` (INT) — how many listings in this run
+- `FlatCount` (INT) — how many flats in this run
 - Unique constraint: (Source, ScrapedAtUtc)
 
-**`Listings` table** — deduplicated by (Source, Url, Address); one row per unique listing ever seen:
-- `ListingId` (PK, auto-increment)
-- `Source` (TEXT, NOT NULL) — identifies which scraper found this listing
+**`Flats` table** — deduplicated by (Source, Url, Address); one row per unique flat ever seen:
+- `FlatId` (PK, auto-increment)
+- `Source` (TEXT, NOT NULL) — identifies which scraper found this flat
 - `Url` (TEXT, NOT NULL) — may be relative or absolute depending on source
 - `Address` (TEXT, NOT NULL)
 - `Title` (TEXT)
@@ -163,8 +163,8 @@ the listing came from:
 - `CurrentPriceEur` (DECIMAL) — latest price seen from this source
 - `RoomsCount`, `LivingAreaSqm` (INT/DECIMAL)
 - `Details` (JSON) — nested {PropertyType, BuildYear, Floor, Condition, Heating, ...}
-- `FirstSeenAtUtc` (DATETIME) — earliest snapshot containing this listing
-- `LastSeenAtUtc` (DATETIME) — latest snapshot containing this listing
+- `FirstSeenAtUtc` (DATETIME) — earliest snapshot containing this flat
+- `LastSeenAtUtc` (DATETIME) — latest snapshot containing this flat
 - `IsActive` (BOOLEAN) — present in the most recent snapshot from this source
 - Unique constraint: (Source, Url, Address)
 
@@ -172,27 +172,27 @@ the listing came from:
 - `StatisticId` (PK, auto-increment)
 - `Source` (TEXT, NOT NULL) — which source these stats are for
 - `SnapshotDateUtc` (DATE, indexed)
-- `TotalActiveListings` (INT)
-- `NewListingsCount` (INT)
-- `RemovedListingsCount` (INT)
+- `TotalActiveFlats` (INT)
+- `NewFlatsCount` (INT)
+- `RemovedFlatsCount` (INT)
 - `PriceChangedCount` (INT)
 - `AvgPricePerSqmEur` (DECIMAL)
-- `AvgDaysOnMarketRemoved` (DECIMAL) — for listings removed that day
+- `AvgDaysOnMarketRemoved` (DECIMAL) — for flats removed that day
 - Unique constraint: (Source, SnapshotDateUtc)
 
 ## Report content
 
 Each `report` run shows aggregated metrics across all sources (or per-source if requested):
 
-- **New listings**: listings in today's snapshot not in yesterday's, grouped by source.
-- **Price changes**: listings where CurrentPriceEur differs from OriginalPriceEur (€ and % delta), grouped by source.
-- **Removed listings**: in yesterday's snapshot but not today's, with days-on-market (LastSeenAtUtc − FirstSeenAtUtc), grouped by source.
+- **New flats**: flats in today's snapshot not in yesterday's, grouped by source.
+- **Price changes**: flats where CurrentPriceEur differs from OriginalPriceEur (€ and % delta), grouped by source.
+- **Removed flats**: in yesterday's snapshot but not today's, with days-on-market (LastSeenAtUtc − FirstSeenAtUtc), grouped by source.
 - **Aggregate statistics**: pulled from the Statistics table for today's date:
-  - Total active listings per source.
+  - Total active flats per source.
   - Average €/m² per source.
-  - Average days-on-market for removed listings (per source).
+  - Average days-on-market for removed flats (per source).
   - 7-day and 30-day rolling trends (if history exists) per source.
-  - Cross-source comparison (e.g., total unique listings across all sources, overlap detection if same property listed on multiple sites).
+  - Cross-source comparison (e.g., total unique flats across all sources, overlap detection if same property listed on multiple sites).
   
 **Note:** The architecture allows future enhancement to detect the same property listed on multiple sources 
 (via fuzzy address matching or other heuristics), which would enable market-wide analytics.
@@ -217,15 +217,15 @@ Create `Scraping/IScraper.cs`:
 public interface IScraper
 {
     string Source { get; }
-    Task<IEnumerable<Listing>> ScrapeAsync();
+    Task<IEnumerable<Flat>> ScrapeAsync();
 }
 ```
 
-### 2. Rename and refactor ListingScraper
-- Rename `Scraping/ListingScraper.cs` → `Scraping/OhneMakler/OhneMaklerScraper.cs`
+### 2. Rename and refactor FlatScraper
+- Rename `Scraping/FlatScraper.cs` → `Scraping/OhneMakler/OhneMaklerScraper.cs`
 - Make it implement `IScraper`
 - Move OhneMakler-specific parsers into `Scraping/OhneMakler/` subdirectory:
-  - `ListingCardParser` → `OhneMaklerListingCardParser`
+  - `FlatCardParser` → `OhneMaklerFlatCardParser`
   - `DetailPageParser` → `OhneMaklerDetailPageParser`
   - `AddressHelper` → `OhneMaklerAddressHelper`
   - `Selectors` → `OhneMaklerSelectors`
@@ -237,7 +237,7 @@ Add `Source` field:
 public class OhneMaklerSnapshot
 {
     public string Source { get; set; } = "OhneMakler";
-    public IEnumerable<Listing> Listings { get; set; }
+    public IEnumerable<Flat> Flats { get; set; }
     public DateTime ScrapedAtUtc { get; set; }
 }
 ```
@@ -247,8 +247,8 @@ Update signature to be source-aware:
 ```csharp
 public interface ISnapshotRepository
 {
-    Task AppendSnapshotAsync(string source, IEnumerable<Listing> listings);
-    Task<IEnumerable<Listing>> LoadSnapshotsAsync(string source, DateTime? since = null);
+    Task AppendSnapshotAsync(string source, IEnumerable<Flat> flats);
+    Task<IEnumerable<Flat>> LoadSnapshotsAsync(string source, DateTime? since = null);
     Task<IEnumerable<string>> GetSourcesAsync();
 }
 ```
@@ -265,21 +265,21 @@ public class ScraperCoordinator
     {
         foreach (var scraper in scrapers)
         {
-            var listings = await scraper.ScrapeAsync();
-            await repository.AppendSnapshotAsync(scraper.Source, listings);
+            var flats = await scraper.ScrapeAsync();
+            await repository.AppendSnapshotAsync(scraper.Source, flats);
         }
     }
 }
 ```
 
 ### 6. Update database schema
-Add `Source` field to `Listings` and `Snapshots` tables:
+Add `Source` field to `Flats` and `Snapshots` tables:
 ```sql
-ALTER TABLE Listings ADD Source TEXT NOT NULL DEFAULT 'OhneMakler';
+ALTER TABLE Flats ADD Source TEXT NOT NULL DEFAULT 'OhneMakler';
 ALTER TABLE Snapshots ADD Source TEXT NOT NULL DEFAULT 'OhneMakler';
 
 -- Later: enforce unique constraint per source
-ALTER TABLE Listings ADD CONSTRAINT UQ_Listings_Source_Url_Address 
+ALTER TABLE Flats ADD CONSTRAINT UQ_Flats_Source_Url_Address 
   UNIQUE(Source, Url, Address);
 ```
 
@@ -297,7 +297,7 @@ services.AddScoped<ISnapshotRepository, OhneMaklerSnapshotRepository>();
 ### 8. Add new source: ImmobilienScout24
 Create directory `Scraping/ImmobilienScout24/` with:
 - `ImmobilienScout24Scraper` implements `IScraper`
-- `IS24ListingCardParser`
+- `IS24FlatCardParser`
 - `IS24DetailPageParser`
 - `IS24Selectors`
 - Test fixtures in `workInProgress.Tests/Fixtures/ImmobilienScout24/`
@@ -314,7 +314,7 @@ Modify reporting logic to:
 - **Scraper coupling:** Each scraper is coupled to its source's current HTML structure; 
   will break silently if the site changes markup. Mitigated by parser unit tests against 
   saved HTML fixtures, but real breakage surfaces at scrape time. Each source needs robust test coverage.
-- **Duplicate listings:** Same property may appear under different URLs or addresses across sources.
+- **Duplicate flats:** Same property may appear under different URLs or addresses across sources.
   Future enhancement: add fuzzy matching to detect and link the same property on different sites.
 - **"Removed" ambiguity:** Removal is inferred from absence in latest snapshot — could be sold,
   delisted, or a scrape miss. No ground truth from the site alone.

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project: Wohnung Monitor
 
-A .NET 10 console application that scrapes apartment listings from multiple German sources (ohne-makler.net, immobilienscout24.de, etc.) and tracks market changes over time (new listings, price changes, removals, aggregate statistics).
+A .NET 10 console application that scrapes apartment flats from multiple German sources (ohne-makler.net, immobilienscout24.de, etc.) and tracks market changes over time (new flats, price changes, removals, aggregate statistics).
 
 See `WohnungMonitor.md` for full architecture, data model, and API details.
 
@@ -15,7 +15,7 @@ See `WohnungMonitor.md` for full architecture, data model, and API details.
 dotnet build
 ```
 
-### Run scraper (fetch current listings, append to archive)
+### Run scraper (fetch current flats, append to archive)
 ```bash
 dotnet run -- scrape
 ```
@@ -33,11 +33,11 @@ dotnet run -- report
 - `ScraperCoordinator` orchestrates all scrapers and manages snapshots per source
 
 **Two storage layers:**
-1. **Snapshot files** (`data/snapshots/{source}/{utc-timestamp}.jsonl`) — canonical, git-committed JSON Lines format, one listing per line. Append-only, safe for CI to commit back without merge conflicts. One directory per source.
-2. **SQLite cache** (`data/listings.db`) — derived from replaying all snapshots, git-ignored. Includes source attribution to allow same property across sources. Used only by `report` for fast aggregates; can be deleted and rebuilt from snapshots.
+1. **Snapshot files** (`data/snapshots/{source}/{utc-timestamp}.jsonl`) — canonical, git-committed JSON Lines format, one flat per line. Append-only, safe for CI to commit back without merge conflicts. One directory per source.
+2. **SQLite cache** (`data/flats.db`) — derived from replaying all snapshots, git-ignored. Includes source attribution to allow same property across sources. Used only by `report` for fast aggregates; can be deleted and rebuilt from snapshots.
 
 **Two run modes:**
-- `scrape` — fetches current listings from all active sources, deserializes into `Listing` objects, appends to each source's snapshot file
+- `scrape` — fetches current flats from all active sources, deserializes into `Flat` objects, appends to each source's snapshot file
 - `report` — loads all snapshots into SQLite on demand, aggregates across sources, queries for statistics (new/removed/price-changed counts, aggregate €/m², days-on-market, rolling trends, per-source breakdowns)
 
 ## Key Design Notes
@@ -90,18 +90,18 @@ For C# code, use the following testing stack:
 Example test structure:
 ```csharp
 [Test]
-public void ShouldParseListingFromHtml()
+public void ShouldParseFlatFromHtml()
 {
     // Arrange
     var html = File.ReadAllText("fixtures/sample.html");
     var parser = new HtmlParser();
     
     // Act
-    var listings = parser.Parse(html);
+    var flats = parser.Parse(html);
     
     // Assert
-    listings.Should().HaveCount(3);
-    listings.First().Price.Should().Be(1500);
+    flats.Should().HaveCount(3);
+    flats.First().Price.Should().Be(1500);
 }
 ```
 
@@ -116,7 +116,7 @@ dotnet test
 
 1. **Scrape**: 
    - For each `IScraper` (OhneMakler, ImmobilienScout24, ...):
-     - Site → Source-specific HtmlParser (HTMLAgilityPack) → `Listing` objects (with Source field) → Source-specific Snapshot JSONL file
+     - Site → Source-specific HtmlParser (HTMLAgilityPack) → `Flat` objects (with Source field) → Source-specific Snapshot JSONL file
    - All sources run sequentially or in parallel depending on network constraints
    
 2. **Report**: 

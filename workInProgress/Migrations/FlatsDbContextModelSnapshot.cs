@@ -8,8 +8,8 @@ using workInProgress.Data;
 
 namespace workInProgress.Migrations
 {
-    [DbContext(typeof(ListingsDbContext))]
-    partial class ListingsDbContextModelSnapshot : ModelSnapshot
+    [DbContext(typeof(FlatsDbContext))]
+    partial class FlatsDbContextModelSnapshot : ModelSnapshot
     {
         protected override void BuildModel(ModelBuilder modelBuilder)
         {

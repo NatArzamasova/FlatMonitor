@@ -1,6 +1,6 @@
 namespace workInProgress.Models;
 
-public sealed class Details
+public sealed class FlatDetails
 {
     public string? Title { get; init; }
     public string? PropertyType { get; init; }

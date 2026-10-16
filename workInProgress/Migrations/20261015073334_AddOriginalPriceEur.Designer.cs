@@ -9,7 +9,7 @@ using workInProgress.Data;
 
 namespace workInProgress.Migrations
 {
-    [DbContext(typeof(ListingsDbContext))]
+    [DbContext(typeof(FlatsDbContext))]
     [Migration("20261015073334_AddOriginalPriceEur")]
     partial class AddOriginalPriceEur
     {

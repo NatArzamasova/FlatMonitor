@@ -7,29 +7,29 @@ using workInProgress.Scraping.Common;
 using workInProgress.Storage;
 
 /// <summary>
-/// Scraper for immobilienscout24.de apartment listings.
-/// Uses Playwright for browser automation (Google OAuth, robot guard), then parses listings with the generic ListingExtractor.
-/// Processes each listing's details immediately as pages are fetched.
-/// Saves listings to database in batches to avoid memory bloat on large datasets.
+/// Scraper for immobilienscout24.de apartment flats.
+/// Uses Playwright for browser automation (Google OAuth, robot guard), then parses flats with the generic FlatExtractor.
+/// Processes each flat's details immediately as pages are fetched.
+/// Saves flats to database in batches to avoid memory bloat on large datasets.
 /// </summary>
-public sealed class ImmobilienScout24Scraper : DetailedListingScraper
+public sealed class ImmobilienScout24Scraper : FlatScraper
 {
     public const string SourceName = "ImmobilienScout24";
 
-    private readonly ListingExtractor _extractor;
-    private readonly IListingSelectors _selectors;
+    private readonly FlatExtractor _extractor;
+    private readonly IFlatSelectors _selectors;
     private readonly ISnapshotRepository _repository;
     private IBrowser? _browser;
     private IPage? _page;
     private ImmobilienScout24DetailScraper? _detailScraper;
     private ImmobilienScout24DetailParser? _detailParser;
-    private ImmobilienScout24ListingsPageFetcher? _pageFetcher;
+    private ImmobilienScout24FlatsPageFetcher? _pageFetcher;
 
     public override string Source => SourceName;
 
     public ImmobilienScout24Scraper(ISnapshotRepository? repository = null)
     {
-        _extractor = new ListingExtractor();
+        _extractor = new FlatExtractor();
         _selectors = new ImmobilienScout24Selectors();
         _repository = repository ?? new FlatSnapshotRepository();
     }
@@ -48,7 +48,7 @@ public sealed class ImmobilienScout24Scraper : DetailedListingScraper
         _page = page;
         _detailScraper = new ImmobilienScout24DetailScraper(page);
         _detailParser = new ImmobilienScout24DetailParser();
-        _pageFetcher = new ImmobilienScout24ListingsPageFetcher(browser, page);
+        _pageFetcher = new ImmobilienScout24FlatsPageFetcher(browser, page);
     }
 
     protected override Task ClearPreviousSnapshotsAsync(CancellationToken ct)
@@ -215,15 +215,15 @@ public sealed class ImmobilienScout24Scraper : DetailedListingScraper
                 try
                 {
                     Console.WriteLine($"Card outerHTML (first 200 chars): {card.OuterHtml.Substring(0, Math.Min(200, card.OuterHtml.Length))}");
-                    var listing = _extractor.ExtractListing(card, _selectors, SourceName);
-                    if (listing != null)
+                    var flat = _extractor.ExtractFlat(card, _selectors, SourceName);
+                    if (flat != null)
                     {
-                        Console.WriteLine($"Successfully parsed listing: {listing.ListingId}");
-                        results.Add(listing);
+                        Console.WriteLine($"Successfully parsed flat: {flat.ListingId}");
+                        results.Add(flat);
                     }
                     else
                     {
-                        Console.WriteLine("ListingExtractor returned null for this card");
+                        Console.WriteLine("FlatExtractor returned null for this card");
                     }
                 }
                 catch (Exception ex)

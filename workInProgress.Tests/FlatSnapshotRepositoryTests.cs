@@ -11,9 +11,9 @@ namespace workInProgress.Tests;
 [TestFixture]
 public class FlatSnapshotRepositoryTests
 {
-    private DbContextOptions<ListingsDbContext> CreateInMemoryOptions()
+    private DbContextOptions<FlatsDbContext> CreateInMemoryOptions()
     {
-        return new DbContextOptionsBuilder<ListingsDbContext>()
+        return new DbContextOptionsBuilder<FlatsDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
     }
@@ -29,7 +29,7 @@ public class FlatSnapshotRepositoryTests
         await repo.InitializeAsync();
 
         // Assert - verify Listings table exists by querying
-        await using var dbContext = new ListingsDbContext(options);
+        await using var dbContext = new FlatsDbContext(options);
         var count = await dbContext.FlatsSnapshots.CountAsync();
         count.Should().Be(0);
     }
@@ -64,7 +64,7 @@ public class FlatSnapshotRepositoryTests
         await repo.UpsertListingsAsync(listings);
 
         // Assert
-        await using var dbContext = new ListingsDbContext(options);
+        await using var dbContext = new FlatsDbContext(options);
         var stored = await dbContext.FlatsSnapshots.FirstOrDefaultAsync(l => l.ListingId == "1");
         stored.Should().NotBeNull();
         stored!.Details!.Title.Should().Be("Test Listing");
@@ -91,7 +91,7 @@ public class FlatSnapshotRepositoryTests
                 Address = "Test Address",
                 ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
                 Source = "OhneMakler",
-                Details = new Details
+                Details = new FlatDetails
                 {
                     PropertyType = "Wohnung",
                     BuildYear = 2010,
@@ -108,7 +108,7 @@ public class FlatSnapshotRepositoryTests
         await repo.UpsertListingsAsync(listings);
 
         // Assert
-        await using var dbContext = new ListingsDbContext(options);
+        await using var dbContext = new FlatsDbContext(options);
         var stored = await dbContext.FlatsSnapshots.FirstOrDefaultAsync(l => l.ListingId == "1");
         stored.Should().NotBeNull();
         stored!.Details.Should().NotBeNull();
@@ -145,7 +145,7 @@ public class FlatSnapshotRepositoryTests
         await repo.UpsertListingsAsync(listings);
 
         // Assert
-        await using var dbContext = new ListingsDbContext(options);
+        await using var dbContext = new FlatsDbContext(options);
         var stored = await dbContext.FlatsSnapshots.FirstOrDefaultAsync(l => l.ListingId == "1");
         stored.Should().NotBeNull();
         stored!.Details.Should().BeNull();
@@ -193,7 +193,7 @@ public class FlatSnapshotRepositoryTests
         await repo.UpsertListingsAsync(listing2);
 
         // Assert - row count should stay 1
-        await using var dbContext = new ListingsDbContext(options);
+        await using var dbContext = new FlatsDbContext(options);
         var count = await dbContext.FlatsSnapshots.CountAsync();
         count.Should().Be(1);
 
@@ -245,7 +245,7 @@ public class FlatSnapshotRepositoryTests
         await repo.UpsertListingsAsync(listings);
 
         // Assert
-        await using var dbContext = new ListingsDbContext(options);
+        await using var dbContext = new FlatsDbContext(options);
         var count = await dbContext.FlatsSnapshots.CountAsync();
         count.Should().Be(3);
     }
@@ -284,7 +284,7 @@ public class FlatSnapshotRepositoryTests
         await repo.UpsertListingsAsync(listings);
 
         // Assert - both rows with same ListingId but different Source should exist
-        await using var dbContext = new ListingsDbContext(options);
+        await using var dbContext = new FlatsDbContext(options);
         var count = await dbContext.FlatsSnapshots.CountAsync();
         count.Should().Be(2);
 

@@ -35,7 +35,7 @@ public class ImmobilienScout24DetailScraper
     /// Fetch and parse detail page from the given expose URL.
     /// Saves the HTML to /data/snapshots/html/ImmobilienScout24/ for archiving.
     /// </summary>
-    public async Task<Details?> FetchAndParseDetailPageAsync(string url)
+    public async Task<FlatDetails?> FetchAndParseDetailPageAsync(string url)
     {
         try
         {

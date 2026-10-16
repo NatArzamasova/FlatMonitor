@@ -1,18 +1,18 @@
 namespace workInProgress.Scraping.Common;
 
 /// <summary>
-/// Defines CSS selectors and XPath expressions for extracting listing data from HTML.
+/// Defines CSS selectors and XPath expressions for extracting flat data from HTML.
 /// Each scraper implements this to describe how to find fields on its specific site.
 /// </summary>
-public interface IListingSelectors
+public interface IFlatSelectors
 {
-    /// <summary>XPath to select all listing card containers on a page.</summary>
+    /// <summary>XPath to select all flat card containers on a page.</summary>
     string ListingCardXPath { get; }
 
-    /// <summary>XPath relative to card to extract listing ID (e.g., from /expose/12345).</summary>
+    /// <summary>XPath relative to card to extract flat ID (e.g., from /expose/12345).</summary>
     string IdXPath { get; }
 
-    /// <summary>XPath relative to card to extract listing title/headline.</summary>
+    /// <summary>XPath relative to card to extract flat title/headline.</summary>
     string TitleXPath { get; }
 
     /// <summary>XPath relative to card to extract price text (e.g., "€ 1.250.000").</summary>

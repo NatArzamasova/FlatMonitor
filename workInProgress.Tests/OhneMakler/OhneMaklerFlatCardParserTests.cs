@@ -5,14 +5,14 @@ using FluentAssertions;
 using workInProgress.Scraping.OhneMakler;
 
 [TestFixture]
-public class OhneMaklerListingCardParserTests
+public class OhneMaklerFlatCardParserTests
 {
-    private OhneMaklerListingCardParser _parser = null!;
+    private OhneMaklerFlatCardParser _parser = null!;
 
     [SetUp]
     public void Setup()
     {
-        _parser = new OhneMaklerListingCardParser();
+        _parser = new OhneMaklerFlatCardParser();
     }
 
     private string GetFixturePath(string filename)
@@ -21,7 +21,7 @@ public class OhneMaklerListingCardParserTests
     }
 
     [Test]
-    public void ParsePage_WithValidListings_ReturnsCorrectCount()
+    public void ParsePage_WithValidFlats_ReturnsCorrectCount()
     {
         // Arrange
         var html = File.ReadAllText(GetFixturePath("listings-page-sample.html"));
@@ -35,7 +35,7 @@ public class OhneMaklerListingCardParserTests
     }
 
     [Test]
-    public void ParsePage_WithValidListings_ExtractsListingDetailsCorrectly()
+    public void ParsePage_WithValidFlats_ExtractsFlatDetailsCorrectly()
     {
         // Arrange
         var html = File.ReadAllText(GetFixturePath("listings-page-sample.html"));
@@ -120,13 +120,13 @@ public class OhneMaklerListingCardParserTests
     }
 
     [Test]
-    public void ParsePage_WithMalformedListing_SkipsIt()
+    public void ParsePage_WithMalformedFlat_SkipsIt()
     {
         // Arrange
         var html = @"
             <html>
                 <body>
-                    <a href=""/immobilie/123/"">Valid Listing</a>
+                    <a href=""/immobilie/123/"">Valid Flat</a>
                     <a href=""#"">Invalid Link</a>
                     <a href=""/immobilie/456/"">Another Valid</a>
                 </body>

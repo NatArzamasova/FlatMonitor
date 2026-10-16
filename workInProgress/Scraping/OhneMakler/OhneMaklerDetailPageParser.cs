@@ -17,7 +17,7 @@ public sealed class OhneMaklerDetailPageParser : IDetailParser
         _selectors = new OhneMaklerDetailSelectors();
     }
 
-    public Details? ParseDetailFields(string html)
+    public FlatDetails? ParseDetailFields(string html)
     {
         try
         {
@@ -28,7 +28,7 @@ public sealed class OhneMaklerDetailPageParser : IDetailParser
                 return null;
 
             var title = DetailExtractors.ExtractText(doc, _selectors.TitleXPath);
-            var details = new Details
+            var details = new FlatDetails
             {
                 Title = title,
                 PropertyType = DetailExtractors.ExtractText(doc, _selectors.PropertyTypeXPath),

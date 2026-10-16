@@ -9,7 +9,7 @@ using workInProgress.Data;
 
 namespace workInProgress.Migrations
 {
-    [DbContext(typeof(ListingsDbContext))]
+    [DbContext(typeof(FlatsDbContext))]
     [Migration("20261014103945_InitialCreate")]
     partial class InitialCreate
     {

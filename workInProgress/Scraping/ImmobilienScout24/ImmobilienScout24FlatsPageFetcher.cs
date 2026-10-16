@@ -5,17 +5,17 @@ using HtmlAgilityPack;
 using Microsoft.Playwright;
 
 /// <summary>
-/// Fetches listings pages from immobilienscout24.de using Playwright browser automation.
+/// Fetches flats pages from immobilienscout24.de using Playwright browser automation.
 /// Handles pagination by detecting and clicking the next-page button until no more pages exist.
 /// </summary>
-internal sealed class ImmobilienScout24ListingsPageFetcher : IAsyncDisposable
+internal sealed class ImmobilienScout24FlatsPageFetcher : IAsyncDisposable
 {
     private readonly IBrowser _browser;
     private readonly IPage _page;
     private const int MaxPagesLimit = 50;
     private bool _isLastPage = false;
 
-    public ImmobilienScout24ListingsPageFetcher(IBrowser browser, IPage page)
+    public ImmobilienScout24FlatsPageFetcher(IBrowser browser, IPage page)
     {
         _browser = browser ?? throw new ArgumentNullException(nameof(browser));
         _page = page ?? throw new ArgumentNullException(nameof(page));

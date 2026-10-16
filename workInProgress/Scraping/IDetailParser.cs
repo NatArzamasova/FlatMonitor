@@ -13,5 +13,5 @@ public interface IDetailParser
     /// </summary>
     /// <param name="html">The HTML content of a detail page</param>
     /// <returns>A Details object if successfully parsed; null if parsing fails or structure is invalid</returns>
-    Details? ParseDetailFields(string html);
+    FlatDetails? ParseDetailFields(string html);
 }

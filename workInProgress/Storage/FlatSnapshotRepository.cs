@@ -7,22 +7,22 @@ using workInProgress.Models;
 
 public sealed class FlatSnapshotRepository : ISnapshotRepository
 {
-    private readonly ListingsDbContext _dbContext;
+    private readonly FlatsDbContext _dbContext;
     private readonly bool _ownsContext;
 
-    public FlatSnapshotRepository(DbContextOptions<ListingsDbContext>? options = null)
+    public FlatSnapshotRepository(DbContextOptions<FlatsDbContext>? options = null)
     {
         if (options != null)
         {
-            _dbContext = new ListingsDbContext(options);
+            _dbContext = new FlatsDbContext(options);
             _ownsContext = true;
         }
         else
         {
-            var defaultOptions = new DbContextOptionsBuilder<ListingsDbContext>()
+            var defaultOptions = new DbContextOptionsBuilder<FlatsDbContext>()
                 .UseSqlite(GetDefaultConnectionString())
                 .Options;
-            _dbContext = new ListingsDbContext(defaultOptions);
+            _dbContext = new FlatsDbContext(defaultOptions);
             _ownsContext = true;
         }
     }

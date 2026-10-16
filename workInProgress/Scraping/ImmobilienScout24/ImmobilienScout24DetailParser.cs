@@ -18,7 +18,7 @@ public class ImmobilienScout24DetailParser : IDetailParser
         _selectors = new ImmobilienScout24DetailSelectors();
     }
 
-    public Details? ParseDetailFields(string html)
+    public FlatDetails? ParseDetailFields(string html)
     {
         try
         {
@@ -53,7 +53,7 @@ public class ImmobilienScout24DetailParser : IDetailParser
             var metadata = ExtractExposeMetadata(html);
             var commissionPercent = metadata?.CommissionPercent;
 
-            var details = new Details
+            var details = new FlatDetails
             {
                 Title = title,
                 PropertyType = propertyType,

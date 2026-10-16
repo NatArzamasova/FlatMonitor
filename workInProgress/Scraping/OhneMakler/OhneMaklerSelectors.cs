@@ -4,10 +4,10 @@ using workInProgress.Models;
 using workInProgress.Scraping.Common;
 
 /// <summary>
-/// OhneMakler-specific selectors for the ListingExtractor.
-/// Implements IListingSelectors for the common parser, plus static members for legacy code.
+/// OhneMakler-specific selectors for the FlatExtractor.
+/// Implements IFlatSelectors for the common parser, plus static members for legacy code.
 /// </summary>
-public class OhneMaklerSelectors : IListingSelectors
+public class OhneMaklerSelectors : IFlatSelectors
 {
     // IListingSelectors interface implementation
     public string ListingCardXPath => "//div[@class='angebot']";
@@ -57,21 +57,21 @@ public class OhneMaklerSelectors : IListingSelectors
 
     internal static readonly Dictionary<string, string> LabelToDetailsField = new()
     {
-        { "Objektart", nameof(Details.PropertyType) },
-        { "Baujahr", nameof(Details.BuildYear) },
-        { "Etage", nameof(Details.Floor) },
-        { "Geschoss", nameof(Details.Floor) },
-        { "Zustand", nameof(Details.Condition) },
-        { "Heizung", nameof(Details.Heating) },
-        { "Nebenkosten", nameof(Details.ServiceChargeEur) },
-        { "Energieausweistyp", nameof(Details.EnergyCertificateType) },
-        { "Wesentlicher Energieträger", nameof(Details.PrimaryEnergySource) },
-        { "Energieeffizienzklasse", nameof(Details.EnergyEfficiencyClass) },
-        { "Endenergieverbrauch", nameof(Details.EnergyConsumption) },
-        { "Privatangebot", nameof(Details.ListingStatus) },
-        { "Gewerbliches Angebot", nameof(Details.ListingStatus) },
-        { "Vermietet", nameof(Details.CurrentUse) },
-        { "Eigennutzung", nameof(Details.CurrentUse) },
-        { "Verfügbarkeit", nameof(Details.Availability) },
+        { "Objektart", nameof(FlatDetails.PropertyType) },
+        { "Baujahr", nameof(FlatDetails.BuildYear) },
+        { "Etage", nameof(FlatDetails.Floor) },
+        { "Geschoss", nameof(FlatDetails.Floor) },
+        { "Zustand", nameof(FlatDetails.Condition) },
+        { "Heizung", nameof(FlatDetails.Heating) },
+        { "Nebenkosten", nameof(FlatDetails.ServiceChargeEur) },
+        { "Energieausweistyp", nameof(FlatDetails.EnergyCertificateType) },
+        { "Wesentlicher Energieträger", nameof(FlatDetails.PrimaryEnergySource) },
+        { "Energieeffizienzklasse", nameof(FlatDetails.EnergyEfficiencyClass) },
+        { "Endenergieverbrauch", nameof(FlatDetails.EnergyConsumption) },
+        { "Privatangebot", nameof(FlatDetails.ListingStatus) },
+        { "Gewerbliches Angebot", nameof(FlatDetails.ListingStatus) },
+        { "Vermietet", nameof(FlatDetails.CurrentUse) },
+        { "Eigennutzung", nameof(FlatDetails.CurrentUse) },
+        { "Verfügbarkeit", nameof(FlatDetails.Availability) },
     };
 }

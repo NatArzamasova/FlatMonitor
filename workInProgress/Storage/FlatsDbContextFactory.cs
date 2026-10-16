@@ -4,15 +4,15 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using workInProgress.Storage;
 
-public class ListingsDbContextFactory : IDesignTimeDbContextFactory<ListingsDbContext>
+public class FlatsDbContextFactory : IDesignTimeDbContextFactory<FlatsDbContext>
 {
-    public ListingsDbContext CreateDbContext(string[] args)
+    public FlatsDbContext CreateDbContext(string[] args)
     {
-        var optionsBuilder = new DbContextOptionsBuilder<ListingsDbContext>();
+        var optionsBuilder = new DbContextOptionsBuilder<FlatsDbContext>();
         var dataDir = StoragePaths.GetDefaultDataDirectory();
         var dbPath = Path.Combine(dataDir, "listings.db");
         optionsBuilder.UseSqlite($"Data Source={dbPath}");
 
-        return new ListingsDbContext(optionsBuilder.Options);
+        return new FlatsDbContext(optionsBuilder.Options);
     }
 }

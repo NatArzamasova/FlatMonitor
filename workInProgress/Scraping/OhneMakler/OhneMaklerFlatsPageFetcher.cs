@@ -3,12 +3,12 @@ namespace workInProgress.Scraping.OhneMakler;
 using System.Runtime.CompilerServices;
 using HtmlAgilityPack;
 
-internal sealed class OhneMaklerListingsPageFetcher
+internal sealed class OhneMaklerFlatsPageFetcher
 {
     private readonly HttpClient _httpClient;
     private const int MaxPagesLimit = 50;
 
-    public OhneMaklerListingsPageFetcher(HttpClient httpClient)
+    public OhneMaklerFlatsPageFetcher(HttpClient httpClient)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
     }
@@ -34,7 +34,7 @@ internal sealed class OhneMaklerListingsPageFetcher
             }
             catch (HttpRequestException ex) when (pageNumber == 1)
             {
-                // Page 1 is fatal — no listing index, can't proceed.
+                // Page 1 is fatal — no flat index, can't proceed.
                 throw new InvalidOperationException(
                     $"Failed to fetch the first page from {url}. Scrape cannot continue.", ex);
             }
@@ -46,7 +46,7 @@ internal sealed class OhneMaklerListingsPageFetcher
                 yield break;
             }
 
-            // Parse the HTML to count listing-card links; stop if this page has zero.
+            // Parse the HTML to count flat-card links; stop if this page has zero.
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
             var listingLinks = doc.DocumentNode.SelectNodes(OhneMaklerSelectors.ListingLinkXPath);
