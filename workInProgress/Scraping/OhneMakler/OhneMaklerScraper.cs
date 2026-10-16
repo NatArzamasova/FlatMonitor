@@ -1,5 +1,6 @@
 namespace workInProgress.Scraping.OhneMakler;
 
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using workInProgress.Models;
 using workInProgress.Scraping.Common;
@@ -61,7 +62,7 @@ public sealed class OhneMaklerScraper : FlatScraper
         return Task.CompletedTask;
     }
 
-    protected override async IAsyncEnumerable<List<Flat>> FetchAndParseAllPagesAsync(CancellationToken ct)
+    protected override async IAsyncEnumerable<List<Flat>> FetchAndParseAllPagesAsync([EnumeratorCancellation] CancellationToken ct)
     {
         if (_pageFetcher == null)
         {

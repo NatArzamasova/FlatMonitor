@@ -1,5 +1,6 @@
 namespace workInProgress.Scraping.ImmobilienScout24;
 
+using System.Runtime.CompilerServices;
 using HtmlAgilityPack;
 using Microsoft.Playwright;
 using workInProgress.Models;
@@ -76,7 +77,7 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
         return Task.CompletedTask;
     }
 
-    protected override async IAsyncEnumerable<List<Flat>> FetchAndParseAllPagesAsync(CancellationToken ct)
+    protected override async IAsyncEnumerable<List<Flat>> FetchAndParseAllPagesAsync([EnumeratorCancellation] CancellationToken ct)
     {
         if (_page == null)
         {
