@@ -2,10 +2,12 @@ namespace workInProgress.Data;
 
 using Microsoft.EntityFrameworkCore;
 using workInProgress.Models;
+using ScrapingHistory = workInProgress.Models.ScrapingHistory;
 
 public class FlatsDbContext : DbContext
 {
     public DbSet<FlatSnapshot> FlatsSnapshots { get; set; }
+    public DbSet<ScrapingHistory> ScrapingHistories { get; set; }
 
     public FlatsDbContext(DbContextOptions<FlatsDbContext> options) : base(options)
     {
@@ -130,5 +132,14 @@ public class FlatsDbContext : DbContext
         snapshotBuilder.Property<string>("UpdatedAtUtc")
             .IsRequired()
             .HasMaxLength(50);
+
+        // ScrapingHistory configuration
+        var historyBuilder = modelBuilder.Entity<ScrapingHistory>();
+        historyBuilder.HasKey(h => h.Id);
+        historyBuilder.ToTable("ScrapingHistories");
+        historyBuilder.Property(h => h.StartTimeUtc).IsRequired();
+        historyBuilder.Property(h => h.EndTimeUtc);
+        historyBuilder.Property(h => h.Status).IsRequired().HasMaxLength(50);
+        historyBuilder.Property(h => h.ErrorMessage).HasMaxLength(500);
     }
 }

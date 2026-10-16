@@ -12,7 +12,7 @@ public abstract class FlatScraper : IScraper
 {
     public abstract string Source { get; }
 
-    public async Task<IEnumerable<Flat>> ScrapeAsync() => await ScrapeAllListingsAsync();
+    public async Task<IEnumerable<Flat>> ScrapeAsync(CancellationToken ct = default) => await ScrapeAllListingsAsync(ct);
 
     public async Task<List<Flat>> ScrapeAllListingsAsync(CancellationToken ct = default)
     {
@@ -48,6 +48,7 @@ public abstract class FlatScraper : IScraper
 
             foreach (var flat in allPageFlats)
             {
+                ct.ThrowIfCancellationRequested();
                 totalProcessed++;
                 try
                 {

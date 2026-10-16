@@ -16,6 +16,10 @@
     <PackageReference Include="Microsoft.Playwright" />
     <PackageReference Include="System.Security.Cryptography.Xml" />
     <PackageReference Include="System.Security.Cryptography.Pkcs" />
+    <PackageReference Include="Swashbuckle.AspNetCore" />
+  </ItemGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
 </Project>
