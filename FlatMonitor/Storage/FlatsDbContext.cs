@@ -8,6 +8,7 @@ public class FlatsDbContext : DbContext
 {
     public DbSet<FlatSnapshot> FlatsSnapshots { get; set; }
     public DbSet<ScrapingHistory> ScrapingHistories { get; set; }
+    public DbSet<FlatAggregationSnapshot> FlatAggregations { get; set; }
 
     public FlatsDbContext(DbContextOptions<FlatsDbContext> options) : base(options)
     {
@@ -142,5 +143,31 @@ public class FlatsDbContext : DbContext
         historyBuilder.Property(h => h.Status).IsRequired().HasMaxLength(50);
         historyBuilder.Property(h => h.ErrorMessage).HasMaxLength(500);
         historyBuilder.Property(h => h.FlatsScrapedCount).IsRequired().HasDefaultValue(0);
+
+        // FlatAggregationSnapshot configuration
+        var aggregationBuilder = modelBuilder.Entity<FlatAggregationSnapshot>();
+        aggregationBuilder.HasKey(a => a.Id);
+        aggregationBuilder.ToTable("FlatAggregations");
+
+        aggregationBuilder.Property(a => a.District)
+            .HasMaxLength(100);
+
+        aggregationBuilder.Property(a => a.RoomsCount);
+
+        aggregationBuilder.Property(a => a.Count)
+            .IsRequired();
+
+        aggregationBuilder.Property(a => a.AvgPricePerMeter)
+            .IsRequired()
+            .HasColumnType("TEXT");
+
+        aggregationBuilder.Property(a => a.ScrapingDate)
+            .IsRequired();
+
+        aggregationBuilder.HasIndex(a => new { a.District, a.RoomsCount })
+            .HasDatabaseName("idx_FlatAggregations_District_RoomsCount");
+
+        aggregationBuilder.HasIndex(a => a.ScrapingDate)
+            .HasDatabaseName("idx_FlatAggregations_ScrapingDate");
     }
 }

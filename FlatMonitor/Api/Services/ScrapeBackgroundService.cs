@@ -71,6 +71,7 @@ public class ScrapeBackgroundService : BackgroundService
         var coordinator = scope.ServiceProvider.GetRequiredService<ScraperCoordinator>();
         var dbContext = scope.ServiceProvider.GetRequiredService<FlatsDbContext>();
         var snapshotRepo = scope.ServiceProvider.GetRequiredService<ISnapshotRepository>();
+        var aggregationRepo = scope.ServiceProvider.GetRequiredService<IFlatAggregationRepository>();
 
         var startTime = DateTime.UtcNow;
         var history = new ScrapingHistory
@@ -104,6 +105,9 @@ public class ScrapeBackgroundService : BackgroundService
             });
 
             var flatsCount = await coordinator.ScrapeAllSourcesAsync(jobCt);
+
+            _logger.LogInformation("Refreshing flat aggregations for job {JobId}", job.JobId);
+            await aggregationRepo.RefreshAsync(jobCt);
 
             var endTime = DateTime.UtcNow;
             history.EndTimeUtc = endTime;

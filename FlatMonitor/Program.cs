@@ -73,6 +73,7 @@ async Task<int> RunScrapeAsync()
     services.AddScoped<ImmobilienScout24Scraper>();
 
     services.AddScoped<ISnapshotRepository>(sp => new FlatSnapshotRepository(sp.GetRequiredService<DbContextOptions<FlatsDbContext>>()));
+    services.AddScoped<IFlatAggregationRepository>(sp => new FlatAggregationRepository(sp.GetRequiredService<DbContextOptions<FlatsDbContext>>()));
     services.AddScoped<SnapshotWriter>();
 
     services.AddScoped<ScraperCoordinator>(sp =>
@@ -96,6 +97,7 @@ async Task<int> RunScrapeAsync()
         await dbContext.Database.MigrateAsync();
 
         await using var repository = (FlatSnapshotRepository)serviceProvider.GetRequiredService<ISnapshotRepository>();
+        await using var aggregationRepository = (FlatAggregationRepository)serviceProvider.GetRequiredService<IFlatAggregationRepository>();
         await using var coordinator = serviceProvider.GetRequiredService<ScraperCoordinator>();
 
         try
@@ -110,6 +112,9 @@ async Task<int> RunScrapeAsync()
             await dbContext.SaveChangesAsync();
 
             var flatsCount = await coordinator.ScrapeAllSourcesAsync();
+
+            Console.WriteLine("Refreshing flat aggregations...");
+            await aggregationRepository.RefreshAsync();
 
             // Delete backup on success
             Console.WriteLine("Scrape successful, deleting backup...");
@@ -217,6 +222,7 @@ async Task<int> RunWebServerAsync(string[] args)
         builder.Services.AddScoped<OhneMaklerScraper>();
         builder.Services.AddScoped<ImmobilienScout24Scraper>();
         builder.Services.AddScoped<ISnapshotRepository>(sp => new FlatSnapshotRepository(sp.GetRequiredService<DbContextOptions<FlatsDbContext>>()));
+        builder.Services.AddScoped<IFlatAggregationRepository>(sp => new FlatAggregationRepository(sp.GetRequiredService<DbContextOptions<FlatsDbContext>>()));
         builder.Services.AddScoped<SnapshotWriter>();
         builder.Services.AddScoped<ScraperCoordinator>(sp =>
         {

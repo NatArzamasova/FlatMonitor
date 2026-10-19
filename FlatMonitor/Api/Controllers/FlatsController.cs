@@ -21,26 +21,35 @@ public class FlatsController : ControllerBase
     {
         try
         {
-            var flats = await _context.FlatsSnapshots
-                .Where(f => f.District != null && f.PriceEur.HasValue && f.PriceEur > 0)
-                .ToListAsync();
+            // Get the latest scraping date
+            var latestScrapingDate = await _context.FlatAggregations
+                .MaxAsync(a => (DateOnly?)a.ScrapingDate);
 
-            var aggregated = flats
-                .GroupBy(f => new { f.District, f.RoomsCount })
-                .Select(g => new FlatAggregation
+            // If no data, return empty list
+            if (latestScrapingDate == null)
+            {
+                return Ok(new ApiResponse<List<FlatAggregation>>
                 {
-                    PostalCode = null,
-                    District = g.Key.District,
-                    RoomsCount = g.Key.RoomsCount,
-                    Availability = null,
-                    Count = g.Count(),
-                    AvgPricePerMeter = g.Where(f => f.PricePerMeter.HasValue).Any()
-                        ? (decimal)g.Where(f => f.PricePerMeter.HasValue).Average(f => f.PricePerMeter.Value)
-                        : 0m
-                })
+                    Success = true,
+                    Data = new List<FlatAggregation>(),
+                    Message = "Aggregated successfully"
+                });
+            }
+
+            var aggregated = await _context.FlatAggregations
+                .Where(a => a.ScrapingDate == latestScrapingDate)
                 .OrderBy(a => a.District)
                 .ThenBy(a => a.RoomsCount)
-                .ToList();
+                .Select(a => new FlatAggregation
+                {
+                    PostalCode = null,
+                    District = a.District,
+                    RoomsCount = a.RoomsCount,
+                    Availability = null,
+                    Count = a.Count,
+                    AvgPricePerMeter = a.AvgPricePerMeter
+                })
+                .ToListAsync();
 
             return Ok(new ApiResponse<List<FlatAggregation>>
             {

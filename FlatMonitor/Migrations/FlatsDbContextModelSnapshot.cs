@@ -17,6 +17,39 @@ namespace workInProgress.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.1");
 
+            modelBuilder.Entity("workInProgress.Models.FlatAggregationSnapshot", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal>("AvgPricePerMeter")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("District")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("RoomsCount")
+                        .HasColumnType("REAL");
+
+                    b.Property<DateOnly>("ScrapingDate")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ScrapingDate")
+                        .HasDatabaseName("idx_FlatAggregations_ScrapingDate");
+
+                    b.HasIndex("District", "RoomsCount")
+                        .HasDatabaseName("idx_FlatAggregations_District_RoomsCount");
+
+                    b.ToTable("FlatAggregations", (string)null);
+                });
+
             modelBuilder.Entity("workInProgress.Models.FlatSnapshot", b =>
                 {
                     b.Property<string>("Source")
