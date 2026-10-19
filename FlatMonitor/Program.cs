@@ -116,6 +116,20 @@ async Task<int> RunScrapeAsync()
             Console.WriteLine("Refreshing flat aggregations...");
             await aggregationRepository.RefreshAsync();
 
+            // Check if there were any scraper errors
+            if (coordinator.ScraperErrors.Count > 0)
+            {
+                Console.Error.WriteLine("⚠ Scraping completed with errors:");
+                foreach (var error in coordinator.ScraperErrors)
+                {
+                    Console.Error.WriteLine($"  - {error}");
+                }
+                // Delete backup even with partial failure (data is partial but usable)
+                await repository.DeleteBackupAsync();
+                Console.WriteLine($"✓ Partially scraped: {flatsCount} flats collected (with errors)");
+                return 1; // Return error code to signal partial failure
+            }
+
             // Delete backup on success
             Console.WriteLine("Scrape successful, deleting backup...");
             await repository.DeleteBackupAsync();

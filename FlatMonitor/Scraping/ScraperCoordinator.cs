@@ -28,9 +28,14 @@ public sealed class ScraperCoordinator : IAsyncDisposable
         _onBatchSaved = callback;
     }
 
+    private List<string> _scraperErrors = new();
+
+    public IReadOnlyList<string> ScraperErrors => _scraperErrors.AsReadOnly();
+
     public async Task<int> ScrapeAllSourcesAsync(CancellationToken ct = default)
     {
         await _repository.InitializeAsync(ct);
+        _scraperErrors.Clear();
         int totalFlats = 0;
 
         foreach (var scraper in _scrapers)
@@ -69,7 +74,9 @@ public sealed class ScraperCoordinator : IAsyncDisposable
             }
             catch (Exception ex)
             {
+                var errorMsg = $"{scraper.Source}: {ex.Message}";
                 Console.Error.WriteLine($"Error scraping {scraper.Source}: {ex.Message}");
+                _scraperErrors.Add(errorMsg);
                 if (Environment.GetEnvironmentVariable("DEBUG") == "1")
                     Console.Error.WriteLine(ex.StackTrace);
             }

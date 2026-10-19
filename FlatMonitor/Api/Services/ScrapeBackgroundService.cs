@@ -111,7 +111,20 @@ public class ScrapeBackgroundService : BackgroundService
 
             var endTime = DateTime.UtcNow;
             history.EndTimeUtc = endTime;
-            history.Status = "Successful";
+
+            // Set status based on whether there were scraper errors
+            if (coordinator.ScraperErrors.Count > 0)
+            {
+                history.Status = "PartialFailed";
+                var errorSummary = string.Join("; ", coordinator.ScraperErrors);
+                history.ErrorMessage = errorSummary;
+                _logger.LogWarning("Scrape job {JobId} completed with errors: {Errors}", job.JobId, errorSummary);
+            }
+            else
+            {
+                history.Status = "Successful";
+            }
+
             dbContext.ScrapingHistories.Update(history);
             await dbContext.SaveChangesAsync(jobCt);
 
