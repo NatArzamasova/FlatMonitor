@@ -93,87 +93,11 @@ public class ScrapeControllerTests
     }
 
     [Test]
-    public void CancelScrape_WithValidRunningJob_ReturnsOkResult()
+    public void CancelScrape_ReturnsOkResult()
     {
-        var job = _jobService.QueueJob();
-        var jobId = job.JobId;
-
-        _jobService.UpdateJobStatus(jobId, ScrapeJobService.ScrapeJobStatus.Running);
-
-        var result = _controller.CancelScrape(jobId);
+        var result = _controller.CancelScrape();
 
         result.Should().BeOfType<OkObjectResult>();
-    }
-
-    [Test]
-    public void CancelScrape_WithInvalidJobId_ReturnsNotFound()
-    {
-        var invalidJobId = Guid.NewGuid();
-
-        var result = _controller.CancelScrape(invalidJobId);
-
-        result.Should().BeOfType<NotFoundObjectResult>();
-    }
-
-    [Test]
-    public void CancelScrape_WithQueuedJob_ReturnsBadRequest()
-    {
-        var job = _jobService.QueueJob();
-
-        var result = _controller.CancelScrape(job.JobId);
-
-        result.Should().BeOfType<BadRequestObjectResult>();
-    }
-
-    [Test]
-    public void CancelScrape_WithCompletedJob_ReturnsBadRequest()
-    {
-        var job = _jobService.QueueJob();
-        var jobId = job.JobId;
-
-        _jobService.UpdateJobStatus(jobId, ScrapeJobService.ScrapeJobStatus.Completed);
-
-        var result = _controller.CancelScrape(jobId);
-
-        result.Should().BeOfType<BadRequestObjectResult>();
-    }
-
-    [Test]
-    public void CancelScrape_WithRunningJob_ReturnsOkAndCancels()
-    {
-        var job = _jobService.QueueJob();
-        var jobId = job.JobId;
-
-        _jobService.UpdateJobStatus(jobId, ScrapeJobService.ScrapeJobStatus.Running);
-        var result = _controller.CancelScrape(jobId);
-
-        result.Should().BeOfType<OkObjectResult>();
-    }
-
-    [Test]
-    public void CancelScrape_WithFailedJob_ReturnsBadRequest()
-    {
-        var job = _jobService.QueueJob();
-        var jobId = job.JobId;
-
-        _jobService.UpdateJobStatus(jobId, ScrapeJobService.ScrapeJobStatus.Failed);
-
-        var result = _controller.CancelScrape(jobId);
-
-        result.Should().BeOfType<BadRequestObjectResult>();
-    }
-
-    [Test]
-    public void CancelScrape_WithCanceledJob_ReturnsBadRequest()
-    {
-        var job = _jobService.QueueJob();
-        var jobId = job.JobId;
-
-        _jobService.UpdateJobStatus(jobId, ScrapeJobService.ScrapeJobStatus.Canceled);
-
-        var result = _controller.CancelScrape(jobId);
-
-        result.Should().BeOfType<BadRequestObjectResult>();
     }
 
     [Test]

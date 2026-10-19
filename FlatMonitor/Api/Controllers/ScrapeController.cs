@@ -92,21 +92,10 @@ public class ScrapeController : ControllerBase
         });
     }
 
-    [HttpPost("cancel/{jobId}")]
-    public ActionResult CancelScrape(Guid jobId)
+    [HttpPost("cancel")]
+    public ActionResult CancelScrape()
     {
-        var job = _jobService.GetJobStatus(jobId);
-        if (job == null)
-        {
-            return NotFound(new { message = $"Job {jobId} not found" });
-        }
-
-        if (job.Status == ScrapeJobService.ScrapeJobStatus.Running)
-        {
-            _backgroundService.CancelCurrentJob();
-            return Ok(new { message = "Scrape cancellation requested" });
-        }
-
-        return BadRequest(new { message = $"Cannot cancel job with status {job.Status}" });
+        _backgroundService.CancelCurrentJob();
+        return Ok(new { message = "Scrape cancellation requested" });
     }
 }
