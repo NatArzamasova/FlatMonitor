@@ -1,6 +1,7 @@
 export interface ScrapingStatusResponse {
   isScrapingInProgress: boolean;
   lastScrapingHistory?: ScrapingHistoryDto;
+  lastSuccessfulScrapingHistory?: ScrapingHistoryDto;
 }
 
 export interface ScrapingHistoryDto {

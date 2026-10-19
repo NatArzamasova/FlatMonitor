@@ -12,4 +12,7 @@ public interface ISnapshotRepository : IAsyncDisposable
 {
     Task InitializeAsync(CancellationToken ct = default);
     Task UpsertListingsAsync(List<Flat> listings, CancellationToken ct = default);
+    Task BackupFlatsSnapshotsAsync(CancellationToken ct = default);
+    Task RestoreFlatsSnapshotsAsync(CancellationToken ct = default);
+    Task DeleteBackupAsync(CancellationToken ct = default);
 }

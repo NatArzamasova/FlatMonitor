@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using workInProgress.Data;
 using workInProgress.Models;
 using workInProgress.Scraping;
+using workInProgress.Storage;
 
 public class ScrapeBackgroundService : BackgroundService
 {
@@ -66,9 +67,10 @@ public class ScrapeBackgroundService : BackgroundService
 
         _jobService.UpdateJobStatus(job.JobId, ScrapeJobService.ScrapeJobStatus.Running);
 
-        using var scope = _serviceProvider.CreateAsyncScope();
+        await using var scope = _serviceProvider.CreateAsyncScope();
         var coordinator = scope.ServiceProvider.GetRequiredService<ScraperCoordinator>();
         var dbContext = scope.ServiceProvider.GetRequiredService<FlatsDbContext>();
+        var snapshotRepo = scope.ServiceProvider.GetRequiredService<ISnapshotRepository>();
 
         var startTime = DateTime.UtcNow;
         var history = new ScrapingHistory
@@ -84,8 +86,13 @@ public class ScrapeBackgroundService : BackgroundService
             dbContext.ScrapingHistories.Add(history);
             await dbContext.SaveChangesAsync(jobCt);
 
+            // Backup before clearing
+            _logger.LogInformation("Backing up FlatsSnapshots table");
+            await snapshotRepo.BackupFlatsSnapshotsAsync(jobCt);
+
             await dbContext.FlatsSnapshots.ExecuteDeleteAsync(jobCt);
             await dbContext.SaveChangesAsync(jobCt);
+            _logger.LogInformation("Cleared FlatsSnapshots table");
 
             coordinator.SetOnBatchSavedCallback(async (batchCount) =>
             {
@@ -104,6 +111,10 @@ public class ScrapeBackgroundService : BackgroundService
             dbContext.ScrapingHistories.Update(history);
             await dbContext.SaveChangesAsync(jobCt);
 
+            // Delete backup on success
+            _logger.LogInformation("Scrape successful, deleting backup");
+            await snapshotRepo.DeleteBackupAsync(jobCt);
+
             _jobService.UpdateJobStatus(job.JobId, ScrapeJobService.ScrapeJobStatus.Completed);
             _logger.LogInformation("Scrape job {JobId} completed successfully with {FlatsCount} flats",
                 job.JobId, flatsCount);
@@ -116,8 +127,18 @@ public class ScrapeBackgroundService : BackgroundService
             dbContext.ScrapingHistories.Update(history);
             await dbContext.SaveChangesAsync(CancellationToken.None);
 
+            // Restore from backup on cancellation
+            _logger.LogWarning("Scrape job {JobId} was canceled, restoring from backup", job.JobId);
+            try
+            {
+                await snapshotRepo.RestoreFlatsSnapshotsAsync(CancellationToken.None);
+            }
+            catch (Exception restoreEx)
+            {
+                _logger.LogError(restoreEx, "Failed to restore backup for job {JobId}", job.JobId);
+            }
+
             _jobService.UpdateJobStatus(job.JobId, ScrapeJobService.ScrapeJobStatus.Canceled);
-            _logger.LogInformation("Scrape job {JobId} was canceled", job.JobId);
         }
         catch (Exception ex)
         {
@@ -128,8 +149,18 @@ public class ScrapeBackgroundService : BackgroundService
             dbContext.ScrapingHistories.Update(history);
             await dbContext.SaveChangesAsync(CancellationToken.None);
 
+            // Restore from backup on failure
+            _logger.LogError(ex, "Scrape job {JobId} failed, restoring from backup", job.JobId);
+            try
+            {
+                await snapshotRepo.RestoreFlatsSnapshotsAsync(CancellationToken.None);
+            }
+            catch (Exception restoreEx)
+            {
+                _logger.LogError(restoreEx, "Failed to restore backup for job {JobId}", job.JobId);
+            }
+
             _jobService.UpdateJobStatus(job.JobId, ScrapeJobService.ScrapeJobStatus.Failed);
-            _logger.LogError(ex, "Scrape job {JobId} failed", job.JobId);
         }
         finally
         {

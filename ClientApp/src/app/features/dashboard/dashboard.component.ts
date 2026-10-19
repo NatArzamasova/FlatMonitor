@@ -20,11 +20,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
   loading = false;
   scraping = false;
   error: string | null = null;
+  success: string | null = null;
   lastUpdated: Date | null = null;
   scrapedCount = 0;
+
+  // Last scraping (any status)
   lastScrapingTime: Date | null = null;
   lastScrapingStatus: string | null = null;
   lastScrapingCount = 0;
+
+  // Last successful scraping
+  lastSuccessfulScrapingTime: Date | null = null;
+  lastSuccessfulScrapingCount = 0;
 
   selectedDistricts: string[] = [];
   selectedRoomCounts: number[] = [];
@@ -253,19 +260,29 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private updateScrapingStatus(status: ScrapingStatusResponse): void {
     this.scraping = status.isScrapingInProgress;
+
+    // Last scraping (any status)
     if (status.lastScrapingHistory) {
       this.lastScrapingTime = new Date(status.lastScrapingHistory.startTimeUtc);
       this.lastScrapingStatus = status.lastScrapingHistory.status;
       this.lastScrapingCount = status.lastScrapingHistory.flatsScrapedCount;
     }
+
+    // Last successful scraping
+    if (status.lastSuccessfulScrapingHistory) {
+      this.lastSuccessfulScrapingTime = new Date(status.lastSuccessfulScrapingHistory.startTimeUtc);
+      this.lastSuccessfulScrapingCount = status.lastSuccessfulScrapingHistory.flatsScrapedCount;
+    }
   }
 
   triggerScrape(): void {
     this.error = null;
+    this.success = null;
     this.flatsService.triggerScrape().subscribe({
       next: (response) => {
         if (response.success) {
-          this.scrapedCount = response.flatsCount;
+          this.success = response.message || 'Scrape job queued';
+          this.scraping = true;
           // Immediately check status to update UI
           this.loadScrapingStatus();
         } else {

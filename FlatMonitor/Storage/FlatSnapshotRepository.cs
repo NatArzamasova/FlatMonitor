@@ -42,6 +42,66 @@ public sealed class FlatSnapshotRepository : ISnapshotRepository
         }
     }
 
+    public async Task BackupFlatsSnapshotsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var connection = _dbContext.Database.GetDbConnection();
+            var command = connection.CreateCommand();
+            command.CommandText = @"
+                DROP TABLE IF EXISTS FlatsSnapshots_Backup;
+                CREATE TABLE FlatsSnapshots_Backup AS SELECT * FROM FlatsSnapshots;
+            ";
+            await connection.OpenAsync(ct);
+            await command.ExecuteNonQueryAsync();
+            command.Dispose();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Backup failed: {ex.Message}");
+            throw;
+        }
+    }
+
+    public async Task RestoreFlatsSnapshotsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var connection = _dbContext.Database.GetDbConnection();
+            var command = connection.CreateCommand();
+            command.CommandText = @"
+                DELETE FROM FlatsSnapshots;
+                INSERT INTO FlatsSnapshots SELECT * FROM FlatsSnapshots_Backup;
+            ";
+            await connection.OpenAsync(ct);
+            await command.ExecuteNonQueryAsync();
+            command.Dispose();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Restore failed: {ex.Message}");
+            throw;
+        }
+    }
+
+    public async Task DeleteBackupAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var connection = _dbContext.Database.GetDbConnection();
+            var command = connection.CreateCommand();
+            command.CommandText = "DROP TABLE IF EXISTS FlatsSnapshots_Backup;";
+            await connection.OpenAsync(ct);
+            await command.ExecuteNonQueryAsync();
+            command.Dispose();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Delete backup failed: {ex.Message}");
+            throw;
+        }
+    }
+
     public async Task UpsertListingsAsync(List<Flat> listings, CancellationToken ct = default)
     {
         var now = DateTime.UtcNow.ToString("O");

@@ -23,15 +23,56 @@ public class ScrapeController : ControllerBase
     }
 
     [HttpPost]
-    public ActionResult<ScrapeQueuedResponse> TriggerScrapeAsync()
+    public ActionResult<ScrapeResponse> TriggerScrapeAsync()
     {
         var job = _jobService.QueueJob();
-        return Accepted($"api/scrape/status/{job.JobId}", new ScrapeQueuedResponse
+        return Accepted($"api/scrape/status/{job.JobId}", new ScrapeResponse
         {
-            JobId = job.JobId,
+            Success = true,
             Message = "Scrape job queued",
-            QueuedAtUtc = job.CreatedAtUtc
+            ScrapedAtUtc = job.CreatedAtUtc,
+            FlatsCount = 0
         });
+    }
+
+    [HttpGet("status")]
+    public async Task<ActionResult<ScrapingStatusResponse>> GetScrapingStatus()
+    {
+        var isScrapingInProgress = _jobService.IsScrapingInProgress();
+
+        var lastScrapingHistory = await _context.ScrapingHistories
+            .OrderByDescending(h => h.StartTimeUtc)
+            .FirstOrDefaultAsync();
+
+        var lastSuccessfulScrapingHistory = await _context.ScrapingHistories
+            .Where(h => h.Status == "Successful")
+            .OrderByDescending(h => h.StartTimeUtc)
+            .FirstOrDefaultAsync();
+
+        var response = new ScrapingStatusResponse
+        {
+            IsScrapingInProgress = isScrapingInProgress,
+            LastScrapingHistory = lastScrapingHistory != null ? new ScrapingHistoryDto
+            {
+                Id = lastScrapingHistory.Id,
+                StartTimeUtc = lastScrapingHistory.StartTimeUtc,
+                EndTimeUtc = lastScrapingHistory.EndTimeUtc,
+                Status = lastScrapingHistory.Status,
+                ErrorMessage = lastScrapingHistory.ErrorMessage,
+                FlatsScrapedCount = lastScrapingHistory.FlatsScrapedCount
+            } : null,
+            LastSuccessfulScrapingHistory = lastSuccessfulScrapingHistory != null ? new ScrapingHistoryDto
+            {
+                Id = lastSuccessfulScrapingHistory.Id,
+                StartTimeUtc = lastSuccessfulScrapingHistory.StartTimeUtc,
+                EndTimeUtc = lastSuccessfulScrapingHistory.EndTimeUtc,
+                Status = lastSuccessfulScrapingHistory.Status,
+                ErrorMessage = lastSuccessfulScrapingHistory.ErrorMessage,
+                FlatsScrapedCount = lastSuccessfulScrapingHistory.FlatsScrapedCount
+            } : null
+        };
+
+        return Ok(response);
     }
 
     [HttpGet("status/{jobId}")]

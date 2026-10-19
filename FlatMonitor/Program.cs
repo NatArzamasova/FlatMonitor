@@ -95,10 +95,44 @@ async Task<int> RunScrapeAsync()
         await using var dbContext = serviceProvider.GetRequiredService<FlatsDbContext>();
         await dbContext.Database.MigrateAsync();
 
+        await using var repository = (FlatSnapshotRepository)serviceProvider.GetRequiredService<ISnapshotRepository>();
         await using var coordinator = serviceProvider.GetRequiredService<ScraperCoordinator>();
-        var flatsCount = await coordinator.ScrapeAllSourcesAsync();
-        Console.WriteLine($"✓ Scraping completed. Total flats scraped: {flatsCount}");
-        return 0;
+
+        try
+        {
+            // Backup before clearing
+            Console.WriteLine("Backing up FlatsSnapshots table...");
+            await repository.BackupFlatsSnapshotsAsync();
+
+            // Clear the table
+            Console.WriteLine("Clearing FlatsSnapshots table...");
+            await dbContext.FlatsSnapshots.ExecuteDeleteAsync();
+            await dbContext.SaveChangesAsync();
+
+            var flatsCount = await coordinator.ScrapeAllSourcesAsync();
+
+            // Delete backup on success
+            Console.WriteLine("Scrape successful, deleting backup...");
+            await repository.DeleteBackupAsync();
+
+            Console.WriteLine($"✓ Scraping completed. Total flats scraped: {flatsCount}");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            // Restore from backup on failure
+            Console.Error.WriteLine($"Scrape failed, restoring from backup: {ex.Message}");
+            try
+            {
+                await repository.RestoreFlatsSnapshotsAsync();
+                Console.WriteLine("✓ Data restored from backup");
+            }
+            catch (Exception restoreEx)
+            {
+                Console.Error.WriteLine($"Failed to restore backup: {restoreEx.Message}");
+            }
+            throw;
+        }
     }
     catch (Exception ex)
     {
@@ -198,7 +232,8 @@ async Task<int> RunWebServerAsync(string[] args)
 
         builder.Services.AddSingleton<workInProgress.Api.Services.ScrapeStateService>();
         builder.Services.AddSingleton<workInProgress.Api.Services.ScrapeJobService>();
-        builder.Services.AddHostedService<workInProgress.Api.Services.ScrapeBackgroundService>();
+        builder.Services.AddSingleton<workInProgress.Api.Services.ScrapeBackgroundService>();
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<workInProgress.Api.Services.ScrapeBackgroundService>());
 
         builder.Services.AddControllers();
         builder.Services.AddSwaggerGen();

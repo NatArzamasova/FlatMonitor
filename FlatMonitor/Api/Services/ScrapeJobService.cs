@@ -43,4 +43,9 @@ public class ScrapeJobService
     }
 
     public int QueuedJobCount => _jobQueue.Count;
+
+    public bool IsScrapingInProgress()
+    {
+        return _jobTracker.Values.Any(job => job.Status == ScrapeJobStatus.Running);
+    }
 }

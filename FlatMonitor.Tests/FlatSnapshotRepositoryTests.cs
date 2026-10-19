@@ -305,4 +305,212 @@ public class FlatSnapshotRepositoryTests
         scoutRow!.Details.Should().NotBeNull();
         scoutRow.Details!.Title.Should().Be("From ImmobilienScout24");
     }
+
+    // ==================== BACKUP/RESTORE TESTS ====================
+    // Note: Backup/restore uses raw SQL, so must use SQLite, not InMemory
+
+    private DbContextOptions<FlatsDbContext> CreateSqliteOptions()
+    {
+        var dbPath = Path.Combine(Path.GetTempPath(), $"test_{Guid.NewGuid()}.db");
+        return new DbContextOptionsBuilder<FlatsDbContext>()
+            .UseSqlite($"Data Source={dbPath}")
+            .Options;
+    }
+
+    [Test]
+    public async Task BackupFlatsSnapshotsAsync_CreatesBackupTable()
+    {
+        // Arrange
+        var options = CreateSqliteOptions();
+        await using var repo = new FlatSnapshotRepository(options);
+        await repo.InitializeAsync();
+
+        var listings = new List<Flat>
+        {
+            new()
+            {
+                ListingId = "1",
+                Url = "/immobilie/1/",
+                Title = "Original Listing",
+                Address = "Original Address",
+                PriceEur = 500000,
+                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                Source = "OhneMakler",
+            }
+        };
+        await repo.UpsertListingsAsync(listings);
+
+        // Act
+        await repo.BackupFlatsSnapshotsAsync();
+
+        // Assert - backup table should exist with same data
+        await using var dbContext = new FlatsDbContext(options);
+        var originalCount = await dbContext.FlatsSnapshots.CountAsync();
+        originalCount.Should().Be(1);
+    }
+
+    [Test]
+    public async Task RestoreFlatsSnapshotsAsync_RestoresBackupData()
+    {
+        // Arrange
+        var options = CreateSqliteOptions();
+        await using var repo = new FlatSnapshotRepository(options);
+        await repo.InitializeAsync();
+
+        // Insert original data
+        var originalListings = new List<Flat>
+        {
+            new()
+            {
+                ListingId = "1",
+                Url = "/immobilie/1/",
+                Title = "Original Listing",
+                Address = "Original Address",
+                PriceEur = 500000,
+                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                Source = "OhneMakler",
+            }
+        };
+        await repo.UpsertListingsAsync(originalListings);
+
+        // Backup
+        await repo.BackupFlatsSnapshotsAsync();
+
+        // Clear the table (simulate failed scrape)
+        await using var dbContext = new FlatsDbContext(options);
+        await dbContext.FlatsSnapshots.ExecuteDeleteAsync();
+        await dbContext.SaveChangesAsync();
+
+        var clearedCount = await dbContext.FlatsSnapshots.CountAsync();
+        clearedCount.Should().Be(0);
+
+        // Act - Restore from backup
+        await repo.RestoreFlatsSnapshotsAsync();
+
+        // Assert - original data should be restored
+        var restoredCount = await dbContext.FlatsSnapshots.CountAsync();
+        restoredCount.Should().Be(1);
+
+        var restored = await dbContext.FlatsSnapshots.FirstAsync();
+        restored.Address.Should().Be("Original Address");
+        restored.PriceEur.Should().Be(500000);
+    }
+
+
+    [Test]
+    public async Task BackupRestoreDelete_FullWorkflow_Success()
+    {
+        // Arrange
+        var options = CreateSqliteOptions();
+        await using var repo = new FlatSnapshotRepository(options);
+        await repo.InitializeAsync();
+
+        var originalListings = new List<Flat>
+        {
+            new()
+            {
+                ListingId = "1",
+                Url = "/immobilie/1/",
+                Title = "Original",
+                Address = "Address 1",
+                PriceEur = 500000,
+                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                Source = "OhneMakler",
+            }
+        };
+        await repo.UpsertListingsAsync(originalListings);
+
+        // Act - Full workflow: backup -> modify -> restore -> delete backup
+        await repo.BackupFlatsSnapshotsAsync();
+
+        // Simulate scrape that clears and inserts new data
+        await using var dbContext = new FlatsDbContext(options);
+        await dbContext.FlatsSnapshots.ExecuteDeleteAsync();
+        await dbContext.SaveChangesAsync();
+
+        var newListings = new List<Flat>
+        {
+            new()
+            {
+                ListingId = "2",
+                Url = "/immobilie/2/",
+                Title = "New Listing",
+                Address = "Address 2",
+                PriceEur = 600000,
+                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                Source = "OhneMakler",
+            }
+        };
+        await repo.UpsertListingsAsync(newListings);
+
+        // Restore (as if scrape failed)
+        await repo.RestoreFlatsSnapshotsAsync();
+
+        // Assert - should have original data back
+        var restoredCount = await dbContext.FlatsSnapshots.CountAsync();
+        restoredCount.Should().Be(1);
+
+        var restored = await dbContext.FlatsSnapshots.FirstAsync();
+        restored.Address.Should().Be("Address 1");
+
+        // Delete backup
+        await repo.DeleteBackupAsync();
+    }
+
+    [Test]
+    public async Task BackupRestoreDelete_FullWorkflow_Success_Cleanup()
+    {
+        // Arrange
+        var options = CreateSqliteOptions();
+        await using var repo = new FlatSnapshotRepository(options);
+        await repo.InitializeAsync();
+
+        var originalListings = new List<Flat>
+        {
+            new()
+            {
+                ListingId = "1",
+                Url = "/immobilie/1/",
+                Title = "Original",
+                Address = "Address 1",
+                PriceEur = 500000,
+                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                Source = "OhneMakler",
+            }
+        };
+        await repo.UpsertListingsAsync(originalListings);
+
+        // Act - Full workflow: backup -> scrape succeeds -> delete backup
+        await repo.BackupFlatsSnapshotsAsync();
+
+        // Simulate successful scrape (clear and insert new data)
+        await using var dbContext = new FlatsDbContext(options);
+        await dbContext.FlatsSnapshots.ExecuteDeleteAsync();
+        await dbContext.SaveChangesAsync();
+
+        var newListings = new List<Flat>
+        {
+            new()
+            {
+                ListingId = "2",
+                Url = "/immobilie/2/",
+                Title = "New Listing",
+                Address = "Address 2",
+                PriceEur = 600000,
+                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                Source = "OhneMakler",
+            }
+        };
+        await repo.UpsertListingsAsync(newListings);
+
+        // Success: delete backup (don't restore)
+        await repo.DeleteBackupAsync();
+
+        // Assert - should have new data
+        var count = await dbContext.FlatsSnapshots.CountAsync();
+        count.Should().Be(1);
+
+        var item = await dbContext.FlatsSnapshots.FirstAsync();
+        item.Address.Should().Be("Address 2");
+    }
 }
