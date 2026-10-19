@@ -2,10 +2,7 @@
 
 ## Purpose
 
-Track apartment-for-sale flats from multiple German sources (ohne-makler.net, immobilienscout24.de, etc.) 
-for Karlsruhe over time. These sites have no archive of their own — no posted/updated dates, and removed 
-flats just vanish. This tool builds our own history by scraping repeatedly from all sources and 
-recording what we see, timestamped by scrape time and attributed by source.
+A .NET 10 web application that scrapes apartment listings from multiple German sources (ohne-makler.net, immobilienscout24.de, etc.) for Karlsruhe and aggregates market data over time. These sites have no archive of their own — no posted/updated dates, and removed flats just vanish. This tool builds our own history by scraping repeatedly from all sources and recording what we see, timestamped by scrape time and attributed by source. The app exposes aggregated statistics (by postal code, district, rooms, availability) via a REST API and Angular dashboard.
 
 ## Supported Sources
 
@@ -28,10 +25,16 @@ by implementing the `IScraper` interface.
 ## Architecture
 
 ### Run modes
-Two run modes, one executable:
 
-- `dotnet run -- scrape` — fetch current flats from all sources, append to the archive.
-- `dotnet run -- report`  — read the archive, print a statistics report.
+- **Web Server (default)** — `dotnet run` launches on `http://localhost:5000` (or configured port)
+  - Serves Angular dashboard for viewing aggregated flat statistics
+  - REST API endpoints for querying aggregated data (grouped by postal code, district, rooms, availability)
+  - Manual scrape trigger endpoint (`POST /api/scrape`)
+  
+- **CLI Scrape (legacy)** — `dotnet run -- scrape`
+  - Fetches current flats from all active sources and appends to snapshot files
+  - Maintains backward compatibility for scheduled CI/CD pipelines
+  - Executes immediately and exits
 
 ### Storage layers
 
@@ -44,6 +47,21 @@ Two run modes, one executable:
    demand by replaying all snapshot files in order. Used only by `report`
    for fast queries/aggregates. Never a source of truth — if it's deleted,
    it's just rebuilt from the snapshot history.
+
+### Web Application & Dashboard
+
+**Angular Frontend** — served at `/` displays:
+- Aggregated flat statistics in a filterable table (postal code, district, rooms, availability)
+- Count of flats per group
+- Average price per m²
+- Multi-select filtering with flexible grouping modes
+- Manual "Scrape" button to trigger scraping on-demand
+- Auto-refresh on page load and after scrape
+
+**REST API** — JSON endpoints with consistent response format:
+- `GET /api/flats/aggregated` — returns aggregated statistics grouped by postal code, district, rooms, availability
+- `POST /api/scrape` — triggers an on-demand scrape (background or synchronous)
+- All responses use standard JSON structure with proper HTTP status codes
 
 ### Multi-source architecture
 
