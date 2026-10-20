@@ -5,6 +5,36 @@ using workInProgress.Storage;
 
 public sealed class ScraperCoordinator : IAsyncDisposable
 {
+    private static readonly HashSet<string> AllowedDistricts = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Daxlanden",
+        "Durlach",
+        "Grötzingen",
+        "Grünwettersbach",
+        "Grünwinkel",
+        "Hagsfeld",
+        "Hohenwettersbach",
+        "Innenstadt-Ost",
+        "Innenstadt-West",
+        "Knielingen",
+        "Mühlburg",
+        "Neureut",
+        "Nordstadt",
+        "Nordweststadt",
+        "Oberreut",
+        "Oststadt",
+        "Palmbach",
+        "Rintheim",
+        "Rüppurr",
+        "Stupferich",
+        "Südstadt",
+        "Südweststadt",
+        "Waldstadt",
+        "Weiherfeld-Dammerstock",
+        "Weststadt",
+        "Wolfartsweier"
+    };
+
     private readonly IEnumerable<IScraper> _scrapers;
     private readonly ISnapshotRepository _repository;
     private readonly SnapshotWriter _snapshotWriter;
@@ -45,13 +75,27 @@ public sealed class ScraperCoordinator : IAsyncDisposable
             try
             {
                 Console.WriteLine($"Starting scrape for source: {scraper.Source}");
-                var listings = (await scraper.ScrapeAsync(ct, _onBatchSaved)).ToList();
+                var allListings = (await scraper.ScrapeAsync(ct, _onBatchSaved)).ToList();
 
                 ct.ThrowIfCancellationRequested();
 
-                if (listings.Count == 0)
+                if (allListings.Count == 0)
                 {
                     Console.WriteLine($"No listings found for source: {scraper.Source}");
+                    continue;
+                }
+
+                var listings = FilterByDistrict(allListings);
+                var skippedCount = allListings.Count - listings.Count;
+
+                if (skippedCount > 0)
+                {
+                    Console.WriteLine($"Skipped {skippedCount} listings without allowed districts");
+                }
+
+                if (listings.Count == 0)
+                {
+                    Console.WriteLine($"No listings with allowed districts for source: {scraper.Source}");
                     continue;
                 }
 
@@ -83,6 +127,13 @@ public sealed class ScraperCoordinator : IAsyncDisposable
         }
 
         return totalFlats;
+    }
+
+    private List<Flat> FilterByDistrict(List<Flat> listings)
+    {
+        return listings
+            .Where(flat => !string.IsNullOrWhiteSpace(flat.District) && AllowedDistricts.Contains(flat.District))
+            .ToList();
     }
 
     public async ValueTask DisposeAsync()

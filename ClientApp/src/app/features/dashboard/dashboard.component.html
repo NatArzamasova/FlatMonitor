@@ -15,6 +15,9 @@
         <li class="nav-item">
           <a class="nav-link" id="offers-tab" data-bs-toggle="tab" href="#offersPane" role="tab">Current Offers</a>
         </li>
+        <li class="nav-item">
+          <a class="nav-link" id="history-tab" data-bs-toggle="tab" href="#historyPane" role="tab">History</a>
+        </li>
       </ul>
     </div>
   </div>
@@ -300,6 +303,111 @@
 
       <div *ngIf="!loadingOffers && currentOffers.length === 0" class="alert alert-info">
         No current offers available. Try clicking "Manual Scrape" on the Dashboard tab to fetch data.
+      </div>
+    </div>
+
+    <!-- History Tab -->
+    <div class="tab-pane fade pt-4" id="historyPane" role="tabpanel" aria-labelledby="history-tab">
+      <div *ngIf="loadingHistory" class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+      </div>
+
+      <div *ngIf="!loadingHistory && historyData.length > 0" class="mb-3">
+        <div class="d-flex gap-3 align-items-center flex-wrap">
+          <div>
+            <label class="form-label mb-0 me-2">Group By:</label>
+            <div class="form-check form-check-inline">
+              <input
+                class="form-check-input"
+                type="radio"
+                id="groupByDistrictRadio"
+                name="historyGroupBy"
+                value="district"
+                [(ngModel)]="historyGroupBy"
+                (change)="onHistoryGroupByChange()"
+              />
+              <label class="form-check-label" for="groupByDistrictRadio">
+                District
+              </label>
+            </div>
+            <div class="form-check form-check-inline">
+              <input
+                class="form-check-input"
+                type="radio"
+                id="groupByRoomsRadio"
+                name="historyGroupBy"
+                value="rooms"
+                [(ngModel)]="historyGroupBy"
+                (change)="onHistoryGroupByChange()"
+              />
+              <label class="form-check-label" for="groupByRoomsRadio">
+                Room Number
+              </label>
+            </div>
+          </div>
+
+          <!-- District Filter -->
+          <div *ngIf="historyGroupBy === 'district' && availableHistoryDistricts.length > 0" class="dropdown">
+            <button
+              class="btn btn-sm btn-outline-secondary dropdown-toggle"
+              type="button"
+              id="districtFilterDropdown"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
+            >
+              Filter Districts
+            </button>
+            <ul class="dropdown-menu" aria-labelledby="districtFilterDropdown" style="max-height: 300px; overflow-y: auto;">
+              <li *ngFor="let district of availableHistoryDistricts">
+                <label class="dropdown-item">
+                  <input
+                    type="checkbox"
+                    [checked]="selectedHistoryDistricts.includes(district)"
+                    (change)="toggleDistrictFilter(district, $any($event.target).checked)"
+                    class="me-2"
+                  />
+                  {{ district }}
+                </label>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Room Filter -->
+          <div *ngIf="historyGroupBy === 'rooms' && availableHistoryRooms.length > 0" class="dropdown">
+            <button
+              class="btn btn-sm btn-outline-secondary dropdown-toggle"
+              type="button"
+              id="roomFilterDropdown"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
+            >
+              Filter Rooms
+            </button>
+            <ul class="dropdown-menu" aria-labelledby="roomFilterDropdown" style="max-height: 300px; overflow-y: auto;">
+              <li *ngFor="let rooms of availableHistoryRooms">
+                <label class="dropdown-item">
+                  <input
+                    type="checkbox"
+                    [checked]="selectedHistoryRooms.includes(rooms)"
+                    (change)="toggleRoomFilter(rooms, $any($event.target).checked)"
+                    class="me-2"
+                  />
+                  {{ rooms }} rooms
+                </label>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="!loadingHistory && chartData.length > 0" style="position: relative; height: 400px; width: 100%; margin-bottom: 20px;">
+        <canvas #historyChart></canvas>
+      </div>
+
+      <div *ngIf="!loadingHistory && historyData.length === 0" class="alert alert-info">
+        No history data available yet. Historical data will be collected after multiple scrapes.
       </div>
     </div>
   </div>

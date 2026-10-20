@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { ApiResponse } from '../models/api-response.model';
 import { FlatAggregation } from '../models/flat-aggregation.model';
 import { FlatOffer } from '../models/flat-offer.model';
+import { FlatHistory } from '../models/flat-history.model';
 import { ScrapeResponse } from '../models/scrape-response.model';
 import { ScrapingStatusResponse } from '../models/scraping-status-response.model';
 
@@ -21,6 +22,10 @@ export class FlatsService {
 
   getCurrentOffers(): Observable<ApiResponse<FlatOffer[]>> {
     return this.http.get<ApiResponse<FlatOffer[]>>(`${this.apiUrl}/flats/current-offers`);
+  }
+
+  getHistory(): Observable<ApiResponse<FlatHistory[]>> {
+    return this.http.get<ApiResponse<FlatHistory[]>>(`${this.apiUrl}/flats/history`);
   }
 
   triggerScrape(): Observable<ScrapeResponse> {

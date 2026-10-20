@@ -16,6 +16,42 @@ public class FlatsController : ControllerBase
         _context = context;
     }
 
+    [HttpGet("history")]
+    public async Task<ActionResult<ApiResponse<List<FlatHistoryDto>>>> GetHistoryAsync()
+    {
+        try
+        {
+            var history = await _context.FlatAggregations
+                .OrderBy(a => a.ScrapingDate)
+                .ThenBy(a => a.District)
+                .ThenBy(a => a.RoomsCount)
+                .Select(a => new FlatHistoryDto
+                {
+                    ScrapingDate = a.ScrapingDate.ToString("yyyy-MM-dd"),
+                    District = a.District,
+                    RoomsCount = a.RoomsCount,
+                    AvgPricePerMeter = a.AvgPricePerMeter,
+                    Count = a.Count
+                })
+                .ToListAsync();
+
+            return Ok(new ApiResponse<List<FlatHistoryDto>>
+            {
+                Success = true,
+                Data = history,
+                Message = "History fetched successfully"
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new ApiResponse<List<FlatHistoryDto>>
+            {
+                Success = false,
+                Message = $"Error fetching history: {ex.Message}"
+            });
+        }
+    }
+
     [HttpGet("current-offers")]
     public async Task<ActionResult<ApiResponse<List<FlatOfferDto>>>> GetCurrentOffersAsync()
     {
