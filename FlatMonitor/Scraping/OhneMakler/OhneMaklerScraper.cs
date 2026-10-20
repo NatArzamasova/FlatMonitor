@@ -199,7 +199,7 @@ public sealed class OhneMaklerScraper : FlatScraper
 
     protected override async Task CleanupAsync()
     {
-        _httpClient?.Dispose();
+        // HttpClient is a DI singleton, managed by container — do not dispose
     }
 
     private async Task<string> FetchDetailPageAsync(string relativeUrl, CancellationToken ct)
