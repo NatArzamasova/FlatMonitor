@@ -5,9 +5,9 @@ The Angular frontend consists of a `DashboardComponent` that orchestrates all da
 
 ---
 
-## 1. Component Architecture & Decomposition
+## 1. Component Architecture & Decomposition ✅ COMPLETED
 
-### Issue: Monolithic DashboardComponent
+### Issue: Monolithic DashboardComponent (RESOLVED)
 **Current state:** DashboardComponent (~700 lines) handles:
 - Aggregated data + filtering + grouping
 - Current offers + filtering
@@ -38,9 +38,9 @@ dashboard/
 
 ---
 
-## 2. Filter & Aggregation Logic Extraction
+## 2. Filter & Aggregation Logic Extraction ✅ COMPLETED
 
-### Issue: Repeated filter patterns across data types
+### Issue: Repeated filter patterns across data types (RESOLVED)
 Three similar filter-and-aggregate workflows:
 1. Aggregated data filtering (lines 161–186)
 2. Offer filtering (lines 395–419)
@@ -61,9 +61,9 @@ export class FilterService {
 
 ---
 
-## 3. Aggregation Duplication
+## 3. Aggregation Duplication ✅ COMPLETED
 
-### Issue: Weighted average calculation repeated 3 times
+### Issue: Weighted average calculation repeated 3 times (RESOLVED)
 Lines 212–215, 245–248, 276–279 all compute weighted averages identically.
 
 **Recommendation:** Extract to utility function:
