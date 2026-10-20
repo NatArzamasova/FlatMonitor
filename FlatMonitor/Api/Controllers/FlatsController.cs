@@ -16,6 +16,41 @@ public class FlatsController : ControllerBase
         _context = context;
     }
 
+    [HttpGet("current-offers")]
+    public async Task<ActionResult<ApiResponse<List<FlatOfferDto>>>> GetCurrentOffersAsync()
+    {
+        try
+        {
+            var offers = await _context.FlatsSnapshots
+                .OrderByDescending(s => s.ScrapedAtUtc)
+                .Select(s => new FlatOfferDto
+                {
+                    District = s.District,
+                    RoomsNumber = s.RoomsCount,
+                    Price = s.PriceEur,
+                    PricePerMeter = s.PricePerMeter,
+                    Url = s.Url,
+                    Source = s.Source
+                })
+                .ToListAsync();
+
+            return Ok(new ApiResponse<List<FlatOfferDto>>
+            {
+                Success = true,
+                Data = offers,
+                Message = "Current offers fetched successfully"
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new ApiResponse<List<FlatOfferDto>>
+            {
+                Success = false,
+                Message = $"Error fetching offers: {ex.Message}"
+            });
+        }
+    }
+
     [HttpGet("aggregated")]
     public async Task<ActionResult<ApiResponse<List<FlatAggregation>>>> GetAggregatedAsync()
     {

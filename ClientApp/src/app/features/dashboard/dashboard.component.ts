@@ -1,10 +1,12 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { interval, Subject } from 'rxjs';
 import { takeUntil, switchMap } from 'rxjs/operators';
 import { FlatsService } from '../../core/services/flats.service';
 import { FlatAggregation } from '../../core/models/flat-aggregation.model';
+import { FlatOffer } from '../../core/models/flat-offer.model';
 import { ScrapingStatusResponse, ScrapingHistoryDto } from '../../core/models/scraping-status-response.model';
 
 @Component({
@@ -17,12 +19,23 @@ import { ScrapingStatusResponse, ScrapingHistoryDto } from '../../core/models/sc
 export class DashboardComponent implements OnInit, OnDestroy {
   aggregatedData: FlatAggregation[] = [];
   rawData: FlatAggregation[] = [];
+  currentOffers: FlatOffer[] = [];
+  filteredOffers: FlatOffer[] = [];
+  loadingOffers = false;
   loading = false;
   scraping = false;
   error: string | null = null;
   success: string | null = null;
   lastUpdated: Date | null = null;
   scrapedCount = 0;
+
+  // Current Offers filters
+  selectedOfferDistricts: string[] = [];
+  selectedOfferRooms: number[] = [];
+  priceRangeMin: number | null = null;
+  priceRangeMax: number | null = null;
+  availableOfferDistricts: string[] = [];
+  availableOfferRooms: number[] = [];
 
   // Last scraping (any status)
   lastScrapingTime: Date | null = null;
@@ -43,10 +56,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private destroy$ = new Subject<void>();
 
-  constructor(private flatsService: FlatsService) {}
+  constructor(
+    private flatsService: FlatsService,
+    private sanitizer: DomSanitizer
+  ) {}
 
   ngOnInit(): void {
     this.loadAggregatedData();
+    this.loadCurrentOffers();
     this.loadScrapingStatus();
 
     // Poll scraping status: fast while scraping, slow otherwise
@@ -309,5 +326,87 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   refresh(): void {
     this.loadAggregatedData();
+  }
+
+  loadCurrentOffers(): void {
+    this.loadingOffers = true;
+    this.error = null;
+    this.flatsService.getCurrentOffers().subscribe({
+      next: (response) => {
+        if (response.success && response.data) {
+          this.currentOffers = response.data;
+          this.updateAvailableOfferFilters();
+          this.applyOfferFilters();
+        } else {
+          this.error = response.message || 'Failed to load offers';
+        }
+        this.loadingOffers = false;
+      },
+      error: (err) => {
+        this.error = `Error loading offers: ${err.message}`;
+        this.loadingOffers = false;
+      }
+    });
+  }
+
+  private updateAvailableOfferFilters(): void {
+    const districts = new Set<string>();
+    const rooms = new Set<number>();
+
+    this.currentOffers.forEach(offer => {
+      if (offer.district) {
+        districts.add(offer.district);
+      }
+      if (offer.roomsNumber !== undefined && offer.roomsNumber !== null) {
+        rooms.add(Math.round(offer.roomsNumber));
+      }
+    });
+
+    this.availableOfferDistricts = Array.from(districts).sort();
+    this.availableOfferRooms = Array.from(rooms).sort((a, b) => a - b);
+  }
+
+  applyOfferFilters(): void {
+    let filtered = this.currentOffers;
+
+    // Apply district filter
+    if (this.selectedOfferDistricts.length > 0) {
+      filtered = filtered.filter(offer => this.selectedOfferDistricts.includes(offer.district || ''));
+    }
+
+    // Apply rooms filter
+    if (this.selectedOfferRooms.length > 0) {
+      filtered = filtered.filter(offer =>
+        offer.roomsNumber !== undefined && this.selectedOfferRooms.includes(Math.round(offer.roomsNumber))
+      );
+    }
+
+    // Apply price range filter
+    if (this.priceRangeMin !== null && this.priceRangeMin > 0) {
+      filtered = filtered.filter(offer => offer.price !== undefined && offer.price >= this.priceRangeMin!);
+    }
+    if (this.priceRangeMax !== null && this.priceRangeMax > 0) {
+      filtered = filtered.filter(offer => offer.price !== undefined && offer.price <= this.priceRangeMax!);
+    }
+
+    this.filteredOffers = filtered;
+  }
+
+  onOfferFiltersChange(): void {
+    this.applyOfferFilters();
+  }
+
+  getSafeUrl(url: string | undefined): SafeUrl {
+    return url ? this.sanitizer.bypassSecurityTrustUrl(url) : this.sanitizer.bypassSecurityTrustUrl('');
+  }
+
+  isValidUrl(url: string | undefined): boolean {
+    if (!url) return false;
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
