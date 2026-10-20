@@ -76,83 +76,14 @@ public sealed class ScraperCoordinator : IAsyncDisposable
 
             try
             {
-                // Set up the batch save callback: filter then save
-                if (scraper is FlatScraper flatScraper)
-                {
-                    flatScraper.SaveListingsCallback = async (batch, batchCt) =>
-                    {
-                        var filtered = batch
-                            .Select(flat =>
-                            {
-                                var normalizedDistrict = NormalizeDistrict(flat.District);
-                                if (normalizedDistrict == null)
-                                    return null;
-
-                                return new Flat
-                                {
-                                    ListingId = flat.ListingId,
-                                    Url = flat.Url,
-                                    Title = flat.Title,
-                                    Address = flat.Address,
-                                    PostalCode = flat.PostalCode,
-                                    District = normalizedDistrict,
-                                    PriceEur = flat.PriceEur,
-                                    OriginalPriceEur = flat.OriginalPriceEur,
-                                    PricePerMeter = flat.PricePerMeter,
-                                    RoomsCount = flat.RoomsCount,
-                                    LivingAreaSqm = flat.LivingAreaSqm,
-                                    CommissionPercent = flat.CommissionPercent,
-                                    Details = flat.Details,
-                                    ScrapedAtUtc = flat.ScrapedAtUtc,
-                                    Source = flat.Source,
-                                    DetailPageUrl = flat.DetailPageUrl,
-                                };
-                            })
-                            .Where(f => f != null)
-                            .ToList();
-
-                        if (filtered.Count > 0)
-                        {
-                            await _repository.UpsertListingsAsync(filtered, batchCt);
-                        }
-                    };
-                }
-
-                Console.WriteLine($"Starting scrape for source: {scraper.Source}");
-                var allListings = (await scraper.ScrapeAsync(ct, _onBatchSaved)).ToList();
-
-                ct.ThrowIfCancellationRequested();
+                SetupBatchSaveCallback(scraper);
+                var allListings = await ScrapeSourceAsync(scraper, ct);
 
                 if (allListings.Count == 0)
-                {
-                    Console.WriteLine($"No listings found for source: {scraper.Source}");
                     continue;
-                }
 
-                var listings = FilterByDistrict(allListings);
-                var skippedCount = allListings.Count - listings.Count;
-
-                if (skippedCount > 0)
-                {
-                    Console.WriteLine($"Skipped {skippedCount} listings without allowed districts");
-                }
-
-                if (listings.Count == 0)
-                {
-                    Console.WriteLine($"No listings with allowed districts for source: {scraper.Source}");
-                    continue;
-                }
-
-                // Filtering and batch-saving already happened via SaveListingsCallback during scraping
-                // Write snapshot with filtered flats only
-                var snapshotPath = await _snapshotWriter.WriteSnapshotAsync(
-                    listings,
-                    baseDirectory: _dataDirectory,
-                    source: scraper.Source,
-                    ct: ct);
-
-                Console.WriteLine($"Snapshot written for {scraper.Source}: {snapshotPath}");
-                Console.WriteLine($"Batch-saved {listings.Count} filtered listings from {scraper.Source}");
+                totalFlats += allListings.Count;
+                await WriteSnapshotAsync(scraper, allListings, ct);
             }
             catch (OperationCanceledException)
             {
@@ -161,49 +92,105 @@ public sealed class ScraperCoordinator : IAsyncDisposable
             }
             catch (Exception ex)
             {
-                var errorMsg = $"{scraper.Source}: {ex.Message}";
-                Console.Error.WriteLine($"Error scraping {scraper.Source}: {ex.Message}");
-                _scraperErrors.Add(errorMsg);
-                if (Environment.GetEnvironmentVariable("DEBUG") == "1")
-                    Console.Error.WriteLine(ex.StackTrace);
+                HandleScraperError(scraper, ex);
             }
         }
 
         return totalFlats;
     }
 
-    private List<Flat> FilterByDistrict(List<Flat> listings)
+    private void SetupBatchSaveCallback(IScraper scraper)
     {
-        var result = new List<Flat>();
-        foreach (var flat in listings)
+        if (scraper is not FlatScraper flatScraper)
+            return;
+
+        flatScraper.SaveListingsCallback = async (batch, batchCt) =>
         {
-            var normalizedDistrict = NormalizeDistrict(flat.District);
-            if (normalizedDistrict != null)
-            {
-                var updatedFlat = new Flat
-                {
-                    ListingId = flat.ListingId,
-                    Url = flat.Url,
-                    Title = flat.Title,
-                    Address = flat.Address,
-                    PostalCode = flat.PostalCode,
-                    District = normalizedDistrict,
-                    PriceEur = flat.PriceEur,
-                    OriginalPriceEur = flat.OriginalPriceEur,
-                    PricePerMeter = flat.PricePerMeter,
-                    RoomsCount = flat.RoomsCount,
-                    LivingAreaSqm = flat.LivingAreaSqm,
-                    CommissionPercent = flat.CommissionPercent,
-                    Details = flat.Details,
-                    ScrapedAtUtc = flat.ScrapedAtUtc,
-                    Source = flat.Source,
-                    DetailPageUrl = flat.DetailPageUrl,
-                };
-                result.Add(updatedFlat);
-            }
-        }
-        return result;
+            var filtered = FilterAndNormalizeBatch(batch);
+            if (filtered.Count > 0)
+                await _repository.UpsertListingsAsync(filtered, batchCt);
+        };
     }
+
+    private List<Flat> FilterAndNormalizeBatch(List<Flat> batch)
+    {
+        return batch
+            .Select(flat =>
+            {
+                var normalizedDistrict = NormalizeDistrict(flat.District);
+                return normalizedDistrict != null ? CreateFlatWithAdjustedDistrict(flat, normalizedDistrict) : null;
+            })
+            .Where(f => f != null)
+            .ToList();
+    }
+
+    private async Task<List<Flat>> ScrapeSourceAsync(IScraper scraper, CancellationToken ct)
+    {
+        Console.WriteLine($"Starting scrape for source: {scraper.Source}");
+        var listings = (await scraper.ScrapeAsync(ct, _onBatchSaved)).ToList();
+
+        if (listings.Count == 0)
+        {
+            Console.WriteLine($"No listings found for source: {scraper.Source}");
+            return listings;
+        }
+
+        // Fallback filter for scrapers that don't use batch saving callback (e.g., test mocks)
+        // Production scrapers (FlatScraper) already filtered via callback during scraping
+        var filtered = FilterAndNormalizeBatch(listings);
+        var skipped = listings.Count - filtered.Count;
+        if (skipped > 0)
+            Console.WriteLine($"Skipped {skipped} listings without allowed districts");
+
+        if (filtered.Count > 0)
+            await _repository.UpsertListingsAsync(filtered);
+
+        return filtered;
+    }
+
+    private async Task WriteSnapshotAsync(IScraper scraper, List<Flat> listings, CancellationToken ct)
+    {
+        var snapshotPath = await _snapshotWriter.WriteSnapshotAsync(
+            listings,
+            baseDirectory: _dataDirectory,
+            source: scraper.Source,
+            ct: ct);
+
+        Console.WriteLine($"Snapshot written for {scraper.Source}: {snapshotPath}");
+    }
+
+    private void HandleScraperError(IScraper scraper, Exception ex)
+    {
+        var errorMsg = $"{scraper.Source}: {ex.Message}";
+        Console.Error.WriteLine($"Error scraping {scraper.Source}: {ex.Message}");
+        _scraperErrors.Add(errorMsg);
+        if (Environment.GetEnvironmentVariable("DEBUG") == "1")
+            Console.Error.WriteLine(ex.StackTrace);
+    }
+
+    private static Flat CreateFlatWithAdjustedDistrict(Flat flat, string normalizedDistrict)
+    {
+        return new Flat
+        {
+            ListingId = flat.ListingId,
+            Url = flat.Url,
+            Title = flat.Title,
+            Address = flat.Address,
+            PostalCode = flat.PostalCode,
+            District = normalizedDistrict,
+            PriceEur = flat.PriceEur,
+            OriginalPriceEur = flat.OriginalPriceEur,
+            PricePerMeter = flat.PricePerMeter,
+            RoomsCount = flat.RoomsCount,
+            LivingAreaSqm = flat.LivingAreaSqm,
+            CommissionPercent = flat.CommissionPercent,
+            Details = flat.Details,
+            ScrapedAtUtc = flat.ScrapedAtUtc,
+            Source = flat.Source,
+            DetailPageUrl = flat.DetailPageUrl,
+        };
+    }
+
 
     private string? NormalizeDistrict(string? district)
     {
