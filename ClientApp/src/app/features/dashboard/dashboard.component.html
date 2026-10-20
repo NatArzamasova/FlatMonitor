@@ -1,173 +1,194 @@
 <div class="container-fluid py-4">
   <div class="row mb-4">
     <div class="col">
-      <h1 class="display-4">FlatMonitor Dashboard</h1>
-      <div class="text-muted small mt-2">
-        <p *ngIf="lastUpdated" class="mb-1">
-          Data last updated: {{ lastUpdated | date: 'short' }}
-        </p>
-        <p *ngIf="lastScrapingTime" class="mb-1">
-          <strong>Last scrape:</strong> {{ lastScrapingTime | date: 'short' }}
-          <span class="badge" [ngClass]="{
-            'bg-success': lastScrapingStatus === 'Successful',
-            'bg-danger': lastScrapingStatus === 'Failed',
-            'bg-warning': lastScrapingStatus === 'Canceled',
-            'bg-info': lastScrapingStatus === 'Running'
-          }">{{ lastScrapingStatus }}</span>
-          <span class="badge bg-secondary ms-2" *ngIf="lastScrapingCount > 0">
-            {{ lastScrapingCount }} flats
-          </span>
-        </p>
-        <p *ngIf="lastSuccessfulScrapingTime" class="mb-1">
-          <strong>Last successful scrape:</strong> {{ lastSuccessfulScrapingTime | date: 'short' }}
-          <span class="badge bg-success">Successful</span>
-          <span class="badge bg-secondary ms-2" *ngIf="lastSuccessfulScrapingCount > 0">
-            {{ lastSuccessfulScrapingCount }} flats
-          </span>
-        </p>
-      </div>
-    </div>
-    <div class="col-auto d-flex gap-2 align-items-center">
-      <button
-        class="btn btn-primary"
-        (click)="refresh()"
-        [disabled]="loading"
-      >
-        <span *ngIf="loading" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-        Refresh Data
-      </button>
-      <button
-        class="btn btn-success"
-        (click)="triggerScrape()"
-        [disabled]="scraping"
-        *ngIf="!scraping"
-      >
-        Manual Scrape
-      </button>
-      <button
-        class="btn btn-danger"
-        (click)="cancelScrape()"
-        *ngIf="scraping"
-      >
-        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-        Cancel Scraping
-      </button>
+      <h1 class="display-4">FlatMonitor</h1>
     </div>
   </div>
 
-  <div *ngIf="success" class="alert alert-info alert-dismissible fade show" role="alert">
-    ✓ {{ success }}
-    <button type="button" class="btn-close" (click)="success = null"></button>
-  </div>
-
-  <div *ngIf="error" class="alert alert-danger alert-dismissible fade show" role="alert">
-    {{ error }}
-    <button type="button" class="btn-close" (click)="error = null"></button>
-  </div>
-
-  <div *ngIf="scrapedCount > 0" class="alert alert-success alert-dismissible fade show" role="alert">
-    ✓ Scraped {{ scrapedCount }} flats successfully
-    <button type="button" class="btn-close" (click)="scrapedCount = 0"></button>
-  </div>
-
-  <div *ngIf="loading" class="d-flex justify-content-center py-5">
-    <div class="spinner-border text-primary" role="status">
-      <span class="visually-hidden">Loading...</span>
+  <!-- Tab Navigation -->
+  <div class="row mb-0">
+    <div class="col">
+      <ul class="nav nav-tabs" id="mainTabs">
+        <li class="nav-item">
+          <a class="nav-link active" id="dashboard-tab" data-bs-toggle="tab" href="#dashboardPane" role="tab">Dashboard</a>
+        </li>
+      </ul>
     </div>
   </div>
 
-  <div *ngIf="!loading && rawData.length > 0" class="mb-3 d-flex gap-3 align-items-center flex-wrap">
-    <div class="d-flex align-items-center gap-1">
-      <label for="districtSelect" class="form-label mb-0" style="font-size: 0.875rem; white-space: nowrap;">Filter District:</label>
-      <select
-        id="districtSelect"
-        class="form-select form-select-sm"
-        multiple
-        size="1"
-        [(ngModel)]="selectedDistricts"
-        (change)="onFiltersChange()"
-        style="min-width: 140px;"
-      >
-        <option disabled selected hidden>Select...</option>
-        <option *ngFor="let district of availableDistricts" [value]="district">
-          {{ district }}
-        </option>
-      </select>
-    </div>
-
-    <div class="d-flex align-items-center gap-1">
-      <label for="roomsSelect" class="form-label mb-0" style="font-size: 0.875rem; white-space: nowrap;">Filter Rooms:</label>
-      <select
-        id="roomsSelect"
-        class="form-select form-select-sm"
-        multiple
-        size="1"
-        [(ngModel)]="selectedRoomCounts"
-        (change)="onFiltersChange()"
-        style="min-width: 110px;"
-      >
-        <option disabled selected hidden>Select...</option>
-        <ng-container *ngFor="let rooms of availableRooms">
-          <option *ngIf="rooms !== null" [value]="rooms">
-            {{ rooms }}
-          </option>
-        </ng-container>
-      </select>
-    </div>
-
-    <div class="d-flex gap-3">
-      <div class="form-check">
-        <input
-          class="form-check-input"
-          type="checkbox"
-          id="groupByDistrictToggle"
-          [(ngModel)]="groupByDistrict"
-          (change)="onGroupingToggle()"
-        />
-        <label class="form-check-label" for="groupByDistrictToggle">
-          Group by District
-        </label>
+  <!-- Tab Content -->
+  <div class="tab-content" id="mainTabsContent">
+    <div class="tab-pane fade show active pt-4" id="dashboardPane" role="tabpanel" aria-labelledby="dashboard-tab">
+      <div class="row mb-4">
+        <div class="col">
+          <div class="text-muted small mt-2">
+            <p *ngIf="lastUpdated" class="mb-1">
+              Data last updated: {{ lastUpdated | date: 'short' }}
+            </p>
+            <p *ngIf="lastScrapingTime" class="mb-1">
+              <strong>Last scrape:</strong> {{ lastScrapingTime | date: 'short' }}
+              <span class="badge" [ngClass]="{
+                'bg-success': lastScrapingStatus === 'Successful',
+                'bg-danger': lastScrapingStatus === 'Failed',
+                'bg-warning': lastScrapingStatus === 'Canceled',
+                'bg-info': lastScrapingStatus === 'Running'
+              }">{{ lastScrapingStatus }}</span>
+              <span class="badge bg-secondary ms-2" *ngIf="lastScrapingCount > 0">
+                {{ lastScrapingCount }} flats
+              </span>
+            </p>
+            <p *ngIf="lastSuccessfulScrapingTime" class="mb-1">
+              <strong>Last successful scrape:</strong> {{ lastSuccessfulScrapingTime | date: 'short' }}
+              <span class="badge bg-success">Successful</span>
+              <span class="badge bg-secondary ms-2" *ngIf="lastSuccessfulScrapingCount > 0">
+                {{ lastSuccessfulScrapingCount }} flats
+              </span>
+            </p>
+          </div>
+        </div>
+        <div class="col-auto d-flex gap-2 align-items-center">
+          <button
+            class="btn btn-primary"
+            (click)="refresh()"
+            [disabled]="loading"
+          >
+            <span *ngIf="loading" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+            Refresh Data
+          </button>
+          <button
+            class="btn btn-success"
+            (click)="triggerScrape()"
+            [disabled]="scraping"
+            *ngIf="!scraping"
+          >
+            Manual Scrape
+          </button>
+          <button
+            class="btn btn-danger"
+            (click)="cancelScrape()"
+            *ngIf="scraping"
+          >
+            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+            Cancel Scraping
+          </button>
+        </div>
       </div>
 
-      <div class="form-check">
-        <input
-          class="form-check-input"
-          type="checkbox"
-          id="groupByRoomsToggle"
-          [(ngModel)]="groupByRooms"
-          (change)="onGroupingToggle()"
-        />
-        <label class="form-check-label" for="groupByRoomsToggle">
-          Group by Rooms
-        </label>
+      <div *ngIf="success" class="alert alert-info alert-dismissible fade show" role="alert">
+        ✓ {{ success }}
+        <button type="button" class="btn-close" (click)="success = null"></button>
+      </div>
+
+      <div *ngIf="error" class="alert alert-danger alert-dismissible fade show" role="alert">
+        {{ error }}
+        <button type="button" class="btn-close" (click)="error = null"></button>
+      </div>
+
+      <div *ngIf="scrapedCount > 0" class="alert alert-success alert-dismissible fade show" role="alert">
+        ✓ Scraped {{ scrapedCount }} flats successfully
+        <button type="button" class="btn-close" (click)="scrapedCount = 0"></button>
+      </div>
+
+      <div *ngIf="loading" class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+      </div>
+
+      <div *ngIf="!loading && rawData.length > 0" class="mb-3 d-flex gap-3 align-items-center flex-wrap">
+        <div class="d-flex align-items-center gap-1">
+          <label for="districtSelect" class="form-label mb-0" style="font-size: 0.875rem; white-space: nowrap;">Filter District:</label>
+          <select
+            id="districtSelect"
+            class="form-select form-select-sm"
+            multiple
+            size="1"
+            [(ngModel)]="selectedDistricts"
+            (change)="onFiltersChange()"
+            style="min-width: 140px;"
+          >
+            <option disabled selected hidden>Select...</option>
+            <option *ngFor="let district of availableDistricts" [value]="district">
+              {{ district }}
+            </option>
+          </select>
+        </div>
+
+        <div class="d-flex align-items-center gap-1">
+          <label for="roomsSelect" class="form-label mb-0" style="font-size: 0.875rem; white-space: nowrap;">Filter Rooms:</label>
+          <select
+            id="roomsSelect"
+            class="form-select form-select-sm"
+            multiple
+            size="1"
+            [(ngModel)]="selectedRoomCounts"
+            (change)="onFiltersChange()"
+            style="min-width: 110px;"
+          >
+            <option disabled selected hidden>Select...</option>
+            <ng-container *ngFor="let rooms of availableRooms">
+              <option *ngIf="rooms !== null" [value]="rooms">
+                {{ rooms }}
+              </option>
+            </ng-container>
+          </select>
+        </div>
+
+        <div class="d-flex gap-3">
+          <div class="form-check">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="groupByDistrictToggle"
+              [(ngModel)]="groupByDistrict"
+              (change)="onGroupingToggle()"
+            />
+            <label class="form-check-label" for="groupByDistrictToggle">
+              Group by District
+            </label>
+          </div>
+
+          <div class="form-check">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="groupByRoomsToggle"
+              [(ngModel)]="groupByRooms"
+              (change)="onGroupingToggle()"
+            />
+            <label class="form-check-label" for="groupByRoomsToggle">
+              Group by Rooms
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="!loading && aggregatedData.length > 0" class="table-responsive">
+        <table class="table table-striped table-hover">
+          <thead class="table-dark">
+            <tr>
+              <th>District</th>
+              <th>Rooms</th>
+              <th class="text-end">Count</th>
+              <th class="text-end">Avg Price/m²</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of aggregatedData">
+              <td>{{ groupByDistrict ? (item.district || '-') : '-' }}</td>
+              <td>{{ groupByRooms ? (item.roomsCount || '-') : '-' }}</td>
+              <td class="text-end"><span class="badge bg-info">{{ item.count }}</span></td>
+              <td class="text-end">
+                <strong>{{ item.avgPricePerMeter | currency: 'EUR': 'symbol': '1.0-0' }}</strong>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div *ngIf="!loading && aggregatedData.length === 0" class="alert alert-info">
+        No data available. Try clicking "Manual Scrape" to fetch data from sources.
       </div>
     </div>
-  </div>
-
-  <div *ngIf="!loading && aggregatedData.length > 0" class="table-responsive">
-    <table class="table table-striped table-hover">
-      <thead class="table-dark">
-        <tr>
-          <th>District</th>
-          <th>Rooms</th>
-          <th class="text-end">Count</th>
-          <th class="text-end">Avg Price/m²</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let item of aggregatedData">
-          <td>{{ groupByDistrict ? (item.district || '-') : '-' }}</td>
-          <td>{{ groupByRooms ? (item.roomsCount || '-') : '-' }}</td>
-          <td class="text-end"><span class="badge bg-info">{{ item.count }}</span></td>
-          <td class="text-end">
-            <strong>{{ item.avgPricePerMeter | currency: 'EUR': 'symbol': '1.0-0' }}</strong>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div *ngIf="!loading && aggregatedData.length === 0" class="alert alert-info">
-    No data available. Try clicking "Manual Scrape" to fetch data from sources.
   </div>
 </div>
