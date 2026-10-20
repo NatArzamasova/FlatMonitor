@@ -29,12 +29,12 @@ public class ImmobilienScout24BrowserScraper : IAsyncDisposable
             try
             {
                 await _page.WaitForSelectorAsync("div[data-obid], div[class*='listing'], div[class*='card-item']",
-                    new PageWaitForSelectorOptions { Timeout = 30000 });
+                    new PageWaitForSelectorOptions { Timeout = 60000 });
                 Console.WriteLine("✓ Listing cards found on page!");
             }
             catch (PlaywrightException)
             {
-                Console.WriteLine("Warning: No listing cards detected after 30s. Proceeding anyway...");
+                Console.WriteLine("Warning: No listing cards detected after 60s. Proceeding anyway...");
             }
 
             // Wait for network to stabilize
