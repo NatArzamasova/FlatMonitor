@@ -45,7 +45,7 @@ dotnet run -- report
 - **No dates on the site itself** — database timestamps (scrapedAtUtc) are added at scrape time to track when each flat was discovered
 - **Database is canonical** — SQLite is the sole source of truth; never rebuild the database from snapshots
 - **Snapshots are backups only** — created for debugging purposes; do not use snapshots to reconstruct or validate database state
-- **District filtering** — `ScraperCoordinator.NormalizeDistrict()` ensures all flats in the database match `AllowedDistricts` (handles case-insensitive and substring matches like "KA-Oberreut" → "Oberreut")
+- **District filtering** — All scraped flats are filtered to match `AllowedDistricts` (26 Karlsruhe districts only). See [FILTERING.md](FILTERING.md) for strategy and examples
 - **HTML coupling risk** — scraper is tightly bound to current site markup; mitigated by parser unit tests against saved fixtures, but real failures surface at scrape time
 - **"Removed" ambiguity** — removal is inferred from absence in latest scrape (could be sold, delisted, or scrape miss); no ground truth from the site
 
@@ -117,11 +117,13 @@ dotnet test
 ## Data Flow
 
 1. **Scrape**: 
-   - For each `IScraper` (OhneMakler, ImmobilienScout24, ...):
-     - Fetch all pages → Parse listing cards → Enrich with detail pages → Return unfiltered flats to `ScraperCoordinator`
-     - `ScraperCoordinator.FilterByDistrict()` filters by `AllowedDistricts` (case-insensitive, handles variants like "KA-Oberreut")
-     - Batch-save filtered flats to SQLite (every 20 items to prevent memory bloat)
-     - Write snapshot files (for debugging only, after filtering)
+   - For each `IScraper` (OhneMakler, ImmobilienScout24, etc.):
+     - Fetch all pages → Parse listing cards → Enrich with detail pages → Return unfiltered flats
+     - `ScraperCoordinator` sets up batch-save callback on scraper (if FlatScraper)
+     - Callback filters flats by `AllowedDistricts` and saves to SQLite every 20 items
+     - Fallback filter (for non-FlatScraper) ensures all flats are filtered before insertion
+     - District names normalized during filtering (see [FILTERING.md](FILTERING.md))
+     - Write snapshot files (debugging only, after all filtering/saving complete)
    
 2. **Report**: 
    - Query SQLite FlatsSnapshots table directly (canonical source) → Aggregation queries per source → Cross-source comparison → Report output
