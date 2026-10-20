@@ -10,6 +10,13 @@ describe('HistoryTabComponent', () => {
   let fixture: ComponentFixture<HistoryTabComponent>;
   let flatsService: jasmine.SpyObj<FlatsService>;
 
+  beforeAll(() => {
+    (window as any).Chart = class {
+      constructor(ctx: any, config: any) {}
+      destroy() {}
+    };
+  });
+
   const mockHistoryResponse: ApiResponse<FlatHistory[]> = {
     success: true,
     data: [

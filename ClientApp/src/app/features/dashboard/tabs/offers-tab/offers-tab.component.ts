@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { FlatsService } from '../../../../core/services/flats.service';
+import { FilterService } from '../../../../core/services/filter.service';
 import { FlatOffer } from '../../../../core/models/flat-offer.model';
 
 @Component({
@@ -139,6 +140,7 @@ export class OffersTabComponent implements OnInit {
 
   constructor(
     private flatsService: FlatsService,
+    private filterService: FilterService,
     private sanitizer: DomSanitizer
   ) {}
 
@@ -186,23 +188,18 @@ export class OffersTabComponent implements OnInit {
 
   applyOfferFilters(): void {
     let filtered = this.currentOffers;
-
-    if (this.selectedOfferDistricts.length > 0) {
-      filtered = filtered.filter(offer => this.selectedOfferDistricts.includes(offer.district || ''));
-    }
-
-    if (this.selectedOfferRooms.length > 0) {
-      filtered = filtered.filter(offer =>
-        offer.roomsNumber !== undefined && this.selectedOfferRooms.includes(Math.round(offer.roomsNumber))
-      );
-    }
-
-    if (this.priceRangeMin !== null && this.priceRangeMin > 0) {
-      filtered = filtered.filter(offer => offer.price !== undefined && offer.price >= this.priceRangeMin!);
-    }
-    if (this.priceRangeMax !== null && this.priceRangeMax > 0) {
-      filtered = filtered.filter(offer => offer.price !== undefined && offer.price <= this.priceRangeMax!);
-    }
+    filtered = this.filterService.filterByDistricts(filtered, this.selectedOfferDistricts, offer => offer.district);
+    filtered = this.filterService.filterByRooms(
+      filtered,
+      this.selectedOfferRooms,
+      offer => offer.roomsNumber !== undefined ? Math.round(offer.roomsNumber) : undefined
+    );
+    filtered = this.filterService.filterByPriceRange(
+      filtered,
+      this.priceRangeMin,
+      this.priceRangeMax,
+      offer => offer.price
+    );
 
     this.filteredOffers = filtered;
   }

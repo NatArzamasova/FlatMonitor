@@ -4,8 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { interval, Subject } from 'rxjs';
 import { takeUntil, switchMap } from 'rxjs/operators';
 import { FlatsService } from '../../../../core/services/flats.service';
+import { FilterService } from '../../../../core/services/filter.service';
 import { FlatAggregation } from '../../../../core/models/flat-aggregation.model';
 import { ScrapingStatusResponse } from '../../../../core/models/scraping-status-response.model';
+import { mergeWeightedAverage } from '../../../../core/utils/aggregation.utils';
 
 @Component({
   selector: 'app-overview-tab',
@@ -213,7 +215,10 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
 
   private destroy$ = new Subject<void>();
 
-  constructor(private flatsService: FlatsService) {}
+  constructor(
+    private flatsService: FlatsService,
+    private filterService: FilterService
+  ) {}
 
   ngOnInit(): void {
     this.loadAggregatedData();
@@ -285,16 +290,8 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
 
   applyFiltersAndGrouping(): void {
     let filtered = this.rawData;
-
-    if (this.selectedDistricts.length > 0) {
-      filtered = filtered.filter(item => this.selectedDistricts.includes(item.district || ''));
-    }
-
-    if (this.selectedRoomCounts.length > 0) {
-      filtered = filtered.filter(item =>
-        item.roomsCount !== undefined && this.selectedRoomCounts.includes(item.roomsCount)
-      );
-    }
+    filtered = this.filterService.filterByDistricts(filtered, this.selectedDistricts, item => item.district);
+    filtered = this.filterService.filterByRooms(filtered, this.selectedRoomCounts, item => item.roomsCount);
 
     if (this.groupByDistrict && this.groupByRooms) {
       this.aggregatedData = filtered;
@@ -328,13 +325,7 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
       }
 
       const current = grouped.get(key)!;
-      const oldCount = current.count;
-      const newTotalCount = oldCount + item.count;
-
-      current.avgPricePerMeter =
-        (oldCount * current.avgPricePerMeter + item.count * item.avgPricePerMeter) /
-        newTotalCount;
-      current.count = newTotalCount;
+      mergeWeightedAverage(current, item);
     });
 
     return Array.from(grouped.values()).sort((a, b) => {
@@ -361,13 +352,7 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
       }
 
       const current = grouped.get(key)!;
-      const oldCount = current.count;
-      const newTotalCount = oldCount + item.count;
-
-      current.avgPricePerMeter =
-        (oldCount * current.avgPricePerMeter + item.count * item.avgPricePerMeter) /
-        newTotalCount;
-      current.count = newTotalCount;
+      mergeWeightedAverage(current, item);
     });
 
     return Array.from(grouped.values()).sort((a, b) => {
@@ -392,13 +377,7 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
     };
 
     data.forEach(item => {
-      const oldCount = aggregated.count;
-      const newTotalCount = oldCount + item.count;
-
-      aggregated.avgPricePerMeter =
-        (oldCount * aggregated.avgPricePerMeter + item.count * item.avgPricePerMeter) /
-        newTotalCount;
-      aggregated.count = newTotalCount;
+      mergeWeightedAverage(aggregated, item);
     });
 
     return [aggregated];

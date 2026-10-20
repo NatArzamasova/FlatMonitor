@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } fr
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { FlatsService } from '../../../../core/services/flats.service';
+import { FilterService } from '../../../../core/services/filter.service';
 import { FlatHistory } from '../../../../core/models/flat-history.model';
 
 @Component({
@@ -134,7 +135,10 @@ export class HistoryTabComponent implements OnInit, OnDestroy, AfterViewInit {
 
   @ViewChild('historyChart') historyChart: ElementRef<HTMLCanvasElement> | undefined;
 
-  constructor(private flatsService: FlatsService) {}
+  constructor(
+    private flatsService: FlatsService,
+    private filterService: FilterService
+  ) {}
 
   ngOnInit(): void {
     this.loadHistory();
@@ -235,15 +239,16 @@ export class HistoryTabComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private aggregateByDistrictHistory(): void {
+    const filtered = this.filterService.filterByDistricts(
+      this.historyData,
+      this.selectedHistoryDistricts,
+      item => item.district || 'Unknown'
+    );
+
     const grouped = new Map<string, Map<string, number>>();
 
-    this.historyData.forEach(item => {
+    filtered.forEach(item => {
       const district = item.district || 'Unknown';
-
-      if (!this.selectedHistoryDistricts.includes(district)) {
-        return;
-      }
-
       const date = item.scrapingDate || '';
       const price = this.parsePrice(item.avgPricePerMeter);
 
@@ -255,7 +260,7 @@ export class HistoryTabComponent implements OnInit, OnDestroy, AfterViewInit {
 
     this.chartData = [];
     const dates = new Set<string>();
-    this.historyData.forEach(item => {
+    filtered.forEach(item => {
       if (item.scrapingDate) dates.add(item.scrapingDate);
     });
 
@@ -274,19 +279,20 @@ export class HistoryTabComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private aggregateByRoomsHistory(): void {
+    const filtered = this.filterService.filterByRooms(
+      this.historyData,
+      this.selectedHistoryRooms,
+      item => item.roomsCount ? Math.round(item.roomsCount * 10) / 10 : null
+    );
+
     const grouped = new Map<string, Map<string, number>>();
 
-    this.historyData.forEach(item => {
+    filtered.forEach(item => {
       const rooms = item.roomsCount ? Math.round(item.roomsCount * 10) / 10 : null;
-
-      if (rooms === null || !this.selectedHistoryRooms.includes(rooms)) {
-        return;
-      }
-
       const date = item.scrapingDate || '';
       const price = this.parsePrice(item.avgPricePerMeter);
 
-      const roomsKey = rooms.toString();
+      const roomsKey = rooms?.toString() || 'Unknown';
       if (!grouped.has(roomsKey)) {
         grouped.set(roomsKey, new Map());
       }
@@ -295,7 +301,7 @@ export class HistoryTabComponent implements OnInit, OnDestroy, AfterViewInit {
 
     this.chartData = [];
     const dates = new Set<string>();
-    this.historyData.forEach(item => {
+    filtered.forEach(item => {
       if (item.scrapingDate) dates.add(item.scrapingDate);
     });
 
