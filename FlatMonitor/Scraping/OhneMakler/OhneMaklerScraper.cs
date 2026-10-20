@@ -180,23 +180,6 @@ public sealed class OhneMaklerScraper : FlatScraper
         }
     }
 
-    protected override async Task SaveListingsAsync(List<Flat> listings, CancellationToken ct)
-    {
-        if (listings.Count == 0)
-            return;
-
-        try
-        {
-            await _repository.UpsertListingsAsync(listings, ct);
-            Console.WriteLine($"Saved {listings.Count} listings to database");
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"Error saving listings to database: {ex.Message}");
-            throw;
-        }
-    }
-
     protected override async Task CleanupAsync()
     {
         // HttpClient is a DI singleton, managed by container — do not dispose

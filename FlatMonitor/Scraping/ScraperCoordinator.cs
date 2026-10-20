@@ -2,11 +2,13 @@ namespace workInProgress.Scraping;
 
 using workInProgress.Models;
 using workInProgress.Storage;
+using workInProgress.Scraping.Common;
 
 public sealed class ScraperCoordinator : IAsyncDisposable
 {
     private static readonly HashSet<string> AllowedDistricts = new(StringComparer.OrdinalIgnoreCase)
     {
+        "Beiertheim-Bulach",
         "Daxlanden",
         "Durlach",
         "Grötzingen",
@@ -74,6 +76,48 @@ public sealed class ScraperCoordinator : IAsyncDisposable
 
             try
             {
+                // Set up the batch save callback: filter then save
+                if (scraper is FlatScraper flatScraper)
+                {
+                    flatScraper.SaveListingsCallback = async (batch, batchCt) =>
+                    {
+                        var filtered = batch
+                            .Select(flat =>
+                            {
+                                var normalizedDistrict = NormalizeDistrict(flat.District);
+                                if (normalizedDistrict == null)
+                                    return null;
+
+                                return new Flat
+                                {
+                                    ListingId = flat.ListingId,
+                                    Url = flat.Url,
+                                    Title = flat.Title,
+                                    Address = flat.Address,
+                                    PostalCode = flat.PostalCode,
+                                    District = normalizedDistrict,
+                                    PriceEur = flat.PriceEur,
+                                    OriginalPriceEur = flat.OriginalPriceEur,
+                                    PricePerMeter = flat.PricePerMeter,
+                                    RoomsCount = flat.RoomsCount,
+                                    LivingAreaSqm = flat.LivingAreaSqm,
+                                    CommissionPercent = flat.CommissionPercent,
+                                    Details = flat.Details,
+                                    ScrapedAtUtc = flat.ScrapedAtUtc,
+                                    Source = flat.Source,
+                                    DetailPageUrl = flat.DetailPageUrl,
+                                };
+                            })
+                            .Where(f => f != null)
+                            .ToList();
+
+                        if (filtered.Count > 0)
+                        {
+                            await _repository.UpsertListingsAsync(filtered, batchCt);
+                        }
+                    };
+                }
+
                 Console.WriteLine($"Starting scrape for source: {scraper.Source}");
                 var allListings = (await scraper.ScrapeAsync(ct, _onBatchSaved)).ToList();
 
@@ -99,9 +143,8 @@ public sealed class ScraperCoordinator : IAsyncDisposable
                     continue;
                 }
 
-                totalFlats += listings.Count;
-                await _repository.UpsertListingsAsync(listings);
-
+                // Filtering and batch-saving already happened via SaveListingsCallback during scraping
+                // Write snapshot with filtered flats only
                 var snapshotPath = await _snapshotWriter.WriteSnapshotAsync(
                     listings,
                     baseDirectory: _dataDirectory,
@@ -109,7 +152,7 @@ public sealed class ScraperCoordinator : IAsyncDisposable
                     ct: ct);
 
                 Console.WriteLine($"Snapshot written for {scraper.Source}: {snapshotPath}");
-                Console.WriteLine($"Database updated with {listings.Count} listings from {scraper.Source}");
+                Console.WriteLine($"Batch-saved {listings.Count} filtered listings from {scraper.Source}");
             }
             catch (OperationCanceledException)
             {
@@ -131,9 +174,54 @@ public sealed class ScraperCoordinator : IAsyncDisposable
 
     private List<Flat> FilterByDistrict(List<Flat> listings)
     {
-        return listings
-            .Where(flat => !string.IsNullOrWhiteSpace(flat.District) && AllowedDistricts.Contains(flat.District))
-            .ToList();
+        var result = new List<Flat>();
+        foreach (var flat in listings)
+        {
+            var normalizedDistrict = NormalizeDistrict(flat.District);
+            if (normalizedDistrict != null)
+            {
+                var updatedFlat = new Flat
+                {
+                    ListingId = flat.ListingId,
+                    Url = flat.Url,
+                    Title = flat.Title,
+                    Address = flat.Address,
+                    PostalCode = flat.PostalCode,
+                    District = normalizedDistrict,
+                    PriceEur = flat.PriceEur,
+                    OriginalPriceEur = flat.OriginalPriceEur,
+                    PricePerMeter = flat.PricePerMeter,
+                    RoomsCount = flat.RoomsCount,
+                    LivingAreaSqm = flat.LivingAreaSqm,
+                    CommissionPercent = flat.CommissionPercent,
+                    Details = flat.Details,
+                    ScrapedAtUtc = flat.ScrapedAtUtc,
+                    Source = flat.Source,
+                    DetailPageUrl = flat.DetailPageUrl,
+                };
+                result.Add(updatedFlat);
+            }
+        }
+        return result;
+    }
+
+    private string? NormalizeDistrict(string? district)
+    {
+        if (string.IsNullOrWhiteSpace(district))
+            return null;
+
+        // Try exact match first (case-insensitive)
+        var match = AllowedDistricts.FirstOrDefault(d => d.Equals(district, StringComparison.OrdinalIgnoreCase));
+        if (match != null)
+            return match;
+
+        // Try substring match (case-insensitive) — handles "KA-Oberreut" containing "Oberreut"
+        match = AllowedDistricts.FirstOrDefault(d => district.Contains(d, StringComparison.OrdinalIgnoreCase));
+        if (match != null)
+            return match;
+
+        // No match found, filter this flat out
+        return null;
     }
 
     public async ValueTask DisposeAsync()

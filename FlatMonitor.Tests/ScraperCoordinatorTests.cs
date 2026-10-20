@@ -57,6 +57,7 @@ public class ScraperCoordinatorTests
                 ListingId = "1",
                 Url = "/immobilie/1/",
                 Title = "Test 1",
+                District = "Oberreut",
                 ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
             }
         };
@@ -87,6 +88,7 @@ public class ScraperCoordinatorTests
                 ListingId = "1",
                 Url = "/immobilie/1/",
                 Title = "Test 1",
+                District = "Weststadt",
                 ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
             }
         };
@@ -98,6 +100,7 @@ public class ScraperCoordinatorTests
                 ListingId = "2",
                 Url = "/property/2",
                 Title = "Test 2",
+                District = "Durlach",
                 ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
             }
         };
@@ -129,6 +132,7 @@ public class ScraperCoordinatorTests
                 ListingId = "1",
                 Url = "/immobilie/1/",
                 Title = "Test 1",
+                District = "Oberreut",
                 ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
             }
         };
@@ -140,6 +144,7 @@ public class ScraperCoordinatorTests
                 ListingId = "2",
                 Url = "/property/2",
                 Title = "Test 2",
+                District = "Durlach",
                 ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
             }
         };
@@ -171,6 +176,7 @@ public class ScraperCoordinatorTests
                 ListingId = "1",
                 Url = "/immobilie/1/",
                 Title = "Test",
+                District = "Weststadt",
                 ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
             }
         };
@@ -228,6 +234,7 @@ public class ScraperCoordinatorTests
                 ListingId = "2",
                 Url = "/property/2",
                 Title = "Test 2",
+                District = "Waldstadt",
                 ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
             }
         };
@@ -291,5 +298,260 @@ public class ScraperCoordinatorTests
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
             new ScraperCoordinator(new[] { _mockScraper1.Object }, _mockRepository.Object, null!, _testDir));
+    }
+
+    [Test]
+    public async Task ScrapeAllSourcesAsync_FilterByDistrict_ExactMatch()
+    {
+        // Arrange: flat with exact district name "Oberreut"
+        var listings = new List<Flat>
+        {
+            new()
+            {
+                ListingId = "1",
+                Url = "/immobilie/1/",
+                Title = "Test",
+                District = "Oberreut",
+                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+            }
+        };
+
+        _mockScraper1.Setup(s => s.ScrapeAsync())
+            .ReturnsAsync(listings);
+
+        var scrapers = new[] { _mockScraper1.Object };
+        var coordinator = new ScraperCoordinator(scrapers, _mockRepository.Object, _snapshotWriter, _testDir);
+
+        // Act
+        await coordinator.ScrapeAllSourcesAsync();
+
+        // Assert: flat should be included with normalized district
+        _mockRepository.Verify(r => r.UpsertListingsAsync(It.Is<List<Flat>>(
+            l => l.Count == 1 && l[0].District == "Oberreut")), Times.Once);
+    }
+
+    [Test]
+    public async Task ScrapeAllSourcesAsync_FilterByDistrict_CaseInsensitiveExactMatch()
+    {
+        // Arrange: flat with lowercase district name "oberreut"
+        var listings = new List<Flat>
+        {
+            new()
+            {
+                ListingId = "1",
+                Url = "/immobilie/1/",
+                Title = "Test",
+                District = "oberreut",
+                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+            }
+        };
+
+        _mockScraper1.Setup(s => s.ScrapeAsync())
+            .ReturnsAsync(listings);
+
+        var scrapers = new[] { _mockScraper1.Object };
+        var coordinator = new ScraperCoordinator(scrapers, _mockRepository.Object, _snapshotWriter, _testDir);
+
+        // Act
+        await coordinator.ScrapeAllSourcesAsync();
+
+        // Assert: flat should be included and normalized to "Oberreut"
+        _mockRepository.Verify(r => r.UpsertListingsAsync(It.Is<List<Flat>>(
+            l => l.Count == 1 && l[0].District == "Oberreut")), Times.Once);
+    }
+
+    [Test]
+    public async Task ScrapeAllSourcesAsync_FilterByDistrict_SubstringMatch_KAPrefix()
+    {
+        // Arrange: flat with "KA-Oberreut" contains "Oberreut"
+        var listings = new List<Flat>
+        {
+            new()
+            {
+                ListingId = "1",
+                Url = "/immobilie/1/",
+                Title = "Test",
+                District = "KA-Oberreut",
+                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+            }
+        };
+
+        _mockScraper1.Setup(s => s.ScrapeAsync())
+            .ReturnsAsync(listings);
+
+        var scrapers = new[] { _mockScraper1.Object };
+        var coordinator = new ScraperCoordinator(scrapers, _mockRepository.Object, _snapshotWriter, _testDir);
+
+        // Act
+        await coordinator.ScrapeAllSourcesAsync();
+
+        // Assert: flat should be included and normalized to "Oberreut"
+        _mockRepository.Verify(r => r.UpsertListingsAsync(It.Is<List<Flat>>(
+            l => l.Count == 1 && l[0].District == "Oberreut")), Times.Once);
+    }
+
+    [Test]
+    public async Task ScrapeAllSourcesAsync_FilterByDistrict_CaseInsensitiveSubstringMatch()
+    {
+        // Arrange: flat with "ka-innenstadt-west" contains "Innenstadt-West"
+        var listings = new List<Flat>
+        {
+            new()
+            {
+                ListingId = "1",
+                Url = "/immobilie/1/",
+                Title = "Test",
+                District = "ka-innenstadt-west",
+                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+            }
+        };
+
+        _mockScraper1.Setup(s => s.ScrapeAsync())
+            .ReturnsAsync(listings);
+
+        var scrapers = new[] { _mockScraper1.Object };
+        var coordinator = new ScraperCoordinator(scrapers, _mockRepository.Object, _snapshotWriter, _testDir);
+
+        // Act
+        await coordinator.ScrapeAllSourcesAsync();
+
+        // Assert: flat should be included and normalized to "Innenstadt-West"
+        _mockRepository.Verify(r => r.UpsertListingsAsync(It.Is<List<Flat>>(
+            l => l.Count == 1 && l[0].District == "Innenstadt-West")), Times.Once);
+    }
+
+    [Test]
+    public async Task ScrapeAllSourcesAsync_FilterByDistrict_NoMatch_FiltersOut()
+    {
+        // Arrange: flat with "Bad Schönborn" (not in AllowedDistricts)
+        var listings = new List<Flat>
+        {
+            new()
+            {
+                ListingId = "1",
+                Url = "/immobilie/1/",
+                Title = "Test",
+                District = "Bad Schönborn",
+                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+            }
+        };
+
+        _mockScraper1.Setup(s => s.ScrapeAsync())
+            .ReturnsAsync(listings);
+
+        var scrapers = new[] { _mockScraper1.Object };
+        var coordinator = new ScraperCoordinator(scrapers, _mockRepository.Object, _snapshotWriter, _testDir);
+
+        // Act
+        await coordinator.ScrapeAllSourcesAsync();
+
+        // Assert: flat should be filtered out, no upsert should occur
+        _mockRepository.Verify(r => r.UpsertListingsAsync(It.IsAny<List<Flat>>()), Times.Never);
+    }
+
+    [Test]
+    public async Task ScrapeAllSourcesAsync_FilterByDistrict_NullDistrict_FiltersOut()
+    {
+        // Arrange: flat with null district
+        var listings = new List<Flat>
+        {
+            new()
+            {
+                ListingId = "1",
+                Url = "/immobilie/1/",
+                Title = "Test",
+                District = null,
+                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+            }
+        };
+
+        _mockScraper1.Setup(s => s.ScrapeAsync())
+            .ReturnsAsync(listings);
+
+        var scrapers = new[] { _mockScraper1.Object };
+        var coordinator = new ScraperCoordinator(scrapers, _mockRepository.Object, _snapshotWriter, _testDir);
+
+        // Act
+        await coordinator.ScrapeAllSourcesAsync();
+
+        // Assert: flat should be filtered out, no upsert should occur
+        _mockRepository.Verify(r => r.UpsertListingsAsync(It.IsAny<List<Flat>>()), Times.Never);
+    }
+
+    [Test]
+    public async Task ScrapeAllSourcesAsync_FilterByDistrict_EmptyDistrict_FiltersOut()
+    {
+        // Arrange: flat with empty district
+        var listings = new List<Flat>
+        {
+            new()
+            {
+                ListingId = "1",
+                Url = "/immobilie/1/",
+                Title = "Test",
+                District = "",
+                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+            }
+        };
+
+        _mockScraper1.Setup(s => s.ScrapeAsync())
+            .ReturnsAsync(listings);
+
+        var scrapers = new[] { _mockScraper1.Object };
+        var coordinator = new ScraperCoordinator(scrapers, _mockRepository.Object, _snapshotWriter, _testDir);
+
+        // Act
+        await coordinator.ScrapeAllSourcesAsync();
+
+        // Assert: flat should be filtered out, no upsert should occur
+        _mockRepository.Verify(r => r.UpsertListingsAsync(It.IsAny<List<Flat>>()), Times.Never);
+    }
+
+    [Test]
+    public async Task ScrapeAllSourcesAsync_FilterByDistrict_MixedValidAndInvalid()
+    {
+        // Arrange: mix of valid and invalid districts
+        var listings = new List<Flat>
+        {
+            new()
+            {
+                ListingId = "1",
+                Url = "/immobilie/1/",
+                Title = "Valid 1",
+                District = "Oberreut",
+                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+            },
+            new()
+            {
+                ListingId = "2",
+                Url = "/immobilie/2/",
+                Title = "Invalid",
+                District = "Bad Schönborn",
+                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+            },
+            new()
+            {
+                ListingId = "3",
+                Url = "/immobilie/3/",
+                Title = "Valid 2",
+                District = "KA-Innenstadt-West",
+                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+            }
+        };
+
+        _mockScraper1.Setup(s => s.ScrapeAsync())
+            .ReturnsAsync(listings);
+
+        var scrapers = new[] { _mockScraper1.Object };
+        var coordinator = new ScraperCoordinator(scrapers, _mockRepository.Object, _snapshotWriter, _testDir);
+
+        // Act
+        await coordinator.ScrapeAllSourcesAsync();
+
+        // Assert: only 2 flats should be included (IDs 1 and 3), with normalized districts
+        _mockRepository.Verify(r => r.UpsertListingsAsync(It.Is<List<Flat>>(
+            l => l.Count == 2 &&
+                 l.Any(f => f.ListingId == "1" && f.District == "Oberreut") &&
+                 l.Any(f => f.ListingId == "3" && f.District == "Innenstadt-West"))), Times.Once);
     }
 }

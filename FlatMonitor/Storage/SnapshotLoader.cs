@@ -4,6 +4,11 @@ using System.Text.Json;
 using workInProgress.Json;
 using workInProgress.Models;
 
+/// <summary>
+/// Loads flats from JSONL snapshot files for debugging/analysis purposes.
+/// NOT used in normal application flow. The SQLite database (FlatsSnapshots table) is the canonical source.
+/// Snapshots are optional backups only and may contain stale data.
+/// </summary>
 public sealed class SnapshotLoader
 {
     private const string SnapshotsDir = "snapshots";

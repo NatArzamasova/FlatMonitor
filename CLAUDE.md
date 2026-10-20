@@ -33,19 +33,21 @@ dotnet run -- report
 - `ScraperCoordinator` orchestrates all scrapers and manages snapshots per source
 
 **Two storage layers:**
-1. **Snapshot files** (`data/snapshots/{source}/{utc-timestamp}.jsonl`) — canonical, git-committed JSON Lines format, one flat per line. Append-only, safe for CI to commit back without merge conflicts. One directory per source.
-2. **SQLite cache** (`data/flats.db`) — derived from replaying all snapshots, git-ignored. Includes source attribution to allow same property across sources. Used only by `report` for fast aggregates; can be deleted and rebuilt from snapshots.
+1. **SQLite database** (`data/flats.db`) — **canonical source of truth**. Persists all flats with source attribution. Used for all reads, aggregations, and statistics. Git-ignored.
+2. **Snapshot files** (`data/snapshots/{source}/{utc-timestamp}.jsonl`) — optional backups for debugging only. JSON Lines format (one flat per line). Do NOT use snapshots as source for database rebuilds; snapshots may contain stale or unfiltered data.
 
 **Two run modes:**
-- `scrape` — fetches current flats from all active sources, deserializes into `Flat` objects, appends to each source's snapshot file
-- `report` — loads all snapshots into SQLite on demand, aggregates across sources, queries for statistics (new/removed/price-changed counts, aggregate €/m², days-on-market, rolling trends, per-source breakdowns)
+- `scrape` — fetches current flats from all active sources, enriches with detail pages, returns unfiltered flats to `ScraperCoordinator`. `ScraperCoordinator` filters by allowed districts (normalizing names), batch-saves filtered flats to SQLite (every 20 flats to avoid memory bloat)
+- `report` — queries SQLite database directly for aggregations across sources, reports statistics (new/removed/price-changed counts, aggregate €/m², days-on-market, rolling trends, per-source breakdowns)
 
 ## Key Design Notes
 
-- **No dates on the site itself** — scraper relies entirely on snapshot timestamps (UTC) to build history
-- **Idempotency for CI** — snapshot files are append-only, never rewritten; a scheduled job can safely commit new snapshots back to the repo
+- **No dates on the site itself** — database timestamps (scrapedAtUtc) are added at scrape time to track when each flat was discovered
+- **Database is canonical** — SQLite is the sole source of truth; never rebuild the database from snapshots
+- **Snapshots are backups only** — created for debugging purposes; do not use snapshots to reconstruct or validate database state
+- **District filtering** — `ScraperCoordinator.NormalizeDistrict()` ensures all flats in the database match `AllowedDistricts` (handles case-insensitive and substring matches like "KA-Oberreut" → "Oberreut")
 - **HTML coupling risk** — scraper is tightly bound to current site markup; mitigated by parser unit tests against saved fixtures, but real failures surface at scrape time
-- **"Removed" ambiguity** — removal is inferred from absence in latest snapshot (could be sold, delisted, or scrape miss); no ground truth from the site
+- **"Removed" ambiguity** — removal is inferred from absence in latest scrape (could be sold, delisted, or scrape miss); no ground truth from the site
 
 ## Parallel: MCP Servers
 
@@ -116,8 +118,10 @@ dotnet test
 
 1. **Scrape**: 
    - For each `IScraper` (OhneMakler, ImmobilienScout24, ...):
-     - Site → Source-specific HtmlParser (HTMLAgilityPack) → `Flat` objects (with Source field) → Source-specific Snapshot JSONL file
-   - All sources run sequentially or in parallel depending on network constraints
+     - Fetch all pages → Parse listing cards → Enrich with detail pages → Return unfiltered flats to `ScraperCoordinator`
+     - `ScraperCoordinator.FilterByDistrict()` filters by `AllowedDistricts` (case-insensitive, handles variants like "KA-Oberreut")
+     - Batch-save filtered flats to SQLite (every 20 items to prevent memory bloat)
+     - Write snapshot files (for debugging only, after filtering)
    
 2. **Report**: 
-   - All Snapshot JSONL files (from all sources) → SQLite (upsert with source attribution) → Aggregation queries per source → Cross-source comparison → Report output
+   - Query SQLite FlatsSnapshots table directly (canonical source) → Aggregation queries per source → Cross-source comparison → Report output

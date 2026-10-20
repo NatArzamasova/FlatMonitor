@@ -12,6 +12,12 @@ public abstract class FlatScraper : IScraper
 {
     public abstract string Source { get; }
 
+    /// <summary>
+    /// Callback to filter and save a batch of listings. Set by ScraperCoordinator.
+    /// If null, batch saving is skipped (flats returned to caller for external handling).
+    /// </summary>
+    public Func<List<Flat>, CancellationToken, Task>? SaveListingsCallback { get; set; }
+
     public async Task<IEnumerable<Flat>> ScrapeAsync(CancellationToken ct = default, Func<int, Task>? onBatchSaved = null)
         => await ScrapeAllListingsAsync(ct, onBatchSaved);
 
@@ -66,12 +72,14 @@ public abstract class FlatScraper : IScraper
                     allFlats.Add(flat);
                 }
 
-                // Estimate when a "page" of flats is done (e.g., every 20 items) and save to DB
-                // This prevents memory bloat on large datasets like 600+ items
+                // Save batch periodically (every 20 items) to avoid memory bloat
+                // Filtering happens before saving via SaveListingsCallback
                 if (totalProcessed % 20 == 0 || totalProcessed == allPageFlats.Count)
                 {
-                    Console.WriteLine($"--- {Source}: Saving {pageBuffer.Count} listings to database (batch {pageNumber}) ---");
-                    await SaveListingsAsync(pageBuffer, ct);
+                    if (pageBuffer.Count > 0 && SaveListingsCallback != null)
+                    {
+                        await SaveListingsCallback(pageBuffer, ct);
+                    }
                     if (onBatchSaved != null)
                         await onBatchSaved(pageBuffer.Count);
                     pageBuffer.Clear();
@@ -120,12 +128,6 @@ public abstract class FlatScraper : IScraper
     /// Returns a new Flat object with all available data filled in.
     /// </summary>
     protected abstract Task<Flat> EnrichListingWithDetailsAsync(Flat baseListing, CancellationToken ct);
-
-    /// <summary>
-    /// Save a batch of listings to the database.
-    /// Called periodically (e.g., every 20 listings) to avoid memory bloat on large datasets.
-    /// </summary>
-    protected abstract Task SaveListingsAsync(List<Flat> listings, CancellationToken ct);
 
     /// <summary>
     /// Cleanup resources (close browser, dispose HTTP client, etc.).

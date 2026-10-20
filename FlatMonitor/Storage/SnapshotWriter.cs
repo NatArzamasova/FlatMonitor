@@ -4,6 +4,11 @@ using System.Text.Json;
 using workInProgress.Json;
 using workInProgress.Models;
 
+/// <summary>
+/// Writes scraped flats to JSONL snapshot files for debugging purposes only.
+/// Snapshots are NOT used to rebuild the database; they exist as optional backups for troubleshooting.
+/// The SQLite database (FlatsSnapshots table) is the canonical source of truth.
+/// </summary>
 public sealed class SnapshotWriter
 {
     private const string SnapshotsDir = "snapshots";

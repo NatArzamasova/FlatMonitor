@@ -3,10 +3,10 @@ namespace workInProgress.Storage;
 using workInProgress.Models;
 
 /// <summary>
-/// SQLite-specific repository for persisting apartments (Flat) to the database.
-/// This is the derived data layer that upserts deduplicated apartments to SQLite.
-/// It is distinct from the JSONL snapshot file layer (SnapshotWriter/SnapshotLoader).
-/// Will be made source-aware in Phase 2 alongside SQLite schema migration.
+/// SQLite-specific repository for persisting apartments (Flat) to the database (FlatsSnapshots table).
+/// This is the CANONICAL SOURCE OF TRUTH for all flats and their data.
+/// It is distinct from the JSONL snapshot files (SnapshotWriter/SnapshotLoader), which are debugging backups only.
+/// The database is queried for reports and aggregations; snapshots are never replayed back into it.
 /// </summary>
 public interface ISnapshotRepository : IAsyncDisposable
 {
