@@ -8,7 +8,7 @@ using workInProgress.Data;
 using workInProgress.Scraping;
 using workInProgress.Storage;
 
-namespace workInProgress.Tests;
+namespace workInProgress.Tests.Api.Services;
 
 [TestFixture]
 public class ScrapeResultTests

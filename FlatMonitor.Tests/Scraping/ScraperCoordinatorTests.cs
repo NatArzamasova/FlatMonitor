@@ -5,7 +5,7 @@ using workInProgress.Models;
 using workInProgress.Scraping;
 using workInProgress.Storage;
 
-namespace workInProgress.Tests;
+namespace workInProgress.Tests.Scraping;
 
 [TestFixture]
 public class ScraperCoordinatorTests

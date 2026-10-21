@@ -4,8 +4,9 @@ using System.Text.Json;
 using workInProgress.Json;
 using workInProgress.Models;
 using workInProgress.Storage;
+using FlatMonitor.Scraping.Debug;
 
-namespace workInProgress.Tests;
+namespace workInProgress.Tests.Scraping.Debug;
 
 [TestFixture]
 public class SnapshotLoaderTests

@@ -5,7 +5,7 @@ using System.Text.Json;
 using workInProgress.Models;
 using workInProgress.Storage;
 
-namespace workInProgress.Tests;
+namespace workInProgress.Tests.Storage;
 [TestFixture]
 public class SnapshotWriterTests
 {

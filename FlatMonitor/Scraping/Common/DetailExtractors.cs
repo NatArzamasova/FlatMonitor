@@ -1,4 +1,4 @@
-namespace workInProgress.Storage;
+namespace FlatMonitor.Scraping.Common;
 
 using HtmlAgilityPack;
 

@@ -2,7 +2,7 @@ using NUnit.Framework;
 using Moq;
 using workInProgress.Storage;
 
-namespace workInProgress.Tests;
+namespace workInProgress.Tests.Api.Services;
 
 [TestFixture]
 public class ScrapeBackgroundServiceTests

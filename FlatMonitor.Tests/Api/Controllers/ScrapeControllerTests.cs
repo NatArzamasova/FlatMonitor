@@ -8,7 +8,7 @@ using workInProgress.Api.Models;
 using workInProgress.Api.Services;
 using workInProgress.Storage;
 
-namespace workInProgress.Tests;
+namespace workInProgress.Tests.Api.Controllers;
 
 [TestFixture]
 public class ScrapeControllerTests

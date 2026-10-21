@@ -1,8 +1,8 @@
 namespace workInProgress.Scraping.OhneMakler;
 
+using FlatMonitor.Scraping.Common;
 using HtmlAgilityPack;
 using workInProgress.Models;
-using workInProgress.Storage;
 
 /// <summary>
 /// Parses detail fields from ohne-makler.net detail pages.

@@ -1,4 +1,6 @@
-namespace workInProgress.Storage;
+using workInProgress.Storage;
+
+namespace FlatMonitor.Scraping.Debug;
 
 using System.Text.Json;
 using workInProgress.Json;
