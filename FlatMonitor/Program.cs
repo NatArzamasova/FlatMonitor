@@ -1,9 +1,9 @@
 using dotenv.net;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using workInProgress;
 using workInProgress.Api.Services;
 using workInProgress.Data;
 using workInProgress.Scraping;
@@ -67,24 +67,8 @@ async Task<int> RunScrapeAsync()
         return client;
     });
 
-    services.AddScoped<OhneMaklerScraper>();
-    services.AddScoped<ImmobilienScout24Scraper>();
-    services.AddScoped<ISnapshotRepository>(sp => new FlatSnapshotRepository(sp.GetRequiredService<DbContextOptions<FlatsDbContext>>()));
-    services.AddScoped<IFlatAggregationRepository>(sp => new FlatAggregationRepository(sp.GetRequiredService<DbContextOptions<FlatsDbContext>>()));
-    services.AddScoped<SnapshotWriter>();
-    services.AddScoped<ScraperCoordinator>(sp =>
-    {
-        var scrapers = new IScraper[]
-        {
-            sp.GetRequiredService<OhneMaklerScraper>(),
-            sp.GetRequiredService<ImmobilienScout24Scraper>(),
-        };
-        var repository = sp.GetRequiredService<ISnapshotRepository>();
-        var snapshotWriter = sp.GetRequiredService<SnapshotWriter>();
-        return new ScraperCoordinator(scrapers, repository, snapshotWriter);
-    });
     services.AddLogging(logging => logging.AddConsole());
-    services.AddScoped<ScrapeExecutionService>();
+    services.AddScrapeServices();
 
     var serviceProvider = services.BuildServiceProvider();
 
@@ -233,11 +217,11 @@ async Task<int> RunWebServerAsync(string[] args)
             return new ScraperCoordinator(scrapers, repository, snapshotWriter);
         });
 
-        builder.Services.AddSingleton<workInProgress.Api.Services.ScrapeStateService>();
-        builder.Services.AddSingleton<workInProgress.Api.Services.ScrapeJobService>();
-        builder.Services.AddScoped<workInProgress.Api.Services.ScrapeExecutionService>();
-        builder.Services.AddSingleton<workInProgress.Api.Services.ScrapeBackgroundService>();
-        builder.Services.AddHostedService(sp => sp.GetRequiredService<workInProgress.Api.Services.ScrapeBackgroundService>());
+        builder.Services.AddSingleton<ScrapeStateService>();
+        builder.Services.AddSingleton<ScrapeJobService>();
+        builder.Services.AddScoped<ScrapeExecutionService>();
+        builder.Services.AddSingleton<ScrapeBackgroundService>();
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<ScrapeBackgroundService>());
 
         builder.Services.AddControllers();
         builder.Services.AddSwaggerGen();

@@ -21,11 +21,11 @@ public class ScrapeExecutionService
         ScraperCoordinator coordinator,
         ILogger<ScrapeExecutionService> logger)
     {
-        _dbContext = dbContext;
-        _snapshotRepository = snapshotRepository;
-        _aggregationRepository = aggregationRepository;
-        _coordinator = coordinator;
-        _logger = logger;
+        _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
+        _snapshotRepository = snapshotRepository ?? throw new ArgumentNullException(nameof(snapshotRepository));
+        _aggregationRepository = aggregationRepository ?? throw new ArgumentNullException(nameof(aggregationRepository));
+        _coordinator = coordinator ?? throw new ArgumentNullException(nameof(coordinator));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     public async Task<ScrapeResult> ExecuteAsync(
