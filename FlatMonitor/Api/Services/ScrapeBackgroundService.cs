@@ -11,25 +11,22 @@ using workInProgress.Storage;
 
 public class ScrapeBackgroundService : BackgroundService
 {
-    private readonly IServiceProvider _serviceProvider;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ScrapeJobService _jobService;
     private readonly ScrapeStateService _stateService;
-    private readonly ScrapeExecutionService _executionService;
     private readonly ILogger<ScrapeBackgroundService> _logger;
     private CancellationTokenSource? _currentJobCts;
     private Guid? _currentJobId;
 
     public ScrapeBackgroundService(
-        IServiceProvider serviceProvider,
+        IServiceScopeFactory scopeFactory,
         ScrapeJobService jobService,
         ScrapeStateService stateService,
-        ScrapeExecutionService executionService,
         ILogger<ScrapeBackgroundService> logger)
     {
-        _serviceProvider = serviceProvider;
+        _scopeFactory = scopeFactory;
         _jobService = jobService;
         _stateService = stateService;
-        _executionService = executionService;
         _logger = logger;
     }
 
@@ -70,7 +67,7 @@ public class ScrapeBackgroundService : BackgroundService
 
         _jobService.UpdateJobStatus(job.JobId, ScrapeJobService.ScrapeJobStatus.Running);
 
-        await using var scope = _serviceProvider.CreateAsyncScope();
+        await using var scope = _scopeFactory.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<FlatsDbContext>();
         var snapshotRepo = scope.ServiceProvider.GetRequiredService<ISnapshotRepository>();
         var executionService = scope.ServiceProvider.GetRequiredService<ScrapeExecutionService>();

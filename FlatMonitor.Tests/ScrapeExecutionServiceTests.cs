@@ -43,18 +43,27 @@ public class ScrapeResultTests
 [TestFixture]
 public class ScrapeExecutionServiceTests
 {
-    private Mock<FlatsDbContext> _mockDbContext = null!;
+    private FlatsDbContext _dbContext = null!;
     private Mock<ISnapshotRepository> _mockSnapshotRepository = null!;
     private Mock<IFlatAggregationRepository> _mockAggregationRepository = null!;
     private Mock<ILogger<ScrapeExecutionService>> _mockLogger = null!;
+    private ScraperCoordinator _coordinator = null!;
 
     [SetUp]
     public void Setup()
     {
-        _mockDbContext = new Mock<FlatsDbContext>();
+        var options = new DbContextOptionsBuilder<FlatsDbContext>()
+            .UseInMemoryDatabase($"ScrapeExecutionServiceTests_{Guid.NewGuid()}")
+            .Options;
+        _dbContext = new FlatsDbContext(options);
         _mockSnapshotRepository = new Mock<ISnapshotRepository>();
         _mockAggregationRepository = new Mock<IFlatAggregationRepository>();
         _mockLogger = new Mock<ILogger<ScrapeExecutionService>>();
+        _coordinator = new ScraperCoordinator(
+            Array.Empty<IScraper>(),
+            _mockSnapshotRepository.Object,
+            new SnapshotWriter(),
+            Path.GetTempPath());
 
         _mockSnapshotRepository
             .Setup(r => r.BackupFlatsSnapshotsAsync(It.IsAny<CancellationToken>()))
@@ -68,18 +77,13 @@ public class ScrapeExecutionServiceTests
             .Setup(r => r.RefreshAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var mockDbSet = new Mock<DbSet<FlatSnapshot>>();
-        _mockDbContext
-            .Setup(c => c.FlatsSnapshots)
-            .Returns(mockDbSet.Object);
+    }
 
-        mockDbSet
-            .Setup(s => s.ExecuteDeleteAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(0);
-
-        _mockDbContext
-            .Setup(c => c.SaveChangesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(0);
+    [TearDown]
+    public async Task TearDown()
+    {
+        await _coordinator.DisposeAsync();
+        await _dbContext.DisposeAsync();
     }
 
     [Test]
@@ -99,10 +103,10 @@ public class ScrapeExecutionServiceTests
     public void Constructor_RequiresSnapshotRepository()
     {
         var action = () => new ScrapeExecutionService(
-            _mockDbContext.Object,
+            _dbContext,
             null!,
             _mockAggregationRepository.Object,
-            null!,
+            _coordinator,
             _mockLogger.Object);
 
         action.Should().Throw<ArgumentNullException>();
@@ -112,10 +116,10 @@ public class ScrapeExecutionServiceTests
     public void Constructor_RequiresAggregationRepository()
     {
         var action = () => new ScrapeExecutionService(
-            _mockDbContext.Object,
+            _dbContext,
             _mockSnapshotRepository.Object,
             null!,
-            null!,
+            _coordinator,
             _mockLogger.Object);
 
         action.Should().Throw<ArgumentNullException>();
@@ -125,7 +129,7 @@ public class ScrapeExecutionServiceTests
     public void Constructor_RequiresCoordinator()
     {
         var action = () => new ScrapeExecutionService(
-            _mockDbContext.Object,
+            _dbContext,
             _mockSnapshotRepository.Object,
             _mockAggregationRepository.Object,
             null!,
@@ -138,10 +142,10 @@ public class ScrapeExecutionServiceTests
     public void Constructor_RequiresLogger()
     {
         var action = () => new ScrapeExecutionService(
-            _mockDbContext.Object,
+            _dbContext,
             _mockSnapshotRepository.Object,
             _mockAggregationRepository.Object,
-            null!,
+            _coordinator,
             null!);
 
         action.Should().Throw<ArgumentNullException>();
