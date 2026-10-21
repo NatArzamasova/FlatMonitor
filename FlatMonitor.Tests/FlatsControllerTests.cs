@@ -1,218 +1,97 @@
-using NUnit.Framework;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Moq;
+using NUnit.Framework;
 using workInProgress.Api.Controllers;
 using workInProgress.Api.Models;
-using workInProgress.Data;
 using workInProgress.Models;
+using workInProgress.Storage;
 
 namespace workInProgress.Tests;
 
 [TestFixture]
 public class FlatsControllerTests
 {
-    private FlatsDbContext _dbContext = null!;
+    private Mock<ISnapshotRepository> _snapshotRepository = null!;
+    private Mock<IFlatAggregationRepository> _aggregationRepository = null!;
     private FlatsController _controller = null!;
 
     [SetUp]
     public void Setup()
     {
-        var options = new DbContextOptionsBuilder<FlatsDbContext>()
-            .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
-            .Options;
-
-        _dbContext = new FlatsDbContext(options);
-        _dbContext.Database.EnsureCreated();
-        _controller = new FlatsController(_dbContext);
+        _snapshotRepository = new Mock<ISnapshotRepository>();
+        _aggregationRepository = new Mock<IFlatAggregationRepository>();
+        _controller = new FlatsController(_snapshotRepository.Object, _aggregationRepository.Object);
     }
 
-    [TearDown]
-    public void Teardown()
+    [Test]
+    public async Task GetHistoryAsync_ReturnsSuccessfulApiResponse()
     {
-        _dbContext?.Dispose();
+        var history = new List<FlatHistoryDto> { new() { District = "Innenstadt", ScrapingDate = "2026-10-20" } };
+        _aggregationRepository.Setup(r => r.GetHistoryAsync(It.IsAny<CancellationToken>())).ReturnsAsync(history);
+
+        var result = await _controller.GetHistoryAsync();
+
+        var response = GetResponseValue(result);
+        response.Success.Should().BeTrue();
+        response.Data.Should().BeSameAs(history);
+        response.Message.Should().Be("History fetched successfully");
+        _aggregationRepository.Verify(r => r.GetHistoryAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
-    private ApiResponse<List<FlatAggregation>>? GetResponseValue(ActionResult<ApiResponse<List<FlatAggregation>>> result)
+    [Test]
+    public async Task GetCurrentOffersAsync_ReturnsSuccessfulApiResponse()
+    {
+        var offers = new List<FlatOfferDto> { new() { District = "Zentrum", Source = "source" } };
+        _snapshotRepository.Setup(r => r.GetCurrentOffersAsync(It.IsAny<CancellationToken>())).ReturnsAsync(offers);
+
+        var result = await _controller.GetCurrentOffersAsync();
+
+        var response = GetResponseValue(result);
+        response.Success.Should().BeTrue();
+        response.Data.Should().BeSameAs(offers);
+        response.Message.Should().Be("Current offers fetched successfully");
+        _snapshotRepository.Verify(r => r.GetCurrentOffersAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
+    public async Task GetAggregatedAsync_ReturnsSuccessfulApiResponse()
+    {
+        var aggregations = new List<FlatAggregation> { new() { District = "Innenstadt", Count = 2 } };
+        _aggregationRepository.Setup(r => r.GetLatestAsync(It.IsAny<CancellationToken>())).ReturnsAsync(aggregations);
+
+        var result = await _controller.GetAggregatedAsync();
+
+        var response = GetResponseValue(result);
+        response.Success.Should().BeTrue();
+        response.Data.Should().BeSameAs(aggregations);
+        response.Message.Should().Be("Aggregated successfully");
+        _aggregationRepository.Verify(r => r.GetLatestAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
+    public async Task GetAggregatedAsync_ReturnsInternalServerErrorWhenRepositoryFails()
+    {
+        _aggregationRepository.Setup(r => r.GetLatestAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("query failed"));
+
+        var result = await _controller.GetAggregatedAsync();
+
+        result.Result.Should().BeOfType<ObjectResult>()
+            .Which.StatusCode.Should().Be(500);
+        var response = ((ObjectResult)result.Result!).Value.Should().BeOfType<ApiResponse<List<FlatAggregation>>>().Subject;
+        response.Success.Should().BeFalse();
+        response.Message.Should().Contain("query failed");
+    }
+
+    private static TResponse GetResponseValue<TResponse>(ActionResult<TResponse> result)
+        where TResponse : class
     {
         if (result.Value is not null)
-        {
             return result.Value;
-        }
 
-        // If Value is null, check if it's an OkObjectResult
         var okResult = result.Result as OkObjectResult;
         okResult.Should().NotBeNull();
-        return okResult!.Value as ApiResponse<List<FlatAggregation>>;
-    }
-
-    [Test]
-    public async Task GetAggregatedAsync_ReturnsDataFromFlatAggregationsTable()
-    {
-        // Arrange
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        _dbContext.FlatAggregations.Add(new FlatAggregationSnapshot
-        {
-            District = "Innenstadt",
-            RoomsCount = 2,
-            Count = 5,
-            AvgPricePerMeter = 5000m,
-            ScrapingDate = today
-        });
-        _dbContext.FlatAggregations.Add(new FlatAggregationSnapshot
-        {
-            District = "Zentrum",
-            RoomsCount = 3,
-            Count = 3,
-            AvgPricePerMeter = 6000m,
-            ScrapingDate = today
-        });
-        await _dbContext.SaveChangesAsync();
-
-        // Act
-        var result = await _controller.GetAggregatedAsync();
-        var response = GetResponseValue(result);
-
-        // Assert
-        response.Should().NotBeNull();
-        response!.Success.Should().BeTrue();
-        response.Data.Should().HaveCount(2);
-
-        var innenstadt = response.Data!.First(a => a.District == "Innenstadt");
-        innenstadt.Count.Should().Be(5);
-        innenstadt.AvgPricePerMeter.Should().Be(5000m);
-        innenstadt.PostalCode.Should().BeNull();
-        innenstadt.Availability.Should().BeNull();
-    }
-
-    [Test]
-    public async Task GetAggregatedAsync_ReturnsEmptyList_WhenTableIsEmpty()
-    {
-        // Act
-        var result = await _controller.GetAggregatedAsync();
-        var response = GetResponseValue(result);
-
-        // Assert
-        response.Should().NotBeNull();
-        response!.Success.Should().BeTrue();
-        response.Data.Should().BeEmpty();
-    }
-
-    [Test]
-    public async Task GetAggregatedAsync_OrdersByDistrictThenRoomsCount()
-    {
-        // Arrange
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        _dbContext.FlatAggregations.Add(new FlatAggregationSnapshot
-        {
-            District = "Zentrum",
-            RoomsCount = 3,
-            Count = 3,
-            AvgPricePerMeter = 6000m,
-            ScrapingDate = today
-        });
-        _dbContext.FlatAggregations.Add(new FlatAggregationSnapshot
-        {
-            District = "Innenstadt",
-            RoomsCount = 3,
-            Count = 2,
-            AvgPricePerMeter = 5500m,
-            ScrapingDate = today
-        });
-        _dbContext.FlatAggregations.Add(new FlatAggregationSnapshot
-        {
-            District = "Innenstadt",
-            RoomsCount = 2,
-            Count = 5,
-            AvgPricePerMeter = 5000m,
-            ScrapingDate = today
-        });
-        await _dbContext.SaveChangesAsync();
-
-        // Act
-        var result = await _controller.GetAggregatedAsync();
-        var response = GetResponseValue(result);
-
-        // Assert
-        response!.Data.Should().HaveCount(3);
-        response.Data![0].District.Should().Be("Innenstadt");
-        response.Data![0].RoomsCount.Should().Be(2);
-        response.Data![1].District.Should().Be("Innenstadt");
-        response.Data![1].RoomsCount.Should().Be(3);
-        response.Data![2].District.Should().Be("Zentrum");
-        response.Data![2].RoomsCount.Should().Be(3);
-    }
-
-    [Test]
-    public async Task GetAggregatedAsync_MapsPostalCodeAndAvailabilityToNull()
-    {
-        // Arrange
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        _dbContext.FlatAggregations.Add(new FlatAggregationSnapshot
-        {
-            District = "Innenstadt",
-            RoomsCount = 2,
-            Count = 5,
-            AvgPricePerMeter = 5000m,
-            ScrapingDate = today
-        });
-        await _dbContext.SaveChangesAsync();
-
-        // Act
-        var result = await _controller.GetAggregatedAsync();
-        var response = GetResponseValue(result);
-
-        // Assert
-        var aggregation = response!.Data!.First();
-        aggregation.PostalCode.Should().BeNull();
-        aggregation.Availability.Should().BeNull();
-    }
-
-    [Test]
-    public async Task GetAggregatedAsync_HandlesNullDistrict()
-    {
-        // Arrange
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        _dbContext.FlatAggregations.Add(new FlatAggregationSnapshot
-        {
-            District = null,
-            RoomsCount = 2,
-            Count = 5,
-            AvgPricePerMeter = 5000m,
-            ScrapingDate = today
-        });
-        await _dbContext.SaveChangesAsync();
-
-        // Act
-        var result = await _controller.GetAggregatedAsync();
-        var response = GetResponseValue(result);
-
-        // Assert
-        response!.Data.Should().HaveCount(1);
-        response.Data![0].District.Should().BeNull();
-    }
-
-    [Test]
-    public async Task GetAggregatedAsync_HandlesNullRoomsCount()
-    {
-        // Arrange
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        _dbContext.FlatAggregations.Add(new FlatAggregationSnapshot
-        {
-            District = "Innenstadt",
-            RoomsCount = null,
-            Count = 5,
-            AvgPricePerMeter = 5000m,
-            ScrapingDate = today
-        });
-        await _dbContext.SaveChangesAsync();
-
-        // Act
-        var result = await _controller.GetAggregatedAsync();
-        var response = GetResponseValue(result);
-
-        // Assert
-        response!.Data.Should().HaveCount(1);
-        response.Data![0].RoomsCount.Should().BeNull();
+        return okResult!.Value.Should().BeOfType<TResponse>().Subject;
     }
 }

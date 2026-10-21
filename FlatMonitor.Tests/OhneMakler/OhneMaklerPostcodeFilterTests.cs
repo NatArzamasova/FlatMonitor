@@ -3,7 +3,6 @@ namespace workInProgress.Tests.OhneMakler;
 using NUnit.Framework;
 using FluentAssertions;
 using workInProgress.Scraping.OhneMakler;
-using workInProgress.Models;
 
 [TestFixture]
 public class OhneMaklerPostcodeFilterTests

@@ -4,7 +4,6 @@ using NUnit.Framework;
 using FluentAssertions;
 using workInProgress.Scraping;
 using workInProgress.Scraping.ImmobilienScout24;
-using workInProgress.Models;
 
 [TestFixture]
 public class ImmobilienScout24ScraperTests

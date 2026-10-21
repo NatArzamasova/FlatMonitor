@@ -4,7 +4,6 @@ using FluentAssertions;
 using System.Text.Json;
 using workInProgress.Models;
 using workInProgress.Storage;
-using workInProgress.Scraping.OhneMakler;
 
 namespace workInProgress.Tests;
 [TestFixture]

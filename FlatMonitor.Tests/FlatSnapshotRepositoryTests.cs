@@ -4,7 +4,6 @@ using Microsoft.EntityFrameworkCore;
 using workInProgress.Data;
 using workInProgress.Models;
 using workInProgress.Storage;
-using workInProgress.Scraping.OhneMakler;
 
 namespace workInProgress.Tests;
 
@@ -304,6 +303,40 @@ public class FlatSnapshotRepositoryTests
         scoutRow.Should().NotBeNull();
         scoutRow!.Details.Should().NotBeNull();
         scoutRow.Details!.Title.Should().Be("From ImmobilienScout24");
+    }
+
+    [Test]
+    public async Task GetCurrentOffersAsync_OrdersByMostRecentScrapeAndMapsOfferFields()
+    {
+        var options = CreateInMemoryOptions();
+        await using var repo = new FlatSnapshotRepository(options);
+        await repo.InitializeAsync();
+
+        await using (var dbContext = new FlatsDbContext(options))
+        {
+            dbContext.FlatsSnapshots.AddRange(
+                new FlatSnapshot
+                {
+                    Source = "source", ListingId = "older", ScrapedAtUtc = "2026-10-20T08:00:00Z",
+                    District = "Innenstadt", RoomsCount = 2, PriceEur = 900, PricePerMeter = 30, Url = "old-url"
+                },
+                new FlatSnapshot
+                {
+                    Source = "source", ListingId = "newer", ScrapedAtUtc = "2026-10-21T08:00:00Z",
+                    District = "Zentrum", RoomsCount = 3, PriceEur = 1200, PricePerMeter = 40, Url = "new-url"
+                });
+            await dbContext.SaveChangesAsync();
+        }
+
+        var result = await repo.GetCurrentOffersAsync();
+
+        result.Should().HaveCount(2);
+        result[0].District.Should().Be("Zentrum");
+        result[0].RoomsNumber.Should().Be(3);
+        result[0].Price.Should().Be(1200);
+        result[0].PricePerMeter.Should().Be(40);
+        result[0].Url.Should().Be("new-url");
+        result[0].Source.Should().Be("source");
     }
 
     // ==================== BACKUP/RESTORE TESTS ====================

@@ -258,4 +258,61 @@ public class FlatAggregationRepositoryTests
         aggregations.Should().HaveCount(1);
         aggregations.First().Count.Should().Be(1);
     }
+
+    [Test]
+    public async Task GetHistoryAsync_OrdersRowsAndFormatsDate()
+    {
+        var options = CreateInMemoryOptions();
+        await using var repo = new FlatAggregationRepository(options);
+        await repo.InitializeAsync();
+        var date = new DateOnly(2026, 10, 20);
+        await using (var dbContext = new FlatsDbContext(options))
+        {
+            dbContext.FlatAggregations.AddRange(
+                new FlatAggregationSnapshot { ScrapingDate = date, District = "Zentrum", RoomsCount = 1, Count = 1, AvgPricePerMeter = 10 },
+                new FlatAggregationSnapshot { ScrapingDate = date.AddDays(-1), District = "Innenstadt", RoomsCount = 2, Count = 2, AvgPricePerMeter = 20 });
+            await dbContext.SaveChangesAsync();
+        }
+
+        var result = await repo.GetHistoryAsync();
+
+        result.Select(x => x.ScrapingDate).Should().Equal("2026-10-19", "2026-10-20");
+        result[0].District.Should().Be("Innenstadt");
+    }
+
+    [Test]
+    public async Task GetLatestAsync_ReturnsOnlyLatestDateOrderedByDistrictThenRooms()
+    {
+        var options = CreateInMemoryOptions();
+        await using var repo = new FlatAggregationRepository(options);
+        await repo.InitializeAsync();
+        var yesterday = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1));
+        var today = yesterday.AddDays(1);
+        await using (var dbContext = new FlatsDbContext(options))
+        {
+            dbContext.FlatAggregations.AddRange(
+                new FlatAggregationSnapshot { ScrapingDate = yesterday, District = "Alt", RoomsCount = 1, Count = 99, AvgPricePerMeter = 1 },
+                new FlatAggregationSnapshot { ScrapingDate = today, District = "Zentrum", RoomsCount = 3, Count = 3, AvgPricePerMeter = 3 },
+                new FlatAggregationSnapshot { ScrapingDate = today, District = "Innenstadt", RoomsCount = 3, Count = 2, AvgPricePerMeter = 2 },
+                new FlatAggregationSnapshot { ScrapingDate = today, District = "Innenstadt", RoomsCount = 2, Count = 5, AvgPricePerMeter = 5 });
+            await dbContext.SaveChangesAsync();
+        }
+
+        var result = await repo.GetLatestAsync();
+
+        result.Select(x => (x.District, x.RoomsCount)).Should().ContainInOrder(
+            ("Innenstadt", 2), ("Innenstadt", 3), ("Zentrum", 3));
+        result.Should().OnlyContain(x => x.PostalCode == null && x.Availability == null);
+        result.Should().NotContain(x => x.Count == 99);
+    }
+
+    [Test]
+    public async Task GetLatestAsync_ReturnsEmptyListWhenThereAreNoRows()
+    {
+        var options = CreateInMemoryOptions();
+        await using var repo = new FlatAggregationRepository(options);
+        await repo.InitializeAsync();
+
+        (await repo.GetLatestAsync()).Should().BeEmpty();
+    }
 }

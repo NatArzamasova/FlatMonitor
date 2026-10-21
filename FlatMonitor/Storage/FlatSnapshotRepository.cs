@@ -1,7 +1,7 @@
 namespace workInProgress.Storage;
 
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
+using workInProgress.Api.Models;
 using workInProgress.Data;
 using workInProgress.Models;
 
@@ -199,4 +199,21 @@ public sealed class FlatSnapshotRepository : ISnapshotRepository
         var dbPath = Path.Combine(dataDir, "listings.db");
         return $"Data Source={dbPath}";
     }
+
+    public async Task<List<FlatOfferDto>> GetCurrentOffersAsync(CancellationToken ct = default)
+    {
+        return await _dbContext.FlatsSnapshots
+                .OrderByDescending(s => s.ScrapedAtUtc)
+                .Select(s => new FlatOfferDto
+                {
+                    District = s.District,
+                    RoomsNumber = s.RoomsCount,
+                    Price = s.PriceEur,
+                    PricePerMeter = s.PricePerMeter,
+                    Url = s.Url,
+                    Source = s.Source
+                })
+                .ToListAsync();
+    }
+
 }

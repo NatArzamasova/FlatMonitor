@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore;
 using workInProgress.Api.Models;
 using workInProgress.Api.Services;
 using workInProgress.Data;
-using workInProgress.Models;
 
 [ApiController]
 [Route("api/[controller]")]

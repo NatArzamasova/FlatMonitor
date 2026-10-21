@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using workInProgress.Api.Services;
 using workInProgress.Data;
-using workInProgress.Models;
 using workInProgress.Scraping;
 using workInProgress.Storage;
 

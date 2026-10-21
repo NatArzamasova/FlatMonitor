@@ -2,6 +2,8 @@ namespace workInProgress.Storage;
 
 using Microsoft.EntityFrameworkCore;
 using workInProgress.Data;
+using workInProgress.Api.Models;
+using workInProgress.Models;
 
 public sealed class FlatAggregationRepository : IFlatAggregationRepository
 {
@@ -56,6 +58,46 @@ public sealed class FlatAggregationRepository : IFlatAggregationRepository
         // Add the new aggregations
         await _dbContext.FlatAggregations.AddRangeAsync(aggregated, ct);
         await _dbContext.SaveChangesAsync(ct);
+    }
+
+    public Task<List<FlatHistoryDto>> GetHistoryAsync(CancellationToken ct = default) =>
+        _dbContext.FlatAggregations
+            .AsNoTracking()
+            .OrderBy(a => a.ScrapingDate)
+            .ThenBy(a => a.District)
+            .ThenBy(a => a.RoomsCount)
+            .Select(a => new FlatHistoryDto
+            {
+                ScrapingDate = a.ScrapingDate.ToString("yyyy-MM-dd"),
+                District = a.District,
+                RoomsCount = a.RoomsCount,
+                AvgPricePerMeter = a.AvgPricePerMeter,
+                Count = a.Count
+            })
+            .ToListAsync(ct);
+
+    public async Task<List<FlatAggregation>> GetLatestAsync(CancellationToken ct = default)
+    {
+        var latestScrapingDate = await _dbContext.FlatAggregations
+            .MaxAsync(a => (DateOnly?)a.ScrapingDate, ct);
+        if (latestScrapingDate is null)
+            return [];
+
+        return await _dbContext.FlatAggregations
+            .AsNoTracking()
+            .Where(a => a.ScrapingDate == latestScrapingDate)
+            .OrderBy(a => a.District)
+            .ThenBy(a => a.RoomsCount)
+            .Select(a => new FlatAggregation
+            {
+                PostalCode = null,
+                District = a.District,
+                RoomsCount = a.RoomsCount,
+                Availability = null,
+                Count = a.Count,
+                AvgPricePerMeter = a.AvgPricePerMeter
+            })
+            .ToListAsync(ct);
     }
 
     public async ValueTask DisposeAsync()

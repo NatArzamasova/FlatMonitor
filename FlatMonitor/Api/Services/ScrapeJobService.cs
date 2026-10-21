@@ -1,7 +1,6 @@
 namespace workInProgress.Api.Services;
 
 using System.Collections.Concurrent;
-using workInProgress.Models;
 
 public class ScrapeJobService
 {

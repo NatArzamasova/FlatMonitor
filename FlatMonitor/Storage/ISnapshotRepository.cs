@@ -1,6 +1,7 @@
 namespace workInProgress.Storage;
 
 using workInProgress.Models;
+using workInProgress.Api.Models;
 
 /// <summary>
 /// SQLite-specific repository for persisting apartments (Flat) to the database (FlatsSnapshots table).
@@ -15,4 +16,5 @@ public interface ISnapshotRepository : IAsyncDisposable
     Task BackupFlatsSnapshotsAsync(CancellationToken ct = default);
     Task RestoreFlatsSnapshotsAsync(CancellationToken ct = default);
     Task DeleteBackupAsync(CancellationToken ct = default);
+    Task<List<FlatOfferDto>> GetCurrentOffersAsync(CancellationToken ct = default);
 }

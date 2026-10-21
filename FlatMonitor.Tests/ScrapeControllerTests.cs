@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using workInProgress.Api.Controllers;
-using workInProgress.Api.Models;
 using workInProgress.Api.Services;
 using workInProgress.Data;
 

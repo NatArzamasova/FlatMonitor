@@ -1,19 +1,21 @@
 namespace workInProgress.Api.Controllers;
 
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using workInProgress.Api.Models;
-using workInProgress.Data;
+using workInProgress.Models;
+using workInProgress.Storage;
 
 [ApiController]
 [Route("api/[controller]")]
 public class FlatsController : ControllerBase
 {
-    private readonly FlatsDbContext _context;
+    private readonly ISnapshotRepository _snapshotRepository;
+    private readonly IFlatAggregationRepository _aggregationRepository;
 
-    public FlatsController(FlatsDbContext context)
+    public FlatsController(ISnapshotRepository snapshotRepository, IFlatAggregationRepository aggregationRepository)
     {
-        _context = context;
+        _snapshotRepository = snapshotRepository;
+        _aggregationRepository = aggregationRepository;
     }
 
     [HttpGet("history")]
@@ -21,19 +23,7 @@ public class FlatsController : ControllerBase
     {
         try
         {
-            var history = await _context.FlatAggregations
-                .OrderBy(a => a.ScrapingDate)
-                .ThenBy(a => a.District)
-                .ThenBy(a => a.RoomsCount)
-                .Select(a => new FlatHistoryDto
-                {
-                    ScrapingDate = a.ScrapingDate.ToString("yyyy-MM-dd"),
-                    District = a.District,
-                    RoomsCount = a.RoomsCount,
-                    AvgPricePerMeter = a.AvgPricePerMeter,
-                    Count = a.Count
-                })
-                .ToListAsync();
+            var history = await _aggregationRepository.GetHistoryAsync();
 
             return Ok(new ApiResponse<List<FlatHistoryDto>>
             {
@@ -57,18 +47,7 @@ public class FlatsController : ControllerBase
     {
         try
         {
-            var offers = await _context.FlatsSnapshots
-                .OrderByDescending(s => s.ScrapedAtUtc)
-                .Select(s => new FlatOfferDto
-                {
-                    District = s.District,
-                    RoomsNumber = s.RoomsCount,
-                    Price = s.PriceEur,
-                    PricePerMeter = s.PricePerMeter,
-                    Url = s.Url,
-                    Source = s.Source
-                })
-                .ToListAsync();
+            var offers = await _snapshotRepository.GetCurrentOffersAsync();
 
             return Ok(new ApiResponse<List<FlatOfferDto>>
             {
@@ -92,35 +71,7 @@ public class FlatsController : ControllerBase
     {
         try
         {
-            // Get the latest scraping date
-            var latestScrapingDate = await _context.FlatAggregations
-                .MaxAsync(a => (DateOnly?)a.ScrapingDate);
-
-            // If no data, return empty list
-            if (latestScrapingDate == null)
-            {
-                return Ok(new ApiResponse<List<FlatAggregation>>
-                {
-                    Success = true,
-                    Data = new List<FlatAggregation>(),
-                    Message = "Aggregated successfully"
-                });
-            }
-
-            var aggregated = await _context.FlatAggregations
-                .Where(a => a.ScrapingDate == latestScrapingDate)
-                .OrderBy(a => a.District)
-                .ThenBy(a => a.RoomsCount)
-                .Select(a => new FlatAggregation
-                {
-                    PostalCode = null,
-                    District = a.District,
-                    RoomsCount = a.RoomsCount,
-                    Availability = null,
-                    Count = a.Count,
-                    AvgPricePerMeter = a.AvgPricePerMeter
-                })
-                .ToListAsync();
+            var aggregated = await _aggregationRepository.GetLatestAsync();
 
             return Ok(new ApiResponse<List<FlatAggregation>>
             {
