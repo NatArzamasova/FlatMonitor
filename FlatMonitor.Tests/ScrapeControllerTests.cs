@@ -2,11 +2,11 @@ using NUnit.Framework;
 using FluentAssertions;
 using Moq;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using workInProgress.Api.Controllers;
+using workInProgress.Api.Models;
 using workInProgress.Api.Services;
-using workInProgress.Data;
+using workInProgress.Storage;
 
 namespace workInProgress.Tests;
 
@@ -16,33 +16,21 @@ public class ScrapeControllerTests
     private ScrapeController _controller = null!;
     private ScrapeJobService _jobService = null!;
     private Mock<ScrapeBackgroundService> _mockBackgroundService = null!;
-    private FlatsDbContext _dbContext = null!;
+    private Mock<IScrapingHistoryRepository> _mockHistoryRepository = null!;
 
     [SetUp]
     public void Setup()
     {
         _jobService = new ScrapeJobService();
 
-        var options = new DbContextOptionsBuilder<FlatsDbContext>()
-            .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
-            .Options;
-
-        _dbContext = new FlatsDbContext(options);
-        _dbContext.Database.EnsureCreated();
-
         _mockBackgroundService = new Mock<ScrapeBackgroundService>(
             It.IsAny<IServiceProvider>(),
             It.IsAny<ScrapeJobService>(),
             It.IsAny<ScrapeStateService>(),
             It.IsAny<ILogger<ScrapeBackgroundService>>());
+        _mockHistoryRepository = new Mock<IScrapingHistoryRepository>();
 
-        _controller = new ScrapeController(_jobService, _mockBackgroundService.Object, _dbContext);
-    }
-
-    [TearDown]
-    public void Teardown()
-    {
-        _dbContext?.Dispose();
+        _controller = new ScrapeController(_jobService, _mockBackgroundService.Object, _mockHistoryRepository.Object);
     }
 
     [Test]
@@ -97,6 +85,26 @@ public class ScrapeControllerTests
         var result = _controller.CancelScrape();
 
         result.Should().BeOfType<OkObjectResult>();
+    }
+
+    [Test]
+    public async Task GetScrapingStatus_ReturnsHistoryFromRepositoryAndCurrentJobState()
+    {
+        var latest = new ScrapingHistoryDto { Id = 2, Status = "Failed", FlatsScrapedCount = 1 };
+        var latestSuccessful = new ScrapingHistoryDto { Id = 1, Status = "Successful", FlatsScrapedCount = 5 };
+        var runningJob = _jobService.QueueJob();
+        _jobService.UpdateJobStatus(runningJob.JobId, ScrapeJobService.ScrapeJobStatus.Running);
+        _mockHistoryRepository.Setup(r => r.GetLatestAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ScrapingStatusHistory(latest, latestSuccessful));
+
+        var action = await _controller.GetScrapingStatus();
+        var response = action.Value ?? (action.Result as OkObjectResult)?.Value as ScrapingStatusResponse;
+
+        response.Should().NotBeNull();
+        response!.IsScrapingInProgress.Should().BeTrue();
+        response.LastScrapingHistory.Should().BeSameAs(latest);
+        response.LastSuccessfulScrapingHistory.Should().BeSameAs(latestSuccessful);
+        _mockHistoryRepository.Verify(r => r.GetLatestAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test]

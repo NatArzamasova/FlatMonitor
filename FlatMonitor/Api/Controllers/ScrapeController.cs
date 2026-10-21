@@ -1,10 +1,9 @@
 namespace workInProgress.Api.Controllers;
 
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using workInProgress.Api.Models;
 using workInProgress.Api.Services;
-using workInProgress.Data;
+using workInProgress.Storage;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -12,13 +11,13 @@ public class ScrapeController : ControllerBase
 {
     private readonly ScrapeJobService _jobService;
     private readonly ScrapeBackgroundService _backgroundService;
-    private readonly FlatsDbContext _context;
+    private readonly IScrapingHistoryRepository _historyRepository;
 
-    public ScrapeController(ScrapeJobService jobService, ScrapeBackgroundService backgroundService, FlatsDbContext context)
+    public ScrapeController(ScrapeJobService jobService, ScrapeBackgroundService backgroundService, IScrapingHistoryRepository historyRepository)
     {
         _jobService = jobService;
         _backgroundService = backgroundService;
-        _context = context;
+        _historyRepository = historyRepository;
     }
 
     [HttpPost]
@@ -39,36 +38,13 @@ public class ScrapeController : ControllerBase
     {
         var isScrapingInProgress = _jobService.IsScrapingInProgress();
 
-        var lastScrapingHistory = await _context.ScrapingHistories
-            .OrderByDescending(h => h.StartTimeUtc)
-            .FirstOrDefaultAsync();
-
-        var lastSuccessfulScrapingHistory = await _context.ScrapingHistories
-            .Where(h => h.Status == "Successful")
-            .OrderByDescending(h => h.StartTimeUtc)
-            .FirstOrDefaultAsync();
+        var histories = await _historyRepository.GetLatestAsync();
 
         var response = new ScrapingStatusResponse
         {
             IsScrapingInProgress = isScrapingInProgress,
-            LastScrapingHistory = lastScrapingHistory != null ? new ScrapingHistoryDto
-            {
-                Id = lastScrapingHistory.Id,
-                StartTimeUtc = lastScrapingHistory.StartTimeUtc,
-                EndTimeUtc = lastScrapingHistory.EndTimeUtc,
-                Status = lastScrapingHistory.Status,
-                ErrorMessage = lastScrapingHistory.ErrorMessage,
-                FlatsScrapedCount = lastScrapingHistory.FlatsScrapedCount
-            } : null,
-            LastSuccessfulScrapingHistory = lastSuccessfulScrapingHistory != null ? new ScrapingHistoryDto
-            {
-                Id = lastSuccessfulScrapingHistory.Id,
-                StartTimeUtc = lastSuccessfulScrapingHistory.StartTimeUtc,
-                EndTimeUtc = lastSuccessfulScrapingHistory.EndTimeUtc,
-                Status = lastSuccessfulScrapingHistory.Status,
-                ErrorMessage = lastSuccessfulScrapingHistory.ErrorMessage,
-                FlatsScrapedCount = lastSuccessfulScrapingHistory.FlatsScrapedCount
-            } : null
+            LastScrapingHistory = histories.Latest,
+            LastSuccessfulScrapingHistory = histories.LatestSuccessful
         };
 
         return Ok(response);

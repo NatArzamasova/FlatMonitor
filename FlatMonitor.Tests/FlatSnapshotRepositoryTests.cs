@@ -314,17 +314,23 @@ public class FlatSnapshotRepositoryTests
 
         await using (var dbContext = new FlatsDbContext(options))
         {
-            dbContext.FlatsSnapshots.AddRange(
-                new FlatSnapshot
-                {
-                    Source = "source", ListingId = "older", ScrapedAtUtc = "2026-10-20T08:00:00Z",
-                    District = "Innenstadt", RoomsCount = 2, PriceEur = 900, PricePerMeter = 30, Url = "old-url"
-                },
-                new FlatSnapshot
-                {
-                    Source = "source", ListingId = "newer", ScrapedAtUtc = "2026-10-21T08:00:00Z",
-                    District = "Zentrum", RoomsCount = 3, PriceEur = 1200, PricePerMeter = 40, Url = "new-url"
-                });
+            var older = new FlatSnapshot
+            {
+                Source = "source", ListingId = "older", ScrapedAtUtc = "2026-10-20T08:00:00Z",
+                District = "Innenstadt", RoomsCount = 2, PriceEur = 900, PricePerMeter = 30, Url = "old-url"
+            };
+            var newer = new FlatSnapshot
+            {
+                Source = "source", ListingId = "newer", ScrapedAtUtc = "2026-10-21T08:00:00Z",
+                District = "Zentrum", RoomsCount = 3, PriceEur = 1200, PricePerMeter = 40, Url = "new-url"
+            };
+            dbContext.FlatsSnapshots.AddRange(older, newer);
+            var createdAt = DateTime.UtcNow.ToString("O");
+            foreach (var snapshot in new[] { older, newer })
+            {
+                dbContext.Entry(snapshot).Property<string>("CreatedAtUtc").CurrentValue = createdAt;
+                dbContext.Entry(snapshot).Property<string>("UpdatedAtUtc").CurrentValue = createdAt;
+            }
             await dbContext.SaveChangesAsync();
         }
 
