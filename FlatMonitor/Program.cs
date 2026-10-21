@@ -1,11 +1,10 @@
 using dotenv.net;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using System.Runtime.InteropServices;
+using workInProgress.Api.Services;
 using workInProgress.Data;
 using workInProgress.Scraping;
 using workInProgress.Scraping.ImmobilienScout24;
@@ -55,10 +54,9 @@ async Task<int> RunScrapeAsync()
     Console.WriteLine("Starting scraper...");
 
     var services = new ServiceCollection();
-
-    // Add DbContext
     var dbPath = Path.Combine(Directory.GetCurrentDirectory(), "FlatMonitor", "data", "listings.db");
     Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
+
     services.AddDbContext<FlatsDbContext>(options =>
         options.UseSqlite($"Data Source={dbPath}"));
 
@@ -71,11 +69,9 @@ async Task<int> RunScrapeAsync()
 
     services.AddScoped<OhneMaklerScraper>();
     services.AddScoped<ImmobilienScout24Scraper>();
-
     services.AddScoped<ISnapshotRepository>(sp => new FlatSnapshotRepository(sp.GetRequiredService<DbContextOptions<FlatsDbContext>>()));
     services.AddScoped<IFlatAggregationRepository>(sp => new FlatAggregationRepository(sp.GetRequiredService<DbContextOptions<FlatsDbContext>>()));
     services.AddScoped<SnapshotWriter>();
-
     services.AddScoped<ScraperCoordinator>(sp =>
     {
         var scrapers = new IScraper[]
@@ -87,63 +83,50 @@ async Task<int> RunScrapeAsync()
         var snapshotWriter = sp.GetRequiredService<SnapshotWriter>();
         return new ScraperCoordinator(scrapers, repository, snapshotWriter);
     });
+    services.AddLogging(logging => logging.AddConsole());
+    services.AddScoped<ScrapeExecutionService>();
 
     var serviceProvider = services.BuildServiceProvider();
 
     try
     {
-        // Apply migrations
         await using var dbContext = serviceProvider.GetRequiredService<FlatsDbContext>();
         await dbContext.Database.MigrateAsync();
 
-        await using var repository = (FlatSnapshotRepository)serviceProvider.GetRequiredService<ISnapshotRepository>();
-        await using var aggregationRepository = (FlatAggregationRepository)serviceProvider.GetRequiredService<IFlatAggregationRepository>();
-        await using var coordinator = serviceProvider.GetRequiredService<ScraperCoordinator>();
+        await using var snapshotRepo = (FlatSnapshotRepository)serviceProvider.GetRequiredService<ISnapshotRepository>();
+        var executionService = serviceProvider.GetRequiredService<ScrapeExecutionService>();
 
         try
         {
-            // Backup before clearing
             Console.WriteLine("Backing up FlatsSnapshots table...");
-            await repository.BackupFlatsSnapshotsAsync();
-
-            // Clear the table
             Console.WriteLine("Clearing FlatsSnapshots table...");
-            await dbContext.FlatsSnapshots.ExecuteDeleteAsync();
-            await dbContext.SaveChangesAsync();
-
-            var flatsCount = await coordinator.ScrapeAllSourcesAsync();
-
             Console.WriteLine("Refreshing flat aggregations...");
-            await aggregationRepository.RefreshAsync();
 
-            // Check if there were any scraper errors
-            if (coordinator.ScraperErrors.Count > 0)
+            var result = await executionService.ExecuteAsync();
+
+            if (result.Success)
+            {
+                Console.WriteLine("Scrape successful, deleting backup...");
+                Console.WriteLine($"✓ Scraping completed. Total flats scraped: {result.FlatsCount}");
+                return 0;
+            }
+            else
             {
                 Console.Error.WriteLine("⚠ Scraping completed with errors:");
-                foreach (var error in coordinator.ScraperErrors)
+                foreach (var error in result.ScraperErrors)
                 {
                     Console.Error.WriteLine($"  - {error}");
                 }
-                // Delete backup even with partial failure (data is partial but usable)
-                await repository.DeleteBackupAsync();
-                Console.WriteLine($"✓ Partially scraped: {flatsCount} flats collected (with errors)");
-                return 1; // Return error code to signal partial failure
+                Console.WriteLine($"✓ Partially scraped: {result.FlatsCount} flats collected (with errors)");
+                return 1;
             }
-
-            // Delete backup on success
-            Console.WriteLine("Scrape successful, deleting backup...");
-            await repository.DeleteBackupAsync();
-
-            Console.WriteLine($"✓ Scraping completed. Total flats scraped: {flatsCount}");
-            return 0;
         }
         catch (Exception ex)
         {
-            // Restore from backup on failure
             Console.Error.WriteLine($"Scrape failed, restoring from backup: {ex.Message}");
             try
             {
-                await repository.RestoreFlatsSnapshotsAsync();
+                await snapshotRepo.RestoreFlatsSnapshotsAsync();
                 Console.WriteLine("✓ Data restored from backup");
             }
             catch (Exception restoreEx)
@@ -252,6 +235,7 @@ async Task<int> RunWebServerAsync(string[] args)
 
         builder.Services.AddSingleton<workInProgress.Api.Services.ScrapeStateService>();
         builder.Services.AddSingleton<workInProgress.Api.Services.ScrapeJobService>();
+        builder.Services.AddScoped<workInProgress.Api.Services.ScrapeExecutionService>();
         builder.Services.AddSingleton<workInProgress.Api.Services.ScrapeBackgroundService>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<workInProgress.Api.Services.ScrapeBackgroundService>());
 
