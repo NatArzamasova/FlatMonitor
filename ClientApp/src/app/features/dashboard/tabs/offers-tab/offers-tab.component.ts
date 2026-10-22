@@ -102,7 +102,7 @@ import { FlatOffer } from '../../../../core/models/flat-offer.model';
               <td class="text-end">
                 {{ offer.priceEur ? (offer.priceEur | currency: 'EUR': 'symbol': '1.0-0') : '-' }}
                 <span *ngIf="getDiscountPercentage(offer) !== null">
-                  ({{ getDiscountPercentage(offer) | number: '1.0-1' }}%)
+                  (- {{ getDiscountPercentage(offer) | number: '1.0-1' }}%)
                 </span>
               </td>
               <td class="text-end">
@@ -176,7 +176,8 @@ export class OffersTabComponent implements OnInit {
       return null;
     }
 
-    return ((offer.originalPriceEur! - offer.priceEur!) / offer.originalPriceEur!) * 100;
+    const discountPercentage = ((offer.originalPriceEur! - offer.priceEur!) / offer.originalPriceEur!) * 100;
+    return discountPercentage > 0 ? discountPercentage : null;
   }
 
   private loadInitialFiltersFromUrl(): void {
