@@ -1,7 +1,7 @@
 namespace FlatMonitor.Storage;
 
 using FlatMonitor.Api.Models;
-
+using FlatMonitor.Models;
 using Microsoft.EntityFrameworkCore;
 
 
@@ -60,13 +60,13 @@ public sealed class FlatAggregationRepository : IFlatAggregationRepository
         await _dbContext.SaveChangesAsync(ct);
     }
 
-    public Task<List<FlatHistoryDto>> GetHistoryAsync(CancellationToken ct = default) =>
+    public Task<List<FlatHistory>> GetHistoryAsync(CancellationToken ct = default) =>
         _dbContext.FlatAggregations
             .AsNoTracking()
             .OrderBy(a => a.ScrapingDate)
             .ThenBy(a => a.District)
             .ThenBy(a => a.RoomsCount)
-            .Select(a => new FlatHistoryDto
+            .Select(a => new FlatHistory
             {
                 ScrapingDate = a.ScrapingDate.ToString("yyyy-MM-dd"),
                 District = a.District,

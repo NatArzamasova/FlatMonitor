@@ -19,13 +19,13 @@ public class FlatsController : ControllerBase
     }
 
     [HttpGet("history")]
-    public async Task<ActionResult<ApiResponse<List<FlatHistoryDto>>>> GetHistoryAsync()
+    public async Task<ActionResult<ApiResponse<List<FlatHistory>>>> GetHistoryAsync()
     {
         try
         {
             var history = await _aggregationRepository.GetHistoryAsync();
 
-            return Ok(new ApiResponse<List<FlatHistoryDto>>
+            return Ok(new ApiResponse<List<FlatHistory>>
             {
                 Success = true,
                 Data = history,
@@ -34,7 +34,7 @@ public class FlatsController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new ApiResponse<List<FlatHistoryDto>>
+            return StatusCode(500, new ApiResponse<List<FlatHistory>>
             {
                 Success = false,
                 Message = $"Error fetching history: {ex.Message}"

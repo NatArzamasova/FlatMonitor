@@ -27,7 +27,7 @@ public class FlatsControllerTests
     [Test]
     public async Task GetHistoryAsync_ReturnsSuccessfulApiResponse()
     {
-        var history = new List<FlatHistoryDto> { new() { District = "Innenstadt", ScrapingDate = "2026-10-20" } };
+        var history = new List<FlatHistory> { new() { District = "Innenstadt", ScrapingDate = "2026-10-20" } };
         _aggregationRepository.Setup(r => r.GetHistoryAsync(It.IsAny<CancellationToken>())).ReturnsAsync(history);
 
         var result = await _controller.GetHistoryAsync();

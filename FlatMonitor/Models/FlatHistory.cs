@@ -1,6 +1,6 @@
-namespace FlatMonitor.Api.Models;
+namespace FlatMonitor.Models;
 
-public class FlatHistoryDto
+public class FlatHistory
 {
     public string? ScrapingDate { get; set; }
     public string? District { get; set; }
