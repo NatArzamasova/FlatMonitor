@@ -175,6 +175,23 @@ describe('OffersTabComponent', () => {
     });
   });
 
+  describe('Price display', () => {
+    it('identifies offers with a changed original price', () => {
+      expect(component.hasChangedPrice(mockOffersResponse.data![0])).toBe(true);
+      expect(component.hasChangedPrice(mockOffersResponse.data![1])).toBe(false);
+    });
+
+    it('does not identify offers missing either price', () => {
+      expect(component.hasChangedPrice({ priceEur: 2000 })).toBe(false);
+      expect(component.hasChangedPrice({ originalPriceEur: 2200 })).toBe(false);
+    });
+
+    it('calculates the discount percentage from the original price', () => {
+      expect(component.getDiscountPercentage(mockOffersResponse.data![0])).toBeCloseTo(9.0909, 3);
+      expect(component.getDiscountPercentage(mockOffersResponse.data![1])).toBeNull();
+    });
+  });
+
   describe('Initial URL filters', () => {
     it('loads district and room filters from the URL', () => {
       const originalSearch = window.location.search;

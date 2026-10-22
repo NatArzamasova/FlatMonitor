@@ -99,8 +99,20 @@ import { FlatOffer } from '../../../../core/models/flat-offer.model';
             <tr *ngFor="let offer of filteredOffers">
               <td>{{ offer.district || '-' }}</td>
               <td class="text-center">{{ offer.roomsCount ? (offer.roomsCount | number: '1.0-0') : '-' }}</td>
-              <td class="text-end">{{ offer.priceEur ? (offer.priceEur | currency: 'EUR': 'symbol': '1.0-0') : '-' }}</td>
-              <td class="text-end">{{ offer.originalPriceEur ? (offer.originalPriceEur | currency: 'EUR': 'symbol': '1.0-0') : '-' }}</td>
+              <td class="text-end">
+                {{ offer.priceEur ? (offer.priceEur | currency: 'EUR': 'symbol': '1.0-0') : '-' }}
+                <span *ngIf="getDiscountPercentage(offer) !== null">
+                  ({{ getDiscountPercentage(offer) | number: '1.0-1' }}%)
+                </span>
+              </td>
+              <td class="text-end">
+                <span
+                  [class.text-danger]="hasChangedPrice(offer)"
+                  [class.text-decoration-line-through]="hasChangedPrice(offer)"
+                >
+                  {{ offer.originalPriceEur ? (offer.originalPriceEur | currency: 'EUR': 'symbol': '1.0-0') : '-' }}
+                </span>
+              </td>
               <td class="text-end">{{ offer.livingAreaSqm ? (offer.livingAreaSqm | number: '1.0-1') : '-' }}</td>
               <td class="text-end">{{ offer.pricePerMeter ? (offer.pricePerMeter | number: '1.0-0') : '-' }}</td>
               <td>
@@ -151,6 +163,20 @@ export class OffersTabComponent implements OnInit {
   ngOnInit(): void {
     this.loadInitialFiltersFromUrl();
     this.loadCurrentOffers();
+  }
+
+  hasChangedPrice(offer: FlatOffer): boolean {
+    return offer.priceEur != null &&
+      offer.originalPriceEur != null &&
+      offer.priceEur !== offer.originalPriceEur;
+  }
+
+  getDiscountPercentage(offer: FlatOffer): number | null {
+    if (!this.hasChangedPrice(offer) || offer.originalPriceEur! <= 0) {
+      return null;
+    }
+
+    return ((offer.originalPriceEur! - offer.priceEur!) / offer.originalPriceEur!) * 100;
   }
 
   private loadInitialFiltersFromUrl(): void {
