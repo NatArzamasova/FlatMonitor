@@ -219,6 +219,7 @@ export class HistoryTabComponent implements OnInit, OnDestroy, AfterViewInit {
 
     const uniqueDates = Array.from(new Set(this.chartData.map(d => d.date))).sort();
     const uniqueLabels = Array.from(new Set(this.chartData.map(d => d.label)));
+    const minPrice = Math.min(...this.chartData.map(d => d.price));
 
     const datasets = uniqueLabels.map((label, idx) => {
       const color = this.getColorForIndex(idx);
@@ -261,7 +262,8 @@ export class HistoryTabComponent implements OnInit, OnDestroy, AfterViewInit {
         },
         scales: {
           y: {
-            beginAtZero: true,
+            beginAtZero: false,
+            min: minPrice,
             title: {
               display: true,
               text: 'Price per m² (€)'

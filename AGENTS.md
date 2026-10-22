@@ -127,3 +127,7 @@ dotnet test
    
 2. **Report**: 
    - Query SQLite FlatsSnapshots table directly (canonical source) → Aggregation queries per source → Cross-source comparison → Report output
+
+## Workflow Preferences
+
+- After completing a task, always suggest a commit message that follows the required `type(scope): message` format.

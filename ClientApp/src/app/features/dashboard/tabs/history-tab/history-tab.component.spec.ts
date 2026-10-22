@@ -12,7 +12,12 @@ describe('HistoryTabComponent', () => {
 
   beforeAll(() => {
     (window as any).Chart = class {
-      constructor(ctx: any, config: any) {}
+      config: any;
+
+      constructor(ctx: any, config: any) {
+        this.config = config;
+      }
+
       destroy() {}
     };
   });
@@ -169,6 +174,23 @@ describe('HistoryTabComponent', () => {
       const charlottenburgDataCount = component.chartData.filter(d => d.label === 'Charlottenburg').length;
       expect(mitteDataCount).toBeGreaterThan(0);
       expect(charlottenburgDataCount).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Chart scaling', () => {
+    it('starts the price axis at the minimum plotted price', () => {
+      component.chartData = [
+        { date: '2024-01-15', price: 12.5, label: 'Mitte' },
+        { date: '2024-01-16', price: 13.25, label: 'Mitte' }
+      ];
+      component.historyChart = {
+        nativeElement: document.createElement('canvas')
+      } as any;
+
+      (component as any).renderChart();
+
+      expect(component.chart.config.options.scales.y.beginAtZero).toBe(false);
+      expect(component.chart.config.options.scales.y.min).toBe(12.5);
     });
   });
 
