@@ -524,4 +524,44 @@ describe('OverviewTabComponent', () => {
       expect(component.aggregatedData[0].avgPricePerMeter).toBeCloseTo(12.75, 2);
     });
   });
+
+  describe('Current offers navigation', () => {
+    it('opens a new offers tab with the dimensions represented by the row', () => {
+      const openSpy = spyOn(window, 'open');
+      component.groupByDistrict = true;
+      component.groupByRooms = true;
+
+      component.openOffersForRow({
+        district: 'Mitte',
+        roomsCount: 2,
+        count: 5,
+        avgPricePerMeter: 12.5
+      });
+
+      expect(openSpy).toHaveBeenCalledWith(
+        `${window.location.origin}${window.location.pathname}?tab=offers&district=Mitte&rooms=2`,
+        '_blank',
+        'noopener,noreferrer'
+      );
+    });
+
+    it('does not set a room filter when grouping by rooms is disabled', () => {
+      const openSpy = spyOn(window, 'open');
+      component.groupByDistrict = true;
+      component.groupByRooms = false;
+
+      component.openOffersForRow({
+        district: 'Mitte',
+        roomsCount: undefined,
+        count: 10,
+        avgPricePerMeter: 12.5
+      });
+
+      expect(openSpy).toHaveBeenCalledWith(
+        `${window.location.origin}${window.location.pathname}?tab=offers&district=Mitte`,
+        '_blank',
+        'noopener,noreferrer'
+      );
+    });
+  });
 });

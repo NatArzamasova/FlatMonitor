@@ -175,6 +175,21 @@ describe('OffersTabComponent', () => {
     });
   });
 
+  describe('Initial URL filters', () => {
+    it('loads district and room filters from the URL', () => {
+      const originalSearch = window.location.search;
+      window.history.replaceState({}, '', '/?tab=offers&district=Mitte&rooms=2');
+      flatsService.getCurrentOffers.and.returnValue(of(mockOffersResponse));
+
+      component.ngOnInit();
+
+      expect(component.selectedOfferDistricts).toEqual(['Mitte']);
+      expect(component.selectedOfferRooms).toEqual([2]);
+
+      window.history.replaceState({}, '', `/${originalSearch}`);
+    });
+  });
+
   describe('URL Validation', () => {
     it('should validate a correct URL', () => {
       const isValid = component.isValidUrl('https://example.com');

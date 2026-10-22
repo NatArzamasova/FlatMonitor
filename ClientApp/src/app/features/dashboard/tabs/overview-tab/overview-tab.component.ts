@@ -170,7 +170,14 @@ import { mergeWeightedAverage } from '../../../../core/utils/aggregation.utils';
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let item of aggregatedData">
+            <tr
+              *ngFor="let item of aggregatedData"
+              (click)="openOffersForRow(item)"
+              (keydown.enter)="openOffersForRow(item)"
+              tabindex="0"
+              role="button"
+              title="Open matching current offers"
+            >
               <td>{{ groupByDistrict ? (item.district || '-') : '-' }}</td>
               <td>{{ groupByRooms ? (item.roomsCount || '-') : '-' }}</td>
               <td class="text-end"><span class="badge bg-info">{{ item.count }}</span></td>
@@ -447,5 +454,21 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
 
   refresh(): void {
     this.loadAggregatedData();
+  }
+
+  openOffersForRow(item: FlatAggregation): void {
+    const url = new URL(window.location.href);
+    url.search = '';
+    url.searchParams.set('tab', 'offers');
+
+    if (this.groupByDistrict && item.district) {
+      url.searchParams.set('district', item.district);
+    }
+
+    if (this.groupByRooms && item.roomsCount !== undefined && item.roomsCount !== null) {
+      url.searchParams.set('rooms', String(item.roomsCount));
+    }
+
+    window.open(url.toString(), '_blank', 'noopener,noreferrer');
   }
 }

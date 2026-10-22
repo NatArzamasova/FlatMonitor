@@ -149,7 +149,16 @@ export class OffersTabComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.loadInitialFiltersFromUrl();
     this.loadCurrentOffers();
+  }
+
+  private loadInitialFiltersFromUrl(): void {
+    const params = new URLSearchParams(window.location.search);
+    this.selectedOfferDistricts = params.getAll('district');
+    this.selectedOfferRooms = params.getAll('rooms')
+      .map(value => Number(value))
+      .filter(value => Number.isFinite(value));
   }
 
   loadCurrentOffers(): void {
