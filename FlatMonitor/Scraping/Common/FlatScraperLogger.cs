@@ -1,6 +1,7 @@
-namespace workInProgress.Scraping.Common;
+namespace FlatMonitor.Scraping.Common;
 
-using workInProgress.Models;
+using FlatMonitor.Models;
+
 
 public static class FlatScraperLogger
 {

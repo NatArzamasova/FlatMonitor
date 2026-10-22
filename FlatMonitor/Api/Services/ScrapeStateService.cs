@@ -1,4 +1,4 @@
-namespace workInProgress.Api.Services;
+namespace FlatMonitor.Api.Services;
 
 public class ScrapeStateService
 {

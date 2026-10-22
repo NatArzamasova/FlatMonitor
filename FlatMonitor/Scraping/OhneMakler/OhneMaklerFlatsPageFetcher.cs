@@ -1,4 +1,4 @@
-namespace workInProgress.Scraping.OhneMakler;
+namespace FlatMonitor.Scraping.OhneMakler;
 
 using System.Runtime.CompilerServices;
 using HtmlAgilityPack;

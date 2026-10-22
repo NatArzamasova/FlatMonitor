@@ -1,6 +1,7 @@
-namespace workInProgress.Scraping.Common;
+namespace FlatMonitor.Scraping.Common;
 
-using workInProgress.Models;
+using FlatMonitor.Models;
+using FlatMonitor.Scraping;
 
 /// <summary>
 /// Base class for scrapers that fetch all pages first, then enrich flat with details.

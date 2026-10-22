@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace workInProgress.Migrations
+namespace FlatMonitor.Migrations
 {
     /// <inheritdoc />
     public partial class AddPricePerMeter : Migration

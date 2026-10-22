@@ -1,8 +1,8 @@
 using NUnit.Framework;
 using FluentAssertions;
-using workInProgress.Api.Services;
+using FlatMonitor.Api.Services;
 
-namespace workInProgress.Tests.Api.Services;
+namespace FlatMonitor.Tests.Api.Services;
 
 [TestFixture]
 public class ScrapeJobServiceTests

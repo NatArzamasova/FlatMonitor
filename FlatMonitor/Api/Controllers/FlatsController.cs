@@ -1,9 +1,8 @@
-namespace workInProgress.Api.Controllers;
+namespace FlatMonitor.Api.Controllers;
 
+using FlatMonitor.Api.Models;
+using FlatMonitor.Storage;
 using Microsoft.AspNetCore.Mvc;
-using workInProgress.Api.Models;
-using workInProgress.Models;
-using workInProgress.Storage;
 
 [ApiController]
 [Route("api/[controller]")]

@@ -1,11 +1,10 @@
+using FlatMonitor.Models;
+using FlatMonitor.Storage;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using NUnit.Framework;
-using workInProgress.Data;
-using workInProgress.Models;
-using workInProgress.Storage;
 
-namespace workInProgress.Tests.Storage;
+namespace FlatMonitor.Tests.Storage;
 
 [TestFixture]
 public class ScrapingHistoryRepositoryTests

@@ -1,6 +1,7 @@
-namespace workInProgress.Scraping.ImmobilienScout24;
+namespace FlatMonitor.Scraping.ImmobilienScout24;
 
-using workInProgress.Scraping.Common;
+using FlatMonitor.Scraping.Common;
+
 
 /// <summary>
 /// ImmobilienScout24-specific selectors for the FlatExtractor.

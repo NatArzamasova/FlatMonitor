@@ -1,4 +1,4 @@
-namespace workInProgress.Models;
+namespace FlatMonitor.Models;
 
 public sealed class FlatDetails
 {

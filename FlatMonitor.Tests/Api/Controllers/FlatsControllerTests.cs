@@ -1,13 +1,12 @@
+using FlatMonitor.Api.Controllers;
+using FlatMonitor.Api.Models;
+using FlatMonitor.Storage;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using NUnit.Framework;
-using workInProgress.Api.Controllers;
-using workInProgress.Api.Models;
-using workInProgress.Models;
-using workInProgress.Storage;
 
-namespace workInProgress.Tests.Api.Controllers;
+namespace FlatMonitor.Tests.Api.Controllers;
 
 [TestFixture]
 public class FlatsControllerTests

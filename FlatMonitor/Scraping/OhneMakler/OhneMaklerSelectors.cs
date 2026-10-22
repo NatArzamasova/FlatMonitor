@@ -1,7 +1,8 @@
-namespace workInProgress.Scraping.OhneMakler;
+namespace FlatMonitor.Scraping.OhneMakler;
 
-using workInProgress.Models;
-using workInProgress.Scraping.Common;
+using FlatMonitor.Models;
+using FlatMonitor.Scraping.Common;
+
 
 /// <summary>
 /// OhneMakler-specific selectors for the FlatExtractor.

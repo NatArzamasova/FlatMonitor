@@ -1,6 +1,6 @@
-namespace workInProgress.Storage;
+namespace FlatMonitor.Storage;
 
-using workInProgress.Models;
+using FlatMonitor.Models;
 
 public static class FlatAggregationCalculator
 {

@@ -1,4 +1,4 @@
-namespace workInProgress.Scraping.OhneMakler;
+namespace FlatMonitor.Scraping.OhneMakler;
 
 /// <summary>
 /// Selectors for extracting detail fields from ohne-makler.net detail pages.

@@ -1,8 +1,8 @@
-namespace workInProgress.Scraping.OhneMakler;
+namespace FlatMonitor.Scraping.OhneMakler;
 
 using System.Text.RegularExpressions;
+using FlatMonitor.Models;
 using HtmlAgilityPack;
-using workInProgress.Models;
 
 public sealed class OhneMaklerFlatCardParser
 {

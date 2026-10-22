@@ -1,4 +1,4 @@
-namespace workInProgress.Json;
+namespace FlatMonitor.Json;
 
 using System.Text.Json;
 using System.Text.Json.Serialization;

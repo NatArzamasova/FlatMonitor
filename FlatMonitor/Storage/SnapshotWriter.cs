@@ -1,8 +1,10 @@
-namespace workInProgress.Storage;
+namespace FlatMonitor.Storage;
 
 using System.Text.Json;
-using workInProgress.Json;
-using workInProgress.Models;
+using FlatMonitor.Json;
+using FlatMonitor.Models;
+
+
 
 /// <summary>
 /// Writes scraped flats to JSONL snapshot files for debugging purposes only.

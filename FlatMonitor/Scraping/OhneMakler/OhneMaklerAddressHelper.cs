@@ -1,4 +1,4 @@
-namespace workInProgress.Scraping.OhneMakler;
+namespace FlatMonitor.Scraping.OhneMakler;
 
 public static class OhneMaklerAddressHelper
 {

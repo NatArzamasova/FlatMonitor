@@ -1,4 +1,4 @@
-namespace workInProgress.Storage;
+namespace FlatMonitor.Storage;
 
 public static class StoragePaths
 {

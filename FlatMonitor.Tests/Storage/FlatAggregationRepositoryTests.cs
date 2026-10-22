@@ -1,11 +1,10 @@
 using NUnit.Framework;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
-using workInProgress.Data;
-using workInProgress.Models;
-using workInProgress.Storage;
+using FlatMonitor.Storage;
+using FlatMonitor.Models;
 
-namespace workInProgress.Tests.Storage;
+namespace FlatMonitor.Tests.Storage;
 
 [TestFixture]
 public class FlatAggregationRepositoryTests

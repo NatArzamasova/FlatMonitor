@@ -1,11 +1,11 @@
-namespace workInProgress.Scraping.ImmobilienScout24;
+namespace FlatMonitor.Scraping.ImmobilienScout24;
 
 using System.Runtime.CompilerServices;
+using FlatMonitor.Models;
+using FlatMonitor.Scraping.Common;
+using FlatMonitor.Storage;
 using HtmlAgilityPack;
 using Microsoft.Playwright;
-using workInProgress.Models;
-using workInProgress.Scraping.Common;
-using workInProgress.Storage;
 
 /// <summary>
 /// Scraper for immobilienscout24.de apartment flats.
@@ -56,7 +56,7 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
     {
         try
         {
-            var dataDir = workInProgress.Storage.StoragePaths.GetDefaultDataDirectory();
+            var dataDir = StoragePaths.GetDefaultDataDirectory();
             var htmlDir = Path.Combine(dataDir, "snapshots", "html", "ImmobilienScout24");
 
             if (Directory.Exists(htmlDir))

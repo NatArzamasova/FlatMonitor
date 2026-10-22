@@ -1,8 +1,9 @@
-namespace workInProgress.Tests.OhneMakler;
+namespace FlatMonitor.Tests.OhneMakler;
 
 using NUnit.Framework;
 using FluentAssertions;
-using workInProgress.Scraping.OhneMakler;
+using FlatMonitor.Scraping.OhneMakler;
+
 
 [TestFixture]
 public class OhneMaklerDetailPageParserTests

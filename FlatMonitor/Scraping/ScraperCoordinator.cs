@@ -1,8 +1,8 @@
-namespace workInProgress.Scraping;
+namespace FlatMonitor.Scraping;
 
-using workInProgress.Models;
-using workInProgress.Storage;
-using workInProgress.Scraping.Common;
+using FlatMonitor.Models;
+using FlatMonitor.Scraping.Common;
+using FlatMonitor.Storage;
 
 public sealed class ScraperCoordinator : IAsyncDisposable
 {

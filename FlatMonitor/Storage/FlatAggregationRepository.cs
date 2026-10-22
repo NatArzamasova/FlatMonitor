@@ -1,9 +1,9 @@
-namespace workInProgress.Storage;
+namespace FlatMonitor.Storage;
+
+using FlatMonitor.Api.Models;
 
 using Microsoft.EntityFrameworkCore;
-using workInProgress.Data;
-using workInProgress.Api.Models;
-using workInProgress.Models;
+
 
 public sealed class FlatAggregationRepository : IFlatAggregationRepository
 {

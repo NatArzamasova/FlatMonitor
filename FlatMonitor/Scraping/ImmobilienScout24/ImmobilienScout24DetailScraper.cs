@@ -1,8 +1,8 @@
-namespace workInProgress.Scraping.ImmobilienScout24;
+namespace FlatMonitor.Scraping.ImmobilienScout24;
 
+using FlatMonitor.Models;
+using FlatMonitor.Storage;
 using Microsoft.Playwright;
-using workInProgress.Models;
-using workInProgress.Storage;
 
 /// <summary>
 /// Fetches and parses detail pages from ImmobilienScout24 expose URLs.

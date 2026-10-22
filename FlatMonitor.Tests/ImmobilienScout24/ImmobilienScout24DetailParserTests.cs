@@ -1,9 +1,9 @@
-namespace workInProgress.Tests.ImmobilienScout24;
+namespace FlatMonitor.Tests.ImmobilienScout24;
 
 using NUnit.Framework;
 using FluentAssertions;
-using workInProgress.Scraping;
-using workInProgress.Scraping.ImmobilienScout24;
+using FlatMonitor.Scraping.ImmobilienScout24;
+using FlatMonitor.Scraping;
 
 [TestFixture]
 public class ImmobilienScout24DetailParserTests

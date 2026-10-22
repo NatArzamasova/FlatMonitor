@@ -1,6 +1,7 @@
-namespace workInProgress.Scraping;
+namespace FlatMonitor.Scraping;
 
-using workInProgress.Models;
+using FlatMonitor.Models;
+
 
 public interface IScraper
 {

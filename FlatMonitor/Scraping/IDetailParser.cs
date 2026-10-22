@@ -1,6 +1,7 @@
-namespace workInProgress.Scraping;
+namespace FlatMonitor.Scraping;
 
-using workInProgress.Models;
+using FlatMonitor.Models;
+
 
 /// <summary>
 /// Interface for parsing detail fields from source-specific detail pages.

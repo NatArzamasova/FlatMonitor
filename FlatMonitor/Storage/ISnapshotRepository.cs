@@ -1,7 +1,9 @@
-namespace workInProgress.Storage;
+namespace FlatMonitor.Storage;
 
-using workInProgress.Models;
-using workInProgress.Api.Models;
+using FlatMonitor.Models;
+using FlatMonitor.Api.Models;
+
+
 
 /// <summary>
 /// SQLite-specific repository for persisting apartments (Flat) to the database (FlatsSnapshots table).

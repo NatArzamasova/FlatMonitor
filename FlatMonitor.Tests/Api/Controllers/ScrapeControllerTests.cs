@@ -3,12 +3,12 @@ using FluentAssertions;
 using Moq;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using workInProgress.Api.Controllers;
-using workInProgress.Api.Models;
-using workInProgress.Api.Services;
-using workInProgress.Storage;
+using FlatMonitor.Api.Services;
+using FlatMonitor.Api.Controllers;
+using FlatMonitor.Storage;
+using FlatMonitor.Api.Models;
 
-namespace workInProgress.Tests.Api.Controllers;
+namespace FlatMonitor.Tests.Api.Controllers;
 
 [TestFixture]
 public class ScrapeControllerTests

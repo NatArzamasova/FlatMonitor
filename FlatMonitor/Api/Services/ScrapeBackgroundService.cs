@@ -1,11 +1,11 @@
-namespace workInProgress.Api.Services;
+namespace FlatMonitor.Api.Services;
+
+using FlatMonitor.Models;
+using FlatMonitor.Storage;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using workInProgress.Data;
-using workInProgress.Models;
-using workInProgress.Storage;
 
 public class ScrapeBackgroundService : BackgroundService
 {

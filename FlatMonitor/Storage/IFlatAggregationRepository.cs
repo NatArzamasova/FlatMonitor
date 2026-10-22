@@ -1,7 +1,6 @@
-namespace workInProgress.Storage;
+namespace FlatMonitor.Storage;
 
-using workInProgress.Api.Models;
-using workInProgress.Models;
+using FlatMonitor.Api.Models;
 
 public interface IFlatAggregationRepository : IAsyncDisposable
 {

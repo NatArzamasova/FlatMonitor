@@ -1,15 +1,14 @@
 using dotenv.net;
+using FlatMonitor;
+using FlatMonitor.Api.Services;
+using FlatMonitor.Scraping;
+using FlatMonitor.Scraping.ImmobilienScout24;
+using FlatMonitor.Scraping.OhneMakler;
+using FlatMonitor.Storage;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using workInProgress;
-using workInProgress.Api.Services;
-using workInProgress.Data;
-using workInProgress.Scraping;
-using workInProgress.Scraping.ImmobilienScout24;
-using workInProgress.Scraping.OhneMakler;
-using workInProgress.Storage;
 
 var commandArgs = Environment.GetCommandLineArgs().Skip(1).ToArray();
 

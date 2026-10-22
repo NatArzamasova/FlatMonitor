@@ -1,8 +1,8 @@
-namespace workInProgress.Data;
+namespace FlatMonitor.Storage;
+
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
-using workInProgress.Storage;
 
 public class FlatsDbContextFactory : IDesignTimeDbContextFactory<FlatsDbContext>
 {

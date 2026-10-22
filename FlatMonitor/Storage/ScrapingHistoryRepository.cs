@@ -1,8 +1,7 @@
-namespace workInProgress.Storage;
+namespace FlatMonitor.Storage;
 
+using FlatMonitor.Api.Models;
 using Microsoft.EntityFrameworkCore;
-using workInProgress.Api.Models;
-using workInProgress.Data;
 
 public sealed class ScrapingHistoryRepository : IScrapingHistoryRepository
 {

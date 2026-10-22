@@ -1,12 +1,11 @@
 using NUnit.Framework;
 using FluentAssertions;
 using System.Text.Json;
-using workInProgress.Json;
-using workInProgress.Models;
-using workInProgress.Storage;
 using FlatMonitor.Scraping.Debug;
+using FlatMonitor.Json;
+using FlatMonitor.Models;
 
-namespace workInProgress.Tests.Scraping.Debug;
+namespace FlatMonitor.Tests.Scraping.Debug;
 
 [TestFixture]
 public class SnapshotLoaderTests

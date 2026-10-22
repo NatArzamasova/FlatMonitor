@@ -1,6 +1,8 @@
-namespace workInProgress.Storage;
+namespace FlatMonitor.Storage;
 
-using workInProgress.Api.Models;
+using FlatMonitor.Api.Models;
+
+
 
 public interface IScrapingHistoryRepository
 {

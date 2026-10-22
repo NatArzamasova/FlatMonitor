@@ -1,9 +1,8 @@
-namespace workInProgress.Storage;
+namespace FlatMonitor.Storage;
 
+using FlatMonitor.Api.Models;
+using FlatMonitor.Models;
 using Microsoft.EntityFrameworkCore;
-using workInProgress.Api.Models;
-using workInProgress.Data;
-using workInProgress.Models;
 
 public sealed class FlatSnapshotRepository : ISnapshotRepository
 {

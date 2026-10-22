@@ -1,8 +1,10 @@
-namespace workInProgress.Data;
+using FlatMonitor.Models;
 
+namespace FlatMonitor.Storage;
+
+using FlatMonitor.Models;
 using Microsoft.EntityFrameworkCore;
-using workInProgress.Models;
-using ScrapingHistory = workInProgress.Models.ScrapingHistory;
+using ScrapingHistory = ScrapingHistory;
 
 public class FlatsDbContext : DbContext
 {

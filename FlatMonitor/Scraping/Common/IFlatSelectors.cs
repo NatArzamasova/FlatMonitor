@@ -1,4 +1,4 @@
-namespace workInProgress.Scraping.Common;
+namespace FlatMonitor.Scraping.Common;
 
 /// <summary>
 /// Defines CSS selectors and XPath expressions for extracting flat data from HTML.

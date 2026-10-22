@@ -1,8 +1,8 @@
 using NUnit.Framework;
 using Moq;
-using workInProgress.Storage;
+using FlatMonitor.Storage;
 
-namespace workInProgress.Tests.Api.Services;
+namespace FlatMonitor.Tests.Api.Services;
 
 [TestFixture]
 public class ScrapeBackgroundServiceTests

@@ -1,8 +1,8 @@
-namespace workInProgress.Scraping.Common;
+namespace FlatMonitor.Scraping.Common;
 
 using System.Linq;
+using FlatMonitor.Models;
 using HtmlAgilityPack;
-using workInProgress.Models;
 
 /// <summary>
 /// Generic flat extractor that works with any site via IFlatSelectors.

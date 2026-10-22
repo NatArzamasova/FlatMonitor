@@ -1,9 +1,9 @@
 using NUnit.Framework;
 using FluentAssertions;
-using workInProgress.Models;
-using workInProgress.Storage;
+using FlatMonitor.Models;
+using FlatMonitor.Storage;
 
-namespace workInProgress.Tests.Storage;
+namespace FlatMonitor.Tests.Storage;
 
 [TestFixture]
 public class FlatAggregationCalculatorTests

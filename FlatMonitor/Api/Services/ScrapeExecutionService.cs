@@ -1,10 +1,9 @@
-namespace workInProgress.Api.Services;
+namespace FlatMonitor.Api.Services;
 
+using FlatMonitor.Scraping;
+using FlatMonitor.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using workInProgress.Data;
-using workInProgress.Scraping;
-using workInProgress.Storage;
 
 public class ScrapeExecutionService
 {

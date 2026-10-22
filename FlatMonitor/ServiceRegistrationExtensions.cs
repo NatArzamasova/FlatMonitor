@@ -1,13 +1,12 @@
-namespace workInProgress;
+namespace FlatMonitor;
 
+using FlatMonitor.Api.Services;
+using FlatMonitor.Scraping;
+using FlatMonitor.Scraping.ImmobilienScout24;
+using FlatMonitor.Scraping.OhneMakler;
+using FlatMonitor.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using workInProgress.Api.Services;
-using workInProgress.Data;
-using workInProgress.Scraping;
-using workInProgress.Scraping.ImmobilienScout24;
-using workInProgress.Scraping.OhneMakler;
-using workInProgress.Storage;
 
 public static class ServiceRegistrationExtensions
 {

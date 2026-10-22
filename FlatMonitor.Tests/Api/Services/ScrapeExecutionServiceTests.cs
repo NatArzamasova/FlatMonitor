@@ -3,12 +3,11 @@ using FluentAssertions;
 using Moq;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using workInProgress.Api.Services;
-using workInProgress.Data;
-using workInProgress.Scraping;
-using workInProgress.Storage;
+using FlatMonitor.Api.Services;
+using FlatMonitor.Scraping;
+using FlatMonitor.Storage;
 
-namespace workInProgress.Tests.Api.Services;
+namespace FlatMonitor.Tests.Api.Services;
 
 [TestFixture]
 public class ScrapeResultTests

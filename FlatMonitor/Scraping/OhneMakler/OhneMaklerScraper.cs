@@ -1,10 +1,11 @@
-namespace workInProgress.Scraping.OhneMakler;
+namespace FlatMonitor.Scraping.OhneMakler;
 
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
-using workInProgress.Models;
-using workInProgress.Scraping.Common;
-using workInProgress.Storage;
+using FlatMonitor.Models;
+using FlatMonitor.Scraping.Common;
+using FlatMonitor.Storage;
+
 
 /// <summary>
 /// Scraper for ohne-makler.net flats.
@@ -41,7 +42,7 @@ public sealed class OhneMaklerScraper : FlatScraper
     {
         try
         {
-            var dataDir = workInProgress.Storage.StoragePaths.GetDefaultDataDirectory();
+            var dataDir = StoragePaths.GetDefaultDataDirectory();
             var htmlDir = Path.Combine(dataDir, "snapshots", "html", "OhneMakler");
 
             if (Directory.Exists(htmlDir))
@@ -205,7 +206,7 @@ public sealed class OhneMaklerScraper : FlatScraper
     {
         try
         {
-            var dataDir = workInProgress.Storage.StoragePaths.GetDefaultDataDirectory();
+            var dataDir = StoragePaths.GetDefaultDataDirectory();
             var htmlDir = Path.Combine(dataDir, "snapshots", "html", "OhneMakler");
             if (!Directory.Exists(htmlDir))
             {

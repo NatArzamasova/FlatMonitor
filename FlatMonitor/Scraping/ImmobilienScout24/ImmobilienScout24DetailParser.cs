@@ -1,9 +1,10 @@
-namespace workInProgress.Scraping.ImmobilienScout24;
+namespace FlatMonitor.Scraping.ImmobilienScout24;
 
 using System.Text.Json;
+using FlatMonitor.Models;
+using FlatMonitor.Scraping;
 using FlatMonitor.Scraping.Common;
 using HtmlAgilityPack;
-using workInProgress.Models;
 
 /// <summary>
 /// Parses detail fields from ImmobilienScout24 expose page HTML.

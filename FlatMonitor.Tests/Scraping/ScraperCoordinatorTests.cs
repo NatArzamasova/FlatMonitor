@@ -1,11 +1,11 @@
 using NUnit.Framework;
 using FluentAssertions;
 using Moq;
-using workInProgress.Models;
-using workInProgress.Scraping;
-using workInProgress.Storage;
+using FlatMonitor.Models;
+using FlatMonitor.Scraping;
+using FlatMonitor.Storage;
 
-namespace workInProgress.Tests.Scraping;
+namespace FlatMonitor.Tests.Scraping;
 
 [TestFixture]
 public class ScraperCoordinatorTests

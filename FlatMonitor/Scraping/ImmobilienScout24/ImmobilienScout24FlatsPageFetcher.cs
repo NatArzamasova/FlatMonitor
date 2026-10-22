@@ -1,4 +1,4 @@
-namespace workInProgress.Scraping.ImmobilienScout24;
+namespace FlatMonitor.Scraping.ImmobilienScout24;
 
 using System.Runtime.CompilerServices;
 using HtmlAgilityPack;

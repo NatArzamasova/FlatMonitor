@@ -1,4 +1,4 @@
-namespace workInProgress.Scraping.ImmobilienScout24;
+namespace FlatMonitor.Scraping.ImmobilienScout24;
 
 /// <summary>
 /// Selectors for extracting detail fields from ImmobilienScout24 expose pages.

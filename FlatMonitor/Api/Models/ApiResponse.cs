@@ -1,4 +1,4 @@
-namespace workInProgress.Api.Models;
+namespace FlatMonitor.Api.Models;
 
 public class ApiResponse<T>
 {
