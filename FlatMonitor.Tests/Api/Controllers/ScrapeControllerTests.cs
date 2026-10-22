@@ -6,7 +6,8 @@ using Microsoft.Extensions.Logging;
 using FlatMonitor.Api.Services;
 using FlatMonitor.Api.Controllers;
 using FlatMonitor.Storage;
-using FlatMonitor.Api.Models;
+using FlatMonitor.Api.Contracts;
+using FlatMonitor.Models;
 
 namespace FlatMonitor.Tests.Api.Controllers;
 
@@ -90,8 +91,20 @@ public class ScrapeControllerTests
     [Test]
     public async Task GetScrapingStatus_ReturnsHistoryFromRepositoryAndCurrentJobState()
     {
-        var latest = new ScrapingHistoryDto { Id = 2, Status = "Failed", FlatsScrapedCount = 1 };
-        var latestSuccessful = new ScrapingHistoryDto { Id = 1, Status = "Successful", FlatsScrapedCount = 5 };
+        var latest = new ScrapingHistory
+        {
+            Id = 2,
+            StartTimeUtc = DateTime.UtcNow,
+            Status = "Failed",
+            FlatsScrapedCount = 1
+        };
+        var latestSuccessful = new ScrapingHistory
+        {
+            Id = 1,
+            StartTimeUtc = DateTime.UtcNow,
+            Status = "Successful",
+            FlatsScrapedCount = 5
+        };
         var runningJob = _jobService.QueueJob();
         _jobService.UpdateJobStatus(runningJob.JobId, ScrapeJobService.ScrapeJobStatus.Running);
         _mockHistoryRepository.Setup(r => r.GetLatestAsync(It.IsAny<CancellationToken>()))

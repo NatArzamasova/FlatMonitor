@@ -1,6 +1,6 @@
 namespace FlatMonitor.Storage;
 
-using FlatMonitor.Api.Models;
+using FlatMonitor.Models;
 
 
 
@@ -10,5 +10,5 @@ public interface IScrapingHistoryRepository
 }
 
 public sealed record ScrapingStatusHistory(
-    ScrapingHistoryDto? Latest,
-    ScrapingHistoryDto? LatestSuccessful);
+    ScrapingHistory? Latest,
+    ScrapingHistory? LatestSuccessful);

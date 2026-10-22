@@ -1,4 +1,4 @@
-namespace FlatMonitor.Api.Models;
+namespace FlatMonitor.Api.Contracts;
 
 public class ScrapeQueuedResponse
 {

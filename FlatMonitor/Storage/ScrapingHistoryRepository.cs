@@ -1,6 +1,6 @@
 namespace FlatMonitor.Storage;
 
-using FlatMonitor.Api.Models;
+using FlatMonitor.Models;
 using Microsoft.EntityFrameworkCore;
 
 public sealed class ScrapingHistoryRepository : IScrapingHistoryRepository
@@ -14,7 +14,7 @@ public sealed class ScrapingHistoryRepository : IScrapingHistoryRepository
         var latest = await _dbContext.ScrapingHistories
             .AsNoTracking()
             .OrderByDescending(h => h.StartTimeUtc)
-            .Select(h => new ScrapingHistoryDto
+            .Select(h => new ScrapingHistory
             {
                 Id = h.Id,
                 StartTimeUtc = h.StartTimeUtc,
@@ -29,7 +29,7 @@ public sealed class ScrapingHistoryRepository : IScrapingHistoryRepository
             .AsNoTracking()
             .Where(h => h.Status == "Successful")
             .OrderByDescending(h => h.StartTimeUtc)
-            .Select(h => new ScrapingHistoryDto
+            .Select(h => new ScrapingHistory
             {
                 Id = h.Id,
                 StartTimeUtc = h.StartTimeUtc,

@@ -58,7 +58,7 @@ This mode:
 ```
 FlatMonitor/               # .NET Backend
 ├── Api/Controllers/       # REST API endpoints
-├── Api/Models/           # API response models
+├── Api/Contracts/        # API request and response contracts
 ├── Models/               # Domain models (Flat, FlatSnapshot)
 ├── Storage/              # Database context and migrations
 ├── Scraping/             # Source-specific scrapers

@@ -1,6 +1,6 @@
 namespace FlatMonitor.Api.Controllers;
 
-using FlatMonitor.Api.Models;
+using FlatMonitor.Api.Contracts;
 using FlatMonitor.Models;
 using FlatMonitor.Storage;
 using Microsoft.AspNetCore.Mvc;
