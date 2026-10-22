@@ -126,36 +126,6 @@ describe('HistoryTabComponent', () => {
       expect(component.loadingHistory).toBe(false);
     });
 
-    it('should populate available filter options', () => {
-      flatsService.getHistory.and.returnValue(of(mockHistoryResponse));
-
-      component.loadHistory();
-
-      expect(component.availableHistoryDistricts).toContain('Mitte');
-      expect(component.availableHistoryDistricts).toContain('Charlottenburg');
-      expect(component.availableHistoryRooms).toContain(2);
-      expect(component.availableHistoryRooms).toContain(3);
-    });
-
-    it('should select all districts by default', () => {
-      flatsService.getHistory.and.returnValue(of(mockHistoryResponse));
-
-      component.loadHistory();
-
-      expect(component.selectedHistoryDistricts.length).toBe(2);
-      expect(component.selectedHistoryDistricts).toContain('Mitte');
-      expect(component.selectedHistoryDistricts).toContain('Charlottenburg');
-    });
-
-    it('should select all rooms by default', () => {
-      flatsService.getHistory.and.returnValue(of(mockHistoryResponse));
-
-      component.loadHistory();
-
-      expect(component.selectedHistoryRooms.length).toBe(2);
-      expect(component.selectedHistoryRooms).toContain(2);
-      expect(component.selectedHistoryRooms).toContain(3);
-    });
   });
 
   describe('History Grouping', () => {
@@ -186,49 +156,19 @@ describe('HistoryTabComponent', () => {
     });
   });
 
-  describe('History Filtering', () => {
+  describe('History Chart Data', () => {
     beforeEach(() => {
       flatsService.getHistory.and.returnValue(of(mockHistoryResponse));
       component.loadHistory();
     });
 
-    it('should toggle district filter', () => {
-      component.selectedHistoryDistricts = ['Mitte', 'Charlottenburg'];
-      component.toggleDistrictFilter('Mitte', false);
-
-      expect(component.selectedHistoryDistricts).toContain('Charlottenburg');
-      expect(component.selectedHistoryDistricts).not.toContain('Mitte');
-    });
-
-    it('should add district to filter when checked', () => {
-      component.selectedHistoryDistricts = [];
-      component.toggleDistrictFilter('Mitte', true);
-
-      expect(component.selectedHistoryDistricts).toContain('Mitte');
-    });
-
-    it('should toggle room filter', () => {
-      component.selectedHistoryRooms = [2, 3];
-      component.toggleRoomFilter(2, false);
-
-      expect(component.selectedHistoryRooms).toContain(3);
-      expect(component.selectedHistoryRooms).not.toContain(2);
-    });
-
-    it('should add room to filter when checked', () => {
-      component.selectedHistoryRooms = [];
-      component.toggleRoomFilter(2, true);
-
-      expect(component.selectedHistoryRooms).toContain(2);
-    });
-
-    it('should update chart data when filters change', () => {
+    it('should include all series in the chart data', () => {
       component.historyGroupBy = 'district';
-      component.selectedHistoryDistricts = ['Mitte'];
-      component.onHistoryFiltersChange();
 
       const mitteDataCount = component.chartData.filter(d => d.label === 'Mitte').length;
+      const charlottenburgDataCount = component.chartData.filter(d => d.label === 'Charlottenburg').length;
       expect(mitteDataCount).toBeGreaterThan(0);
+      expect(charlottenburgDataCount).toBeGreaterThan(0);
     });
   });
 
