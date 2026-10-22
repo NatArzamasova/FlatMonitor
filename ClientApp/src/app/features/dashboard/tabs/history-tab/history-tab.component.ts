@@ -220,6 +220,9 @@ export class HistoryTabComponent implements OnInit, OnDestroy, AfterViewInit {
     const uniqueDates = Array.from(new Set(this.chartData.map(d => d.date))).sort();
     const uniqueLabels = Array.from(new Set(this.chartData.map(d => d.label)));
     const minPrice = Math.min(...this.chartData.map(d => d.price));
+    const maxPrice = Math.max(...this.chartData.map(d => d.price));
+    const pricePadding = Math.max((maxPrice - minPrice) * 0.1, minPrice * 0.05, 0.5);
+    const chartMinPrice = Math.max(0, minPrice - pricePadding);
 
     const datasets = uniqueLabels.map((label, idx) => {
       const color = this.getColorForIndex(idx);
@@ -227,6 +230,10 @@ export class HistoryTabComponent implements OnInit, OnDestroy, AfterViewInit {
         const item = this.chartData.find(d => d.date === date && d.label === label);
         return item ? item.price : null;
       });
+      const latestDataIndex = data.reduce(
+        (latestIndex, value, index) => value !== null ? index : latestIndex,
+        -1
+      );
 
       return {
         label,
@@ -234,7 +241,8 @@ export class HistoryTabComponent implements OnInit, OnDestroy, AfterViewInit {
         borderColor: color,
         backgroundColor: color + '20',
         borderWidth: 2,
-        pointRadius: 4,
+        pointRadius: data.map((value, index) => index === latestDataIndex ? 6 : 3),
+        pointHoverRadius: 7,
         pointBackgroundColor: color,
         tension: 0.4,
         fill: false
@@ -258,18 +266,26 @@ export class HistoryTabComponent implements OnInit, OnDestroy, AfterViewInit {
           title: {
             display: true,
             text: `Price per m² Trend (${this.historyGroupBy === 'district' ? 'by District' : 'by Room Number'})`
+          },
+          tooltip: {
+            callbacks: {
+              label: (context: any) => `${context.dataset.label}: €${Number(context.parsed.y).toFixed(2)}/m²`
+            }
           }
         },
         scales: {
           y: {
             beginAtZero: false,
-            min: minPrice,
+            min: chartMinPrice,
             title: {
               display: true,
               text: 'Price per m² (€)'
             }
           },
           x: {
+            ticks: {
+              callback: (value: any) => this.formatHistoryDate(uniqueDates[Number(value)])
+            },
             title: {
               display: true,
               text: 'Date'
@@ -285,13 +301,22 @@ export class HistoryTabComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private getColorForIndex(index: number): string {
     const colors = [
-      '#201923', '#fcff5d', '#7dfc00', '#0ec434', '#228c68',
-      '#8ad8e8', '#235b54', '#29bdab', '#3998f5', '#37294f',
-      '#277da7', '#3750db', '#f22020', '#991919', '#ffcba5',
-      '#e68f66', '#c56133', '#96341c', '#632819', '#ffc413',
-      '#f47a22', '#2f2aa0', '#b732cc', '#772b9d', '#f07cab',
-      '#d30b94', '#c3a5b4', '#946aa2', '#5d4c86'
+      '#0072B2', '#E69F00', '#009E73', '#D55E00', '#CC79A7',
+      '#56B4E9', '#F0E442', '#000000'
     ];
     return colors[index % colors.length];
+  }
+
+  private formatHistoryDate(date: string): string {
+    const parsedDate = new Date(`${date}T00:00:00Z`);
+    if (Number.isNaN(parsedDate.getTime())) {
+      return date;
+    }
+
+    return new Intl.DateTimeFormat('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      timeZone: 'UTC'
+    }).format(parsedDate);
   }
 }
