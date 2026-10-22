@@ -304,7 +304,8 @@ export class HistoryTabComponent implements OnInit, OnDestroy, AfterViewInit {
       '#0072B2', '#E69F00', '#009E73', '#D55E00', '#CC79A7', '#56B4E9',
       '#F0E442', '#000000', '#332288', '#88CCEE', '#44AA99', '#117733',
       '#999933', '#DDCC77', '#CC6677', '#882255', '#AA4499', '#661100',
-      '#6699CC', '#AA4466', '#4477AA', '#228833', '#EE6677', '#BBBBBB'
+      '#6699CC', '#AA4466', '#4477AA', '#228833', '#EE6677', '#BBBBBB',
+      '#1B9E77', '#D95F02', '#7570B3', '#E7298A'
     ];
     return colors[index % colors.length];
   }
