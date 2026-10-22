@@ -17,7 +17,9 @@ describe('OffersTabComponent', () => {
         district: 'Mitte',
         roomsCount: 2,
         priceEur: 2000,
+        originalPriceEur: 2200,
         pricePerMeter: 150,
+        livingAreaSqm: 65,
         url: 'https://example.com/flat1',
         source: 'OhneMakler'
       },
@@ -25,7 +27,9 @@ describe('OffersTabComponent', () => {
         district: 'Charlottenburg',
         roomsCount: 3,
         priceEur: 2500,
+        originalPriceEur: 2500,
         pricePerMeter: 120,
+        livingAreaSqm: 80,
         url: 'https://example.com/flat2',
         source: 'ImmobilienScout24'
       }

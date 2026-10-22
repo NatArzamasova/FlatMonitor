@@ -207,7 +207,9 @@ public sealed class FlatSnapshotRepository : ISnapshotRepository
                     District = s.District,
                     RoomsCount = s.RoomsCount,
                     PriceEur = s.PriceEur,
+                    OriginalPriceEur = s.OriginalPriceEur,
                     PricePerMeter = s.PricePerMeter,
+                    LivingAreaSqm = s.LivingAreaSqm,
                     Url = s.Url,
                     Source = s.Source
                 })

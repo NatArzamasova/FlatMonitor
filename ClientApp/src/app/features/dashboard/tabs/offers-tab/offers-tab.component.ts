@@ -89,6 +89,8 @@ import { FlatOffer } from '../../../../core/models/flat-offer.model';
               <th>District</th>
               <th class="text-center">Rooms</th>
               <th class="text-end">Price (€)</th>
+              <th class="text-end">Original price (€)</th>
+              <th class="text-end">Living area (m²)</th>
               <th class="text-end">Price/m² (€)</th>
               <th>Link</th>
             </tr>
@@ -98,6 +100,8 @@ import { FlatOffer } from '../../../../core/models/flat-offer.model';
               <td>{{ offer.district || '-' }}</td>
               <td class="text-center">{{ offer.roomsCount ? (offer.roomsCount | number: '1.0-0') : '-' }}</td>
               <td class="text-end">{{ offer.priceEur ? (offer.priceEur | currency: 'EUR': 'symbol': '1.0-0') : '-' }}</td>
+              <td class="text-end">{{ offer.originalPriceEur ? (offer.originalPriceEur | currency: 'EUR': 'symbol': '1.0-0') : '-' }}</td>
+              <td class="text-end">{{ offer.livingAreaSqm ? (offer.livingAreaSqm | number: '1.0-1') : '-' }}</td>
               <td class="text-end">{{ offer.pricePerMeter ? (offer.pricePerMeter | number: '1.0-0') : '-' }}</td>
               <td>
                 <a *ngIf="isValidUrl(offer.url)" [href]="getSafeUrl(offer.url)" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary">

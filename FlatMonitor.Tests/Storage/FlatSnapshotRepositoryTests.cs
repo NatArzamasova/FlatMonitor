@@ -321,7 +321,8 @@ public class FlatSnapshotRepositoryTests
             var newer = new FlatSnapshot
             {
                 Source = "source", ListingId = "newer", ScrapedAtUtc = "2026-10-21T08:00:00Z",
-                District = "Zentrum", RoomsCount = 3, PriceEur = 1200, PricePerMeter = 40, Url = "new-url"
+                District = "Zentrum", RoomsCount = 3, PriceEur = 1200, OriginalPriceEur = 1400,
+                PricePerMeter = 40, LivingAreaSqm = 72, Url = "new-url"
             };
             dbContext.FlatsSnapshots.AddRange(older, newer);
             var createdAt = DateTime.UtcNow.ToString("O");
@@ -339,7 +340,9 @@ public class FlatSnapshotRepositoryTests
         result[0].District.Should().Be("Zentrum");
         result[0].RoomsCount.Should().Be(3);
         result[0].PriceEur.Should().Be(1200);
+        result[0].OriginalPriceEur.Should().Be(1400);
         result[0].PricePerMeter.Should().Be(40);
+        result[0].LivingAreaSqm.Should().Be(72);
         result[0].Url.Should().Be("new-url");
         result[0].Source.Should().Be("source");
     }
