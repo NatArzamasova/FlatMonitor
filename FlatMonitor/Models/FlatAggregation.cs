@@ -1,4 +1,4 @@
-namespace FlatMonitor.Api.Models;
+namespace FlatMonitor.Models;
 
 public class FlatAggregation
 {

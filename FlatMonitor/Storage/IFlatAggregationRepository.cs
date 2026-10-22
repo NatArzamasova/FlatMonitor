@@ -1,6 +1,5 @@
 namespace FlatMonitor.Storage;
 
-using FlatMonitor.Api.Models;
 using FlatMonitor.Models;
 
 public interface IFlatAggregationRepository : IAsyncDisposable
