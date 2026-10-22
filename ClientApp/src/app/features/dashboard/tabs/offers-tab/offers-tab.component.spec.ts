@@ -15,16 +15,16 @@ describe('OffersTabComponent', () => {
     data: [
       {
         district: 'Mitte',
-        roomsNumber: 2,
-        price: 2000,
+        roomsCount: 2,
+        priceEur: 2000,
         pricePerMeter: 150,
         url: 'https://example.com/flat1',
         source: 'OhneMakler'
       },
       {
         district: 'Charlottenburg',
-        roomsNumber: 3,
-        price: 2500,
+        roomsCount: 3,
+        priceEur: 2500,
         pricePerMeter: 120,
         url: 'https://example.com/flat2',
         source: 'ImmobilienScout24'
@@ -140,7 +140,7 @@ describe('OffersTabComponent', () => {
       component.onOfferFiltersChange();
 
       expect(component.filteredOffers.length).toBe(1);
-      expect(component.filteredOffers[0].roomsNumber).toBe(3);
+      expect(component.filteredOffers[0].roomsCount).toBe(3);
     });
 
     it('should filter offers by price range min', () => {
@@ -148,7 +148,7 @@ describe('OffersTabComponent', () => {
       component.onOfferFiltersChange();
 
       expect(component.filteredOffers.length).toBe(1);
-      expect(component.filteredOffers[0].price).toBe(2500);
+      expect(component.filteredOffers[0].priceEur).toBe(2500);
     });
 
     it('should filter offers by price range max', () => {
@@ -156,7 +156,7 @@ describe('OffersTabComponent', () => {
       component.onOfferFiltersChange();
 
       expect(component.filteredOffers.length).toBe(1);
-      expect(component.filteredOffers[0].price).toBe(2000);
+      expect(component.filteredOffers[0].priceEur).toBe(2000);
     });
 
     it('should combine multiple filters', () => {

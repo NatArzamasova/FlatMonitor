@@ -1,5 +1,6 @@
 using FlatMonitor.Api.Controllers;
 using FlatMonitor.Api.Models;
+using FlatMonitor.Models;
 using FlatMonitor.Storage;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
@@ -41,7 +42,7 @@ public class FlatsControllerTests
     [Test]
     public async Task GetCurrentOffersAsync_ReturnsSuccessfulApiResponse()
     {
-        var offers = new List<FlatOfferDto> { new() { District = "Zentrum", Source = "source" } };
+        var offers = new List<FlatOffer> { new() { District = "Zentrum", Source = "source" } };
         _snapshotRepository.Setup(r => r.GetCurrentOffersAsync(It.IsAny<CancellationToken>())).ReturnsAsync(offers);
 
         var result = await _controller.GetCurrentOffersAsync();

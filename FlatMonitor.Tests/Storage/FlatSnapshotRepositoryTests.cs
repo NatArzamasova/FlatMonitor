@@ -337,8 +337,8 @@ public class FlatSnapshotRepositoryTests
 
         result.Should().HaveCount(2);
         result[0].District.Should().Be("Zentrum");
-        result[0].RoomsNumber.Should().Be(3);
-        result[0].Price.Should().Be(1200);
+        result[0].RoomsCount.Should().Be(3);
+        result[0].PriceEur.Should().Be(1200);
         result[0].PricePerMeter.Should().Be(40);
         result[0].Url.Should().Be("new-url");
         result[0].Source.Should().Be("source");

@@ -1,6 +1,5 @@
 namespace FlatMonitor.Storage;
 
-using FlatMonitor.Api.Models;
 using FlatMonitor.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -199,15 +198,15 @@ public sealed class FlatSnapshotRepository : ISnapshotRepository
         return $"Data Source={dbPath}";
     }
 
-    public async Task<List<FlatOfferDto>> GetCurrentOffersAsync(CancellationToken ct = default)
+    public async Task<List<FlatOffer>> GetCurrentOffersAsync(CancellationToken ct = default)
     {
         return await _dbContext.FlatsSnapshots
                 .OrderByDescending(s => s.ScrapedAtUtc)
-                .Select(s => new FlatOfferDto
+                .Select(s => new FlatOffer
                 {
                     District = s.District,
-                    RoomsNumber = s.RoomsCount,
-                    Price = s.PriceEur,
+                    RoomsCount = s.RoomsCount,
+                    PriceEur = s.PriceEur,
                     PricePerMeter = s.PricePerMeter,
                     Url = s.Url,
                     Source = s.Source

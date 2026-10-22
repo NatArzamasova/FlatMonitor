@@ -96,8 +96,8 @@ import { FlatOffer } from '../../../../core/models/flat-offer.model';
           <tbody>
             <tr *ngFor="let offer of filteredOffers">
               <td>{{ offer.district || '-' }}</td>
-              <td class="text-center">{{ offer.roomsNumber ? (offer.roomsNumber | number: '1.0-0') : '-' }}</td>
-              <td class="text-end">{{ offer.price ? (offer.price | currency: 'EUR': 'symbol': '1.0-0') : '-' }}</td>
+              <td class="text-center">{{ offer.roomsCount ? (offer.roomsCount | number: '1.0-0') : '-' }}</td>
+              <td class="text-end">{{ offer.priceEur ? (offer.priceEur | currency: 'EUR': 'symbol': '1.0-0') : '-' }}</td>
               <td class="text-end">{{ offer.pricePerMeter ? (offer.pricePerMeter | number: '1.0-0') : '-' }}</td>
               <td>
                 <a *ngIf="isValidUrl(offer.url)" [href]="getSafeUrl(offer.url)" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary">
@@ -177,8 +177,8 @@ export class OffersTabComponent implements OnInit {
       if (offer.district) {
         districts.add(offer.district);
       }
-      if (offer.roomsNumber !== undefined && offer.roomsNumber !== null) {
-        rooms.add(Math.round(offer.roomsNumber));
+      if (offer.roomsCount !== undefined && offer.roomsCount !== null) {
+        rooms.add(Math.round(offer.roomsCount));
       }
     });
 
@@ -192,13 +192,13 @@ export class OffersTabComponent implements OnInit {
     filtered = this.filterService.filterByRooms(
       filtered,
       this.selectedOfferRooms,
-      offer => offer.roomsNumber !== undefined ? Math.round(offer.roomsNumber) : undefined
+      offer => offer.roomsCount !== undefined ? Math.round(offer.roomsCount) : undefined
     );
     filtered = this.filterService.filterByPriceRange(
       filtered,
       this.priceRangeMin,
       this.priceRangeMax,
-      offer => offer.price
+      offer => offer.priceEur
     );
 
     this.filteredOffers = filtered;

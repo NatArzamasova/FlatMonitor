@@ -1,6 +1,7 @@
 namespace FlatMonitor.Api.Controllers;
 
 using FlatMonitor.Api.Models;
+using FlatMonitor.Models;
 using FlatMonitor.Storage;
 using Microsoft.AspNetCore.Mvc;
 
@@ -42,13 +43,13 @@ public class FlatsController : ControllerBase
     }
 
     [HttpGet("current-offers")]
-    public async Task<ActionResult<ApiResponse<List<FlatOfferDto>>>> GetCurrentOffersAsync()
+    public async Task<ActionResult<ApiResponse<List<FlatOffer>>>> GetCurrentOffersAsync()
     {
         try
         {
             var offers = await _snapshotRepository.GetCurrentOffersAsync();
 
-            return Ok(new ApiResponse<List<FlatOfferDto>>
+            return Ok(new ApiResponse<List<FlatOffer>>
             {
                 Success = true,
                 Data = offers,
@@ -57,7 +58,7 @@ public class FlatsController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new ApiResponse<List<FlatOfferDto>>
+            return StatusCode(500, new ApiResponse<List<FlatOffer>>
             {
                 Success = false,
                 Message = $"Error fetching offers: {ex.Message}"
