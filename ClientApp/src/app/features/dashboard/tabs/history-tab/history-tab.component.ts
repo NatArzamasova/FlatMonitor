@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { FlatsService } from '../../../../core/services/flats.service';
 import { FlatHistory } from '../../../../core/models/flat-history.model';
+import { Aggregatable, mergeWeightedAverage } from '../../../../core/utils/aggregation.utils';
 
 @Component({
   selector: 'app-history-tab',
@@ -75,70 +76,53 @@ export class HistoryTabComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private aggregateByDistrictHistory(): void {
-    const grouped = new Map<string, Map<string, number>>();
-
-    this.historyData.forEach(item => {
-      const district = item.district || 'Unknown';
-      const date = item.scrapingDate || '';
-      const price = this.parsePrice(item.avgPricePerMeter);
-
-      if (!grouped.has(district)) {
-        grouped.set(district, new Map());
-      }
-      grouped.get(district)!.set(date, price);
-    });
-
-    this.chartData = [];
-    const dates = new Set<string>();
-    this.historyData.forEach(item => {
-      if (item.scrapingDate) dates.add(item.scrapingDate);
-    });
-
-    const sortedDates = Array.from(dates).sort();
-    grouped.forEach((dateMap, district) => {
-      sortedDates.forEach(date => {
-        if (dateMap.has(date)) {
-          this.chartData.push({
-            date,
-            price: dateMap.get(date)!,
-            label: district
-          });
-        }
-      });
-    });
+    this.aggregateHistoryByLabel(item => item.district || 'Unknown');
   }
 
   private aggregateByRoomsHistory(): void {
-    const grouped = new Map<string, Map<string, number>>();
+    this.aggregateHistoryByLabel(item => {
+      const rooms = item.roomsCount ? Math.round(item.roomsCount * 10) / 10 : null;
+      return `${rooms?.toString() || 'Unknown'} rooms`;
+    });
+  }
+
+  private aggregateHistoryByLabel(getLabel: (item: FlatHistory) => string): void {
+    const grouped = new Map<string, Map<string, Aggregatable>>();
 
     this.historyData.forEach(item => {
-      const rooms = item.roomsCount ? Math.round(item.roomsCount * 10) / 10 : null;
-      const date = item.scrapingDate || '';
-      const price = this.parsePrice(item.avgPricePerMeter);
-
-      const roomsKey = rooms?.toString() || 'Unknown';
-      if (!grouped.has(roomsKey)) {
-        grouped.set(roomsKey, new Map());
+      if (!item.scrapingDate) {
+        return;
       }
-      grouped.get(roomsKey)!.set(date, price);
+
+      const label = getLabel(item);
+      const date = item.scrapingDate;
+      const count = item.count ?? 1;
+      if (count <= 0) {
+        return;
+      }
+
+      if (!grouped.has(label)) {
+        grouped.set(label, new Map());
+      }
+
+      const dateMap = grouped.get(label)!;
+      if (!dateMap.has(date)) {
+        dateMap.set(date, { count: 0, avgPricePerMeter: 0 });
+      }
+      mergeWeightedAverage(dateMap.get(date)!, {
+        count,
+        avgPricePerMeter: this.parsePrice(item.avgPricePerMeter)
+      });
     });
 
     this.chartData = [];
-    const dates = new Set<string>();
-    this.historyData.forEach(item => {
-      if (item.scrapingDate) dates.add(item.scrapingDate);
-    });
-
-    const sortedDates = Array.from(dates).sort();
-    grouped.forEach((dateMap, rooms) => {
-      sortedDates.forEach(date => {
-        if (dateMap.has(date)) {
-          this.chartData.push({
-            date,
-            price: dateMap.get(date)!,
-            label: `${rooms} rooms`
-          });
-        }
+    grouped.forEach((dateMap, label) => {
+      dateMap.forEach((aggregation, date) => {
+        this.chartData.push({
+          date,
+          price: aggregation.avgPricePerMeter,
+          label
+        });
       });
     });
   }

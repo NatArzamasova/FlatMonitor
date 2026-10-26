@@ -175,6 +175,32 @@ describe('HistoryTabComponent', () => {
       expect(mitteDataCount).toBeGreaterThan(0);
       expect(charlottenburgDataCount).toBeGreaterThan(0);
     });
+
+    it('should calculate district history as a flat-count-weighted average across room groups', () => {
+      component.historyData = [
+        { scrapingDate: '2024-01-15', district: 'Mitte', roomsCount: 2, avgPricePerMeter: 4000, count: 5 },
+        { scrapingDate: '2024-01-15', district: 'Mitte', roomsCount: 6, avgPricePerMeter: 8756, count: 1 }
+      ];
+      component.historyGroupBy = 'district';
+      (component as any).updateHistoryChart();
+
+      expect(component.chartData).toEqual([
+        { date: '2024-01-15', price: (4000 * 5 + 8756) / 6, label: 'Mitte' }
+      ]);
+    });
+
+    it('should calculate room history as a flat-count-weighted average across districts', () => {
+      component.historyData = [
+        { scrapingDate: '2024-01-15', district: 'Mitte', roomsCount: 2, avgPricePerMeter: 4000, count: 5 },
+        { scrapingDate: '2024-01-15', district: 'Charlottenburg', roomsCount: 2, avgPricePerMeter: 8756, count: 1 }
+      ];
+      component.historyGroupBy = 'rooms';
+      (component as any).updateHistoryChart();
+
+      expect(component.chartData).toEqual([
+        { date: '2024-01-15', price: (4000 * 5 + 8756) / 6, label: '2 rooms' }
+      ]);
+    });
   });
 
   describe('Chart scaling', () => {
