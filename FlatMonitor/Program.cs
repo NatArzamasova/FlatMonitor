@@ -245,14 +245,7 @@ async Task<int> RunWebServerAsync(string[] args)
         app.UseAuthorization();
         app.MapControllers();
 
-        // Serve static files for Angular
-        app.UseDefaultFiles();
-        app.UseStaticFiles();
-
-        // Fall back to index.html for SPA
-        app.MapFallbackToFile("index.html");
-
-        Console.WriteLine("🚀 Web server started on http://localhost:5000");
+        Console.WriteLine("🚀 API server started on http://localhost:5000");
         await app.RunAsync();
         return 0;
     }

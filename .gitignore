@@ -10,3 +10,4 @@ obj/
 .DS_Store
 FlatMonitor/data/
 FlatMonitor.Tests/data/
+ClientApp/dist/

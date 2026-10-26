@@ -8,24 +8,7 @@
 
 ## Development Setup
 
-### Option 1: Run Web Server (with Angular SPA)
-
-1. **Build Angular frontend**
-   ```bash
-   cd ClientApp
-   npm install
-   npm run build
-   cd ..
-   ```
-
-2. **Run ASP.NET Core web server**
-   ```bash
-   dotnet run
-   ```
-   
-   The application will start on `http://localhost:5000`
-
-### Option 2: Parallel Development (Recommended for Frontend Changes)
+### Run the backend and frontend separately
 
 Terminal 1 - Backend:
 ```bash
@@ -35,11 +18,11 @@ dotnet run
 Terminal 2 - Frontend (with live reload):
 ```bash
 cd ClientApp
-npm install (if first time)
+npm install # if this is the first run
 npm start
 ```
 
-The Angular dev server runs on `http://localhost:4200` and proxies API calls to `http://localhost:5000`.
+The backend exposes the API on `http://localhost:5000`. The Angular dev server runs on `http://localhost:4200` and proxies API calls to the backend. Open `http://localhost:4200`; the backend does not serve frontend files.
 
 ### Option 3: CLI Mode (for scheduled scraping)
 
