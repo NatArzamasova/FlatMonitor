@@ -42,8 +42,32 @@
     </div>
   </div>
 
-  <div *ngIf="!loadingHistory && chartData.length > 0" style="position: relative; height: 400px; width: 100%; margin-bottom: 20px;">
-    <canvas #historyChart></canvas>
+  <div *ngIf="!loadingHistory && chartData.length > 0" class="row g-3 mb-3 align-items-stretch">
+    <div class="col-12 col-lg-8">
+      <div style="position: relative; height: 400px; width: 100%;">
+        <canvas #historyChart></canvas>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-4">
+      <h2 class="h5">Latest averages ({{ latestAverageDate }})</h2>
+      <div class="table-responsive">
+        <table class="table table-sm table-striped">
+          <thead>
+            <tr>
+              <th scope="col">{{ historyGroupBy === 'district' ? 'District' : 'Room count' }}</th>
+              <th scope="col" class="text-end">Avg. price/m²</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of latestAverageData">
+              <td>{{ item.label }}</td>
+              <td class="text-end">{{ item.price | currency: 'EUR': 'symbol': '1.0-0' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <div *ngIf="!loadingHistory && historyData.length === 0" class="alert alert-info">

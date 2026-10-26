@@ -201,6 +201,39 @@ describe('HistoryTabComponent', () => {
         { date: '2024-01-15', price: 4793, label: '2 rooms' }
       ]);
     });
+
+    it('shows the latest district averages sorted by price descending', () => {
+      component.historyData = [
+        { scrapingDate: '2024-01-15', district: 'Mitte', roomsCount: 2, avgPricePerMeter: 2000, count: 1 },
+        { scrapingDate: '2024-01-16', district: 'Mitte', roomsCount: 2, avgPricePerMeter: 3000, count: 1 },
+        { scrapingDate: '2024-01-16', district: 'West', roomsCount: 3, avgPricePerMeter: 5000, count: 1 },
+        { scrapingDate: '2024-01-16', district: 'East', roomsCount: 3, avgPricePerMeter: 4000, count: 1 }
+      ];
+      component.historyGroupBy = 'district';
+      (component as any).updateHistoryChart();
+
+      expect(component.latestAverageDate).toBe('2024-01-16');
+      expect(component.latestAverageData).toEqual([
+        { label: 'West', price: 5000 },
+        { label: 'East', price: 4000 },
+        { label: 'Mitte', price: 3000 }
+      ]);
+    });
+
+    it('shows the latest room averages sorted by price descending when grouped by rooms', () => {
+      component.historyData = [
+        { scrapingDate: '2024-01-16', district: 'Mitte', roomsCount: 2, avgPricePerMeter: 3000, count: 1 },
+        { scrapingDate: '2024-01-16', district: 'West', roomsCount: 2, avgPricePerMeter: 5000, count: 1 },
+        { scrapingDate: '2024-01-16', district: 'East', roomsCount: 4, avgPricePerMeter: 4000, count: 1 }
+      ];
+      component.historyGroupBy = 'rooms';
+      (component as any).updateHistoryChart();
+
+      expect(component.latestAverageData).toEqual([
+        { label: '2 rooms', price: 4000 },
+        { label: '4 rooms', price: 4000 }
+      ]);
+    });
   });
 
   describe('Chart scaling', () => {

@@ -19,6 +19,21 @@ export class HistoryTabComponent implements OnInit, OnDestroy, AfterViewInit {
   chartData: { date: string; price: number; label: string }[] = [];
   chart: any;
 
+  get latestAverageDate(): string {
+    return this.chartData.reduce(
+      (latest, item) => item.date > latest ? item.date : latest,
+      ''
+    );
+  }
+
+  get latestAverageData(): { label: string; price: number }[] {
+    const latestDate = this.latestAverageDate;
+    return this.chartData
+      .filter(item => item.date === latestDate)
+      .map(({ label, price }) => ({ label, price }))
+      .sort((left, right) => right.price - left.price || left.label.localeCompare(right.label));
+  }
+
   @ViewChild('historyChart') historyChart: ElementRef<HTMLCanvasElement> | undefined;
 
   constructor(
