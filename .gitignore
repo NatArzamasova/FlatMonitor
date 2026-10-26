@@ -11,3 +11,4 @@ obj/
 FlatMonitor/data/
 FlatMonitor.Tests/data/
 ClientApp/dist/
+FlatMonitor/wwwroot/

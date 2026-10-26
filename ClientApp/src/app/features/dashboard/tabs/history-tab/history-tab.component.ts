@@ -45,16 +45,20 @@ export class HistoryTabComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   ngAfterViewInit(): void {
+    document.getElementById('history-tab')?.addEventListener('shown.bs.tab', this.onTabShown);
     if (this.historyData.length > 0) {
       this.renderChart();
     }
   }
 
   ngOnDestroy(): void {
+    document.getElementById('history-tab')?.removeEventListener('shown.bs.tab', this.onTabShown);
     if (this.chart) {
       this.chart.destroy();
     }
   }
+
+  private onTabShown = () => this.renderChart();
 
   loadHistory(): void {
     this.loadingHistory = true;
@@ -150,11 +154,19 @@ export class HistoryTabComponent implements OnInit, OnDestroy, AfterViewInit {
   private renderChart(): void {
     if (!this.historyChart || this.chartData.length === 0) return;
 
+    const canvas = this.historyChart.nativeElement;
+    // A responsive Chart.js chart on a 0x0 canvas loops its resize handler and locks the main
+    // thread, so defer until the History pane is actually shown (see the shown.bs.tab listener).
+    if (canvas.clientWidth === 0 || canvas.clientHeight === 0) return;
+
     if (this.chart) {
       this.chart.destroy();
     }
 
-    const canvas = this.historyChart.nativeElement;
+    const wrapper = canvas.parentElement;
+    canvas.width = wrapper?.clientWidth || canvas.clientWidth;
+    canvas.height = wrapper?.clientHeight || canvas.clientHeight;
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -197,8 +209,11 @@ export class HistoryTabComponent implements OnInit, OnDestroy, AfterViewInit {
         datasets
       },
       options: {
-        responsive: true,
-        maintainAspectRatio: true,
+        // The canvas is sized from its wrapper above. Letting Chart.js own the sizing makes its
+        // resize observer fight the Bootstrap tab pane and lock the main thread.
+        responsive: false,
+        maintainAspectRatio: false,
+        animation: false as const,
         plugins: {
           legend: {
             display: true,
