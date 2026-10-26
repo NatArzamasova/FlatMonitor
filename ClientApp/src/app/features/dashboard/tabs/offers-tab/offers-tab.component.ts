@@ -86,13 +86,41 @@ import { FlatOffer } from '../../../../core/models/flat-offer.model';
         <table class="table table-striped table-hover table-sm">
           <thead class="table-dark">
             <tr>
-              <th>District</th>
-              <th class="text-center">Rooms</th>
-              <th class="text-end">Price (€)</th>
-              <th class="text-end">Original price (€)</th>
-              <th class="text-end">Living area (m²)</th>
-              <th class="text-end">Price/m² (€)</th>
-              <th>Link</th>
+              <th [attr.aria-sort]="sortAriaValue('district')">
+                <button type="button" class="btn btn-link link-light p-0 text-decoration-none" aria-label="Sort by District" (click)="onSort('district')">
+                  District <span aria-hidden="true">{{ sortIndicator('district') }}</span>
+                </button>
+              </th>
+              <th class="text-center" [attr.aria-sort]="sortAriaValue('roomsCount')">
+                <button type="button" class="btn btn-link link-light p-0 text-decoration-none" aria-label="Sort by Rooms" (click)="onSort('roomsCount')">
+                  Rooms <span aria-hidden="true">{{ sortIndicator('roomsCount') }}</span>
+                </button>
+              </th>
+              <th class="text-end" [attr.aria-sort]="sortAriaValue('priceEur')">
+                <button type="button" class="btn btn-link link-light p-0 text-decoration-none" aria-label="Sort by Price" (click)="onSort('priceEur')">
+                  Price (€) <span aria-hidden="true">{{ sortIndicator('priceEur') }}</span>
+                </button>
+              </th>
+              <th class="text-end" [attr.aria-sort]="sortAriaValue('originalPriceEur')">
+                <button type="button" class="btn btn-link link-light p-0 text-decoration-none" aria-label="Sort by Original Price" (click)="onSort('originalPriceEur')">
+                  Original price (€) <span aria-hidden="true">{{ sortIndicator('originalPriceEur') }}</span>
+                </button>
+              </th>
+              <th class="text-end" [attr.aria-sort]="sortAriaValue('livingAreaSqm')">
+                <button type="button" class="btn btn-link link-light p-0 text-decoration-none" aria-label="Sort by Living Area" (click)="onSort('livingAreaSqm')">
+                  Living area (m²) <span aria-hidden="true">{{ sortIndicator('livingAreaSqm') }}</span>
+                </button>
+              </th>
+              <th class="text-end" [attr.aria-sort]="sortAriaValue('pricePerMeter')">
+                <button type="button" class="btn btn-link link-light p-0 text-decoration-none" aria-label="Sort by Price per Square Meter" (click)="onSort('pricePerMeter')">
+                  Price/m² (€) <span aria-hidden="true">{{ sortIndicator('pricePerMeter') }}</span>
+                </button>
+              </th>
+              <th [attr.aria-sort]="sortAriaValue('source')">
+                <button type="button" class="btn btn-link link-light p-0 text-decoration-none" aria-label="Sort by Source" (click)="onSort('source')">
+                  Link <span aria-hidden="true">{{ sortIndicator('source') }}</span>
+                </button>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -142,6 +170,18 @@ import { FlatOffer } from '../../../../core/models/flat-offer.model';
   `
 })
 export class OffersTabComponent implements OnInit {
+  private readonly sortableColumns = [
+    'district',
+    'roomsCount',
+    'priceEur',
+    'originalPriceEur',
+    'livingAreaSqm',
+    'pricePerMeter',
+    'source'
+  ] as const;
+  private sortColumn: typeof this.sortableColumns[number] | null = null;
+  private sortDirection: 'asc' | 'desc' = 'asc';
+
   currentOffers: FlatOffer[] = [];
   filteredOffers: FlatOffer[] = [];
   loadingOffers = false;
@@ -241,11 +281,50 @@ export class OffersTabComponent implements OnInit {
       offer => offer.priceEur
     );
 
-    this.filteredOffers = filtered;
+    this.filteredOffers = this.sortOffers(filtered);
   }
 
   onOfferFiltersChange(): void {
     this.applyOfferFilters();
+  }
+
+  onSort(column: typeof this.sortableColumns[number]): void {
+    if (this.sortColumn === column) {
+      this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.sortColumn = column;
+      this.sortDirection = 'asc';
+    }
+    this.applyOfferFilters();
+  }
+
+  sortIndicator(column: typeof this.sortableColumns[number]): string {
+    return this.sortColumn === column ? (this.sortDirection === 'asc' ? '↑' : '↓') : '';
+  }
+
+  sortAriaValue(column: typeof this.sortableColumns[number]): string | null {
+    return this.sortColumn === column
+      ? (this.sortDirection === 'asc' ? 'ascending' : 'descending')
+      : null;
+  }
+
+  private sortOffers(offers: FlatOffer[]): FlatOffer[] {
+    if (!this.sortColumn) {
+      return offers;
+    }
+
+    const column = this.sortColumn;
+    const direction = this.sortDirection === 'asc' ? 1 : -1;
+    return [...offers].sort((left, right) => {
+      const leftValue = left[column];
+      const rightValue = right[column];
+      if (leftValue == null) return rightValue == null ? 0 : 1;
+      if (rightValue == null) return -1;
+      const comparison = typeof leftValue === 'number' && typeof rightValue === 'number'
+        ? leftValue - rightValue
+        : String(leftValue).localeCompare(String(rightValue), undefined, { numeric: true, sensitivity: 'base' });
+      return comparison * direction;
+    });
   }
 
   getSafeUrl(url: string | undefined): SafeUrl {

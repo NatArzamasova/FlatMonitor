@@ -175,6 +175,75 @@ describe('OffersTabComponent', () => {
     });
   });
 
+  describe('Table sorting', () => {
+    const sortableOffers: FlatOffer[] = [
+      {
+        district: 'Zürich',
+        roomsCount: 3,
+        priceEur: 3000,
+        originalPriceEur: 3500,
+        livingAreaSqm: 90,
+        pricePerMeter: 30,
+        source: 'ZSource'
+      },
+      {
+        district: 'Aachen',
+        roomsCount: 1,
+        priceEur: 1000,
+        originalPriceEur: 1200,
+        livingAreaSqm: 40,
+        pricePerMeter: 10,
+        source: 'ASource'
+      }
+    ];
+
+    beforeEach(() => {
+      component.currentOffers = sortableOffers;
+      component.applyOfferFilters();
+    });
+
+    it('sorts every displayed column ascending and toggles the active column descending', () => {
+      const cases = [
+        { column: 'district' as const, firstValue: 'Aachen' },
+        { column: 'roomsCount' as const, firstValue: 1 },
+        { column: 'priceEur' as const, firstValue: 1000 },
+        { column: 'originalPriceEur' as const, firstValue: 1200 },
+        { column: 'livingAreaSqm' as const, firstValue: 40 },
+        { column: 'pricePerMeter' as const, firstValue: 10 },
+        { column: 'source' as const, firstValue: 'ASource' }
+      ];
+
+      for (const { column, firstValue } of cases) {
+        component.onSort(column);
+        expect(component.filteredOffers[0][column]).toBe(firstValue);
+        component.onSort(column);
+        expect(component.filteredOffers[0][column]).not.toBe(firstValue);
+      }
+    });
+
+    it('renders a sortable control for every table column', () => {
+      flatsService.getCurrentOffers.and.returnValue(of(mockOffersResponse));
+      component.filteredOffers = mockOffersResponse.data!;
+      fixture.detectChanges();
+
+      const buttons = fixture.nativeElement.querySelectorAll('thead button[aria-label^="Sort by"]') as NodeListOf<HTMLButtonElement>;
+      expect(buttons.length).toBe(7);
+      buttons[2].click();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('thead th:nth-child(3)').getAttribute('aria-sort')).toBe('ascending');
+      expect(component.filteredOffers[0].priceEur).toBe(2000);
+    });
+
+    it('reapplies the active sort after filters change', () => {
+      component.onSort('priceEur');
+      component.selectedOfferDistricts = ['Aachen', 'Zürich'];
+      component.onOfferFiltersChange();
+
+      expect(component.filteredOffers.map(offer => offer.priceEur)).toEqual([1000, 3000]);
+    });
+  });
+
   describe('Price display', () => {
     it('identifies offers with a changed original price', () => {
       expect(component.hasChangedPrice(mockOffersResponse.data![0])).toBe(true);

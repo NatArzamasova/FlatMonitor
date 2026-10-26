@@ -163,10 +163,26 @@ import { mergeWeightedAverage } from '../../../../core/utils/aggregation.utils';
         <table class="table table-striped table-hover">
           <thead class="table-dark">
             <tr>
-              <th>District</th>
-              <th>Rooms</th>
-              <th class="text-end">Count</th>
-              <th class="text-end">Avg Price/m²</th>
+              <th [attr.aria-sort]="sortAriaValue('district')">
+                <button type="button" class="btn btn-link link-light p-0 text-decoration-none" aria-label="Sort by District" (click)="onSort('district')">
+                  District <span aria-hidden="true">{{ sortIndicator('district') }}</span>
+                </button>
+              </th>
+              <th [attr.aria-sort]="sortAriaValue('roomsCount')">
+                <button type="button" class="btn btn-link link-light p-0 text-decoration-none" aria-label="Sort by Rooms" (click)="onSort('roomsCount')">
+                  Rooms <span aria-hidden="true">{{ sortIndicator('roomsCount') }}</span>
+                </button>
+              </th>
+              <th class="text-end" [attr.aria-sort]="sortAriaValue('count')">
+                <button type="button" class="btn btn-link link-light p-0 text-decoration-none" aria-label="Sort by Count" (click)="onSort('count')">
+                  Count <span aria-hidden="true">{{ sortIndicator('count') }}</span>
+                </button>
+              </th>
+              <th class="text-end" [attr.aria-sort]="sortAriaValue('avgPricePerMeter')">
+                <button type="button" class="btn btn-link link-light p-0 text-decoration-none" aria-label="Sort by Average Price per Square Meter" (click)="onSort('avgPricePerMeter')">
+                  Avg Price/m² <span aria-hidden="true">{{ sortIndicator('avgPricePerMeter') }}</span>
+                </button>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -196,6 +212,10 @@ import { mergeWeightedAverage } from '../../../../core/utils/aggregation.utils';
   `
 })
 export class OverviewTabComponent implements OnInit, OnDestroy {
+  private readonly sortableColumns = ['district', 'roomsCount', 'count', 'avgPricePerMeter'] as const;
+  private sortColumn: typeof this.sortableColumns[number] | null = null;
+  private sortDirection: 'asc' | 'desc' = 'asc';
+
   aggregatedData: FlatAggregation[] = [];
   rawData: FlatAggregation[] = [];
   loading = false;
@@ -309,10 +329,50 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
     } else {
       this.aggregatedData = this.aggregateAll(filtered);
     }
+    this.applySort();
   }
 
   onFiltersChange(): void {
     this.applyFiltersAndGrouping();
+  }
+
+  onSort(column: typeof this.sortableColumns[number]): void {
+    if (this.sortColumn === column) {
+      this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.sortColumn = column;
+      this.sortDirection = 'asc';
+    }
+    this.applySort();
+  }
+
+  sortIndicator(column: typeof this.sortableColumns[number]): string {
+    return this.sortColumn === column ? (this.sortDirection === 'asc' ? '↑' : '↓') : '';
+  }
+
+  sortAriaValue(column: typeof this.sortableColumns[number]): string | null {
+    return this.sortColumn === column
+      ? (this.sortDirection === 'asc' ? 'ascending' : 'descending')
+      : null;
+  }
+
+  private applySort(): void {
+    if (!this.sortColumn) {
+      return;
+    }
+
+    const column = this.sortColumn;
+    const direction = this.sortDirection === 'asc' ? 1 : -1;
+    this.aggregatedData = [...this.aggregatedData].sort((left, right) => {
+      const leftValue = left[column];
+      const rightValue = right[column];
+      if (leftValue == null) return rightValue == null ? 0 : 1;
+      if (rightValue == null) return -1;
+      const comparison = typeof leftValue === 'number' && typeof rightValue === 'number'
+        ? leftValue - rightValue
+        : String(leftValue).localeCompare(String(rightValue), undefined, { numeric: true, sensitivity: 'base' });
+      return comparison * direction;
+    });
   }
 
   private aggregateByDistrict(data: FlatAggregation[]): FlatAggregation[] {

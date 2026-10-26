@@ -525,6 +525,46 @@ describe('OverviewTabComponent', () => {
     });
   });
 
+  describe('Table sorting', () => {
+    beforeEach(() => {
+      component.aggregatedData = [
+        { district: 'Zürich', roomsCount: 3, count: 2, avgPricePerMeter: 20 },
+        { district: 'Aachen', roomsCount: 1, count: 8, avgPricePerMeter: 10 }
+      ];
+    });
+
+    it('sorts every displayed column ascending and toggles the active column descending', () => {
+      const cases = [
+        { column: 'district' as const, firstValue: 'Aachen' },
+        { column: 'roomsCount' as const, firstValue: 1 },
+        { column: 'count' as const, firstValue: 2 },
+        { column: 'avgPricePerMeter' as const, firstValue: 10 }
+      ];
+
+      for (const { column, firstValue } of cases) {
+        component.onSort(column);
+        expect(component.aggregatedData[0][column]).toBe(firstValue);
+        component.onSort(column);
+        expect(component.aggregatedData[0][column]).not.toBe(firstValue);
+      }
+    });
+
+    it('renders a sortable control for every table column', () => {
+      flatsService.getAggregated.and.returnValue(of(mockAggregatedResponse));
+      flatsService.getScrapeStatus.and.returnValue(of(mockScrapingStatusNotRunning));
+      component.aggregatedData = mockAggregatedResponse.data!;
+      fixture.detectChanges();
+
+      const buttons = fixture.nativeElement.querySelectorAll('thead button[aria-label^="Sort by"]') as NodeListOf<HTMLButtonElement>;
+      expect(buttons.length).toBe(4);
+      buttons[2].click();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('thead th:nth-child(3)').getAttribute('aria-sort')).toBe('ascending');
+      expect(component.aggregatedData[0].count).toBe(5);
+    });
+  });
+
   describe('Current offers navigation', () => {
     it('opens a new offers tab with the dimensions represented by the row', () => {
       const openSpy = spyOn(window, 'open');
