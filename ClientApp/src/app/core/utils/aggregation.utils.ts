@@ -3,6 +3,10 @@ export interface Aggregatable {
   avgPricePerMeter: number;
 }
 
+export function roundPriceToEuro(pricePerMeter: number): number {
+  return Math.round(pricePerMeter);
+}
+
 export function mergeWeightedAverage(
   current: Aggregatable,
   item: Aggregatable

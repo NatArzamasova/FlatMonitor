@@ -7,7 +7,7 @@ import { FlatsService } from '../../../../core/services/flats.service';
 import { FilterService } from '../../../../core/services/filter.service';
 import { FlatAggregation } from '../../../../core/models/flat-aggregation.model';
 import { ScrapingStatusResponse } from '../../../../core/models/scraping-status-response.model';
-import { mergeWeightedAverage } from '../../../../core/utils/aggregation.utils';
+import { mergeWeightedAverage, roundPriceToEuro } from '../../../../core/utils/aggregation.utils';
 
 @Component({
   selector: 'app-overview-tab',
@@ -45,6 +45,8 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
   lastSuccessfulScrapingCount = 0;
 
   private destroy$ = new Subject<void>();
+
+  roundPriceToEuro = roundPriceToEuro;
 
   constructor(
     private flatsService: FlatsService,

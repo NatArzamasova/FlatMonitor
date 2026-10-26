@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { FlatsService } from '../../../../core/services/flats.service';
 import { FlatHistory } from '../../../../core/models/flat-history.model';
-import { Aggregatable, mergeWeightedAverage } from '../../../../core/utils/aggregation.utils';
+import { Aggregatable, mergeWeightedAverage, roundPriceToEuro } from '../../../../core/utils/aggregation.utils';
 
 @Component({
   selector: 'app-history-tab',
@@ -120,7 +120,7 @@ export class HistoryTabComponent implements OnInit, OnDestroy, AfterViewInit {
       dateMap.forEach((aggregation, date) => {
         this.chartData.push({
           date,
-          price: aggregation.avgPricePerMeter,
+          price: roundPriceToEuro(aggregation.avgPricePerMeter),
           label
         });
       });
@@ -195,7 +195,7 @@ export class HistoryTabComponent implements OnInit, OnDestroy, AfterViewInit {
           },
           tooltip: {
             callbacks: {
-              label: (context: any) => `${context.dataset.label}: €${Number(context.parsed.y).toFixed(2)}/m²`
+              label: (context: any) => `${context.dataset.label}: €${roundPriceToEuro(Number(context.parsed.y))}/m²`
             }
           }
         },

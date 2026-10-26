@@ -1,6 +1,14 @@
-import { mergeWeightedAverage } from './aggregation.utils';
+import { mergeWeightedAverage, roundPriceToEuro } from './aggregation.utils';
 
 describe('aggregation.utils', () => {
+  describe('roundPriceToEuro', () => {
+    it('rounds average prices to the nearest whole euro', () => {
+      expect(roundPriceToEuro(12.49)).toBe(12);
+      expect(roundPriceToEuro(12.5)).toBe(13);
+      expect(roundPriceToEuro(12.99)).toBe(13);
+    });
+  });
+
   describe('mergeWeightedAverage', () => {
     it('should merge two aggregations with correct weighted average', () => {
       const current = { count: 10, avgPricePerMeter: 100 };

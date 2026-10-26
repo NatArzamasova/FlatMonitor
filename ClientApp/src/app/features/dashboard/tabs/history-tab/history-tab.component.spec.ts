@@ -185,7 +185,7 @@ describe('HistoryTabComponent', () => {
       (component as any).updateHistoryChart();
 
       expect(component.chartData).toEqual([
-        { date: '2024-01-15', price: (4000 * 5 + 8756) / 6, label: 'Mitte' }
+        { date: '2024-01-15', price: 4793, label: 'Mitte' }
       ]);
     });
 
@@ -198,7 +198,7 @@ describe('HistoryTabComponent', () => {
       (component as any).updateHistoryChart();
 
       expect(component.chartData).toEqual([
-        { date: '2024-01-15', price: (4000 * 5 + 8756) / 6, label: '2 rooms' }
+        { date: '2024-01-15', price: 4793, label: '2 rooms' }
       ]);
     });
   });
@@ -220,8 +220,12 @@ describe('HistoryTabComponent', () => {
       expect(component.chart.config.options.scales.x.ticks.callback(0)).toBe('15 Jan');
       expect(component.chart.config.options.plugins.tooltip.callbacks.label({
         dataset: { label: 'Mitte' },
+        parsed: { y: 12.49 }
+      })).toBe('Mitte: €12/m²');
+      expect(component.chart.config.options.plugins.tooltip.callbacks.label({
+        dataset: { label: 'Mitte' },
         parsed: { y: 12.5 }
-      })).toBe('Mitte: €12.50/m²');
+      })).toBe('Mitte: €13/m²');
     });
   });
 

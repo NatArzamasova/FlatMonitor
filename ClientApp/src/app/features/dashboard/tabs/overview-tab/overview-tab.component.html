@@ -182,7 +182,7 @@
           <td>{{ groupByRooms ? (item.roomsCount || '-') : '-' }}</td>
           <td class="text-end"><span class="badge bg-info">{{ item.count }}</span></td>
           <td class="text-end">
-            <strong>{{ item.avgPricePerMeter | currency: 'EUR': 'symbol': '1.0-0' }}</strong>
+            <strong>{{ roundPriceToEuro(item.avgPricePerMeter) | currency: 'EUR': 'symbol': '1.0-0' }}</strong>
           </td>
         </tr>
       </tbody>
