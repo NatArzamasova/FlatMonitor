@@ -1,0 +1,57 @@
+<div>
+  <div *ngIf="loadingHistory" class="d-flex justify-content-center py-5">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+  </div>
+
+  <div *ngIf="!loadingHistory && historyData.length > 0" class="mb-3">
+    <div class="d-flex gap-3 align-items-center flex-wrap">
+      <div>
+        <label class="form-label mb-0 me-2">Group By:</label>
+        <div class="form-check form-check-inline">
+          <input
+            class="form-check-input"
+            type="radio"
+            id="groupByDistrictRadio"
+            name="historyGroupBy"
+            value="district"
+            [(ngModel)]="historyGroupBy"
+            (change)="onHistoryGroupByChange()"
+          />
+          <label class="form-check-label" for="groupByDistrictRadio">
+            District
+          </label>
+        </div>
+        <div class="form-check form-check-inline">
+          <input
+            class="form-check-input"
+            type="radio"
+            id="groupByRoomsRadio"
+            name="historyGroupBy"
+            value="rooms"
+            [(ngModel)]="historyGroupBy"
+            (change)="onHistoryGroupByChange()"
+          />
+          <label class="form-check-label" for="groupByRoomsRadio">
+            Room Number
+          </label>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div *ngIf="!loadingHistory && chartData.length > 0" style="position: relative; height: 400px; width: 100%; margin-bottom: 20px;">
+    <canvas #historyChart></canvas>
+  </div>
+
+  <div *ngIf="!loadingHistory && historyData.length === 0" class="alert alert-info">
+    No history data available yet. Historical data will be collected after multiple scrapes.
+  </div>
+
+  <div *ngIf="error" class="alert alert-danger alert-dismissible fade show" role="alert">
+    {{ error }}
+    <button type="button" class="btn-close" (click)="error = null"></button>
+  </div>
+</div>
