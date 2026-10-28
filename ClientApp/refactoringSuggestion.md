@@ -101,8 +101,12 @@ When both counts are 0 the division is `0 / 0`. History guards against it (`coun
 overview grouping does not. Guard in the util itself (`if (newTotalCount === 0) return`) so callers
 don't need to know.
 
-### A6. `DashboardComponent` SCSS has no effect
+### A6. `DashboardComponent` SCSS has no effect ✅ COMPLETED
 `dashboard.component.scss`
+
+> **Done:** deleted `dashboard.component.scss` and the `styleUrls` entry. Chose delete over moving to
+> `styles.scss`: the rules never applied, so deleting keeps the current look, whereas making them
+> global would e.g. shrink the large loading spinners in every tab to 1rem.
 
 `.table-responsive`, `.btn-group`, `.spinner-border` are styled in the shell, but the elements live in
 the child tab components. With default emulated view encapsulation these rules never match. Either move

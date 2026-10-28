@@ -8,8 +8,7 @@ import { HistoryTabComponent } from './tabs/history-tab/history-tab.component';
   selector: 'app-dashboard',
   standalone: true,
   imports: [CommonModule, OverviewTabComponent, OffersTabComponent, HistoryTabComponent],
-  templateUrl: './dashboard.component.html',
-  styleUrls: ['./dashboard.component.scss']
+  templateUrl: './dashboard.component.html'
 })
 export class DashboardComponent implements AfterViewInit {
   ngAfterViewInit(): void {
