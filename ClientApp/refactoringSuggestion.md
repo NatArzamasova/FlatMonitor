@@ -40,12 +40,16 @@ export function isHttpUrl(url: string | undefined): url is string {
 <a *ngIf="isHttpUrl(offer.url)" [href]="offer.url" ...>
 ```
 
-### A2. Status polling dies permanently after one failed request
+### A2. Status polling dies permanently after one failed request ✅ COMPLETED
 `overview-tab.component.ts:60-73`
 
+> **Done:** each status request inside the `switchMap` now has its own `catchError` that logs and
+> returns `EMPTY`, so a failed poll is skipped and the next tick polls again. Covered by the
+> `keeps polling after a failed status request` spec (fakeAsync).
+
 `interval(2000).pipe(switchMap(() => getScrapeStatus()))` has no `catchError`. A single 5xx / network
-blip errors the outer stream and polling stops for the rest of the session — the "Cancel Scraping"
-button and the auto-refresh after a scrape silently stop working.
+blip errors the outer stream and polling stops for the rest of the session — the scraping status and
+the "Manual Scrape" / "Cancel Scraping" toggle silently stop updating.
 
 **Fix:** catch inside the `switchMap` (`catchError(() => EMPTY)`), or use `retry({ delay: 2000 })`.
 See also B3.
@@ -90,6 +94,28 @@ them to `styles.scss` (if they are meant to be global) or delete them. (`.btn-gr
 `triggerScrape` shows a "Scrape job queued" alert *and* sets `scrapedCount = response.flatsCount`, which
 drives a second "Scraped N flats successfully" alert — at queue time, before anything was scraped.
 Keep only the queued message; report the final count from the status poll when the run finishes.
+
+### A8. Data is never auto-refreshed when a scrape finishes
+`overview-tab.component.ts:71-79` (found while writing the A2 specs)
+
+The poll handler calls `updateScrapingStatus(status)` first, which already sets
+`this.scraping = status.isScrapingInProgress`. The following check
+`else if (this.scraping) { this.scraping = false; this.loadAggregatedData(); }` therefore always sees
+`false`, so the "scrape just finished → reload" branch is unreachable and the table keeps showing
+pre-scrape data until the user clicks "Refresh Data".
+
+**Fix:** remember the previous state before updating:
+
+```ts
+const wasScraping = this.scraping;
+this.updateScrapingStatus(status);
+if (wasScraping && !status.isScrapingInProgress) {
+  this.loadAggregatedData();
+}
+```
+
+Spec: status sequence running → not running must trigger one extra `getAggregated` call.
+B3's `scrapeFinished$` stream (`pairwise` on `isScrapingInProgress`) is the structural version of this fix.
 
 ---
 

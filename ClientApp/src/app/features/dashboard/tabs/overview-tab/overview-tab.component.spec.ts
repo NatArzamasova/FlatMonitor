@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { of, throwError, Subject } from 'rxjs';
 import { OverviewTabComponent } from './overview-tab.component';
 import { FlatsService } from '../../../../core/services/flats.service';
@@ -215,6 +215,27 @@ describe('OverviewTabComponent', () => {
 
       expect(component.scraping).toBe(false);
     });
+
+    it('keeps polling after a failed status request', fakeAsync(() => {
+      spyOn(console, 'error');
+      flatsService.getAggregated.and.returnValue(of(mockAggregatedResponse));
+      flatsService.getScrapeStatus.and.returnValues(
+        of(mockScrapingStatusNotRunning),
+        throwError(() => new Error('Network error')),
+        of(mockScrapingStatusRunning)
+      );
+
+      component.ngOnInit();
+      tick(2000);
+      tick(2000);
+
+      expect(flatsService.getScrapeStatus).toHaveBeenCalledTimes(3);
+      expect(console.error).toHaveBeenCalledWith('Failed to poll scraping status:', jasmine.any(Error));
+      expect(component.scraping).toBe(true);
+      expect(component.lastScrapingStatus).toBe('Running');
+
+      component.ngOnDestroy();
+    }));
   });
 
   describe('triggerScrape', () => {

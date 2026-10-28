@@ -1,8 +1,8 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { interval, Subject } from 'rxjs';
-import { takeUntil, switchMap } from 'rxjs/operators';
+import { EMPTY, interval, Subject } from 'rxjs';
+import { catchError, takeUntil, switchMap } from 'rxjs/operators';
 import { FlatsService } from '../../../../core/services/flats.service';
 import { FilterService } from '../../../../core/services/filter.service';
 import { FlatAggregation } from '../../../../core/models/flat-aggregation.model';
@@ -59,7 +59,13 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
 
     interval(2000)
       .pipe(
-        switchMap(() => this.flatsService.getScrapeStatus()),
+        // Catch per request: an error reaching the interval stream would stop polling for good.
+        switchMap(() => this.flatsService.getScrapeStatus().pipe(
+          catchError((err) => {
+            console.error('Failed to poll scraping status:', err);
+            return EMPTY;
+          })
+        )),
         takeUntil(this.destroy$)
       )
       .subscribe((status) => {
