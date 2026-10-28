@@ -477,7 +477,23 @@ Now that each tab is its own component, the prefixes are noise:
 Also `onFiltersChange()` and `onGroupingToggle()` in the overview are both just
 `applyFiltersAndGrouping()` — keep one.
 
-### C3. Dead or redundant code
+### C3. Dead or redundant code ✅ COMPLETED
+
+> **Done:**
+> - `availableRooms` null handling and the History `ngAfterViewInit` render were already removed
+>   in B7 / B1+B6.
+> - Overview no longer runs `roundPriceToEuro` before `currency: …: '1.0-0'` (the pipe rounds the
+>   same way); the component property is gone.
+> - History `parsePrice()` replaced by `item.avgPricePerMeter ?? 0`.
+> - `core/utils/collection.utils.ts` → `distinctSorted(values, compare?)` builds the district / room
+>   filter options in both tabs; Offers' `updateAvailableOfferFilters` (missed in C2) is now
+>   `updateAvailableFilters`.
+> - Characterization specs written first and passing before and after: price rounding in the
+>   overview table (12.49 → €12, 12.5 → €13), missing History prices count as 0, filter options
+>   drop empty values but keep 0 rooms.
+>
+> Not done on purpose: `rawData` / `currentOffers` / `historyData` stay public — the specs set and
+> read them directly, and Angular templates can use them either way.
 - `availableRooms: (number | null)[]` in overview — `null` is never added, so the null-sort branch
   (`:117-121`) and the `*ngIf="rooms !== null"` wrapper in the template are dead.
 - `rawData` / `currentOffers` / `historyData` are public only for templates' `length > 0` checks.

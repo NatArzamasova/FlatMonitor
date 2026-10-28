@@ -112,7 +112,7 @@ export class HistoryTabComponent implements OnInit {
       const dateMap = grouped.get(label)!;
       dateMap.set(date, mergeWeightedAverage(dateMap.get(date) ?? { count: 0, avgPricePerMeter: 0 }, {
         count,
-        avgPricePerMeter: this.parsePrice(item.avgPricePerMeter)
+        avgPricePerMeter: item.avgPricePerMeter ?? 0
       }));
     });
 
@@ -126,11 +126,6 @@ export class HistoryTabComponent implements OnInit {
         });
       });
     });
-  }
-
-  private parsePrice(price: number | undefined | null): number {
-    if (!price) return 0;
-    return Number(price) || 0;
   }
 
 }

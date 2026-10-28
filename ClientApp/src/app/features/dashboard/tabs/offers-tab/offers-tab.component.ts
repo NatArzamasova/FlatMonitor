@@ -8,6 +8,7 @@ import { FilterService } from '../../../../core/services/filter.service';
 import { FlatOffer } from '../../../../core/models/flat-offer.model';
 import { isHttpUrl } from '../../../../core/utils/url.utils';
 import { normalizeRooms } from '../../../../core/utils/rooms.utils';
+import { distinctSorted } from '../../../../core/utils/collection.utils';
 import { describeLoadError } from '../../../../core/utils/api-response.utils';
 import { TableSort } from '../../../../core/utils/table-sort';
 import { SortableHeaderComponent } from '../../../../shared/sortable-header/sortable-header.component';
@@ -96,7 +97,7 @@ export class OffersTabComponent implements OnInit {
       .subscribe({
         next: (offers) => {
           this.currentOffers = offers;
-          this.updateAvailableOfferFilters();
+          this.updateAvailableFilters();
           this.applyFilters();
         },
         error: (err) => {
@@ -105,22 +106,9 @@ export class OffersTabComponent implements OnInit {
       });
   }
 
-  private updateAvailableOfferFilters(): void {
-    const districts = new Set<string>();
-    const rooms = new Set<number>();
-
-    this.currentOffers.forEach(offer => {
-      if (offer.district) {
-        districts.add(offer.district);
-      }
-      const roomsCount = normalizeRooms(offer.roomsCount);
-      if (roomsCount !== undefined) {
-        rooms.add(roomsCount);
-      }
-    });
-
-    this.availableDistricts = Array.from(districts).sort();
-    this.availableRooms = Array.from(rooms).sort((a, b) => a - b);
+  private updateAvailableFilters(): void {
+    this.availableDistricts = distinctSorted(this.currentOffers.map(offer => offer.district));
+    this.availableRooms = distinctSorted(this.currentOffers.map(offer => normalizeRooms(offer.roomsCount)), (a, b) => a - b);
   }
 
   applyFilters(): void {

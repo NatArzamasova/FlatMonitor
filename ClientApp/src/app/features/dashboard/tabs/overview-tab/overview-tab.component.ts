@@ -8,8 +8,9 @@ import { FlatsService } from '../../../../core/services/flats.service';
 import { FilterService } from '../../../../core/services/filter.service';
 import { ScrapeStatusService } from '../../../../core/services/scrape-status.service';
 import { FlatAggregation } from '../../../../core/models/flat-aggregation.model';
-import { groupWeighted, roundPriceToEuro } from '../../../../core/utils/aggregation.utils';
+import { groupWeighted } from '../../../../core/utils/aggregation.utils';
 import { normalizeRooms } from '../../../../core/utils/rooms.utils';
+import { distinctSorted } from '../../../../core/utils/collection.utils';
 import { describeLoadError } from '../../../../core/utils/api-response.utils';
 import { ScrapingStatusComponent } from '../../scraping-status/scraping-status.component';
 import { TableSort } from '../../../../core/utils/table-sort';
@@ -60,8 +61,6 @@ export class OverviewTabComponent implements OnInit {
   availableDistricts: string[] = [];
   availableRooms: number[] = [];
 
-  roundPriceToEuro = roundPriceToEuro;
-
   ngOnInit(): void {
     this.loadAggregatedData();
 
@@ -89,21 +88,8 @@ export class OverviewTabComponent implements OnInit {
   }
 
   private updateAvailableFilters(): void {
-    const districts = new Set<string>();
-    const rooms = new Set<number>();
-
-    this.rawData.forEach(item => {
-      if (item.district) {
-        districts.add(item.district);
-      }
-      const roomsCount = normalizeRooms(item.roomsCount);
-      if (roomsCount !== undefined) {
-        rooms.add(roomsCount);
-      }
-    });
-
-    this.availableDistricts = Array.from(districts).sort();
-    this.availableRooms = Array.from(rooms).sort((a, b) => a - b);
+    this.availableDistricts = distinctSorted(this.rawData.map(item => item.district));
+    this.availableRooms = distinctSorted(this.rawData.map(item => normalizeRooms(item.roomsCount)), (a, b) => a - b);
   }
 
   applyFiltersAndGrouping(): void {

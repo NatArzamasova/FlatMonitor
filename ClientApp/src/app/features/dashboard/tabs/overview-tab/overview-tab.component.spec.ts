@@ -183,6 +183,41 @@ describe('OverviewTabComponent', () => {
       expect(component.aggregatedData.map(row => row.roomsCount)).toEqual([3]);
     });
 
+    it('shows average prices rounded to whole euros', () => {
+      flatsService.getAggregated.and.returnValue(apiResult({
+        success: true,
+        data: [
+          { district: 'Aachen', roomsCount: 1, count: 1, avgPricePerMeter: 12.49 },
+          { district: 'Bonn', roomsCount: 1, count: 1, avgPricePerMeter: 12.5 },
+          { district: 'Celle', roomsCount: 1, count: 1, avgPricePerMeter: 4793.6 }
+        ],
+        message: 'Success'
+      }));
+      fixture.detectChanges();
+
+      const prices = Array.from(fixture.nativeElement.querySelectorAll('tbody tr td:nth-child(4)'))
+        .map(cell => (cell as HTMLElement).textContent!.trim());
+      expect(prices).toEqual(['€12', '€13', '€4,794']);
+    });
+
+    it('lists empty-free, distinct and sorted options, keeping zero rooms', async () => {
+      flatsService.getAggregated.and.returnValue(apiResult({
+        success: true,
+        data: [
+          { district: 'Weststadt', roomsCount: 10, count: 1, avgPricePerMeter: 1 },
+          { district: '', roomsCount: 2, count: 1, avgPricePerMeter: 1 },
+          { district: 'Mitte', roomsCount: 0, count: 1, avgPricePerMeter: 1 },
+          { district: 'Weststadt', roomsCount: undefined, count: 1, avgPricePerMeter: 1 },
+          { district: undefined, roomsCount: 2.54, count: 1, avgPricePerMeter: 1 }
+        ],
+        message: 'Success'
+      }));
+      component.loadAggregatedData();
+
+      expect(component.availableDistricts).toEqual(['Mitte', 'Weststadt']);
+      expect(component.availableRooms).toEqual([0, 2, 2.5, 10]);
+    });
+
     it('lists the available options in the dropdowns', async () => {
       flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
       await render();
