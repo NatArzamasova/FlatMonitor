@@ -182,17 +182,22 @@ Both YAML files parse, and their job graphs were checked (test jobs need their b
 
 ## Verification
 1. GitLab: validate `.gitlab-ci.yml` in the pipeline editor.
-2. Push a branch to **GitLab** → pipeline appears under Build → Pipelines; all three jobs green; "Tests" tab shows about
+2. Push to **GitLab** → pipeline appears under Build → Pipelines; all five jobs green; "Tests" tab shows
    279 backend tests (278 passed + 1 skipped live test) and 343 frontend tests.
-3. Push the same branch to **GitHub** → run appears in the Actions tab; all three jobs green; "Backend tests" /
+   ✅ **All five jobs green** on runner `not-ao-code-runner0` (first push of `chore(ci): add GitLab and GitHub pipelines`).
+   ⏳ The Tests tab could not be checked: right after the run, the whole GitLab instance returned 500 errors
+   (a general outage, unrelated to this project). Check the test counts once GitLab is back.
+3. Push to **GitHub** → run appears in the Actions tab; all five jobs green; "Backend tests" /
    "Frontend tests" check runs list the tests.
+   ✅ **Works.**
 4. Negative checks on a throwaway branch (on both platforms):
    - a commit with message `wip` → `commit-messages` fails and lists it;
-   - a deliberately failing backend test → `backend` fails, the test is named in the report;
-   - a deliberately failing frontend spec → `frontend` fails, the spec is named in the report.
+   - a deliberately failing backend test → `backend-test` fails, the test is named in the report;
+   - a deliberately failing frontend spec → `frontend-test` fails, the spec is named in the report.
+   (Optional; not done yet.)
 5. Push twice quickly → the older run is cancelled.
 6. The second run is faster (NuGet/npm cache hit).
-7. Locally: `dotnet test` no longer calls ohne-makler.net; `dotnet test --filter "TestCategory=Live"` does.
+7. Locally: `dotnet test` no longer calls ohne-makler.net; `dotnet test --filter "TestCategory=Live"` does. ✅
 
 ## Suggested commit sequence
 1. `test(tests): run the live ohne-makler scraper test only when asked`
@@ -202,9 +207,8 @@ Both YAML files parse, and their job graphs were checked (test jobs need their b
 5. `docs(ci): document the pipelines`
 
 ## Open questions
-1. **GitLab runner:** no project or group runners; 3 instance runners exist. The pipeline tries `not-ao-code-runner0`.
-   Unknown: Docker executor? Internet access (the `dmz-access` tag suggests only some runners have it)? The first push will
-   tell; otherwise ask `it-kuemmerlinge`.
+1. ~~**GitLab runner**~~ **Resolved:** the instance runner `not-ao-code-runner0` runs the Docker images and has internet
+   access; all jobs passed on it.
 2. **GitHub repo visibility:** public (unlimited Actions minutes) or private (monthly quota)? Only matters for cost.
 
 ## Later: scheduled scrape (recycled from the old Story 3)
