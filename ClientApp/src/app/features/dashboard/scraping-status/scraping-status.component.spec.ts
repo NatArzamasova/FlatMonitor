@@ -108,6 +108,38 @@ describe('ScrapingStatusComponent', () => {
     });
   });
 
+  describe('Alerts (DOM)', () => {
+    it('shows the success message with a check mark and dismisses it', () => {
+      scrapeStatus.triggerScrape.and.returnValue(of(queued));
+      component.triggerScrape();
+      fixture.detectChanges();
+
+      const alert = fixture.nativeElement.querySelector('.alert-info') as HTMLElement;
+      expect(alert.textContent!.trim()).toContain('✓ Scraping started');
+
+      (alert.querySelector('.btn-close') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      expect(component.success).toBeNull();
+      expect(fixture.nativeElement.querySelector('.alert-info')).toBeNull();
+    });
+
+    it('shows errors in a danger alert that can be dismissed', () => {
+      scrapeStatus.triggerScrape.and.returnValue(throwError(() => new Error('Network error')));
+      component.triggerScrape();
+      fixture.detectChanges();
+
+      const alert = fixture.nativeElement.querySelector('.alert-danger') as HTMLElement;
+      expect(alert.textContent).toContain('Scrape error: Network error');
+
+      (alert.querySelector('.btn-close') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      expect(component.error).toBeNull();
+      expect(fixture.nativeElement.querySelector('.alert-danger')).toBeNull();
+    });
+  });
+
   describe('triggerScrape', () => {
     it('shows a single queued message after triggering a scrape', () => {
       scrapeStatus.triggerScrape.and.returnValue(of(queued));

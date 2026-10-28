@@ -11,6 +11,9 @@ import { normalizeRooms } from '../../../../core/utils/rooms.utils';
 import { describeLoadError } from '../../../../core/utils/api-response.utils';
 import { TableSort } from '../../../../core/utils/table-sort';
 import { SortableHeaderComponent } from '../../../../shared/sortable-header/sortable-header.component';
+import { MultiSelectFilterComponent } from '../../../../shared/multi-select-filter/multi-select-filter.component';
+import { LoadingSpinnerComponent } from '../../../../shared/loading-spinner/loading-spinner.component';
+import { DismissibleAlertComponent } from '../../../../shared/dismissible-alert/dismissible-alert.component';
 
 type OfferSortColumn =
   'district' | 'roomsCount' | 'priceEur' | 'originalPriceEur' | 'livingAreaSqm' | 'pricePerMeter' | 'source';
@@ -18,7 +21,14 @@ type OfferSortColumn =
 @Component({
   selector: 'app-offers-tab',
   standalone: true,
-  imports: [CommonModule, FormsModule, SortableHeaderComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    SortableHeaderComponent,
+    MultiSelectFilterComponent,
+    LoadingSpinnerComponent,
+    DismissibleAlertComponent
+  ],
   templateUrl: './offers-tab.component.html',
 })
 export class OffersTabComponent implements OnInit {

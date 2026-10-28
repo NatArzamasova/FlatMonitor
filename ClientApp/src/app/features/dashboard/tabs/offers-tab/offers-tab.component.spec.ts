@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, Params } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { NEVER, of, throwError } from 'rxjs';
 import { OffersTabComponent } from './offers-tab.component';
 import { FlatsService } from '../../../../core/services/flats.service';
 import { apiResult } from '../../../../core/testing/api-response.testing';
@@ -209,6 +209,83 @@ describe('OffersTabComponent', () => {
       component.onOfferFiltersChange();
 
       expect(component.filteredOffers.map(offer => offer.priceEur)).toEqual([2000, 2500]);
+    });
+  });
+
+  describe('Filter controls, spinner and alerts (DOM)', () => {
+    const render = async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+
+    const chooseOption = async (selectId: string, optionText: string) => {
+      const select = fixture.nativeElement.querySelector(`#${selectId}`) as HTMLSelectElement;
+      const option = Array.from(select.options).find(o => o.textContent!.trim() === optionText)!;
+      option.selected = true;
+      select.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+      await fixture.whenStable();
+    };
+
+    const enterPrice = async (inputId: string, value: string) => {
+      const input = fixture.nativeElement.querySelector(`#${inputId}`) as HTMLInputElement;
+      input.value = value;
+      input.dispatchEvent(new Event('input'));
+      input.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+      await fixture.whenStable();
+    };
+
+    it('filters by district and rooms through the dropdowns', async () => {
+      flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
+      await render();
+
+      const label = fixture.nativeElement.querySelector('label[for="offerDistrictSelect"]') as HTMLLabelElement;
+      expect(label.textContent!.trim()).toBe('District:');
+      await chooseOption('offerDistrictSelect', 'Charlottenburg');
+      expect(component.selectedOfferDistricts).toEqual(['Charlottenburg']);
+      expect(component.filteredOffers.map(offer => offer.district)).toEqual(['Charlottenburg']);
+
+      await chooseOption('offerRoomsSelect', '2');
+      expect(component.selectedOfferRooms).toEqual([2]);
+      expect(component.filteredOffers).toEqual([]);
+    });
+
+    it('filters by price through the min and max inputs', async () => {
+      flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
+      await render();
+
+      await enterPrice('priceMin', '2200');
+      expect(component.priceRangeMin).toBe(2200);
+      expect(component.filteredOffers.map(offer => offer.priceEur)).toEqual([2500]);
+
+      await enterPrice('priceMin', '');
+      await enterPrice('priceMax', '2200');
+      expect(component.filteredOffers.map(offer => offer.priceEur)).toEqual([2000]);
+    });
+
+    it('shows a loading spinner while offers are loading', () => {
+      flatsService.getCurrentOffers.and.returnValue(NEVER);
+      fixture.detectChanges();
+
+      const spinner = fixture.nativeElement.querySelector('.spinner-border.text-primary') as HTMLElement;
+      expect(spinner).toBeTruthy();
+      expect(spinner.textContent).toContain('Loading...');
+    });
+
+    it('shows load errors in an alert that can be dismissed', () => {
+      flatsService.getCurrentOffers.and.returnValue(throwError(() => new Error('Network error')));
+      fixture.detectChanges();
+
+      const alert = fixture.nativeElement.querySelector('.alert-danger') as HTMLElement;
+      expect(alert.textContent).toContain('Error loading offers: Network error');
+
+      (alert.querySelector('.btn-close') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      expect(component.error).toBeNull();
+      expect(fixture.nativeElement.querySelector('.alert-danger')).toBeNull();
     });
   });
 

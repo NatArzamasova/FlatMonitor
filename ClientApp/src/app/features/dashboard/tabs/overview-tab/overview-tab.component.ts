@@ -14,13 +14,24 @@ import { describeLoadError } from '../../../../core/utils/api-response.utils';
 import { ScrapingStatusComponent } from '../../scraping-status/scraping-status.component';
 import { TableSort } from '../../../../core/utils/table-sort';
 import { SortableHeaderComponent } from '../../../../shared/sortable-header/sortable-header.component';
+import { MultiSelectFilterComponent } from '../../../../shared/multi-select-filter/multi-select-filter.component';
+import { LoadingSpinnerComponent } from '../../../../shared/loading-spinner/loading-spinner.component';
+import { DismissibleAlertComponent } from '../../../../shared/dismissible-alert/dismissible-alert.component';
 
 type AggregationSortColumn = 'district' | 'roomsCount' | 'count' | 'avgPricePerMeter';
 
 @Component({
   selector: 'app-overview-tab',
   standalone: true,
-  imports: [CommonModule, FormsModule, ScrapingStatusComponent, SortableHeaderComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ScrapingStatusComponent,
+    SortableHeaderComponent,
+    MultiSelectFilterComponent,
+    LoadingSpinnerComponent,
+    DismissibleAlertComponent
+  ],
   templateUrl: './overview-tab.component.html',
 })
 export class OverviewTabComponent implements OnInit, OnDestroy {
@@ -38,7 +49,7 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
   groupByRooms = true;
 
   availableDistricts: string[] = [];
-  availableRooms: (number | null)[] = [];
+  availableRooms: number[] = [];
 
   private destroy$ = new Subject<void>();
 
@@ -85,7 +96,7 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
 
   private updateAvailableFilters(): void {
     const districts = new Set<string>();
-    const rooms = new Set<number | null>();
+    const rooms = new Set<number>();
 
     this.rawData.forEach(item => {
       if (item.district) {
@@ -98,11 +109,7 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
     });
 
     this.availableDistricts = Array.from(districts).sort();
-    this.availableRooms = Array.from(rooms).sort((a, b) => {
-      if (a === null) return 1;
-      if (b === null) return -1;
-      return a - b;
-    });
+    this.availableRooms = Array.from(rooms).sort((a, b) => a - b);
   }
 
   applyFiltersAndGrouping(): void {

@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { of, throwError } from 'rxjs';
+import { NEVER, of, throwError } from 'rxjs';
 import { HistoryTabComponent } from './history-tab.component';
 import { HistoryChartComponent } from './history-chart/history-chart.component';
 import { FlatsService } from '../../../../core/services/flats.service';
@@ -224,6 +224,31 @@ describe('HistoryTabComponent', () => {
         { label: '2 rooms', price: 4000 },
         { label: '4 rooms', price: 4000 }
       ]);
+    });
+  });
+
+  describe('Spinner and alerts (DOM)', () => {
+    it('shows a loading spinner while history is loading', () => {
+      flatsService.getHistory.and.returnValue(NEVER);
+      fixture.detectChanges();
+
+      const spinner = fixture.nativeElement.querySelector('.spinner-border.text-primary') as HTMLElement;
+      expect(spinner).toBeTruthy();
+      expect(spinner.textContent).toContain('Loading...');
+    });
+
+    it('shows load errors in an alert that can be dismissed', () => {
+      flatsService.getHistory.and.returnValue(throwError(() => new Error('Network error')));
+      fixture.detectChanges();
+
+      const alert = fixture.nativeElement.querySelector('.alert-danger') as HTMLElement;
+      expect(alert.textContent).toContain('Error loading history: Network error');
+
+      (alert.querySelector('.btn-close') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      expect(component.error).toBeNull();
+      expect(fixture.nativeElement.querySelector('.alert-danger')).toBeNull();
     });
   });
 

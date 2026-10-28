@@ -379,7 +379,22 @@ a constant key. Also make `mergeWeightedAverage` return a new object rather than
   return it instead of flattening to `chartData` and searching it again).
 - The colour palette array is re-created on every `getColorForIndex` call → module-level `const`.
 
-### B7. Shared filter controls
+### B7. Shared filter controls ✅ COMPLETED
+
+> **Done:** three presentational components in `shared/`, markup moved unchanged:
+> - `app-multi-select-filter` (`label`, `inputId`, `options`, `[(selected)]`, `minWidth`, and
+>   `(changed)` emitted after `selectedChange`) replaces the 4 district/rooms selects.
+> - `app-loading-spinner` replaces the 3 spinners; `app-dismissible-alert` (`type`, projected
+>   message, `(dismissed)`) replaces the 5 dismissible alerts (3 tabs + scraping status). The close
+>   button gained `aria-label="Close"`.
+> - Inline label/input styles moved to `.filter-label` / `.filter-price-input` in `styles.scss`;
+>   no `style="…"` attributes left in the templates.
+> - Overview `availableRooms` is now `number[]` (null was never added; dead null-sort branch and
+>   `*ngIf="rooms !== null"` removed — part of C3).
+> - 13 DOM specs (dropdown/price filtering, spinners, alert dismissal) were written against the old
+>   markup first and pass unchanged; plus specs for the three shared components.
+>
+> Not done: the "dropdown with checkboxes" UX (behaviour change, separate decision).
 The district/rooms multi-select markup is duplicated in overview (`html:78-115`) and offers
 (`html:8-43`), including repeated inline styles (`font-size: 0.875rem; white-space: nowrap;`,
 `min-width`). Extract a `MultiSelectFilterComponent` (`label`, `options`, `[(selected)]`) and move the

@@ -145,6 +145,80 @@ describe('OverviewTabComponent', () => {
     });
   });
 
+  describe('Filter controls, spinner and alerts (DOM)', () => {
+    const chooseOption = async (selectId: string, optionText: string) => {
+      const select = fixture.nativeElement.querySelector(`#${selectId}`) as HTMLSelectElement;
+      const option = Array.from(select.options).find(o => o.textContent!.trim() === optionText)!;
+      option.selected = true;
+      select.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+      await fixture.whenStable();
+    };
+
+    const render = async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+
+    it('filters by district through the district dropdown', async () => {
+      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
+      await render();
+
+      const label = fixture.nativeElement.querySelector('label[for="districtSelect"]') as HTMLLabelElement;
+      expect(label.textContent!.trim()).toBe('Filter District:');
+      await chooseOption('districtSelect', 'Mitte');
+
+      expect(component.selectedDistricts).toEqual(['Mitte']);
+      expect(component.aggregatedData.map(row => row.district)).toEqual(['Mitte']);
+    });
+
+    it('filters by rooms through the rooms dropdown, keeping numeric values', async () => {
+      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
+      await render();
+
+      await chooseOption('roomsSelect', '3');
+
+      expect(component.selectedRoomCounts).toEqual([3]);
+      expect(component.aggregatedData.map(row => row.roomsCount)).toEqual([3]);
+    });
+
+    it('lists the available options in the dropdowns', async () => {
+      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
+      await render();
+
+      const optionTexts = (id: string) =>
+        (Array.from((fixture.nativeElement.querySelector(`#${id}`) as HTMLSelectElement).options) as HTMLOptionElement[])
+          .filter(option => !option.hidden)
+          .map(option => option.textContent!.trim());
+      expect(optionTexts('districtSelect')).toEqual(['Mitte', 'Prenzlauer Berg']);
+      expect(optionTexts('roomsSelect')).toEqual(['2', '3']);
+    });
+
+    it('shows a loading spinner while data is loading', () => {
+      flatsService.getAggregated.and.returnValue(NEVER);
+      fixture.detectChanges();
+
+      const spinner = fixture.nativeElement.querySelector('.spinner-border.text-primary') as HTMLElement;
+      expect(spinner).toBeTruthy();
+      expect(spinner.textContent).toContain('Loading...');
+    });
+
+    it('shows load errors in an alert that can be dismissed', () => {
+      flatsService.getAggregated.and.returnValue(throwError(() => new Error('Network error')));
+      fixture.detectChanges();
+
+      const alert = fixture.nativeElement.querySelector('.alert-danger') as HTMLElement;
+      expect(alert.textContent).toContain('Error loading data: Network error');
+
+      (alert.querySelector('.btn-close') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      expect(component.error).toBeNull();
+      expect(fixture.nativeElement.querySelector('.alert-danger')).toBeNull();
+    });
+  });
+
   describe('Scrape lifecycle', () => {
     it('reloads aggregated data each time a scrape finishes', () => {
       flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));

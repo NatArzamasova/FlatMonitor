@@ -43,12 +43,6 @@
   </div>
 </div>
 
-<div *ngIf="success" class="alert alert-info alert-dismissible fade show" role="alert">
-  ✓ {{ success }}
-  <button type="button" class="btn-close" (click)="success = null"></button>
-</div>
+<app-dismissible-alert *ngIf="success" type="info" (dismissed)="success = null">✓ {{ success }}</app-dismissible-alert>
 
-<div *ngIf="error" class="alert alert-danger alert-dismissible fade show" role="alert">
-  {{ error }}
-  <button type="button" class="btn-close" (click)="error = null"></button>
-</div>
+<app-dismissible-alert *ngIf="error" type="danger" (dismissed)="error = null">{{ error }}</app-dismissible-alert>

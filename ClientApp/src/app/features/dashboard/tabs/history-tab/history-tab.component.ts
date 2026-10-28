@@ -9,11 +9,13 @@ import { normalizeRooms } from '../../../../core/utils/rooms.utils';
 import { describeLoadError } from '../../../../core/utils/api-response.utils';
 import { HistoryChartComponent } from './history-chart/history-chart.component';
 import { HistoryPoint } from './history-chart/history-chart.config';
+import { LoadingSpinnerComponent } from '../../../../shared/loading-spinner/loading-spinner.component';
+import { DismissibleAlertComponent } from '../../../../shared/dismissible-alert/dismissible-alert.component';
 
 @Component({
   selector: 'app-history-tab',
   standalone: true,
-  imports: [CommonModule, FormsModule, HistoryChartComponent],
+  imports: [CommonModule, FormsModule, HistoryChartComponent, LoadingSpinnerComponent, DismissibleAlertComponent],
   templateUrl: './history-tab.component.html',
 })
 export class HistoryTabComponent implements OnInit {

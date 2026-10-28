@@ -45,3 +45,13 @@ h1, h2, h3, h4, h5, h6 {
 .text-muted {
   font-size: 0.9rem;
 }
+
+/* Compact labels and inputs in the filter bars above the tables */
+.filter-label {
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.filter-price-input {
+  width: 100px;
+}

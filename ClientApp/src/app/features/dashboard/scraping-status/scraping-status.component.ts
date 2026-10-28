@@ -4,6 +4,7 @@ import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { ScrapeStatusService } from '../../../core/services/scrape-status.service';
 import { ScrapingStatusResponse } from '../../../core/models/scraping-status-response.model';
+import { DismissibleAlertComponent } from '../../../shared/dismissible-alert/dismissible-alert.component';
 
 /**
  * Last/last-successful scrape info with the Manual Scrape / Cancel buttons.
@@ -12,7 +13,7 @@ import { ScrapingStatusResponse } from '../../../core/models/scraping-status-res
 @Component({
   selector: 'app-scraping-status',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, DismissibleAlertComponent],
   templateUrl: './scraping-status.component.html',
 })
 export class ScrapingStatusComponent implements OnInit, OnDestroy {

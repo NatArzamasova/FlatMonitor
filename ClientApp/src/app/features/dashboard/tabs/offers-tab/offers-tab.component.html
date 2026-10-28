@@ -1,69 +1,44 @@
 <div>
-  <div *ngIf="loadingOffers" class="d-flex justify-content-center py-5">
-    <div class="spinner-border text-primary" role="status">
-      <span class="visually-hidden">Loading...</span>
-    </div>
-  </div>
+  <app-loading-spinner *ngIf="loadingOffers"></app-loading-spinner>
 
   <div *ngIf="!loadingOffers && currentOffers.length > 0" class="mb-3 d-flex gap-3 align-items-center flex-wrap">
-    <div class="d-flex align-items-center gap-1">
-      <label for="offerDistrictSelect" class="form-label mb-0" style="font-size: 0.875rem; white-space: nowrap;">District:</label>
-      <select
-        id="offerDistrictSelect"
-        class="form-select form-select-sm"
-        multiple
-        size="1"
-        [(ngModel)]="selectedOfferDistricts"
-        (change)="onOfferFiltersChange()"
-        style="min-width: 140px;"
-      >
-        <option disabled selected hidden>Select...</option>
-        <option *ngFor="let district of availableOfferDistricts" [value]="district">
-          {{ district }}
-        </option>
-      </select>
-    </div>
+    <app-multi-select-filter
+      label="District:"
+      inputId="offerDistrictSelect"
+      [options]="availableOfferDistricts"
+      [(selected)]="selectedOfferDistricts"
+      (changed)="onOfferFiltersChange()"
+    ></app-multi-select-filter>
+
+    <app-multi-select-filter
+      label="Rooms:"
+      inputId="offerRoomsSelect"
+      [options]="availableOfferRooms"
+      [(selected)]="selectedOfferRooms"
+      (changed)="onOfferFiltersChange()"
+      [minWidth]="110"
+    ></app-multi-select-filter>
 
     <div class="d-flex align-items-center gap-1">
-      <label for="offerRoomsSelect" class="form-label mb-0" style="font-size: 0.875rem; white-space: nowrap;">Rooms:</label>
-      <select
-        id="offerRoomsSelect"
-        class="form-select form-select-sm"
-        multiple
-        size="1"
-        [(ngModel)]="selectedOfferRooms"
-        (change)="onOfferFiltersChange()"
-        style="min-width: 110px;"
-      >
-        <option disabled selected hidden>Select...</option>
-        <option *ngFor="let rooms of availableOfferRooms" [value]="rooms">
-          {{ rooms }}
-        </option>
-      </select>
-    </div>
-
-    <div class="d-flex align-items-center gap-1">
-      <label for="priceMin" class="form-label mb-0" style="font-size: 0.875rem; white-space: nowrap;">Price (min):</label>
+      <label for="priceMin" class="form-label mb-0 filter-label">Price (min):</label>
       <input
         id="priceMin"
         type="number"
-        class="form-control form-control-sm"
+        class="form-control form-control-sm filter-price-input"
         [(ngModel)]="priceRangeMin"
         (change)="onOfferFiltersChange()"
-        style="width: 100px;"
         placeholder="Min"
       />
     </div>
 
     <div class="d-flex align-items-center gap-1">
-      <label for="priceMax" class="form-label mb-0" style="font-size: 0.875rem; white-space: nowrap;">Price (max):</label>
+      <label for="priceMax" class="form-label mb-0 filter-label">Price (max):</label>
       <input
         id="priceMax"
         type="number"
-        class="form-control form-control-sm"
+        class="form-control form-control-sm filter-price-input"
         [(ngModel)]="priceRangeMax"
         (change)="onOfferFiltersChange()"
-        style="width: 100px;"
         placeholder="Max"
       />
     </div>
@@ -121,8 +96,5 @@
     No current offers available. Try clicking "Manual Scrape" on the Dashboard tab to fetch data.
   </div>
 
-  <div *ngIf="error" class="alert alert-danger alert-dismissible fade show" role="alert">
-    {{ error }}
-    <button type="button" class="btn-close" (click)="error = null"></button>
-  </div>
+  <app-dismissible-alert *ngIf="error" type="danger" (dismissed)="error = null">{{ error }}</app-dismissible-alert>
 </div>
