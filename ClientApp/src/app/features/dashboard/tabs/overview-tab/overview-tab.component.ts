@@ -2,20 +2,21 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Params, Router } from '@angular/router';
-import { EMPTY, interval, Subject } from 'rxjs';
-import { catchError, finalize, takeUntil, switchMap } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, takeUntil } from 'rxjs/operators';
 import { FlatsService } from '../../../../core/services/flats.service';
 import { FilterService } from '../../../../core/services/filter.service';
+import { ScrapeStatusService } from '../../../../core/services/scrape-status.service';
 import { FlatAggregation } from '../../../../core/models/flat-aggregation.model';
-import { ScrapingStatusResponse } from '../../../../core/models/scraping-status-response.model';
 import { mergeWeightedAverage, roundPriceToEuro } from '../../../../core/utils/aggregation.utils';
 import { normalizeRooms } from '../../../../core/utils/rooms.utils';
 import { describeLoadError } from '../../../../core/utils/api-response.utils';
+import { ScrapingStatusComponent } from '../../scraping-status/scraping-status.component';
 
 @Component({
   selector: 'app-overview-tab',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ScrapingStatusComponent],
   templateUrl: './overview-tab.component.html',
 })
 export class OverviewTabComponent implements OnInit, OnDestroy {
@@ -26,9 +27,7 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
   aggregatedData: FlatAggregation[] = [];
   rawData: FlatAggregation[] = [];
   loading = false;
-  scraping = false;
   error: string | null = null;
-  success: string | null = null;
   lastUpdated: Date | null = null;
 
   selectedDistricts: string[] = [];
@@ -39,13 +38,6 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
   availableDistricts: string[] = [];
   availableRooms: (number | null)[] = [];
 
-  lastScrapingTime: Date | null = null;
-  lastScrapingStatus: string | null = null;
-  lastScrapingCount = 0;
-
-  lastSuccessfulScrapingTime: Date | null = null;
-  lastSuccessfulScrapingCount = 0;
-
   private destroy$ = new Subject<void>();
 
   roundPriceToEuro = roundPriceToEuro;
@@ -53,33 +45,17 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
   constructor(
     private flatsService: FlatsService,
     private filterService: FilterService,
+    private scrapeStatus: ScrapeStatusService,
     private router: Router,
     private location: Location
   ) {}
 
   ngOnInit(): void {
     this.loadAggregatedData();
-    this.loadScrapingStatus();
 
-    interval(2000)
-      .pipe(
-        // Catch per request: an error reaching the interval stream would stop polling for good.
-        switchMap(() => this.flatsService.getScrapeStatus().pipe(
-          catchError((err) => {
-            console.error('Failed to poll scraping status:', err);
-            return EMPTY;
-          })
-        )),
-        takeUntil(this.destroy$)
-      )
-      .subscribe((status) => {
-        // Capture before updateScrapingStatus overwrites `scraping`, or the finish is never detected.
-        const wasScraping = this.scraping;
-        this.updateScrapingStatus(status);
-        if (wasScraping && !status.isScrapingInProgress) {
-          this.loadAggregatedData();
-        }
-      });
+    this.scrapeStatus.scrapeFinished$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => this.loadAggregatedData());
   }
 
   ngOnDestroy(): void {
@@ -264,63 +240,6 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
 
   onGroupingToggle(): void {
     this.applyFiltersAndGrouping();
-  }
-
-  loadScrapingStatus(): void {
-    this.flatsService.getScrapeStatus().subscribe({
-      next: (status) => {
-        this.updateScrapingStatus(status);
-      },
-      error: (err) => {
-        console.error('Failed to load scraping status:', err);
-      }
-    });
-  }
-
-  private updateScrapingStatus(status: ScrapingStatusResponse): void {
-    this.scraping = status.isScrapingInProgress;
-
-    if (status.lastScrapingHistory) {
-      this.lastScrapingTime = new Date(status.lastScrapingHistory.startTimeUtc);
-      this.lastScrapingStatus = status.lastScrapingHistory.status;
-      this.lastScrapingCount = status.lastScrapingHistory.flatsScrapedCount;
-    }
-
-    if (status.lastSuccessfulScrapingHistory) {
-      this.lastSuccessfulScrapingTime = new Date(status.lastSuccessfulScrapingHistory.startTimeUtc);
-      this.lastSuccessfulScrapingCount = status.lastSuccessfulScrapingHistory.flatsScrapedCount;
-    }
-  }
-
-  triggerScrape(): void {
-    this.error = null;
-    this.success = null;
-    this.flatsService.triggerScrape().subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.success = response.message || 'Scrape job queued';
-          this.scraping = true;
-          this.loadScrapingStatus();
-        } else {
-          this.error = response.message || 'Scrape failed';
-        }
-      },
-      error: (err) => {
-        this.error = `Scrape error: ${err.message}`;
-        this.scraping = false;
-      }
-    });
-  }
-
-  cancelScrape(): void {
-    this.flatsService.cancelScrape().subscribe({
-      next: () => {
-        this.error = null;
-      },
-      error: (err) => {
-        this.error = `Cancel error: ${err.message}`;
-      }
-    });
   }
 
   refresh(): void {

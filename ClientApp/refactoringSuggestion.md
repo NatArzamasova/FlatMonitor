@@ -257,7 +257,26 @@ getCurrentOffers(): Observable<FlatOffer[]> {
 Combined with `finalize(() => this.loading = false)` this removes ~15 lines per tab and the
 "forgot to reset `loading`" class of bugs.
 
-### B3. Extract scraping status/control out of the overview tab
+### B3. Extract scraping status/control out of the overview tab ✅ COMPLETED
+
+> **Done:**
+> - `core/services/scrape-status.service.ts`: `status$` polls via `timer(0, 2000)` merged with a
+>   `refresh()` trigger, catches errors per request, and is shared with
+>   `shareReplay({ bufferSize: 1, refCount: true })`. Polling stops when nobody subscribes.
+>   `scrapeFinished$` (`pairwise` running → not running) replaces the A8 `wasScraping` logic;
+>   `triggerScrape()` refreshes the status on success; `cancelScrape()`.
+> - `features/dashboard/scraping-status/ScrapingStatusComponent`: last / last-successful scrape,
+>   badges, Manual Scrape / Cancel buttons and the scrape alerts. Kept in the Overview tab at the
+>   same place; Overview projects "Data last updated" (`[scrapingStatusInfo]`) and "Refresh Data"
+>   (`[scrapingStatusActions]`) into the same row, so the layout is unchanged.
+> - Overview only subscribes to `scrapeFinished$` to reload; ~110 lines of scrape code removed.
+> - Polling/A2/A8 specs moved to `scrape-status.service.spec.ts`; trigger/cancel/display specs to
+>   `scraping-status.component.spec.ts`; Overview spec uses a stub service.
+> - Small differences: the first poll happens one macrotask later (`timer(0)`) instead of a separate
+>   synchronous request; scrape errors and load errors are now two separate alerts; the always-false
+>   `[disabled]="scraping"` on the Manual Scrape button (already hidden by `*ngIf`) was dropped.
+> - Not done (optional follow-ups): moving `<app-scraping-status>` to the dashboard header (visible
+>   on every tab, would also keep polling there); slower polling while idle.
 `OverviewTabComponent` (340 lines) mixes two unrelated responsibilities: the aggregation table and the
 scrape lifecycle (polling, trigger, cancel, 6 status fields, badges).
 

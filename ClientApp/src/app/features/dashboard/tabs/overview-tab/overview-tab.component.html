@@ -1,63 +1,18 @@
 <div>
-  <div class="row mb-4">
-    <div class="col">
-      <div class="text-muted small mt-2">
-        <p *ngIf="lastUpdated" class="mb-1">
-          Data last updated: {{ lastUpdated | date: 'short' }}
-        </p>
-        <p *ngIf="lastScrapingTime" class="mb-1">
-          <strong>Last scrape:</strong> {{ lastScrapingTime | date: 'short' }}
-          <span class="badge" [ngClass]="{
-            'bg-success': lastScrapingStatus === 'Successful',
-            'bg-danger': lastScrapingStatus === 'Failed',
-            'bg-warning': lastScrapingStatus === 'Canceled',
-            'bg-info': lastScrapingStatus === 'Running'
-          }">{{ lastScrapingStatus }}</span>
-          <span class="badge bg-secondary ms-2" *ngIf="lastScrapingCount > 0">
-            {{ lastScrapingCount }} flats
-          </span>
-        </p>
-        <p *ngIf="lastSuccessfulScrapingTime" class="mb-1">
-          <strong>Last successful scrape:</strong> {{ lastSuccessfulScrapingTime | date: 'short' }}
-          <span class="badge bg-success">Successful</span>
-          <span class="badge bg-secondary ms-2" *ngIf="lastSuccessfulScrapingCount > 0">
-            {{ lastSuccessfulScrapingCount }} flats
-          </span>
-        </p>
-      </div>
-    </div>
-    <div class="col-auto d-flex gap-2 align-items-center">
-      <button
-        class="btn btn-primary"
-        (click)="refresh()"
-        [disabled]="loading"
-      >
-        <span *ngIf="loading" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-        Refresh Data
-      </button>
-      <button
-        class="btn btn-success"
-        (click)="triggerScrape()"
-        [disabled]="scraping"
-        *ngIf="!scraping"
-      >
-        Manual Scrape
-      </button>
-      <button
-        class="btn btn-danger"
-        (click)="cancelScrape()"
-        *ngIf="scraping"
-      >
-        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-        Cancel Scraping
-      </button>
-    </div>
-  </div>
-
-  <div *ngIf="success" class="alert alert-info alert-dismissible fade show" role="alert">
-    ✓ {{ success }}
-    <button type="button" class="btn-close" (click)="success = null"></button>
-  </div>
+  <app-scraping-status>
+    <p scrapingStatusInfo *ngIf="lastUpdated" class="mb-1">
+      Data last updated: {{ lastUpdated | date: 'short' }}
+    </p>
+    <button
+      scrapingStatusActions
+      class="btn btn-primary"
+      (click)="refresh()"
+      [disabled]="loading"
+    >
+      <span *ngIf="loading" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+      Refresh Data
+    </button>
+  </app-scraping-status>
 
   <div *ngIf="error" class="alert alert-danger alert-dismissible fade show" role="alert">
     {{ error }}

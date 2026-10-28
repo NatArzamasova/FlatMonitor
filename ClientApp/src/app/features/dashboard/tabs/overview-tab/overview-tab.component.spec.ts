@@ -1,19 +1,19 @@
-import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { APP_BASE_HREF } from '@angular/common';
 import { provideRouter } from '@angular/router';
-import { of, throwError, Subject } from 'rxjs';
+import { NEVER, throwError, Subject } from 'rxjs';
 import { OverviewTabComponent } from './overview-tab.component';
 import { FlatsService } from '../../../../core/services/flats.service';
+import { ScrapeStatusService } from '../../../../core/services/scrape-status.service';
 import { apiResult } from '../../../../core/testing/api-response.testing';
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { FlatAggregation } from '../../../../core/models/flat-aggregation.model';
-import { ScrapeResponse } from '../../../../core/models/scrape-response.model';
-import { ScrapingStatusResponse, ScrapingHistoryDto } from '../../../../core/models/scraping-status-response.model';
 
 describe('OverviewTabComponent', () => {
   let component: OverviewTabComponent;
   let fixture: ComponentFixture<OverviewTabComponent>;
   let flatsService: jasmine.SpyObj<FlatsService>;
+  let scrapeFinished$: Subject<void>;
 
   const mockAggregatedResponse: ApiResponse<FlatAggregation[]> = {
     success: true,
@@ -36,46 +36,16 @@ describe('OverviewTabComponent', () => {
     message: 'Success'
   };
 
-  const mockScrapingStatusNotRunning: ScrapingStatusResponse = {
-    isScrapingInProgress: false,
-    lastScrapingHistory: {
-      id: 1,
-      startTimeUtc: new Date('2024-01-15T10:00:00Z'),
-      endTimeUtc: new Date('2024-01-15T10:15:00Z'),
-      status: 'Successful',
-      flatsScrapedCount: 42
-    }
-  };
-
-  const mockScrapingStatusRunning: ScrapingStatusResponse = {
-    isScrapingInProgress: true,
-    lastScrapingHistory: {
-      id: 2,
-      startTimeUtc: new Date('2024-01-15T10:30:00Z'),
-      status: 'Running',
-      flatsScrapedCount: 25
-    }
-  };
-
-  const mockScrapeResponse: ScrapeResponse = {
-    success: true,
-    message: 'Scraping started',
-    scrapedAtUtc: new Date(),
-    flatsCount: 150
-  };
-
   beforeEach(async () => {
-    const flatsServiceSpy = jasmine.createSpyObj('FlatsService', [
-      'getAggregated',
-      'triggerScrape',
-      'getScrapeStatus',
-      'cancelScrape'
-    ]);
+    const flatsServiceSpy = jasmine.createSpyObj('FlatsService', ['getAggregated']);
+    scrapeFinished$ = new Subject<void>();
+    const scrapeStatusStub = { status$: NEVER, scrapeFinished$ };
 
     await TestBed.configureTestingModule({
       imports: [OverviewTabComponent],
       providers: [
         { provide: FlatsService, useValue: flatsServiceSpy },
+        { provide: ScrapeStatusService, useValue: scrapeStatusStub },
         provideRouter([]),
         { provide: APP_BASE_HREF, useValue: '/' }
       ]
@@ -100,29 +70,22 @@ describe('OverviewTabComponent', () => {
     it('should initialize with default values', () => {
       expect(component.aggregatedData).toEqual([]);
       expect(component.loading).toBe(false);
-      expect(component.scraping).toBe(false);
       expect(component.error).toBeNull();
       expect(component.lastUpdated).toBeNull();
     });
 
-    it('should load aggregated data and scraping status on init', () => {
+    it('should load aggregated data on init', () => {
       flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
-      flatsService.getScrapeStatus.and.returnValue(of(mockScrapingStatusNotRunning));
 
       fixture.detectChanges();
 
       expect(flatsService.getAggregated).toHaveBeenCalled();
-      expect(flatsService.getScrapeStatus).toHaveBeenCalled();
       expect(component.aggregatedData).toEqual(mockAggregatedResponse.data!);
       expect(component.lastUpdated).toBeTruthy();
     });
   });
 
   describe('loadAggregatedData', () => {
-    beforeEach(() => {
-      flatsService.getScrapeStatus.and.returnValue(of(mockScrapingStatusNotRunning));
-    });
-
     it('should load and display aggregated data', () => {
       flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
 
@@ -182,217 +145,42 @@ describe('OverviewTabComponent', () => {
     });
   });
 
-  describe('loadScrapingStatus', () => {
-    it('should load scraping status', () => {
-      flatsService.getScrapeStatus.and.returnValue(of(mockScrapingStatusNotRunning));
-
-      component.loadScrapingStatus();
-
-      expect(component.scraping).toBe(false);
-      expect(component.lastScrapingStatus).toBe('Successful');
-      expect(component.lastScrapingCount).toBe(42);
-    });
-
-    it('should handle scraping status fetch errors', () => {
-      const consoleErrorSpy = spyOn(console, 'error');
-      flatsService.getScrapeStatus.and.returnValue(throwError(() => new Error('Network error')));
-
-      component.loadScrapingStatus();
-
-      expect(consoleErrorSpy).toHaveBeenCalled();
-    });
-  });
-
-  describe('Polling behavior', () => {
-    it('should update scraping state from status', () => {
-      flatsService.getScrapeStatus.and.returnValue(of(mockScrapingStatusRunning));
-
-      component.loadScrapingStatus();
-
-      expect(component.scraping).toBe(true);
-    });
-
-    it('should maintain scraping state as false when not in progress', () => {
-      flatsService.getScrapeStatus.and.returnValue(of(mockScrapingStatusNotRunning));
-
-      component.loadScrapingStatus();
-
-      expect(component.scraping).toBe(false);
-    });
-
-    it('keeps polling after a failed status request', fakeAsync(() => {
-      spyOn(console, 'error');
+  describe('Scrape lifecycle', () => {
+    it('reloads aggregated data each time a scrape finishes', () => {
       flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
-      flatsService.getScrapeStatus.and.returnValues(
-        of(mockScrapingStatusNotRunning),
-        throwError(() => new Error('Network error')),
-        of(mockScrapingStatusRunning)
-      );
-
-      component.ngOnInit();
-      tick(2000);
-      tick(2000);
-
-      expect(flatsService.getScrapeStatus).toHaveBeenCalledTimes(3);
-      expect(console.error).toHaveBeenCalledWith('Failed to poll scraping status:', jasmine.any(Error));
-      expect(component.scraping).toBe(true);
-      expect(component.lastScrapingStatus).toBe('Running');
-
-      component.ngOnDestroy();
-    }));
-
-    it('reloads aggregated data once when a running scrape finishes', fakeAsync(() => {
-      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
-      flatsService.getScrapeStatus.and.returnValues(
-        of(mockScrapingStatusRunning),
-        of(mockScrapingStatusRunning),
-        of(mockScrapingStatusNotRunning),
-        of(mockScrapingStatusNotRunning)
-      );
-
-      component.ngOnInit();
+      fixture.detectChanges();
       const initialLoadCount = flatsService.getAggregated.calls.count();
-      tick(2000);
-      expect(flatsService.getAggregated.calls.count()).toBe(initialLoadCount);
 
-      tick(2000);
-      expect(component.scraping).toBe(false);
-      expect(flatsService.getAggregated.calls.count()).toBe(initialLoadCount + 1);
+      scrapeFinished$.next();
+      scrapeFinished$.next();
 
-      tick(2000);
-      expect(flatsService.getAggregated.calls.count()).toBe(initialLoadCount + 1);
-
-      component.ngOnDestroy();
-    }));
-
-    it('reloads aggregated data when a scrape finishes after a failed status request', fakeAsync(() => {
-      spyOn(console, 'error');
-      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
-      flatsService.getScrapeStatus.and.returnValues(
-        of(mockScrapingStatusRunning),
-        throwError(() => new Error('Network error')),
-        of(mockScrapingStatusNotRunning)
-      );
-
-      component.ngOnInit();
-      const initialLoadCount = flatsService.getAggregated.calls.count();
-      tick(2000);
-      tick(2000);
-
-      expect(component.scraping).toBe(false);
-      expect(flatsService.getAggregated.calls.count()).toBe(initialLoadCount + 1);
-
-      component.ngOnDestroy();
-    }));
-
-    it('does not reload aggregated data while no scrape is running', fakeAsync(() => {
-      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
-      flatsService.getScrapeStatus.and.returnValue(of(mockScrapingStatusNotRunning));
-
-      component.ngOnInit();
-      const initialLoadCount = flatsService.getAggregated.calls.count();
-      tick(6000);
-
-      expect(flatsService.getAggregated.calls.count()).toBe(initialLoadCount);
-
-      component.ngOnDestroy();
-    }));
-  });
-
-  describe('triggerScrape', () => {
-    beforeEach(() => {
-      flatsService.getScrapeStatus.and.returnValue(of(mockScrapingStatusNotRunning));
+      expect(flatsService.getAggregated.calls.count()).toBe(initialLoadCount + 2);
     });
 
-    it('should trigger a scrape job', () => {
-      flatsService.triggerScrape.and.returnValue(of(mockScrapeResponse));
+    it('stops listening for finished scrapes when destroyed', () => {
       flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
-
-      component.triggerScrape();
-
-      expect(flatsService.triggerScrape).toHaveBeenCalled();
-      expect(component.success).toBe('Scraping started');
-      expect(component.error).toBeNull();
-    });
-
-    it('shows a single queued message after triggering a scrape', () => {
-      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
-      flatsService.triggerScrape.and.returnValue(of(mockScrapeResponse));
       fixture.detectChanges();
 
-      component.triggerScrape();
+      fixture.destroy();
+
+      expect(scrapeFinished$.observed).toBe(false);
+    });
+
+    it('renders the scraping status with the data timestamp and Refresh button in the same row', () => {
+      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
       fixture.detectChanges();
 
-      const alerts = Array.from(fixture.nativeElement.querySelectorAll('.alert')) as HTMLElement[];
-      expect(alerts.length).toBe(1);
-      expect(alerts[0].textContent).toContain('Scraping started');
-      expect(fixture.nativeElement.textContent).not.toContain('flats successfully');
-    });
-
-    it('should handle scrape failure response', () => {
-      const failureResponse: ScrapeResponse = {
-        success: false,
-        message: 'Failed to start scrape',
-        scrapedAtUtc: new Date(),
-        flatsCount: 0
-      };
-      flatsService.triggerScrape.and.returnValue(of(failureResponse));
-
-      component.triggerScrape();
-
-      expect(component.error).toBe('Failed to start scrape');
-      expect(component.success).toBeNull();
-    });
-
-    it('should handle scrape network errors', () => {
-      const error = new Error('Network error');
-      flatsService.triggerScrape.and.returnValue(throwError(() => error));
-
-      component.triggerScrape();
-
-      expect(component.error).toContain('Scrape error');
-      expect(component.scraping).toBe(false);
-    });
-
-    it('should clear previous error on new scrape trigger', () => {
-      component.error = 'Previous error';
-      flatsService.triggerScrape.and.returnValue(of(mockScrapeResponse));
-      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
-
-      component.triggerScrape();
-
-      expect(component.error).toBeNull();
-    });
-  });
-
-  describe('cancelScrape', () => {
-    beforeEach(() => {
-      flatsService.getScrapeStatus.and.returnValue(of(mockScrapingStatusNotRunning));
-    });
-
-    it('should cancel the current scrape job', () => {
-      flatsService.cancelScrape.and.returnValue(of({}));
-
-      component.cancelScrape();
-
-      expect(flatsService.cancelScrape).toHaveBeenCalled();
-      expect(component.error).toBeNull();
-    });
-
-    it('should handle cancel errors', () => {
-      const error = new Error('Cancellation failed');
-      flatsService.cancelScrape.and.returnValue(throwError(() => error));
-
-      component.cancelScrape();
-
-      expect(component.error).toContain('Cancel error');
+      const status = fixture.nativeElement.querySelector('app-scraping-status') as HTMLElement;
+      expect(status).toBeTruthy();
+      expect(status.querySelector('.text-muted')?.textContent).toContain('Data last updated:');
+      const buttons = Array.from(status.querySelectorAll('.col-auto button')) as HTMLElement[];
+      expect(buttons.map(button => button.textContent!.trim())).toEqual(['Refresh Data', 'Manual Scrape']);
     });
   });
 
   describe('refresh', () => {
     it('should reload aggregated data', () => {
       flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
-      flatsService.getScrapeStatus.and.returnValue(of(mockScrapingStatusNotRunning));
 
       const initialCallCount = flatsService.getAggregated.calls.count();
 
@@ -415,7 +203,6 @@ describe('OverviewTabComponent', () => {
 
   describe('Error handling edge cases', () => {
     it('should handle response with success=true but no data field', () => {
-      flatsService.getScrapeStatus.and.returnValue(of(mockScrapingStatusNotRunning));
       const responseWithoutData: ApiResponse<FlatAggregation[]> = {
         success: true,
         message: 'No data available'
@@ -429,7 +216,6 @@ describe('OverviewTabComponent', () => {
     });
 
     it('should display default error message when response lacks message', () => {
-      flatsService.getScrapeStatus.and.returnValue(of(mockScrapingStatusNotRunning));
       const responseWithoutMessage: ApiResponse<FlatAggregation[]> = {
         success: false,
         message: ''
@@ -443,10 +229,6 @@ describe('OverviewTabComponent', () => {
   });
 
   describe('Filtering and Grouping', () => {
-    beforeEach(() => {
-      flatsService.getScrapeStatus.and.returnValue(of(mockScrapingStatusNotRunning));
-    });
-
     const multiRoomData: ApiResponse<FlatAggregation[]> = {
       success: true,
       data: [
@@ -698,7 +480,6 @@ describe('OverviewTabComponent', () => {
 
     it('renders a sortable control for every table column', () => {
       flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
-      flatsService.getScrapeStatus.and.returnValue(of(mockScrapingStatusNotRunning));
       component.aggregatedData = mockAggregatedResponse.data!;
       fixture.detectChanges();
 
