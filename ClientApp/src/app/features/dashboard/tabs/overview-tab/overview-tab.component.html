@@ -179,7 +179,7 @@
           title="Open matching current offers"
         >
           <td>{{ groupByDistrict ? (item.district || '-') : '-' }}</td>
-          <td>{{ groupByRooms ? (item.roomsCount || '-') : '-' }}</td>
+          <td>{{ groupByRooms && item.roomsCount ? (item.roomsCount | number: '1.0-1') : '-' }}</td>
           <td class="text-end"><span class="badge bg-info">{{ item.count }}</span></td>
           <td class="text-end">
             <strong>{{ roundPriceToEuro(item.avgPricePerMeter) | currency: 'EUR': 'symbol': '1.0-0' }}</strong>

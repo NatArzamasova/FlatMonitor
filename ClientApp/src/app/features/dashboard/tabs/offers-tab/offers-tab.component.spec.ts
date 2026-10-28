@@ -199,6 +199,56 @@ describe('OffersTabComponent', () => {
     });
   });
 
+  describe('Fractional room counts', () => {
+    const fractionalOffers: ApiResponse<FlatOffer[]> = {
+      success: true,
+      data: [
+        { district: 'Mitte', roomsCount: 2, priceEur: 1000, source: 'OhneMakler' },
+        { district: 'Mitte', roomsCount: 2.5, priceEur: 2000, source: 'OhneMakler' },
+        { district: 'Mitte', roomsCount: 3, priceEur: 3000, source: 'OhneMakler' }
+      ],
+      message: 'Success'
+    };
+
+    beforeEach(() => {
+      flatsService.getCurrentOffers.and.returnValue(of(fractionalOffers));
+    });
+
+    it('offers fractional room counts as filter options instead of rounding them', () => {
+      component.loadCurrentOffers();
+
+      expect(component.availableOfferRooms).toEqual([2, 2.5, 3]);
+    });
+
+    it('filters by a fractional room count', () => {
+      component.loadCurrentOffers();
+      component.selectedOfferRooms = [2.5];
+      component.onOfferFiltersChange();
+
+      expect(component.filteredOffers.map(offer => offer.priceEur)).toEqual([2000]);
+    });
+
+    it('applies a fractional room filter from the URL', () => {
+      const originalSearch = window.location.search;
+      window.history.replaceState({}, '', '/?tab=offers&rooms=2.5');
+
+      component.ngOnInit();
+
+      expect(component.selectedOfferRooms).toEqual([2.5]);
+      expect(component.filteredOffers.map(offer => offer.priceEur)).toEqual([2000]);
+
+      window.history.replaceState({}, '', `/${originalSearch}`);
+    });
+
+    it('renders fractional room counts with one decimal', () => {
+      fixture.detectChanges();
+
+      const roomCells = Array.from(fixture.nativeElement.querySelectorAll('tbody tr td:nth-child(2)'))
+        .map(cell => (cell as HTMLElement).textContent?.trim());
+      expect(roomCells).toEqual(['2', '2.5', '3']);
+    });
+  });
+
   describe('Table sorting', () => {
     const sortableOffers: FlatOffer[] = [
       {

@@ -393,6 +393,37 @@ describe('OverviewTabComponent', () => {
       expect(component.availableRooms).toEqual([1, 2, 3]);
     });
 
+    it('should normalize fractional room counts to one decimal in filter options and filtering', () => {
+      flatsService.getAggregated.and.returnValue(of({
+        success: true,
+        data: [
+          { district: 'Mitte', roomsCount: 2, count: 3, avgPricePerMeter: 10 },
+          { district: 'Mitte', roomsCount: 2.54, count: 5, avgPricePerMeter: 12 }
+        ],
+        message: 'Success'
+      }));
+      component.loadAggregatedData();
+
+      expect(component.availableRooms).toEqual([2, 2.5]);
+
+      component.selectedRoomCounts = [2.5];
+      component.onFiltersChange();
+
+      expect(component.aggregatedData.map(item => item.count)).toEqual([5]);
+    });
+
+    it('should render fractional room counts with one decimal', () => {
+      flatsService.getAggregated.and.returnValue(of({
+        success: true,
+        data: [{ district: 'Mitte', roomsCount: 2.5, count: 5, avgPricePerMeter: 12 }],
+        message: 'Success'
+      }));
+      fixture.detectChanges();
+
+      const roomCell = fixture.nativeElement.querySelector('tbody tr td:nth-child(2)') as HTMLElement;
+      expect(roomCell.textContent?.trim()).toBe('2.5');
+    });
+
     it('should filter by single district', () => {
       flatsService.getAggregated.and.returnValue(of(multiRoomData));
       component.loadAggregatedData();
@@ -601,6 +632,20 @@ describe('OverviewTabComponent', () => {
 
       expect(openSpy).toHaveBeenCalledWith(
         `${window.location.origin}${window.location.pathname}?tab=offers&district=Mitte&rooms=2`,
+        '_blank',
+        'noopener,noreferrer'
+      );
+    });
+
+    it('passes fractional room counts to the offers tab rounded to one decimal', () => {
+      const openSpy = spyOn(window, 'open');
+      component.groupByDistrict = false;
+      component.groupByRooms = true;
+
+      component.openOffersForRow({ roomsCount: 2.54, count: 5, avgPricePerMeter: 12.5 });
+
+      expect(openSpy).toHaveBeenCalledWith(
+        `${window.location.origin}${window.location.pathname}?tab=offers&rooms=2.5`,
         '_blank',
         'noopener,noreferrer'
       );

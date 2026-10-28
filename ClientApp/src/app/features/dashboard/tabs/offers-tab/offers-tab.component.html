@@ -113,7 +113,7 @@
       <tbody>
         <tr *ngFor="let offer of filteredOffers">
           <td>{{ offer.district || '-' }}</td>
-          <td class="text-center">{{ offer.roomsCount ? (offer.roomsCount | number: '1.0-0') : '-' }}</td>
+          <td class="text-center">{{ offer.roomsCount ? (offer.roomsCount | number: '1.0-1') : '-' }}</td>
           <td class="text-end">
             {{ offer.priceEur ? (offer.priceEur | currency: 'EUR': 'symbol': '1.0-0') : '-' }}
             <span *ngIf="getDiscountPercentage(offer) !== null">

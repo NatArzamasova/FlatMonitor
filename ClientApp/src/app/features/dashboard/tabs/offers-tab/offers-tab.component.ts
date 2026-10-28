@@ -5,6 +5,7 @@ import { FlatsService } from '../../../../core/services/flats.service';
 import { FilterService } from '../../../../core/services/filter.service';
 import { FlatOffer } from '../../../../core/models/flat-offer.model';
 import { isHttpUrl } from '../../../../core/utils/url.utils';
+import { normalizeRooms } from '../../../../core/utils/rooms.utils';
 
 @Component({
   selector: 'app-offers-tab',
@@ -68,8 +69,8 @@ export class OffersTabComponent implements OnInit {
     const params = new URLSearchParams(window.location.search);
     this.selectedOfferDistricts = params.getAll('district');
     this.selectedOfferRooms = params.getAll('rooms')
-      .map(value => Number(value))
-      .filter(value => Number.isFinite(value));
+      .map(value => normalizeRooms(Number(value)))
+      .filter((value): value is number => value !== undefined);
   }
 
   loadCurrentOffers(): void {
@@ -101,8 +102,9 @@ export class OffersTabComponent implements OnInit {
       if (offer.district) {
         districts.add(offer.district);
       }
-      if (offer.roomsCount !== undefined && offer.roomsCount !== null) {
-        rooms.add(Math.round(offer.roomsCount));
+      const roomsCount = normalizeRooms(offer.roomsCount);
+      if (roomsCount !== undefined) {
+        rooms.add(roomsCount);
       }
     });
 
@@ -116,7 +118,7 @@ export class OffersTabComponent implements OnInit {
     filtered = this.filterService.filterByRooms(
       filtered,
       this.selectedOfferRooms,
-      offer => offer.roomsCount !== undefined ? Math.round(offer.roomsCount) : undefined
+      offer => normalizeRooms(offer.roomsCount)
     );
     filtered = this.filterService.filterByPriceRange(
       filtered,

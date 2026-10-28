@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { FlatsService } from '../../../../core/services/flats.service';
 import { FlatHistory } from '../../../../core/models/flat-history.model';
 import { Aggregatable, mergeWeightedAverage, roundPriceToEuro } from '../../../../core/utils/aggregation.utils';
+import { normalizeRooms } from '../../../../core/utils/rooms.utils';
 
 @Component({
   selector: 'app-history-tab',
@@ -100,7 +101,7 @@ export class HistoryTabComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private aggregateByRoomsHistory(): void {
     this.aggregateHistoryByLabel(item => {
-      const rooms = item.roomsCount ? Math.round(item.roomsCount * 10) / 10 : null;
+      const rooms = item.roomsCount ? normalizeRooms(item.roomsCount) : null;
       return `${rooms?.toString() || 'Unknown'} rooms`;
     });
   }

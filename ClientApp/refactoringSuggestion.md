@@ -68,7 +68,17 @@ both bounds empty every offer lacking `priceEur` disappears from the Current Off
 **Fix:** return `data` unchanged when neither bound is active; only drop missing values when a bound
 is set. Add a spec case for it.
 
-### A4. Room counts are rounded differently in each tab
+### A4. Room counts are rounded differently in each tab ✅ COMPLETED
+
+> **Done:** decision — keep fractional counts, rounded to one decimal. `normalizeRooms` added in
+> `core/utils/rooms.utils.ts` (+ spec) and used for filter options, filtering and the URL in all
+> places: overview (options, filter, drill-down `rooms=` param), offers (options, filter, `rooms=`
+> URL param), history (chart labels). Both tables render rooms with `number: '1.0-1'`.
+> Specs cover 2.5 options/filter/URL/rendering in offers and 2.54 → 2.5 in overview.
+>
+> Remaining edge: the overview's "group by district + rooms" view shows backend rows as-is, so if the
+> API ever returned 2.54 and 2.5 as separate rows they would both display as "2.5". Grouping keys
+> are not normalized; revisit with B5 if that happens.
 - Overview: raw `roomsCount` (`overview-tab.component.ts:334-336` puts e.g. `rooms=2.5` in the URL)
 - Offers: `Math.round(roomsCount)` for both the options and the filter (`offers-tab.component.ts:104,118`)
 - History: rounded to one decimal (`history-tab.component.ts:103`)

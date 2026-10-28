@@ -8,6 +8,7 @@ import { FilterService } from '../../../../core/services/filter.service';
 import { FlatAggregation } from '../../../../core/models/flat-aggregation.model';
 import { ScrapingStatusResponse } from '../../../../core/models/scraping-status-response.model';
 import { mergeWeightedAverage, roundPriceToEuro } from '../../../../core/utils/aggregation.utils';
+import { normalizeRooms } from '../../../../core/utils/rooms.utils';
 
 @Component({
   selector: 'app-overview-tab',
@@ -114,8 +115,9 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
       if (item.district) {
         districts.add(item.district);
       }
-      if (item.roomsCount !== undefined && item.roomsCount !== null) {
-        rooms.add(item.roomsCount);
+      const roomsCount = normalizeRooms(item.roomsCount);
+      if (roomsCount !== undefined) {
+        rooms.add(roomsCount);
       }
     });
 
@@ -130,7 +132,7 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
   applyFiltersAndGrouping(): void {
     let filtered = this.rawData;
     filtered = this.filterService.filterByDistricts(filtered, this.selectedDistricts, item => item.district);
-    filtered = this.filterService.filterByRooms(filtered, this.selectedRoomCounts, item => item.roomsCount);
+    filtered = this.filterService.filterByRooms(filtered, this.selectedRoomCounts, item => normalizeRooms(item.roomsCount));
 
     if (this.groupByDistrict && this.groupByRooms) {
       this.aggregatedData = filtered;
@@ -337,8 +339,9 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
       url.searchParams.set('district', item.district);
     }
 
-    if (this.groupByRooms && item.roomsCount !== undefined && item.roomsCount !== null) {
-      url.searchParams.set('rooms', String(item.roomsCount));
+    const roomsCount = normalizeRooms(item.roomsCount);
+    if (this.groupByRooms && roomsCount !== undefined) {
+      url.searchParams.set('rooms', String(roomsCount));
     }
 
     window.open(url.toString(), '_blank', 'noopener,noreferrer');
