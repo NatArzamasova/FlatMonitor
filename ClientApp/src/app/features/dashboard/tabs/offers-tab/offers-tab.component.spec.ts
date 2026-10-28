@@ -295,37 +295,43 @@ describe('OffersTabComponent', () => {
     });
   });
 
-  describe('URL Validation', () => {
-    it('should validate a correct URL', () => {
-      const isValid = component.isValidUrl('https://example.com');
-      expect(isValid).toBe(true);
+  describe('Offer links', () => {
+    const renderLinkCell = (url: string | undefined): HTMLElement => {
+      flatsService.getCurrentOffers.and.returnValue(of({
+        success: true,
+        data: [{ district: 'Mitte', roomsCount: 2, priceEur: 2000, url, source: 'OhneMakler' }],
+        message: 'Success'
+      }));
+      fixture.detectChanges();
+      const cells = fixture.nativeElement.querySelectorAll('tbody tr td');
+      return cells[cells.length - 1] as HTMLElement;
+    };
+
+    it('renders a link for https offer URLs', () => {
+      const link = renderLinkCell('https://example.com/flat1').querySelector('a') as HTMLAnchorElement;
+
+      expect(link).toBeTruthy();
+      expect(link.getAttribute('href')).toBe('https://example.com/flat1');
+      expect(link.getAttribute('rel')).toBe('noopener noreferrer');
+      expect(link.textContent).toContain('View (OhneMakler)');
     });
 
-    it('should reject invalid URLs', () => {
-      const isValid = component.isValidUrl('not-a-url');
-      expect(isValid).toBe(false);
+    it('does not render a link for javascript: offer URLs', () => {
+      const cell = renderLinkCell('javascript:alert(1)');
+
+      expect(cell.querySelector('a')).toBeNull();
+      expect(cell.textContent?.trim()).toBe('-');
     });
 
-    it('should reject undefined URLs', () => {
-      const isValid = component.isValidUrl(undefined);
-      expect(isValid).toBe(false);
+    it('does not render a link for non-http offer URLs', () => {
+      expect(renderLinkCell('data:text/html,<script>alert(1)</script>').querySelector('a')).toBeNull();
     });
 
-    it('should reject empty URLs', () => {
-      const isValid = component.isValidUrl('');
-      expect(isValid).toBe(false);
-    });
-  });
+    it('does not render a link when the offer has no URL', () => {
+      const cell = renderLinkCell(undefined);
 
-  describe('getSafeUrl', () => {
-    it('should bypass security trust for valid URLs', () => {
-      const result = component.getSafeUrl('https://example.com');
-      expect(result).toBeTruthy();
-    });
-
-    it('should handle undefined URLs gracefully', () => {
-      const result = component.getSafeUrl(undefined);
-      expect(result).toBeTruthy();
+      expect(cell.querySelector('a')).toBeNull();
+      expect(cell.textContent?.trim()).toBe('-');
     });
   });
 });

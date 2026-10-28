@@ -1,10 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { FlatsService } from '../../../../core/services/flats.service';
 import { FilterService } from '../../../../core/services/filter.service';
 import { FlatOffer } from '../../../../core/models/flat-offer.model';
+import { isHttpUrl } from '../../../../core/utils/url.utils';
 
 @Component({
   selector: 'app-offers-tab',
@@ -37,10 +37,11 @@ export class OffersTabComponent implements OnInit {
   availableOfferDistricts: string[] = [];
   availableOfferRooms: number[] = [];
 
+  isHttpUrl = isHttpUrl;
+
   constructor(
     private flatsService: FlatsService,
-    private filterService: FilterService,
-    private sanitizer: DomSanitizer
+    private filterService: FilterService
   ) {}
 
   ngOnInit(): void {
@@ -168,19 +169,5 @@ export class OffersTabComponent implements OnInit {
         : String(leftValue).localeCompare(String(rightValue), undefined, { numeric: true, sensitivity: 'base' });
       return comparison * direction;
     });
-  }
-
-  getSafeUrl(url: string | undefined): SafeUrl {
-    return url ? this.sanitizer.bypassSecurityTrustUrl(url) : this.sanitizer.bypassSecurityTrustUrl('');
-  }
-
-  isValidUrl(url: string | undefined): boolean {
-    if (!url) return false;
-    try {
-      new URL(url);
-      return true;
-    } catch {
-      return false;
-    }
   }
 }
