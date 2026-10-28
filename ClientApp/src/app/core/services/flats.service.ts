@@ -7,6 +7,7 @@ import { FlatOffer } from '../models/flat-offer.model';
 import { FlatHistory } from '../models/flat-history.model';
 import { ScrapeResponse } from '../models/scrape-response.model';
 import { ScrapingStatusResponse } from '../models/scraping-status-response.model';
+import { unwrapApiResponse } from '../utils/api-response.utils';
 
 @Injectable({
   providedIn: 'root'
@@ -16,16 +17,19 @@ export class FlatsService {
 
   constructor(private http: HttpClient) {}
 
-  getAggregated(): Observable<ApiResponse<FlatAggregation[]>> {
-    return this.http.get<ApiResponse<FlatAggregation[]>>(`${this.apiUrl}/flats/aggregated`);
+  getAggregated(): Observable<FlatAggregation[]> {
+    return this.http.get<ApiResponse<FlatAggregation[]>>(`${this.apiUrl}/flats/aggregated`)
+      .pipe(unwrapApiResponse());
   }
 
-  getCurrentOffers(): Observable<ApiResponse<FlatOffer[]>> {
-    return this.http.get<ApiResponse<FlatOffer[]>>(`${this.apiUrl}/flats/current-offers`);
+  getCurrentOffers(): Observable<FlatOffer[]> {
+    return this.http.get<ApiResponse<FlatOffer[]>>(`${this.apiUrl}/flats/current-offers`)
+      .pipe(unwrapApiResponse());
   }
 
-  getHistory(): Observable<ApiResponse<FlatHistory[]>> {
-    return this.http.get<ApiResponse<FlatHistory[]>>(`${this.apiUrl}/flats/history`);
+  getHistory(): Observable<FlatHistory[]> {
+    return this.http.get<ApiResponse<FlatHistory[]>>(`${this.apiUrl}/flats/history`)
+      .pipe(unwrapApiResponse());
   }
 
   triggerScrape(): Observable<ScrapeResponse> {

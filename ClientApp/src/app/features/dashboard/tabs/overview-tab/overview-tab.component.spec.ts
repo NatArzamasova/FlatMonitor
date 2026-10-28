@@ -4,6 +4,7 @@ import { provideRouter } from '@angular/router';
 import { of, throwError, Subject } from 'rxjs';
 import { OverviewTabComponent } from './overview-tab.component';
 import { FlatsService } from '../../../../core/services/flats.service';
+import { apiResult } from '../../../../core/testing/api-response.testing';
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { FlatAggregation } from '../../../../core/models/flat-aggregation.model';
 import { ScrapeResponse } from '../../../../core/models/scrape-response.model';
@@ -105,7 +106,7 @@ describe('OverviewTabComponent', () => {
     });
 
     it('should load aggregated data and scraping status on init', () => {
-      flatsService.getAggregated.and.returnValue(of(mockAggregatedResponse));
+      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
       flatsService.getScrapeStatus.and.returnValue(of(mockScrapingStatusNotRunning));
 
       fixture.detectChanges();
@@ -123,7 +124,7 @@ describe('OverviewTabComponent', () => {
     });
 
     it('should load and display aggregated data', () => {
-      flatsService.getAggregated.and.returnValue(of(mockAggregatedResponse));
+      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
 
       component.loadAggregatedData();
 
@@ -135,7 +136,7 @@ describe('OverviewTabComponent', () => {
     });
 
     it('should set loading flag after data fetch', () => {
-      flatsService.getAggregated.and.returnValue(of(mockAggregatedResponse));
+      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
 
       component.loadAggregatedData();
 
@@ -148,7 +149,7 @@ describe('OverviewTabComponent', () => {
         success: false,
         message: 'Database error',
       };
-      flatsService.getAggregated.and.returnValue(of(failureResponse));
+      flatsService.getAggregated.and.returnValue(apiResult(failureResponse));
 
       component.loadAggregatedData();
 
@@ -162,7 +163,7 @@ describe('OverviewTabComponent', () => {
         success: true,
         message: 'Success'
       };
-      flatsService.getAggregated.and.returnValue(of(responseWithoutData));
+      flatsService.getAggregated.and.returnValue(apiResult(responseWithoutData));
 
       component.loadAggregatedData();
 
@@ -221,7 +222,7 @@ describe('OverviewTabComponent', () => {
 
     it('keeps polling after a failed status request', fakeAsync(() => {
       spyOn(console, 'error');
-      flatsService.getAggregated.and.returnValue(of(mockAggregatedResponse));
+      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
       flatsService.getScrapeStatus.and.returnValues(
         of(mockScrapingStatusNotRunning),
         throwError(() => new Error('Network error')),
@@ -241,7 +242,7 @@ describe('OverviewTabComponent', () => {
     }));
 
     it('reloads aggregated data once when a running scrape finishes', fakeAsync(() => {
-      flatsService.getAggregated.and.returnValue(of(mockAggregatedResponse));
+      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
       flatsService.getScrapeStatus.and.returnValues(
         of(mockScrapingStatusRunning),
         of(mockScrapingStatusRunning),
@@ -266,7 +267,7 @@ describe('OverviewTabComponent', () => {
 
     it('reloads aggregated data when a scrape finishes after a failed status request', fakeAsync(() => {
       spyOn(console, 'error');
-      flatsService.getAggregated.and.returnValue(of(mockAggregatedResponse));
+      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
       flatsService.getScrapeStatus.and.returnValues(
         of(mockScrapingStatusRunning),
         throwError(() => new Error('Network error')),
@@ -285,7 +286,7 @@ describe('OverviewTabComponent', () => {
     }));
 
     it('does not reload aggregated data while no scrape is running', fakeAsync(() => {
-      flatsService.getAggregated.and.returnValue(of(mockAggregatedResponse));
+      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
       flatsService.getScrapeStatus.and.returnValue(of(mockScrapingStatusNotRunning));
 
       component.ngOnInit();
@@ -305,7 +306,7 @@ describe('OverviewTabComponent', () => {
 
     it('should trigger a scrape job', () => {
       flatsService.triggerScrape.and.returnValue(of(mockScrapeResponse));
-      flatsService.getAggregated.and.returnValue(of(mockAggregatedResponse));
+      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
 
       component.triggerScrape();
 
@@ -315,7 +316,7 @@ describe('OverviewTabComponent', () => {
     });
 
     it('shows a single queued message after triggering a scrape', () => {
-      flatsService.getAggregated.and.returnValue(of(mockAggregatedResponse));
+      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
       flatsService.triggerScrape.and.returnValue(of(mockScrapeResponse));
       fixture.detectChanges();
 
@@ -356,7 +357,7 @@ describe('OverviewTabComponent', () => {
     it('should clear previous error on new scrape trigger', () => {
       component.error = 'Previous error';
       flatsService.triggerScrape.and.returnValue(of(mockScrapeResponse));
-      flatsService.getAggregated.and.returnValue(of(mockAggregatedResponse));
+      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
 
       component.triggerScrape();
 
@@ -390,7 +391,7 @@ describe('OverviewTabComponent', () => {
 
   describe('refresh', () => {
     it('should reload aggregated data', () => {
-      flatsService.getAggregated.and.returnValue(of(mockAggregatedResponse));
+      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
       flatsService.getScrapeStatus.and.returnValue(of(mockScrapingStatusNotRunning));
 
       const initialCallCount = flatsService.getAggregated.calls.count();
@@ -419,7 +420,7 @@ describe('OverviewTabComponent', () => {
         success: true,
         message: 'No data available'
       };
-      flatsService.getAggregated.and.returnValue(of(responseWithoutData));
+      flatsService.getAggregated.and.returnValue(apiResult(responseWithoutData));
 
       component.loadAggregatedData();
 
@@ -433,7 +434,7 @@ describe('OverviewTabComponent', () => {
         success: false,
         message: ''
       };
-      flatsService.getAggregated.and.returnValue(of(responseWithoutMessage));
+      flatsService.getAggregated.and.returnValue(apiResult(responseWithoutMessage));
 
       component.loadAggregatedData();
 
@@ -459,7 +460,7 @@ describe('OverviewTabComponent', () => {
     };
 
     it('should populate available districts and rooms from data', () => {
-      flatsService.getAggregated.and.returnValue(of(multiRoomData));
+      flatsService.getAggregated.and.returnValue(apiResult(multiRoomData));
 
       component.loadAggregatedData();
 
@@ -468,7 +469,7 @@ describe('OverviewTabComponent', () => {
     });
 
     it('should normalize fractional room counts to one decimal in filter options and filtering', () => {
-      flatsService.getAggregated.and.returnValue(of({
+      flatsService.getAggregated.and.returnValue(apiResult({
         success: true,
         data: [
           { district: 'Mitte', roomsCount: 2, count: 3, avgPricePerMeter: 10 },
@@ -487,7 +488,7 @@ describe('OverviewTabComponent', () => {
     });
 
     it('should render fractional room counts with one decimal', () => {
-      flatsService.getAggregated.and.returnValue(of({
+      flatsService.getAggregated.and.returnValue(apiResult({
         success: true,
         data: [{ district: 'Mitte', roomsCount: 2.5, count: 5, avgPricePerMeter: 12 }],
         message: 'Success'
@@ -499,7 +500,7 @@ describe('OverviewTabComponent', () => {
     });
 
     it('should filter by single district', () => {
-      flatsService.getAggregated.and.returnValue(of(multiRoomData));
+      flatsService.getAggregated.and.returnValue(apiResult(multiRoomData));
       component.loadAggregatedData();
 
       component.selectedDistricts = ['Mitte'];
@@ -510,7 +511,7 @@ describe('OverviewTabComponent', () => {
     });
 
     it('should filter by multiple districts', () => {
-      flatsService.getAggregated.and.returnValue(of(multiRoomData));
+      flatsService.getAggregated.and.returnValue(apiResult(multiRoomData));
       component.loadAggregatedData();
 
       component.selectedDistricts = ['Mitte', 'Prenzlauer Berg'];
@@ -523,7 +524,7 @@ describe('OverviewTabComponent', () => {
     });
 
     it('should filter by single room count', () => {
-      flatsService.getAggregated.and.returnValue(of(multiRoomData));
+      flatsService.getAggregated.and.returnValue(apiResult(multiRoomData));
       component.loadAggregatedData();
 
       component.selectedRoomCounts = [2];
@@ -534,7 +535,7 @@ describe('OverviewTabComponent', () => {
     });
 
     it('should filter by multiple room counts', () => {
-      flatsService.getAggregated.and.returnValue(of(multiRoomData));
+      flatsService.getAggregated.and.returnValue(apiResult(multiRoomData));
       component.loadAggregatedData();
 
       component.selectedRoomCounts = [1, 2];
@@ -547,7 +548,7 @@ describe('OverviewTabComponent', () => {
     });
 
     it('should filter by both districts and rooms', () => {
-      flatsService.getAggregated.and.returnValue(of(multiRoomData));
+      flatsService.getAggregated.and.returnValue(apiResult(multiRoomData));
       component.loadAggregatedData();
 
       component.selectedDistricts = ['Mitte'];
@@ -560,7 +561,7 @@ describe('OverviewTabComponent', () => {
     });
 
     it('should aggregate by district only when groupByRooms is false', () => {
-      flatsService.getAggregated.and.returnValue(of(multiRoomData));
+      flatsService.getAggregated.and.returnValue(apiResult(multiRoomData));
       component.loadAggregatedData();
 
       component.groupByDistrict = true;
@@ -574,7 +575,7 @@ describe('OverviewTabComponent', () => {
     });
 
     it('should aggregate by rooms only when groupByDistrict is false', () => {
-      flatsService.getAggregated.and.returnValue(of(multiRoomData));
+      flatsService.getAggregated.and.returnValue(apiResult(multiRoomData));
       component.loadAggregatedData();
 
       component.groupByDistrict = false;
@@ -588,7 +589,7 @@ describe('OverviewTabComponent', () => {
     });
 
     it('should aggregate all data when both grouping options are disabled', () => {
-      flatsService.getAggregated.and.returnValue(of(multiRoomData));
+      flatsService.getAggregated.and.returnValue(apiResult(multiRoomData));
       component.loadAggregatedData();
 
       component.groupByDistrict = false;
@@ -602,7 +603,7 @@ describe('OverviewTabComponent', () => {
     });
 
     it('should calculate weighted average price correctly when aggregating by district', () => {
-      flatsService.getAggregated.and.returnValue(of(multiRoomData));
+      flatsService.getAggregated.and.returnValue(apiResult(multiRoomData));
       component.loadAggregatedData();
 
       component.groupByDistrict = true;
@@ -614,7 +615,7 @@ describe('OverviewTabComponent', () => {
     });
 
     it('should calculate weighted average price correctly when aggregating by rooms', () => {
-      flatsService.getAggregated.and.returnValue(of(multiRoomData));
+      flatsService.getAggregated.and.returnValue(apiResult(multiRoomData));
       component.loadAggregatedData();
 
       component.groupByDistrict = false;
@@ -626,7 +627,7 @@ describe('OverviewTabComponent', () => {
     });
 
     it('should calculate weighted average price correctly when aggregating all', () => {
-      flatsService.getAggregated.and.returnValue(of(multiRoomData));
+      flatsService.getAggregated.and.returnValue(apiResult(multiRoomData));
       component.loadAggregatedData();
 
       component.groupByDistrict = false;
@@ -637,7 +638,7 @@ describe('OverviewTabComponent', () => {
     });
 
     it('should not produce NaN averages when aggregating rows with a zero count', () => {
-      flatsService.getAggregated.and.returnValue(of({
+      flatsService.getAggregated.and.returnValue(apiResult({
         success: true,
         data: [
           { district: 'Mitte', roomsCount: 1, count: 0, avgPricePerMeter: 99 },
@@ -657,7 +658,7 @@ describe('OverviewTabComponent', () => {
     });
 
     it('should apply filter and then aggregate correctly', () => {
-      flatsService.getAggregated.and.returnValue(of(multiRoomData));
+      flatsService.getAggregated.and.returnValue(apiResult(multiRoomData));
       component.loadAggregatedData();
 
       component.selectedDistricts = ['Mitte'];
@@ -696,7 +697,7 @@ describe('OverviewTabComponent', () => {
     });
 
     it('renders a sortable control for every table column', () => {
-      flatsService.getAggregated.and.returnValue(of(mockAggregatedResponse));
+      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
       flatsService.getScrapeStatus.and.returnValue(of(mockScrapingStatusNotRunning));
       component.aggregatedData = mockAggregatedResponse.data!;
       fixture.detectChanges();

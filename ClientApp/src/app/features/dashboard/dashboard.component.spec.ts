@@ -6,6 +6,7 @@ import { of } from 'rxjs';
 import { routes } from '../../app.routes';
 import { OffersTabComponent } from './tabs/offers-tab/offers-tab.component';
 import { FlatsService } from '../../core/services/flats.service';
+import { apiResult } from '../../core/testing/api-response.testing';
 
 describe('DashboardComponent (Shell) routing', () => {
   let harness: RouterTestingHarness;
@@ -21,9 +22,9 @@ describe('DashboardComponent (Shell) routing', () => {
       'cancelScrape'
     ]);
     flatsServiceSpy.getScrapeStatus.and.returnValue(of({ isScrapingInProgress: false }));
-    flatsServiceSpy.getAggregated.and.returnValue(of({ success: true, data: [], message: 'Success' }));
-    flatsServiceSpy.getCurrentOffers.and.returnValue(of({ success: true, data: [], message: 'Success' }));
-    flatsServiceSpy.getHistory.and.returnValue(of({ success: true, data: [], message: 'Success' }));
+    flatsServiceSpy.getAggregated.and.returnValue(apiResult({ success: true, data: [], message: 'Success' }));
+    flatsServiceSpy.getCurrentOffers.and.returnValue(apiResult({ success: true, data: [], message: 'Success' }));
+    flatsServiceSpy.getHistory.and.returnValue(apiResult({ success: true, data: [], message: 'Success' }));
 
     TestBed.configureTestingModule({
       providers: [

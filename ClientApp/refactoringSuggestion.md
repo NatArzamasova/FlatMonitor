@@ -220,7 +220,16 @@ export const routes: Routes = [
 - Trade-off: tabs are re-created on navigation, so data is re-fetched. If that matters, cache in the
   service (`shareReplay`) — see B2.
 
-### B2. Unwrap `ApiResponse` once, in the service
+### B2. Unwrap `ApiResponse` once, in the service ✅ COMPLETED
+
+> **Done:** `core/utils/api-response.utils.ts` adds `unwrapApiResponse()` (throws `ApiResponseError`
+> on `success: false` or missing data) and `describeLoadError()` (keeps the exact messages shown
+> before: API message or fallback, `"Error loading …: <error>"` for HTTP errors). `FlatsService`
+> `getAggregated` / `getCurrentOffers` / `getHistory` now return plain data; the three tabs have one
+> `next` and one `error` path with `finalize` resetting the loading flag. Component specs mock the
+> service via `core/testing/api-response.testing.ts` → `apiResult(response)`, which runs the real
+> unwrap, so the existing failure specs still cover the API-failure path. Service spec now covers
+> all three endpoints.
 Every tab repeats the same block (`overview:81-101`, `offers:74-93`, `history:63-82`):
 
 ```ts

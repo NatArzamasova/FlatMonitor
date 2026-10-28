@@ -3,13 +3,14 @@ import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Params, Router } from '@angular/router';
 import { EMPTY, interval, Subject } from 'rxjs';
-import { catchError, takeUntil, switchMap } from 'rxjs/operators';
+import { catchError, finalize, takeUntil, switchMap } from 'rxjs/operators';
 import { FlatsService } from '../../../../core/services/flats.service';
 import { FilterService } from '../../../../core/services/filter.service';
 import { FlatAggregation } from '../../../../core/models/flat-aggregation.model';
 import { ScrapingStatusResponse } from '../../../../core/models/scraping-status-response.model';
 import { mergeWeightedAverage, roundPriceToEuro } from '../../../../core/utils/aggregation.utils';
 import { normalizeRooms } from '../../../../core/utils/rooms.utils';
+import { describeLoadError } from '../../../../core/utils/api-response.utils';
 
 @Component({
   selector: 'app-overview-tab',
@@ -89,23 +90,19 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
   loadAggregatedData(): void {
     this.loading = true;
     this.error = null;
-    this.flatsService.getAggregated().subscribe({
-      next: (response) => {
-        if (response.success && response.data) {
-          this.rawData = response.data;
+    this.flatsService.getAggregated()
+      .pipe(finalize(() => this.loading = false))
+      .subscribe({
+        next: (data) => {
+          this.rawData = data;
           this.updateAvailableFilters();
           this.applyFiltersAndGrouping();
           this.lastUpdated = new Date();
-        } else {
-          this.error = response.message || 'Failed to load data';
+        },
+        error: (err) => {
+          this.error = describeLoadError(err, 'Failed to load data', 'Error loading data');
         }
-        this.loading = false;
-      },
-      error: (err) => {
-        this.error = `Error loading data: ${err.message}`;
-        this.loading = false;
-      }
-    });
+      });
   }
 
   private updateAvailableFilters(): void {

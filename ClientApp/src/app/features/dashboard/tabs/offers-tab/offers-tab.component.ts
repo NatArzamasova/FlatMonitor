@@ -2,11 +2,13 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
+import { finalize } from 'rxjs/operators';
 import { FlatsService } from '../../../../core/services/flats.service';
 import { FilterService } from '../../../../core/services/filter.service';
 import { FlatOffer } from '../../../../core/models/flat-offer.model';
 import { isHttpUrl } from '../../../../core/utils/url.utils';
 import { normalizeRooms } from '../../../../core/utils/rooms.utils';
+import { describeLoadError } from '../../../../core/utils/api-response.utils';
 
 @Component({
   selector: 'app-offers-tab',
@@ -78,22 +80,18 @@ export class OffersTabComponent implements OnInit {
   loadCurrentOffers(): void {
     this.loadingOffers = true;
     this.error = null;
-    this.flatsService.getCurrentOffers().subscribe({
-      next: (response) => {
-        if (response.success && response.data) {
-          this.currentOffers = response.data;
+    this.flatsService.getCurrentOffers()
+      .pipe(finalize(() => this.loadingOffers = false))
+      .subscribe({
+        next: (offers) => {
+          this.currentOffers = offers;
           this.updateAvailableOfferFilters();
           this.applyOfferFilters();
-        } else {
-          this.error = response.message || 'Failed to load offers';
+        },
+        error: (err) => {
+          this.error = describeLoadError(err, 'Failed to load offers', 'Error loading offers');
         }
-        this.loadingOffers = false;
-      },
-      error: (err) => {
-        this.error = `Error loading offers: ${err.message}`;
-        this.loadingOffers = false;
-      }
-    });
+      });
   }
 
   private updateAvailableOfferFilters(): void {

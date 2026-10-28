@@ -1,10 +1,12 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { finalize } from 'rxjs/operators';
 import { FlatsService } from '../../../../core/services/flats.service';
 import { FlatHistory } from '../../../../core/models/flat-history.model';
 import { Aggregatable, mergeWeightedAverage, roundPriceToEuro } from '../../../../core/utils/aggregation.utils';
 import { normalizeRooms } from '../../../../core/utils/rooms.utils';
+import { describeLoadError } from '../../../../core/utils/api-response.utils';
 
 @Component({
   selector: 'app-history-tab',
@@ -68,22 +70,18 @@ export class HistoryTabComponent implements OnInit, OnDestroy {
   loadHistory(): void {
     this.loadingHistory = true;
     this.error = null;
-    this.flatsService.getHistory().subscribe({
-      next: (response) => {
-        if (response.success && response.data) {
-          this.historyData = response.data;
+    this.flatsService.getHistory()
+      .pipe(finalize(() => this.loadingHistory = false))
+      .subscribe({
+        next: (history) => {
+          this.historyData = history;
           this.updateHistoryChart();
           this.renderChart();
-        } else {
-          this.error = response.message || 'Failed to load history';
+        },
+        error: (err) => {
+          this.error = describeLoadError(err, 'Failed to load history', 'Error loading history');
         }
-        this.loadingHistory = false;
-      },
-      error: (err) => {
-        this.error = `Error loading history: ${err.message}`;
-        this.loadingHistory = false;
-      }
-    });
+      });
   }
 
   onHistoryGroupByChange(): void {

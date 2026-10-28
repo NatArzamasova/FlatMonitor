@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { HistoryTabComponent } from './history-tab.component';
 import { FlatsService } from '../../../../core/services/flats.service';
+import { apiResult } from '../../../../core/testing/api-response.testing';
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { FlatHistory } from '../../../../core/models/flat-history.model';
 
@@ -87,7 +88,7 @@ describe('HistoryTabComponent', () => {
     });
 
     it('should load history data on init', () => {
-      flatsService.getHistory.and.returnValue(of(mockHistoryResponse));
+      flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
 
       fixture.detectChanges();
 
@@ -98,7 +99,7 @@ describe('HistoryTabComponent', () => {
 
   describe('loadHistory', () => {
     it('should load and display history data', () => {
-      flatsService.getHistory.and.returnValue(of(mockHistoryResponse));
+      flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
 
       component.loadHistory();
 
@@ -112,7 +113,7 @@ describe('HistoryTabComponent', () => {
         success: false,
         message: 'Failed to load history'
       };
-      flatsService.getHistory.and.returnValue(of(failureResponse));
+      flatsService.getHistory.and.returnValue(apiResult(failureResponse));
 
       component.loadHistory();
 
@@ -135,7 +136,7 @@ describe('HistoryTabComponent', () => {
 
   describe('History Grouping', () => {
     beforeEach(() => {
-      flatsService.getHistory.and.returnValue(of(mockHistoryResponse));
+      flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
       component.loadHistory();
     });
 
@@ -163,7 +164,7 @@ describe('HistoryTabComponent', () => {
 
   describe('History Chart Data', () => {
     beforeEach(() => {
-      flatsService.getHistory.and.returnValue(of(mockHistoryResponse));
+      flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
       component.loadHistory();
     });
 
@@ -264,7 +265,7 @@ describe('HistoryTabComponent', () => {
 
   describe('Chart rendering', () => {
     it('renders the chart as soon as history data is shown, without waiting for timers or tab events', () => {
-      flatsService.getHistory.and.returnValue(of(mockHistoryResponse));
+      flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
 
       fixture.detectChanges();
 
@@ -276,7 +277,7 @@ describe('HistoryTabComponent', () => {
     });
 
     it('re-renders the chart when the grouping changes', () => {
-      flatsService.getHistory.and.returnValue(of(mockHistoryResponse));
+      flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
       fixture.detectChanges();
       const firstChart = component.chart;
       spyOn(firstChart, 'destroy').and.callThrough();
@@ -290,7 +291,7 @@ describe('HistoryTabComponent', () => {
     });
 
     it('does not render a chart when there is no history data', () => {
-      flatsService.getHistory.and.returnValue(of({ success: true, data: [], message: 'Success' }));
+      flatsService.getHistory.and.returnValue(apiResult({ success: true, data: [], message: 'Success' }));
 
       fixture.detectChanges();
 
@@ -301,7 +302,7 @@ describe('HistoryTabComponent', () => {
 
   describe('Cleanup', () => {
     it('should destroy chart on component destroy', () => {
-      flatsService.getHistory.and.returnValue(of(mockHistoryResponse));
+      flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
       fixture.detectChanges();
 
       const mockChart = {

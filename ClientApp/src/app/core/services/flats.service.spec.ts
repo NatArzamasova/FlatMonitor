@@ -3,6 +3,9 @@ import { HttpClientTestingModule, HttpTestingController } from '@angular/common/
 import { FlatsService } from './flats.service';
 import { ApiResponse } from '../models/api-response.model';
 import { FlatAggregation } from '../models/flat-aggregation.model';
+import { FlatOffer } from '../models/flat-offer.model';
+import { FlatHistory } from '../models/flat-history.model';
+import { ApiResponseError } from '../utils/api-response.utils';
 import { ScrapeResponse } from '../models/scrape-response.model';
 import { ScrapingStatusResponse, ScrapingHistoryDto } from '../models/scraping-status-response.model';
 
@@ -41,10 +44,9 @@ describe('FlatsService', () => {
       };
 
       service.getAggregated().subscribe(result => {
-        expect(result).toEqual(mockData);
-        expect(result.success).toBe(true);
-        expect(result.data?.length).toBe(1);
-        expect(result.data?.[0].avgPricePerMeter).toBe(12.50);
+        expect(result).toEqual(mockData.data!);
+        expect(result.length).toBe(1);
+        expect(result[0].avgPricePerMeter).toBe(12.50);
       });
 
       const req = httpMock.expectOne('/api/flats/aggregated');
@@ -60,11 +62,24 @@ describe('FlatsService', () => {
       };
 
       service.getAggregated().subscribe(result => {
-        expect(result.data?.length).toBe(0);
+        expect(result).toEqual([]);
       });
 
       const req = httpMock.expectOne('/api/flats/aggregated');
       req.flush(mockData);
+    });
+
+    it('should error with ApiResponseError when the API reports a failure', () => {
+      let error: unknown;
+      service.getAggregated().subscribe({
+        next: () => fail('should have failed'),
+        error: err => error = err
+      });
+
+      httpMock.expectOne('/api/flats/aggregated').flush({ success: false, message: 'Database error' });
+
+      expect(error).toEqual(jasmine.any(ApiResponseError));
+      expect((error as ApiResponseError).message).toBe('Database error');
     });
 
     it('should handle API errors', () => {
@@ -77,6 +92,54 @@ describe('FlatsService', () => {
 
       const req = httpMock.expectOne('/api/flats/aggregated');
       req.flush('Server error', { status: 500, statusText: 'Internal Server Error' });
+    });
+  });
+
+  describe('getCurrentOffers', () => {
+    it('should fetch current offers and return the unwrapped data', () => {
+      const offers: FlatOffer[] = [{ district: 'Mitte', roomsCount: 2, priceEur: 2000, source: 'OhneMakler' }];
+      let result: FlatOffer[] | undefined;
+
+      service.getCurrentOffers().subscribe(data => result = data);
+
+      const req = httpMock.expectOne('/api/flats/current-offers');
+      expect(req.request.method).toBe('GET');
+      req.flush({ success: true, data: offers, message: 'Success' });
+      expect(result).toEqual(offers);
+    });
+
+    it('should error with ApiResponseError when the response has no data', () => {
+      let error: unknown;
+      service.getCurrentOffers().subscribe({ error: err => error = err });
+
+      httpMock.expectOne('/api/flats/current-offers').flush({ success: true, message: 'No offers' });
+
+      expect(error).toEqual(jasmine.any(ApiResponseError));
+      expect((error as ApiResponseError).message).toBe('No offers');
+    });
+  });
+
+  describe('getHistory', () => {
+    it('should fetch history and return the unwrapped data', () => {
+      const history: FlatHistory[] = [{ scrapingDate: '2024-01-15', district: 'Mitte', avgPricePerMeter: 12, count: 3 }];
+      let result: FlatHistory[] | undefined;
+
+      service.getHistory().subscribe(data => result = data);
+
+      const req = httpMock.expectOne('/api/flats/history');
+      expect(req.request.method).toBe('GET');
+      req.flush({ success: true, data: history, message: 'Success' });
+      expect(result).toEqual(history);
+    });
+
+    it('should pass HTTP errors through unchanged', () => {
+      let error: unknown;
+      service.getHistory().subscribe({ error: err => error = err });
+
+      httpMock.expectOne('/api/flats/history').flush('Server error', { status: 500, statusText: 'Internal Server Error' });
+
+      expect(error).not.toEqual(jasmine.any(ApiResponseError));
+      expect((error as { status: number }).status).toBe(500);
     });
   });
 

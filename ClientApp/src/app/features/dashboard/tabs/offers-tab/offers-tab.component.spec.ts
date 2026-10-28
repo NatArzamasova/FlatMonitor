@@ -3,6 +3,7 @@ import { ActivatedRoute, convertToParamMap, Params } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { OffersTabComponent } from './offers-tab.component';
 import { FlatsService } from '../../../../core/services/flats.service';
+import { apiResult } from '../../../../core/testing/api-response.testing';
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { FlatOffer } from '../../../../core/models/flat-offer.model';
 
@@ -79,7 +80,7 @@ describe('OffersTabComponent', () => {
     });
 
     it('should load current offers on init', () => {
-      flatsService.getCurrentOffers.and.returnValue(of(mockOffersResponse));
+      flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
 
       fixture.detectChanges();
 
@@ -91,7 +92,7 @@ describe('OffersTabComponent', () => {
 
   describe('loadCurrentOffers', () => {
     it('should load and display current offers', () => {
-      flatsService.getCurrentOffers.and.returnValue(of(mockOffersResponse));
+      flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
 
       component.loadCurrentOffers();
 
@@ -106,7 +107,7 @@ describe('OffersTabComponent', () => {
         success: false,
         message: 'Failed to load offers'
       };
-      flatsService.getCurrentOffers.and.returnValue(of(failureResponse));
+      flatsService.getCurrentOffers.and.returnValue(apiResult(failureResponse));
 
       component.loadCurrentOffers();
 
@@ -126,7 +127,7 @@ describe('OffersTabComponent', () => {
     });
 
     it('should populate available filter options', () => {
-      flatsService.getCurrentOffers.and.returnValue(of(mockOffersResponse));
+      flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
 
       component.loadCurrentOffers();
 
@@ -139,7 +140,7 @@ describe('OffersTabComponent', () => {
 
   describe('Offer Filtering', () => {
     beforeEach(() => {
-      flatsService.getCurrentOffers.and.returnValue(of(mockOffersResponse));
+      flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
       component.loadCurrentOffers();
     });
 
@@ -187,7 +188,7 @@ describe('OffersTabComponent', () => {
     });
 
     it('should show offers without a price when no price range is set', () => {
-      flatsService.getCurrentOffers.and.returnValue(of({
+      flatsService.getCurrentOffers.and.returnValue(apiResult({
         success: true,
         data: [...mockOffersResponse.data!, { district: 'Mitte', roomsCount: 2, source: 'OhneMakler' }],
         message: 'Success'
@@ -198,7 +199,7 @@ describe('OffersTabComponent', () => {
     });
 
     it('should hide offers without a price once a price range is set', () => {
-      flatsService.getCurrentOffers.and.returnValue(of({
+      flatsService.getCurrentOffers.and.returnValue(apiResult({
         success: true,
         data: [...mockOffersResponse.data!, { district: 'Mitte', roomsCount: 2, source: 'OhneMakler' }],
         message: 'Success'
@@ -223,7 +224,7 @@ describe('OffersTabComponent', () => {
     };
 
     beforeEach(() => {
-      flatsService.getCurrentOffers.and.returnValue(of(fractionalOffers));
+      flatsService.getCurrentOffers.and.returnValue(apiResult(fractionalOffers));
     });
 
     it('offers fractional room counts as filter options instead of rounding them', () => {
@@ -305,7 +306,7 @@ describe('OffersTabComponent', () => {
     });
 
     it('renders a sortable control for every table column', () => {
-      flatsService.getCurrentOffers.and.returnValue(of(mockOffersResponse));
+      flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
       component.filteredOffers = mockOffersResponse.data!;
       fixture.detectChanges();
 
@@ -344,7 +345,7 @@ describe('OffersTabComponent', () => {
     });
 
     it('renders the discount and red strikethrough original price', () => {
-      flatsService.getCurrentOffers.and.returnValue(of(mockOffersResponse));
+      flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
 
       fixture.detectChanges();
 
@@ -366,7 +367,7 @@ describe('OffersTabComponent', () => {
   describe('Initial URL filters', () => {
     it('loads district and room filters from the URL', () => {
       queryParams = { district: 'Mitte', rooms: '2' };
-      flatsService.getCurrentOffers.and.returnValue(of(mockOffersResponse));
+      flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
 
       component.ngOnInit();
 
@@ -377,7 +378,7 @@ describe('OffersTabComponent', () => {
 
     it('loads repeated district parameters and ignores invalid room values', () => {
       queryParams = { district: ['Mitte', 'Charlottenburg'], rooms: ['abc', '3'] };
-      flatsService.getCurrentOffers.and.returnValue(of(mockOffersResponse));
+      flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
 
       component.ngOnInit();
 
@@ -388,7 +389,7 @@ describe('OffersTabComponent', () => {
 
   describe('Offer links', () => {
     const renderLinkCell = (url: string | undefined): HTMLElement => {
-      flatsService.getCurrentOffers.and.returnValue(of({
+      flatsService.getCurrentOffers.and.returnValue(apiResult({
         success: true,
         data: [{ district: 'Mitte', roomsCount: 2, priceEur: 2000, url, source: 'OhneMakler' }],
         message: 'Success'
