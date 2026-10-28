@@ -72,9 +72,9 @@ describe('HistoryTabComponent', () => {
     it('should initialize with default values', () => {
       expect(component.historyData).toEqual([]);
       expect(component.chartData).toEqual([]);
-      expect(component.loadingHistory).toBe(false);
+      expect(component.loading).toBe(false);
       expect(component.error).toBeNull();
-      expect(component.historyGroupBy).toBe('district');
+      expect(component.groupBy).toBe('district');
     });
 
     it('should load history data on init', () => {
@@ -93,7 +93,7 @@ describe('HistoryTabComponent', () => {
 
       component.loadHistory();
 
-      expect(component.loadingHistory).toBe(false);
+      expect(component.loading).toBe(false);
       expect(component.error).toBeNull();
       expect(component.historyData.length).toBe(3);
     });
@@ -108,7 +108,7 @@ describe('HistoryTabComponent', () => {
       component.loadHistory();
 
       expect(component.error).toBe('Failed to load history');
-      expect(component.loadingHistory).toBe(false);
+      expect(component.loading).toBe(false);
       expect(component.historyData).toEqual([]);
     });
 
@@ -119,7 +119,7 @@ describe('HistoryTabComponent', () => {
       component.loadHistory();
 
       expect(component.error).toContain('Error loading history');
-      expect(component.loadingHistory).toBe(false);
+      expect(component.loading).toBe(false);
     });
 
   });
@@ -131,22 +131,22 @@ describe('HistoryTabComponent', () => {
     });
 
     it('should group by district by default', () => {
-      expect(component.historyGroupBy).toBe('district');
+      expect(component.groupBy).toBe('district');
     });
 
     it('should allow grouping by rooms', () => {
-      component.historyGroupBy = 'rooms';
-      component.onHistoryGroupByChange();
+      component.groupBy = 'rooms';
+      component.onGroupByChange();
 
-      expect(component.historyGroupBy).toBe('rooms');
+      expect(component.groupBy).toBe('rooms');
       expect(component.chartData.length).toBeGreaterThan(0);
     });
 
     it('should update chart data when group by changes', () => {
       const initialChartDataLength = component.chartData.length;
 
-      component.historyGroupBy = 'rooms';
-      component.onHistoryGroupByChange();
+      component.groupBy = 'rooms';
+      component.onGroupByChange();
 
       expect(component.chartData.length).toBeGreaterThanOrEqual(initialChartDataLength);
     });
@@ -159,7 +159,7 @@ describe('HistoryTabComponent', () => {
     });
 
     it('should include all series in the chart data', () => {
-      component.historyGroupBy = 'district';
+      component.groupBy = 'district';
 
       const mitteDataCount = component.chartData.filter(d => d.label === 'Mitte').length;
       const charlottenburgDataCount = component.chartData.filter(d => d.label === 'Charlottenburg').length;
@@ -172,8 +172,8 @@ describe('HistoryTabComponent', () => {
         { scrapingDate: '2024-01-15', district: 'Mitte', roomsCount: 2, avgPricePerMeter: 4000, count: 5 },
         { scrapingDate: '2024-01-15', district: 'Mitte', roomsCount: 6, avgPricePerMeter: 8756, count: 1 }
       ];
-      component.historyGroupBy = 'district';
-      (component as any).updateHistoryChart();
+      component.groupBy = 'district';
+      (component as any).updateChartData();
 
       expect(component.chartData).toEqual([
         { date: '2024-01-15', price: 4793, label: 'Mitte' }
@@ -185,8 +185,8 @@ describe('HistoryTabComponent', () => {
         { scrapingDate: '2024-01-15', district: 'Mitte', roomsCount: 2, avgPricePerMeter: 4000, count: 5 },
         { scrapingDate: '2024-01-15', district: 'Charlottenburg', roomsCount: 2, avgPricePerMeter: 8756, count: 1 }
       ];
-      component.historyGroupBy = 'rooms';
-      (component as any).updateHistoryChart();
+      component.groupBy = 'rooms';
+      (component as any).updateChartData();
 
       expect(component.chartData).toEqual([
         { date: '2024-01-15', price: 4793, label: '2 rooms' }
@@ -200,8 +200,8 @@ describe('HistoryTabComponent', () => {
         { scrapingDate: '2024-01-16', district: 'West', roomsCount: 3, avgPricePerMeter: 5000, count: 1 },
         { scrapingDate: '2024-01-16', district: 'East', roomsCount: 3, avgPricePerMeter: 4000, count: 1 }
       ];
-      component.historyGroupBy = 'district';
-      (component as any).updateHistoryChart();
+      component.groupBy = 'district';
+      (component as any).updateChartData();
 
       expect(component.latestAverageDate).toBe('2024-01-16');
       expect(component.latestAverageData).toEqual([
@@ -217,8 +217,8 @@ describe('HistoryTabComponent', () => {
         { scrapingDate: '2024-01-16', district: 'West', roomsCount: 2, avgPricePerMeter: 5000, count: 1 },
         { scrapingDate: '2024-01-16', district: 'East', roomsCount: 4, avgPricePerMeter: 4000, count: 1 }
       ];
-      component.historyGroupBy = 'rooms';
-      (component as any).updateHistoryChart();
+      component.groupBy = 'rooms';
+      (component as any).updateChartData();
 
       expect(component.latestAverageData).toEqual([
         { label: '2 rooms', price: 4000 },
@@ -248,8 +248,8 @@ describe('HistoryTabComponent', () => {
 
       expect(component.latestAverageData).toBe(latest);
 
-      component.historyGroupBy = 'rooms';
-      component.onHistoryGroupByChange();
+      component.groupBy = 'rooms';
+      component.onGroupByChange();
 
       expect(component.latestAverageData).not.toBe(latest);
       expect(component.latestAverageData).toEqual([{ label: '2 rooms', price: 13 }]);
@@ -299,8 +299,8 @@ describe('HistoryTabComponent', () => {
       flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
       fixture.detectChanges();
 
-      component.historyGroupBy = 'rooms';
-      component.onHistoryGroupByChange();
+      component.groupBy = 'rooms';
+      component.onGroupByChange();
       fixture.detectChanges();
 
       expect(chartComponent()!.title).toBe('Price per m² Trend (by Room Number)');

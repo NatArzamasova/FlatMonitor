@@ -179,7 +179,7 @@ describe('OverviewTabComponent', () => {
 
       await chooseOption('roomsSelect', '3');
 
-      expect(component.selectedRoomCounts).toEqual([3]);
+      expect(component.selectedRooms).toEqual([3]);
       expect(component.aggregatedData.map(row => row.roomsCount)).toEqual([3]);
     });
 
@@ -326,8 +326,8 @@ describe('OverviewTabComponent', () => {
 
       expect(component.availableRooms).toEqual([2, 2.5]);
 
-      component.selectedRoomCounts = [2.5];
-      component.onFiltersChange();
+      component.selectedRooms = [2.5];
+      component.applyFiltersAndGrouping();
 
       expect(component.aggregatedData.map(item => item.count)).toEqual([5]);
     });
@@ -349,7 +349,7 @@ describe('OverviewTabComponent', () => {
       component.loadAggregatedData();
 
       component.selectedDistricts = ['Mitte'];
-      component.onFiltersChange();
+      component.applyFiltersAndGrouping();
 
       expect(component.aggregatedData.length).toBe(3);
       expect(component.aggregatedData.every(item => item.district === 'Mitte')).toBe(true);
@@ -360,7 +360,7 @@ describe('OverviewTabComponent', () => {
       component.loadAggregatedData();
 
       component.selectedDistricts = ['Mitte', 'Prenzlauer Berg'];
-      component.onFiltersChange();
+      component.applyFiltersAndGrouping();
 
       expect(component.aggregatedData.length).toBe(5);
       expect(component.aggregatedData.every(item =>
@@ -372,8 +372,8 @@ describe('OverviewTabComponent', () => {
       flatsService.getAggregated.and.returnValue(apiResult(multiRoomData));
       component.loadAggregatedData();
 
-      component.selectedRoomCounts = [2];
-      component.onFiltersChange();
+      component.selectedRooms = [2];
+      component.applyFiltersAndGrouping();
 
       expect(component.aggregatedData.length).toBe(2);
       expect(component.aggregatedData.every(item => item.roomsCount === 2)).toBe(true);
@@ -383,8 +383,8 @@ describe('OverviewTabComponent', () => {
       flatsService.getAggregated.and.returnValue(apiResult(multiRoomData));
       component.loadAggregatedData();
 
-      component.selectedRoomCounts = [1, 2];
-      component.onFiltersChange();
+      component.selectedRooms = [1, 2];
+      component.applyFiltersAndGrouping();
 
       expect(component.aggregatedData.length).toBe(4);
       expect(component.aggregatedData.every(item =>
@@ -397,8 +397,8 @@ describe('OverviewTabComponent', () => {
       component.loadAggregatedData();
 
       component.selectedDistricts = ['Mitte'];
-      component.selectedRoomCounts = [2];
-      component.onFiltersChange();
+      component.selectedRooms = [2];
+      component.applyFiltersAndGrouping();
 
       expect(component.aggregatedData.length).toBe(1);
       expect(component.aggregatedData[0].district).toBe('Mitte');
@@ -411,7 +411,7 @@ describe('OverviewTabComponent', () => {
 
       component.groupByDistrict = true;
       component.groupByRooms = false;
-      component.onGroupingToggle();
+      component.applyFiltersAndGrouping();
 
       expect(component.aggregatedData.length).toBe(2);
       expect(component.aggregatedData[0].district).toBe('Mitte');
@@ -425,7 +425,7 @@ describe('OverviewTabComponent', () => {
 
       component.groupByDistrict = false;
       component.groupByRooms = true;
-      component.onGroupingToggle();
+      component.applyFiltersAndGrouping();
 
       expect(component.aggregatedData.length).toBe(3);
       expect(component.aggregatedData[0].roomsCount).toBe(1);
@@ -439,7 +439,7 @@ describe('OverviewTabComponent', () => {
 
       component.groupByDistrict = false;
       component.groupByRooms = false;
-      component.onGroupingToggle();
+      component.applyFiltersAndGrouping();
 
       expect(component.aggregatedData.length).toBe(1);
       expect(component.aggregatedData[0].district).toBeUndefined();
@@ -453,7 +453,7 @@ describe('OverviewTabComponent', () => {
 
       component.groupByDistrict = true;
       component.groupByRooms = false;
-      component.onGroupingToggle();
+      component.applyFiltersAndGrouping();
 
       const mitteRow = component.aggregatedData.find(item => item.district === 'Mitte');
       expect(mitteRow?.avgPricePerMeter).toBeCloseTo(12.75, 2);
@@ -465,7 +465,7 @@ describe('OverviewTabComponent', () => {
 
       component.groupByDistrict = false;
       component.groupByRooms = true;
-      component.onGroupingToggle();
+      component.applyFiltersAndGrouping();
 
       const room1Row = component.aggregatedData.find(item => item.roomsCount === 1);
       expect(room1Row?.avgPricePerMeter).toBeCloseTo(14.43, 2);
@@ -477,7 +477,7 @@ describe('OverviewTabComponent', () => {
 
       component.groupByDistrict = false;
       component.groupByRooms = false;
-      component.onGroupingToggle();
+      component.applyFiltersAndGrouping();
 
       expect(component.aggregatedData[0].avgPricePerMeter).toBeCloseTo(12.535, 2);
     });
@@ -496,7 +496,7 @@ describe('OverviewTabComponent', () => {
 
       component.groupByDistrict = true;
       component.groupByRooms = false;
-      component.onGroupingToggle();
+      component.applyFiltersAndGrouping();
 
       expect(component.aggregatedData.map(item => [item.district, item.count, item.avgPricePerMeter]))
         .toEqual([['Mitte', 5, 10], ['Weststadt', 0, 0]]);
@@ -515,7 +515,7 @@ describe('OverviewTabComponent', () => {
         component.loadAggregatedData();
         component.groupByDistrict = groupByDistrict;
         component.groupByRooms = groupByRooms;
-        component.onGroupingToggle();
+        component.applyFiltersAndGrouping();
         return component.aggregatedData.map(row => ({ ...row, avgPricePerMeter: Number(row.avgPricePerMeter.toFixed(6)) }));
       };
 
@@ -567,7 +567,7 @@ describe('OverviewTabComponent', () => {
       component.selectedDistricts = ['Mitte'];
       component.groupByDistrict = true;
       component.groupByRooms = false;
-      component.onFiltersChange();
+      component.applyFiltersAndGrouping();
 
       expect(component.aggregatedData.length).toBe(1);
       expect(component.aggregatedData[0].count).toBe(10);

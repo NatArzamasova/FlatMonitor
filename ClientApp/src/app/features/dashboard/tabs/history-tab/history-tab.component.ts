@@ -22,16 +22,16 @@ export class HistoryTabComponent implements OnInit {
   private readonly flatsService = inject(FlatsService);
 
   historyData: FlatHistory[] = [];
-  loadingHistory = false;
+  loading = false;
   error: string | null = null;
-  historyGroupBy: 'district' | 'rooms' = 'district';
+  groupBy: 'district' | 'rooms' = 'district';
   chartData: HistoryPoint[] = [];
-  // Derived from chartData in updateHistoryChart(), so the table is not recomputed on every change detection.
+  // Derived from chartData in updateChartData(), so the table is not recomputed on every change detection.
   latestAverageDate = '';
   latestAverageData: { label: string; price: number }[] = [];
 
   get chartTitle(): string {
-    return `Price per m² Trend (${this.historyGroupBy === 'district' ? 'by District' : 'by Room Number'})`;
+    return `Price per m² Trend (${this.groupBy === 'district' ? 'by District' : 'by Room Number'})`;
   }
 
   ngOnInit(): void {
@@ -39,14 +39,14 @@ export class HistoryTabComponent implements OnInit {
   }
 
   loadHistory(): void {
-    this.loadingHistory = true;
+    this.loading = true;
     this.error = null;
     this.flatsService.getHistory()
-      .pipe(finalize(() => this.loadingHistory = false))
+      .pipe(finalize(() => this.loading = false))
       .subscribe({
         next: (history) => {
           this.historyData = history;
-          this.updateHistoryChart();
+          this.updateChartData();
         },
         error: (err) => {
           this.error = describeLoadError(err, 'Failed to load history', 'Error loading history');
@@ -54,15 +54,15 @@ export class HistoryTabComponent implements OnInit {
       });
   }
 
-  onHistoryGroupByChange(): void {
-    this.updateHistoryChart();
+  onGroupByChange(): void {
+    this.updateChartData();
   }
 
-  private updateHistoryChart(): void {
-    if (this.historyGroupBy === 'district') {
-      this.aggregateByDistrictHistory();
+  private updateChartData(): void {
+    if (this.groupBy === 'district') {
+      this.aggregateByDistrict();
     } else {
-      this.aggregateByRoomsHistory();
+      this.aggregateByRooms();
     }
     this.updateLatestAverages();
   }
@@ -79,18 +79,18 @@ export class HistoryTabComponent implements OnInit {
       .sort((left, right) => right.price - left.price || left.label.localeCompare(right.label));
   }
 
-  private aggregateByDistrictHistory(): void {
-    this.aggregateHistoryByLabel(item => item.district || 'Unknown');
+  private aggregateByDistrict(): void {
+    this.aggregateByLabel(item => item.district || 'Unknown');
   }
 
-  private aggregateByRoomsHistory(): void {
-    this.aggregateHistoryByLabel(item => {
+  private aggregateByRooms(): void {
+    this.aggregateByLabel(item => {
       const rooms = item.roomsCount ? normalizeRooms(item.roomsCount) : null;
       return `${rooms?.toString() || 'Unknown'} rooms`;
     });
   }
 
-  private aggregateHistoryByLabel(getLabel: (item: FlatHistory) => string): void {
+  private aggregateByLabel(getLabel: (item: FlatHistory) => string): void {
     const grouped = new Map<string, Map<string, Aggregatable>>();
 
     this.historyData.forEach(item => {

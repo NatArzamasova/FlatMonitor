@@ -458,7 +458,18 @@ and compute the latest-averages table when `chartData` changes (or use `computed
   also fixes the current re-rendering of whole tables on each sort.
 - Drop `CommonModule` imports in favour of the specific pipes/directives once on control flow.
 
-### C2. Leftover names from the monolith
+### C2. Leftover names from the monolith ✅ COMPLETED
+
+> **Done:**
+> - Offers: `loadingOffers` → `loading`, `selectedOfferDistricts/Rooms` → `selectedDistricts/Rooms`,
+>   `availableOfferDistricts/Rooms` → `availableDistricts/Rooms`, `applyOfferFilters` → `applyFilters`;
+>   the `onOfferFiltersChange()` wrapper was removed (template calls `applyFilters()`).
+> - Overview: `onFiltersChange()` and `onGroupingToggle()` wrappers removed, the template calls
+>   `applyFiltersAndGrouping()`; `selectedRoomCounts` → `selectedRooms` (same name as in Offers).
+> - History: `loadingHistory` → `loading`, `historyGroupBy` → `groupBy`, `onHistoryGroupByChange` →
+>   `onGroupByChange`, `aggregateByDistrictHistory/RoomsHistory/HistoryByLabel` →
+>   `aggregateByDistrict/Rooms/Label`, `updateHistoryChart` → `updateChartData`.
+> - Specs updated with the same renames; no assertions changed.
 Now that each tab is its own component, the prefixes are noise:
 `loadingOffers`, `selectedOfferDistricts`, `availableOfferRooms`, `onOfferFiltersChange`,
 `applyOfferFilters`, `loadingHistory`, `historyGroupBy`, `onHistoryGroupByChange`,

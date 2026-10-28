@@ -33,15 +33,15 @@
         inputId="districtSelect"
         [options]="availableDistricts"
         [(selected)]="selectedDistricts"
-        (changed)="onFiltersChange()"
+        (changed)="applyFiltersAndGrouping()"
       ></app-multi-select-filter>
 
       <app-multi-select-filter
         label="Filter Rooms:"
         inputId="roomsSelect"
         [options]="availableRooms"
-        [(selected)]="selectedRoomCounts"
-        (changed)="onFiltersChange()"
+        [(selected)]="selectedRooms"
+        (changed)="applyFiltersAndGrouping()"
         [minWidth]="110"
       ></app-multi-select-filter>
 
@@ -52,7 +52,7 @@
             type="checkbox"
             id="groupByDistrictToggle"
             [(ngModel)]="groupByDistrict"
-            (change)="onGroupingToggle()"
+            (change)="applyFiltersAndGrouping()"
           />
           <label class="form-check-label" for="groupByDistrictToggle">
             Group by District
@@ -65,7 +65,7 @@
             type="checkbox"
             id="groupByRoomsToggle"
             [(ngModel)]="groupByRooms"
-            (change)="onGroupingToggle()"
+            (change)="applyFiltersAndGrouping()"
           />
           <label class="form-check-label" for="groupByRoomsToggle">
             Group by Rooms

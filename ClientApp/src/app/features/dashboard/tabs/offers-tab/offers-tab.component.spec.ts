@@ -75,7 +75,7 @@ describe('OffersTabComponent', () => {
     it('should initialize with default values', () => {
       expect(component.currentOffers).toEqual([]);
       expect(component.filteredOffers).toEqual([]);
-      expect(component.loadingOffers).toBe(false);
+      expect(component.loading).toBe(false);
       expect(component.error).toBeNull();
     });
 
@@ -96,7 +96,7 @@ describe('OffersTabComponent', () => {
 
       component.loadCurrentOffers();
 
-      expect(component.loadingOffers).toBe(false);
+      expect(component.loading).toBe(false);
       expect(component.error).toBeNull();
       expect(component.currentOffers.length).toBe(2);
       expect(component.filteredOffers.length).toBe(2);
@@ -112,7 +112,7 @@ describe('OffersTabComponent', () => {
       component.loadCurrentOffers();
 
       expect(component.error).toBe('Failed to load offers');
-      expect(component.loadingOffers).toBe(false);
+      expect(component.loading).toBe(false);
       expect(component.currentOffers).toEqual([]);
     });
 
@@ -123,7 +123,7 @@ describe('OffersTabComponent', () => {
       component.loadCurrentOffers();
 
       expect(component.error).toContain('Error loading offers');
-      expect(component.loadingOffers).toBe(false);
+      expect(component.loading).toBe(false);
     });
 
     it('should populate available filter options', () => {
@@ -131,10 +131,10 @@ describe('OffersTabComponent', () => {
 
       component.loadCurrentOffers();
 
-      expect(component.availableOfferDistricts).toContain('Mitte');
-      expect(component.availableOfferDistricts).toContain('Charlottenburg');
-      expect(component.availableOfferRooms).toContain(2);
-      expect(component.availableOfferRooms).toContain(3);
+      expect(component.availableDistricts).toContain('Mitte');
+      expect(component.availableDistricts).toContain('Charlottenburg');
+      expect(component.availableRooms).toContain(2);
+      expect(component.availableRooms).toContain(3);
     });
   });
 
@@ -145,16 +145,16 @@ describe('OffersTabComponent', () => {
     });
 
     it('should filter offers by district', () => {
-      component.selectedOfferDistricts = ['Mitte'];
-      component.onOfferFiltersChange();
+      component.selectedDistricts = ['Mitte'];
+      component.applyFilters();
 
       expect(component.filteredOffers.length).toBe(1);
       expect(component.filteredOffers[0].district).toBe('Mitte');
     });
 
     it('should filter offers by rooms', () => {
-      component.selectedOfferRooms = [3];
-      component.onOfferFiltersChange();
+      component.selectedRooms = [3];
+      component.applyFilters();
 
       expect(component.filteredOffers.length).toBe(1);
       expect(component.filteredOffers[0].roomsCount).toBe(3);
@@ -162,7 +162,7 @@ describe('OffersTabComponent', () => {
 
     it('should filter offers by price range min', () => {
       component.priceRangeMin = 2200;
-      component.onOfferFiltersChange();
+      component.applyFilters();
 
       expect(component.filteredOffers.length).toBe(1);
       expect(component.filteredOffers[0].priceEur).toBe(2500);
@@ -170,18 +170,18 @@ describe('OffersTabComponent', () => {
 
     it('should filter offers by price range max', () => {
       component.priceRangeMax = 2200;
-      component.onOfferFiltersChange();
+      component.applyFilters();
 
       expect(component.filteredOffers.length).toBe(1);
       expect(component.filteredOffers[0].priceEur).toBe(2000);
     });
 
     it('should combine multiple filters', () => {
-      component.selectedOfferDistricts = ['Mitte', 'Charlottenburg'];
-      component.selectedOfferRooms = [2];
+      component.selectedDistricts = ['Mitte', 'Charlottenburg'];
+      component.selectedRooms = [2];
       component.priceRangeMin = 1500;
       component.priceRangeMax = 2200;
-      component.onOfferFiltersChange();
+      component.applyFilters();
 
       expect(component.filteredOffers.length).toBe(1);
       expect(component.filteredOffers[0].district).toBe('Mitte');
@@ -206,7 +206,7 @@ describe('OffersTabComponent', () => {
       }));
       component.loadCurrentOffers();
       component.priceRangeMax = 5000;
-      component.onOfferFiltersChange();
+      component.applyFilters();
 
       expect(component.filteredOffers.map(offer => offer.priceEur)).toEqual([2000, 2500]);
     });
@@ -244,11 +244,11 @@ describe('OffersTabComponent', () => {
       const label = fixture.nativeElement.querySelector('label[for="offerDistrictSelect"]') as HTMLLabelElement;
       expect(label.textContent!.trim()).toBe('District:');
       await chooseOption('offerDistrictSelect', 'Charlottenburg');
-      expect(component.selectedOfferDistricts).toEqual(['Charlottenburg']);
+      expect(component.selectedDistricts).toEqual(['Charlottenburg']);
       expect(component.filteredOffers.map(offer => offer.district)).toEqual(['Charlottenburg']);
 
       await chooseOption('offerRoomsSelect', '2');
-      expect(component.selectedOfferRooms).toEqual([2]);
+      expect(component.selectedRooms).toEqual([2]);
       expect(component.filteredOffers).toEqual([]);
     });
 
@@ -307,13 +307,13 @@ describe('OffersTabComponent', () => {
     it('offers fractional room counts as filter options instead of rounding them', () => {
       component.loadCurrentOffers();
 
-      expect(component.availableOfferRooms).toEqual([2, 2.5, 3]);
+      expect(component.availableRooms).toEqual([2, 2.5, 3]);
     });
 
     it('filters by a fractional room count', () => {
       component.loadCurrentOffers();
-      component.selectedOfferRooms = [2.5];
-      component.onOfferFiltersChange();
+      component.selectedRooms = [2.5];
+      component.applyFilters();
 
       expect(component.filteredOffers.map(offer => offer.priceEur)).toEqual([2000]);
     });
@@ -323,7 +323,7 @@ describe('OffersTabComponent', () => {
 
       component.ngOnInit();
 
-      expect(component.selectedOfferRooms).toEqual([2.5]);
+      expect(component.selectedRooms).toEqual([2.5]);
       expect(component.filteredOffers.map(offer => offer.priceEur)).toEqual([2000]);
     });
 
@@ -360,7 +360,7 @@ describe('OffersTabComponent', () => {
 
     beforeEach(() => {
       component.currentOffers = sortableOffers;
-      component.applyOfferFilters();
+      component.applyFilters();
     });
 
     it('sorts every displayed column ascending and toggles the active column descending', () => {
@@ -398,8 +398,8 @@ describe('OffersTabComponent', () => {
 
     it('reapplies the active sort after filters change', () => {
       component.onSort('priceEur');
-      component.selectedOfferDistricts = ['Aachen', 'Zürich'];
-      component.onOfferFiltersChange();
+      component.selectedDistricts = ['Aachen', 'Zürich'];
+      component.applyFilters();
 
       expect(component.filteredOffers.map(offer => offer.priceEur)).toEqual([1000, 3000]);
     });
@@ -480,8 +480,8 @@ describe('OffersTabComponent', () => {
 
       component.ngOnInit();
 
-      expect(component.selectedOfferDistricts).toEqual(['Mitte']);
-      expect(component.selectedOfferRooms).toEqual([2]);
+      expect(component.selectedDistricts).toEqual(['Mitte']);
+      expect(component.selectedRooms).toEqual([2]);
       expect(component.filteredOffers.map(offer => offer.district)).toEqual(['Mitte']);
     });
 
@@ -491,8 +491,8 @@ describe('OffersTabComponent', () => {
 
       component.ngOnInit();
 
-      expect(component.selectedOfferDistricts).toEqual(['Mitte', 'Charlottenburg']);
-      expect(component.selectedOfferRooms).toEqual([3]);
+      expect(component.selectedDistricts).toEqual(['Mitte', 'Charlottenburg']);
+      expect(component.selectedRooms).toEqual([3]);
     });
   });
 

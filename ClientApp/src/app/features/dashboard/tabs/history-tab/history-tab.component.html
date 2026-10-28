@@ -1,9 +1,9 @@
 <div>
-  @if (loadingHistory) {
+  @if (loading) {
     <app-loading-spinner></app-loading-spinner>
   }
 
-  @if (!loadingHistory && historyData.length > 0) {
+  @if (!loading && historyData.length > 0) {
     <div class="mb-3">
       <div class="d-flex gap-3 align-items-center flex-wrap">
         <div>
@@ -13,10 +13,10 @@
               class="form-check-input"
               type="radio"
               id="groupByDistrictRadio"
-              name="historyGroupBy"
+              name="groupBy"
               value="district"
-              [(ngModel)]="historyGroupBy"
-              (change)="onHistoryGroupByChange()"
+              [(ngModel)]="groupBy"
+              (change)="onGroupByChange()"
             />
             <label class="form-check-label" for="groupByDistrictRadio">
               District
@@ -27,10 +27,10 @@
               class="form-check-input"
               type="radio"
               id="groupByRoomsRadio"
-              name="historyGroupBy"
+              name="groupBy"
               value="rooms"
-              [(ngModel)]="historyGroupBy"
-              (change)="onHistoryGroupByChange()"
+              [(ngModel)]="groupBy"
+              (change)="onGroupByChange()"
             />
             <label class="form-check-label" for="groupByRoomsRadio">
               Room Number
@@ -41,7 +41,7 @@
     </div>
   }
 
-  @if (!loadingHistory && chartData.length > 0) {
+  @if (!loading && chartData.length > 0) {
     <div class="row g-3 mb-3 align-items-stretch">
       <div class="col-12 col-lg-8">
         <app-history-chart [points]="chartData" [title]="chartTitle"></app-history-chart>
@@ -53,7 +53,7 @@
           <table class="table table-sm table-striped">
             <thead>
               <tr>
-                <th scope="col">{{ historyGroupBy === 'district' ? 'District' : 'Room count' }}</th>
+                <th scope="col">{{ groupBy === 'district' ? 'District' : 'Room count' }}</th>
                 <th scope="col" class="text-end">Avg. price/m²</th>
               </tr>
             </thead>
@@ -71,7 +71,7 @@
     </div>
   }
 
-  @if (!loadingHistory && historyData.length === 0) {
+  @if (!loading && historyData.length === 0) {
     <div class="alert alert-info">
       No history data available yet. Historical data will be collected after multiple scrapes.
     </div>

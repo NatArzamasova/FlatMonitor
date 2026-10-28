@@ -1,24 +1,24 @@
 <div>
-  @if (loadingOffers) {
+  @if (loading) {
     <app-loading-spinner></app-loading-spinner>
   }
 
-  @if (!loadingOffers && currentOffers.length > 0) {
+  @if (!loading && currentOffers.length > 0) {
     <div class="mb-3 d-flex gap-3 align-items-center flex-wrap">
       <app-multi-select-filter
         label="District:"
         inputId="offerDistrictSelect"
-        [options]="availableOfferDistricts"
-        [(selected)]="selectedOfferDistricts"
-        (changed)="onOfferFiltersChange()"
+        [options]="availableDistricts"
+        [(selected)]="selectedDistricts"
+        (changed)="applyFilters()"
       ></app-multi-select-filter>
 
       <app-multi-select-filter
         label="Rooms:"
         inputId="offerRoomsSelect"
-        [options]="availableOfferRooms"
-        [(selected)]="selectedOfferRooms"
-        (changed)="onOfferFiltersChange()"
+        [options]="availableRooms"
+        [(selected)]="selectedRooms"
+        (changed)="applyFilters()"
         [minWidth]="110"
       ></app-multi-select-filter>
 
@@ -29,7 +29,7 @@
           type="number"
           class="form-control form-control-sm filter-price-input"
           [(ngModel)]="priceRangeMin"
-          (change)="onOfferFiltersChange()"
+          (change)="applyFilters()"
           placeholder="Min"
         />
       </div>
@@ -41,14 +41,14 @@
           type="number"
           class="form-control form-control-sm filter-price-input"
           [(ngModel)]="priceRangeMax"
-          (change)="onOfferFiltersChange()"
+          (change)="applyFilters()"
           placeholder="Max"
         />
       </div>
     </div>
   }
 
-  @if (!loadingOffers && filteredOffers.length > 0) {
+  @if (!loading && filteredOffers.length > 0) {
     <div class="table-responsive">
       <table class="table table-striped table-hover table-sm">
         <thead class="table-dark">
@@ -102,13 +102,13 @@
     </div>
   }
 
-  @if (!loadingOffers && currentOffers.length > 0 && filteredOffers.length === 0) {
+  @if (!loading && currentOffers.length > 0 && filteredOffers.length === 0) {
     <div class="alert alert-info">
       No offers match the selected filters.
     </div>
   }
 
-  @if (!loadingOffers && currentOffers.length === 0) {
+  @if (!loading && currentOffers.length === 0) {
     <div class="alert alert-info">
       No current offers available. Try clicking "Manual Scrape" on the Dashboard tab to fetch data.
     </div>

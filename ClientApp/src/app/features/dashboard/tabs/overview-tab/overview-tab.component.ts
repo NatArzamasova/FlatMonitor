@@ -53,7 +53,7 @@ export class OverviewTabComponent implements OnInit {
   lastUpdated: Date | null = null;
 
   selectedDistricts: string[] = [];
-  selectedRoomCounts: number[] = [];
+  selectedRooms: number[] = [];
   groupByDistrict = true;
   groupByRooms = true;
 
@@ -109,15 +109,11 @@ export class OverviewTabComponent implements OnInit {
   applyFiltersAndGrouping(): void {
     let filtered = this.rawData;
     filtered = this.filterService.filterByDistricts(filtered, this.selectedDistricts, item => item.district);
-    filtered = this.filterService.filterByRooms(filtered, this.selectedRoomCounts, item => normalizeRooms(item.roomsCount));
+    filtered = this.filterService.filterByRooms(filtered, this.selectedRooms, item => normalizeRooms(item.roomsCount));
 
     // Backend rows are already one per district + rooms combination.
     this.aggregatedData = this.groupByDistrict && this.groupByRooms ? filtered : this.aggregate(filtered);
     this.applySort();
-  }
-
-  onFiltersChange(): void {
-    this.applyFiltersAndGrouping();
   }
 
   onSort(column: AggregationSortColumn): void {
@@ -157,10 +153,6 @@ export class OverviewTabComponent implements OnInit {
       return rows.sort((a, b) => (a.roomsCount ?? -1) - (b.roomsCount ?? -1));
     }
     return rows;
-  }
-
-  onGroupingToggle(): void {
-    this.applyFiltersAndGrouping();
   }
 
   refresh(): void {

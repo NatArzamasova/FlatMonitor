@@ -68,8 +68,8 @@ describe('DashboardComponent (Shell) routing', () => {
 
     const offersTab = harness.fixture.debugElement.query(By.directive(OffersTabComponent))
       .componentInstance as OffersTabComponent;
-    expect(offersTab.selectedOfferDistricts).toEqual(['Mitte']);
-    expect(offersTab.selectedOfferRooms).toEqual([2.5]);
+    expect(offersTab.selectedDistricts).toEqual(['Mitte']);
+    expect(offersTab.selectedRooms).toEqual([2.5]);
   });
 
   it('redirects legacy ?tab=offers links to the offers route with their filters', async () => {
