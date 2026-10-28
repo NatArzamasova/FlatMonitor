@@ -4,48 +4,52 @@
   }
 
   @if (!loading && currentOffers.length > 0) {
-    <div class="mb-3 d-flex gap-3 align-items-center flex-wrap">
-      <app-multi-select-filter
-        label="District:"
-        inputId="offerDistrictSelect"
-        [options]="availableDistricts"
-        [(selected)]="selectedDistricts"
-        (changed)="applyFilters()"
-      ></app-multi-select-filter>
+    <div class="mb-3 d-flex flex-column gap-2">
+      <div class="d-flex gap-3 align-items-center flex-wrap" data-filter-row="districts">
+        <app-multi-select-filter
+          label="District:"
+          inputId="offerDistrictSelect"
+          [options]="availableDistricts"
+          [(selected)]="selectedDistricts"
+          (changed)="applyFilters()"
+        ></app-multi-select-filter>
 
-      <app-filter-preset-bar inputId="offerPresetSelect" [selected]="selectedDistricts"></app-filter-preset-bar>
-
-      <app-multi-select-filter
-        label="Rooms:"
-        inputId="offerRoomsSelect"
-        [options]="availableRooms"
-        [(selected)]="selectedRooms"
-        (changed)="applyFilters()"
-        [minWidth]="110"
-      ></app-multi-select-filter>
-
-      <div class="d-flex align-items-center gap-1">
-        <label for="priceMin" class="form-label mb-0 filter-label">Price (min):</label>
-        <input
-          id="priceMin"
-          type="number"
-          class="form-control form-control-sm filter-price-input"
-          [(ngModel)]="priceRangeMin"
-          (change)="applyFilters()"
-          placeholder="Min"
-        />
+        <app-filter-preset-bar inputId="offerPresetSelect" [selected]="selectedDistricts"></app-filter-preset-bar>
       </div>
 
-      <div class="d-flex align-items-center gap-1">
-        <label for="priceMax" class="form-label mb-0 filter-label">Price (max):</label>
-        <input
-          id="priceMax"
-          type="number"
-          class="form-control form-control-sm filter-price-input"
-          [(ngModel)]="priceRangeMax"
-          (change)="applyFilters()"
-          placeholder="Max"
-        />
+      <div class="d-flex gap-3 align-items-center flex-wrap" data-filter-row="other">
+        <app-multi-select-filter
+          label="Rooms:"
+          inputId="offerRoomsSelect"
+          [options]="availableRooms"
+          [(selected)]="selectedRooms"
+          (changed)="applyFilters()"
+          [minWidth]="110"
+        ></app-multi-select-filter>
+
+        <div class="d-flex align-items-center gap-1">
+          <label for="priceMin" class="form-label mb-0 filter-label">Price (min):</label>
+          <input
+            id="priceMin"
+            type="number"
+            class="form-control form-control-sm filter-price-input"
+            [(ngModel)]="priceRangeMin"
+            (change)="applyFilters()"
+            placeholder="Min"
+          />
+        </div>
+
+        <div class="d-flex align-items-center gap-1">
+          <label for="priceMax" class="form-label mb-0 filter-label">Price (max):</label>
+          <input
+            id="priceMax"
+            type="number"
+            class="form-control form-control-sm filter-price-input"
+            [(ngModel)]="priceRangeMax"
+            (change)="applyFilters()"
+            placeholder="Max"
+          />
+        </div>
       </div>
     </div>
   }

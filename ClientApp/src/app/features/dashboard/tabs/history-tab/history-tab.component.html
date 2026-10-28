@@ -4,8 +4,20 @@
   }
 
   @if (!loading && historyData.length > 0) {
-    <div class="mb-3">
-      <div class="d-flex gap-3 align-items-center flex-wrap">
+    <div class="mb-3 d-flex flex-column gap-2">
+      <div class="d-flex gap-3 align-items-center flex-wrap" data-filter-row="districts">
+        <app-multi-select-filter
+          label="District:"
+          inputId="historyDistrictSelect"
+          [options]="availableDistricts"
+          [(selected)]="selectedDistricts"
+          (changed)="onDistrictFilterChange()"
+        ></app-multi-select-filter>
+
+        <app-filter-preset-bar inputId="historyPresetSelect" [selected]="selectedDistricts"></app-filter-preset-bar>
+      </div>
+
+      <div class="d-flex gap-3 align-items-center flex-wrap" data-filter-row="grouping">
         <div>
           <label class="form-label mb-0 me-2">Group By:</label>
           <div class="form-check form-check-inline">
@@ -69,6 +81,10 @@
         </div>
       </div>
     </div>
+  }
+
+  @if (!loading && historyData.length > 0 && chartData.length === 0) {
+    <div class="alert alert-info">No history data for the selected districts.</div>
   }
 
   @if (!loading && historyData.length === 0) {

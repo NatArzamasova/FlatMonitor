@@ -7,11 +7,18 @@ import { FlatsService } from '../../../../core/services/flats.service';
 import { apiResult } from '../../../../core/testing/api-response.testing';
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { FlatHistory } from '../../../../core/models/flat-history.model';
+import { FilterPresetsService } from '../../../../core/services/filter-presets.service';
+import {
+  createFilterPresetsServiceStub,
+  filterPreset,
+  FilterPresetsServiceStub
+} from '../../../../core/testing/filter-presets.testing';
 
 describe('HistoryTabComponent', () => {
   let component: HistoryTabComponent;
   let fixture: ComponentFixture<HistoryTabComponent>;
   let flatsService: jasmine.SpyObj<FlatsService>;
+  let presets: FilterPresetsServiceStub;
 
   const mockHistoryResponse: ApiResponse<FlatHistory[]> = {
     success: true,
@@ -45,11 +52,13 @@ describe('HistoryTabComponent', () => {
     const flatsServiceSpy = jasmine.createSpyObj('FlatsService', [
       'getHistory'
     ]);
+    presets = createFilterPresetsServiceStub();
 
     await TestBed.configureTestingModule({
       imports: [HistoryTabComponent],
       providers: [
-        { provide: FlatsService, useValue: flatsServiceSpy }
+        { provide: FlatsService, useValue: flatsServiceSpy },
+        { provide: FilterPresetsService, useValue: presets.service }
       ]
     }).compileComponents();
 
@@ -329,6 +338,126 @@ describe('HistoryTabComponent', () => {
       fixture.detectChanges();
 
       expect(chartComponent()).toBeUndefined();
+    });
+  });
+
+  describe('District filter and presets', () => {
+    const labels = () => [...new Set(component.chartData.map(point => point.label))].sort();
+
+    it('offers the districts from the history data', () => {
+      flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
+
+      fixture.detectChanges();
+
+      expect(component.availableDistricts).toEqual(['Charlottenburg', 'Mitte']);
+    });
+
+    it('shows all districts when nothing is selected', () => {
+      flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
+
+      fixture.detectChanges();
+
+      expect(labels()).toEqual(['Charlottenburg', 'Mitte']);
+    });
+
+    it('filters the chart and the latest averages by the selected districts', () => {
+      flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
+      fixture.detectChanges();
+
+      component.selectedDistricts = ['Mitte'];
+      component.onDistrictFilterChange();
+
+      expect(labels()).toEqual(['Mitte']);
+      expect(component.latestAverageData.map(item => item.label)).toEqual(['Mitte']);
+    });
+
+    it('also narrows the room-number grouping', () => {
+      flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
+      fixture.detectChanges();
+      component.groupBy = 'rooms';
+      component.selectedDistricts = ['Charlottenburg'];
+
+      component.onDistrictFilterChange();
+
+      expect(labels()).toEqual(['3 rooms']);
+    });
+
+    it('applies the active preset when the tab opens', () => {
+      presets.activePreset$.next(filterPreset(1, 'Center', ['Mitte']));
+      flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
+
+      fixture.detectChanges();
+
+      expect(component.selectedDistricts).toEqual(['Mitte']);
+      expect(labels()).toEqual(['Mitte']);
+    });
+
+    it('applies a preset chosen later', () => {
+      flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
+      fixture.detectChanges();
+
+      presets.activePreset$.next(filterPreset(2, 'West', ['Charlottenburg']));
+
+      expect(labels()).toEqual(['Charlottenburg']);
+    });
+
+    it('keeps the current selection when the active preset becomes null', () => {
+      presets.activePreset$.next(filterPreset(1, 'Center', ['Mitte']));
+      flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
+      fixture.detectChanges();
+
+      presets.activePreset$.next(null);
+
+      expect(component.selectedDistricts).toEqual(['Mitte']);
+    });
+
+    it('offers preset districts without history, and says when nothing matches', () => {
+      presets.activePreset$.next(filterPreset(3, 'Far', ['Durlach']));
+      flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
+
+      fixture.detectChanges();
+
+      expect(component.availableDistricts).toEqual(['Charlottenburg', 'Durlach', 'Mitte']);
+      expect(component.chartData).toEqual([]);
+      expect(fixture.nativeElement.textContent).toContain('No history data for the selected districts.');
+      expect(fixture.debugElement.query(By.directive(HistoryChartComponent))).toBeNull();
+    });
+
+    it('renders the district filter and the preset bar', () => {
+      flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
+
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('#historyDistrictSelect')).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('app-filter-preset-bar select').id).toBe('historyPresetSelect');
+    });
+  });
+
+  describe('Filter layout', () => {
+    const row = (name: string): HTMLElement => fixture.nativeElement.querySelector(`[data-filter-row="${name}"]`);
+    const rowNames = (): string[] =>
+      Array.from(fixture.nativeElement.querySelectorAll('[data-filter-row]') as NodeListOf<HTMLElement>)
+        .map(element => element.dataset['filterRow']!);
+    /** Direct children of a row, by tag name or by the id of the control inside. */
+    const rowItems = (name: string): string[] =>
+      Array.from(row(name).children).map(child =>
+        child.tagName.toLowerCase().startsWith('app-')
+          ? `${child.tagName.toLowerCase()}#${child.querySelector('select, input')?.id ?? ''}`
+          : child.querySelector('select, input')?.id ?? child.tagName.toLowerCase());
+
+    beforeEach(() => {
+      flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
+      fixture.detectChanges();
+    });
+
+    it('puts districts + preset and grouping on separate rows', () => {
+      expect(rowNames()).toEqual(['districts', 'grouping']);
+      expect(rowItems('districts')).toEqual([
+        'app-multi-select-filter#historyDistrictSelect',
+        'app-filter-preset-bar#historyPresetSelect'
+      ]);
+      expect(row('grouping').querySelector('#groupByDistrictRadio')).not.toBeNull();
+      expect(row('grouping').querySelector('#groupByRoomsRadio')).not.toBeNull();
     });
   });
 });

@@ -784,4 +784,32 @@ describe('OverviewTabComponent', () => {
       expect(fixture.nativeElement.querySelector('app-filter-preset-bar select').id).toBe('presetSelect');
     });
   });
+
+  describe('Filter layout', () => {
+    const row = (name: string): HTMLElement => fixture.nativeElement.querySelector(`[data-filter-row="${name}"]`);
+    const rowNames = (): string[] =>
+      Array.from(fixture.nativeElement.querySelectorAll('[data-filter-row]') as NodeListOf<HTMLElement>)
+        .map(element => element.dataset['filterRow']!);
+    /** Direct children of a row, by tag name or by the id of the control inside. */
+    const rowItems = (name: string): string[] =>
+      Array.from(row(name).children).map(child =>
+        child.tagName.toLowerCase().startsWith('app-')
+          ? `${child.tagName.toLowerCase()}#${child.querySelector('select, input')?.id ?? ''}`
+          : child.querySelector('select, input')?.id ?? child.tagName.toLowerCase());
+
+    beforeEach(() => {
+      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
+      fixture.detectChanges();
+    });
+
+    it('puts districts + preset, other filters and grouping on separate rows', () => {
+      expect(rowNames()).toEqual(['districts', 'other', 'grouping']);
+      expect(rowItems('districts')).toEqual([
+        'app-multi-select-filter#districtSelect',
+        'app-filter-preset-bar#presetSelect'
+      ]);
+      expect(rowItems('other')).toEqual(['app-multi-select-filter#roomsSelect']);
+      expect(rowItems('grouping')).toEqual(['groupByDistrictToggle', 'groupByRoomsToggle']);
+    });
+  });
 });

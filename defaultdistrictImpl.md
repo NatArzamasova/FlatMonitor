@@ -230,9 +230,23 @@ Not yet used by any tab; that is step 8.
 would not appear in the `<select>`. Fix: `availableDistricts = distinctSorted([...fromData, ...selectedDistricts])`,
 so preset districts are always visible and can be deselected.
 
-**History tab**: open question, see below.
+**History tab** ✅ DONE (Q1 decided: yes)
+- New district multi-select (`historyDistrictSelect`) and preset bar (`historyPresetSelect`) before the "Group By" radios.
+- The district filter is applied to `historyData` **before grouping, in both groupings**. With "Room Number" it shows
+  the room trends within the selected districts (same as the overview tab, which filters by district even when not grouping by it).
+- Follows `activePreset$` like the other tabs; preset districts without history stay in the options.
+- If the filter leaves no data: "No history data for the selected districts." instead of an empty chart.
+- Tests: new `District filter and presets` block in `history-tab.component.spec.ts` (9). All 336 frontend tests pass; `ng build` succeeds.
 
-**Status:** implemented. Both tabs have `followActivePreset()` (subscribed in `ngOnInit`, `takeUntilDestroyed`) and
+**Filter layout (all three tabs)** ✅ DONE
+The filter area is a column of rows (`d-flex flex-column gap-2`), each row `d-flex flex-wrap` and marked with `data-filter-row`:
+1. `districts`: district multi-select + preset bar, **nothing else**.
+2. `other`: every other filter (offers: rooms, price min/max; overview: rooms). The history tab has none.
+3. `grouping`: grouping controls, always on their own row (overview checkboxes, history radios). The offers tab has none.
+
+New filters go into `other`. Tests: a `Filter layout` block in each tab spec checks which rows exist and what's in them.
+
+**Status (offers + overview):** implemented. Both tabs have `followActivePreset()` (subscribed in `ngOnInit`, `takeUntilDestroyed`) and
 `updateDistrictOptions()`; the offers tab skips the first emission when the URL had `district` params.
 The bar sits right after the district multi-select (`inputId="offerPresetSelect"` in offers, default `presetSelect` in overview).
 Tests: new `Filter presets` blocks in `offers-tab.component.spec.ts` (10) and `overview-tab.component.spec.ts` (7).
@@ -279,9 +293,7 @@ Frontend:
 6. `docs(filtering): document filter presets`
 
 ## Open questions
-1. **History tab:** it currently has no district filter, only a "group by district / rooms" radio.
-   Should it get a district multi-select (filtering `historyData` before aggregation, only when grouping by district) and the preset bar?
-   This plan leaves it out until decided.
+1. ~~**History tab**~~ **Decided:** yes. District multi-select + preset bar; the filter applies in both groupings (see step 8).
 2. ~~**Rooms / price**~~ **Decided:** presets store districts only. Rooms/price can be added later with a new migration.
 3. ~~**Chosen preset across tabs**~~ **Decided:** yes. The preset chosen in one tab is active in the other tabs too
    (held in `FilterPresetsService` while the app is open; a page reload starts with the default again).

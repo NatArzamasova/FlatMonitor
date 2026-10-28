@@ -27,27 +27,31 @@
   }
 
   @if (!loading && rawData.length > 0) {
-    <div class="mb-3 d-flex gap-3 align-items-center flex-wrap">
-      <app-multi-select-filter
-        label="Filter District:"
-        inputId="districtSelect"
-        [options]="availableDistricts"
-        [(selected)]="selectedDistricts"
-        (changed)="applyFiltersAndGrouping()"
-      ></app-multi-select-filter>
+    <div class="mb-3 d-flex flex-column gap-2">
+      <div class="d-flex gap-3 align-items-center flex-wrap" data-filter-row="districts">
+        <app-multi-select-filter
+          label="Filter District:"
+          inputId="districtSelect"
+          [options]="availableDistricts"
+          [(selected)]="selectedDistricts"
+          (changed)="applyFiltersAndGrouping()"
+        ></app-multi-select-filter>
 
-      <app-filter-preset-bar [selected]="selectedDistricts"></app-filter-preset-bar>
+        <app-filter-preset-bar [selected]="selectedDistricts"></app-filter-preset-bar>
+      </div>
 
-      <app-multi-select-filter
-        label="Filter Rooms:"
-        inputId="roomsSelect"
-        [options]="availableRooms"
-        [(selected)]="selectedRooms"
-        (changed)="applyFiltersAndGrouping()"
-        [minWidth]="110"
-      ></app-multi-select-filter>
+      <div class="d-flex gap-3 align-items-center flex-wrap" data-filter-row="other">
+        <app-multi-select-filter
+          label="Filter Rooms:"
+          inputId="roomsSelect"
+          [options]="availableRooms"
+          [(selected)]="selectedRooms"
+          (changed)="applyFiltersAndGrouping()"
+          [minWidth]="110"
+        ></app-multi-select-filter>
+      </div>
 
-      <div class="d-flex gap-3">
+      <div class="d-flex gap-3 align-items-center flex-wrap" data-filter-row="grouping">
         <div class="form-check">
           <input
             class="form-check-input"
