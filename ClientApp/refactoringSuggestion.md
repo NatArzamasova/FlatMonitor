@@ -162,7 +162,26 @@ B3's `scrapeFinished$` stream (`pairwise` on `isScrapingInProgress`) is the stru
 
 ## B. Structural refactorings
 
-### B1. Replace Bootstrap tabs + DOM hacks with child routes
+### B1. Replace Bootstrap tabs + DOM hacks with child routes ✅ COMPLETED
+
+> **Done:**
+> - Routes `/overview`, `/offers`, `/history` as children of the `DashboardComponent` shell; `''` and
+>   unknown URLs (incl. old `/dashboard`) redirect to `/overview`. Tabs are `routerLink` +
+>   `routerLinkActive` (+ `aria-current`); the `bootstrap.bundle.min.js` import is gone
+>   (initial bundle 722 kB → 647 kB).
+> - Old drill-down links `/?tab=offers&district=…&rooms=…` are redirected to
+>   `/offers?district=…&rooms=…`, so existing bookmarks keep working.
+> - Offers reads filters from `ActivatedRoute.snapshot.queryParamMap` instead of `window.location`.
+> - Overview drill-down still opens a new window (unchanged UX) but builds the URL with
+>   `router.createUrlTree` + `Location.prepareExternalUrl` (respects `<base href>`).
+> - History: `shown.bs.tab` listener, `setTimeout(…, 100)` and the 0×0-canvas guard removed; a
+>   `@ViewChild` setter renders the chart when the canvas appears and destroys it when it goes.
+>   This also fixes the long-failing "Chart scaling" spec, which was skipped by that guard.
+> - Not done (kept out of scope): Offers does not write filter changes back to the URL; tabs
+>   re-fetch their data on every navigation (no caching).
+> - Deployment note: works with `ng serve` (history fallback). If the ASP.NET app ever serves the
+>   built SPA, it needs `UseStaticFiles()` + `MapFallbackToFile("index.html")` for deep links.
+
 Several workarounds exist only because the tabs are Bootstrap JS tabs rather than Angular routes:
 
 | Workaround | Location |

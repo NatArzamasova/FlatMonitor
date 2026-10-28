@@ -262,6 +262,43 @@ describe('HistoryTabComponent', () => {
     });
   });
 
+  describe('Chart rendering', () => {
+    it('renders the chart as soon as history data is shown, without waiting for timers or tab events', () => {
+      flatsService.getHistory.and.returnValue(of(mockHistoryResponse));
+
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('canvas')).toBeTruthy();
+      expect(component.chart).toBeDefined();
+      expect(component.chart.config.data.labels).toEqual(['2024-01-15', '2024-01-16']);
+      expect(component.chart.config.data.datasets.map((dataset: any) => dataset.label))
+        .toEqual(['Mitte', 'Charlottenburg']);
+    });
+
+    it('re-renders the chart when the grouping changes', () => {
+      flatsService.getHistory.and.returnValue(of(mockHistoryResponse));
+      fixture.detectChanges();
+      const firstChart = component.chart;
+      spyOn(firstChart, 'destroy').and.callThrough();
+
+      component.historyGroupBy = 'rooms';
+      component.onHistoryGroupByChange();
+
+      expect(firstChart.destroy).toHaveBeenCalled();
+      expect(component.chart).not.toBe(firstChart);
+      expect(component.chart.config.options.plugins.title.text).toContain('by Room Number');
+    });
+
+    it('does not render a chart when there is no history data', () => {
+      flatsService.getHistory.and.returnValue(of({ success: true, data: [], message: 'Success' }));
+
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('canvas')).toBeNull();
+      expect(component.chart).toBeUndefined();
+    });
+  });
+
   describe('Cleanup', () => {
     it('should destroy chart on component destroy', () => {
       flatsService.getHistory.and.returnValue(of(mockHistoryResponse));

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { FlatsService } from '../../../../core/services/flats.service';
@@ -12,7 +12,7 @@ import { normalizeRooms } from '../../../../core/utils/rooms.utils';
   imports: [CommonModule, FormsModule],
   templateUrl: './history-tab.component.html',
 })
-export class HistoryTabComponent implements OnInit, OnDestroy, AfterViewInit {
+export class HistoryTabComponent implements OnInit, OnDestroy {
   historyData: FlatHistory[] = [];
   loadingHistory = false;
   error: string | null = null;
@@ -35,7 +35,23 @@ export class HistoryTabComponent implements OnInit, OnDestroy, AfterViewInit {
       .sort((left, right) => right.price - left.price || left.label.localeCompare(right.label));
   }
 
-  @ViewChild('historyChart') historyChart: ElementRef<HTMLCanvasElement> | undefined;
+  private historyChartRef: ElementRef<HTMLCanvasElement> | undefined;
+
+  // The canvas sits inside an *ngIf and only exists once chart data is shown, so render as soon as
+  // it appears and drop the chart when it goes away.
+  @ViewChild('historyChart')
+  set historyChart(ref: ElementRef<HTMLCanvasElement> | undefined) {
+    this.historyChartRef = ref;
+    if (ref) {
+      this.renderChart();
+    } else {
+      this.destroyChart();
+    }
+  }
+
+  get historyChart(): ElementRef<HTMLCanvasElement> | undefined {
+    return this.historyChartRef;
+  }
 
   constructor(
     private flatsService: FlatsService
@@ -45,21 +61,9 @@ export class HistoryTabComponent implements OnInit, OnDestroy, AfterViewInit {
     this.loadHistory();
   }
 
-  ngAfterViewInit(): void {
-    document.getElementById('history-tab')?.addEventListener('shown.bs.tab', this.onTabShown);
-    if (this.historyData.length > 0) {
-      this.renderChart();
-    }
-  }
-
   ngOnDestroy(): void {
-    document.getElementById('history-tab')?.removeEventListener('shown.bs.tab', this.onTabShown);
-    if (this.chart) {
-      this.chart.destroy();
-    }
+    this.destroyChart();
   }
-
-  private onTabShown = () => this.renderChart();
 
   loadHistory(): void {
     this.loadingHistory = true;
@@ -69,7 +73,7 @@ export class HistoryTabComponent implements OnInit, OnDestroy, AfterViewInit {
         if (response.success && response.data) {
           this.historyData = response.data;
           this.updateHistoryChart();
-          setTimeout(() => this.renderChart(), 100);
+          this.renderChart();
         } else {
           this.error = response.message || 'Failed to load history';
         }
@@ -156,13 +160,7 @@ export class HistoryTabComponent implements OnInit, OnDestroy, AfterViewInit {
     if (!this.historyChart || this.chartData.length === 0) return;
 
     const canvas = this.historyChart.nativeElement;
-    // A responsive Chart.js chart on a 0x0 canvas loops its resize handler and locks the main
-    // thread, so defer until the History pane is actually shown (see the shown.bs.tab listener).
-    if (canvas.clientWidth === 0 || canvas.clientHeight === 0) return;
-
-    if (this.chart) {
-      this.chart.destroy();
-    }
+    this.destroyChart();
 
     const wrapper = canvas.parentElement;
     canvas.width = wrapper?.clientWidth || canvas.clientWidth;
@@ -254,6 +252,13 @@ export class HistoryTabComponent implements OnInit, OnDestroy, AfterViewInit {
 
     const Chart = (window as any).Chart;
     this.chart = new Chart(ctx, chartConfig);
+  }
+
+  private destroyChart(): void {
+    if (this.chart) {
+      this.chart.destroy();
+      this.chart = undefined;
+    }
   }
 
   private getColorForIndex(index: number): string {

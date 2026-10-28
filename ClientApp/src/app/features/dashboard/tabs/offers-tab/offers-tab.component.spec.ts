@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ActivatedRoute, convertToParamMap, Params } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { OffersTabComponent } from './offers-tab.component';
 import { FlatsService } from '../../../../core/services/flats.service';
@@ -9,6 +10,7 @@ describe('OffersTabComponent', () => {
   let component: OffersTabComponent;
   let fixture: ComponentFixture<OffersTabComponent>;
   let flatsService: jasmine.SpyObj<FlatsService>;
+  let queryParams: Params;
 
   const mockOffersResponse: ApiResponse<FlatOffer[]> = {
     success: true,
@@ -42,10 +44,20 @@ describe('OffersTabComponent', () => {
       'getCurrentOffers'
     ]);
 
+    queryParams = {};
+    const activatedRouteStub = {
+      snapshot: {
+        get queryParamMap() {
+          return convertToParamMap(queryParams);
+        }
+      }
+    };
+
     await TestBed.configureTestingModule({
       imports: [OffersTabComponent],
       providers: [
-        { provide: FlatsService, useValue: flatsServiceSpy }
+        { provide: FlatsService, useValue: flatsServiceSpy },
+        { provide: ActivatedRoute, useValue: activatedRouteStub }
       ]
     }).compileComponents();
 
@@ -229,15 +241,12 @@ describe('OffersTabComponent', () => {
     });
 
     it('applies a fractional room filter from the URL', () => {
-      const originalSearch = window.location.search;
-      window.history.replaceState({}, '', '/?tab=offers&rooms=2.5');
+      queryParams = { rooms: '2.5' };
 
       component.ngOnInit();
 
       expect(component.selectedOfferRooms).toEqual([2.5]);
       expect(component.filteredOffers.map(offer => offer.priceEur)).toEqual([2000]);
-
-      window.history.replaceState({}, '', `/${originalSearch}`);
     });
 
     it('renders fractional room counts with one decimal', () => {
@@ -356,16 +365,24 @@ describe('OffersTabComponent', () => {
 
   describe('Initial URL filters', () => {
     it('loads district and room filters from the URL', () => {
-      const originalSearch = window.location.search;
-      window.history.replaceState({}, '', '/?tab=offers&district=Mitte&rooms=2');
+      queryParams = { district: 'Mitte', rooms: '2' };
       flatsService.getCurrentOffers.and.returnValue(of(mockOffersResponse));
 
       component.ngOnInit();
 
       expect(component.selectedOfferDistricts).toEqual(['Mitte']);
       expect(component.selectedOfferRooms).toEqual([2]);
+      expect(component.filteredOffers.map(offer => offer.district)).toEqual(['Mitte']);
+    });
 
-      window.history.replaceState({}, '', `/${originalSearch}`);
+    it('loads repeated district parameters and ignores invalid room values', () => {
+      queryParams = { district: ['Mitte', 'Charlottenburg'], rooms: ['abc', '3'] };
+      flatsService.getCurrentOffers.and.returnValue(of(mockOffersResponse));
+
+      component.ngOnInit();
+
+      expect(component.selectedOfferDistricts).toEqual(['Mitte', 'Charlottenburg']);
+      expect(component.selectedOfferRooms).toEqual([3]);
     });
   });
 

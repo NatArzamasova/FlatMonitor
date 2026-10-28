@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Params, Router } from '@angular/router';
 import { EMPTY, interval, Subject } from 'rxjs';
 import { catchError, takeUntil, switchMap } from 'rxjs/operators';
 import { FlatsService } from '../../../../core/services/flats.service';
@@ -50,7 +51,9 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
 
   constructor(
     private flatsService: FlatsService,
-    private filterService: FilterService
+    private filterService: FilterService,
+    private router: Router,
+    private location: Location
   ) {}
 
   ngOnInit(): void {
@@ -328,19 +331,18 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
   }
 
   openOffersForRow(item: FlatAggregation): void {
-    const url = new URL(window.location.href);
-    url.search = '';
-    url.searchParams.set('tab', 'offers');
+    const queryParams: Params = {};
 
     if (this.groupByDistrict && item.district) {
-      url.searchParams.set('district', item.district);
+      queryParams['district'] = item.district;
     }
 
     const roomsCount = normalizeRooms(item.roomsCount);
     if (this.groupByRooms && roomsCount !== undefined) {
-      url.searchParams.set('rooms', String(roomsCount));
+      queryParams['rooms'] = String(roomsCount);
     }
 
-    window.open(url.toString(), '_blank', 'noopener,noreferrer');
+    const offersUrl = this.router.serializeUrl(this.router.createUrlTree(['/offers'], { queryParams }));
+    window.open(this.location.prepareExternalUrl(offersUrl), '_blank', 'noopener,noreferrer');
   }
 }

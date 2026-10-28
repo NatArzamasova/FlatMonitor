@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { FlatsService } from '../../../../core/services/flats.service';
 import { FilterService } from '../../../../core/services/filter.service';
 import { FlatOffer } from '../../../../core/models/flat-offer.model';
@@ -42,7 +43,8 @@ export class OffersTabComponent implements OnInit {
 
   constructor(
     private flatsService: FlatsService,
-    private filterService: FilterService
+    private filterService: FilterService,
+    private route: ActivatedRoute
   ) {}
 
   ngOnInit(): void {
@@ -66,7 +68,7 @@ export class OffersTabComponent implements OnInit {
   }
 
   private loadInitialFiltersFromUrl(): void {
-    const params = new URLSearchParams(window.location.search);
+    const params = this.route.snapshot.queryParamMap;
     this.selectedOfferDistricts = params.getAll('district');
     this.selectedOfferRooms = params.getAll('rooms')
       .map(value => normalizeRooms(Number(value)))

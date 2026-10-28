@@ -1,4 +1,6 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { APP_BASE_HREF } from '@angular/common';
+import { provideRouter } from '@angular/router';
 import { of, throwError, Subject } from 'rxjs';
 import { OverviewTabComponent } from './overview-tab.component';
 import { FlatsService } from '../../../../core/services/flats.service';
@@ -72,7 +74,9 @@ describe('OverviewTabComponent', () => {
     await TestBed.configureTestingModule({
       imports: [OverviewTabComponent],
       providers: [
-        { provide: FlatsService, useValue: flatsServiceSpy }
+        { provide: FlatsService, useValue: flatsServiceSpy },
+        provideRouter([]),
+        { provide: APP_BASE_HREF, useValue: '/' }
       ]
     }).compileComponents();
 
@@ -721,7 +725,7 @@ describe('OverviewTabComponent', () => {
       });
 
       expect(openSpy).toHaveBeenCalledWith(
-        `${window.location.origin}${window.location.pathname}?tab=offers&district=Mitte&rooms=2`,
+        '/offers?district=Mitte&rooms=2',
         '_blank',
         'noopener,noreferrer'
       );
@@ -735,7 +739,7 @@ describe('OverviewTabComponent', () => {
       component.openOffersForRow({ roomsCount: 2.54, count: 5, avgPricePerMeter: 12.5 });
 
       expect(openSpy).toHaveBeenCalledWith(
-        `${window.location.origin}${window.location.pathname}?tab=offers&rooms=2.5`,
+        '/offers?rooms=2.5',
         '_blank',
         'noopener,noreferrer'
       );
@@ -754,7 +758,7 @@ describe('OverviewTabComponent', () => {
       });
 
       expect(openSpy).toHaveBeenCalledWith(
-        `${window.location.origin}${window.location.pathname}?tab=offers&district=Mitte`,
+        '/offers?district=Mitte',
         '_blank',
         'noopener,noreferrer'
       );
