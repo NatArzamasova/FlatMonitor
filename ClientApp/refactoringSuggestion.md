@@ -112,8 +112,15 @@ don't need to know.
 the child tab components. With default emulated view encapsulation these rules never match. Either move
 them to `styles.scss` (if they are meant to be global) or delete them. (`.btn-group` is not used at all.)
 
-### A7. Duplicate / misleading scrape feedback
+### A7. Duplicate / misleading scrape feedback ✅ COMPLETED
 `overview-tab.component.ts:289-308`, template lines 57-70
+
+> **Done:** removed `scrapedCount` and the "Scraped N flats successfully" alert; only the queued
+> message remains. Correction to the analysis below: the backend's `POST /api/scrape` only queues the
+> job and always returns `FlatsCount = 0` (`ScrapeController.cs`), so in practice that alert was dead
+> code rather than a duplicate — only the spec mock (`flatsCount: 150`) made it appear. The final
+> count is already shown by the "Last scrape … N flats" badge from the status poll, so no new
+> reporting was added. Spec checks that exactly one alert (the queued message) is rendered.
 
 `triggerScrape` shows a "Scrape job queued" alert *and* sets `scrapedCount = response.flatsCount`, which
 drives a second "Scraped N flats successfully" alert — at queue time, before anything was scraped.

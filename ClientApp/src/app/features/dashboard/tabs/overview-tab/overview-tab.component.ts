@@ -28,7 +28,6 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
   error: string | null = null;
   success: string | null = null;
   lastUpdated: Date | null = null;
-  scrapedCount = 0;
 
   selectedDistricts: string[] = [];
   selectedRoomCounts: number[] = [];
@@ -301,7 +300,6 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
       next: (response) => {
         if (response.success) {
           this.success = response.message || 'Scrape job queued';
-          this.scrapedCount = response.flatsCount;
           this.scraping = true;
           this.loadScrapingStatus();
         } else {

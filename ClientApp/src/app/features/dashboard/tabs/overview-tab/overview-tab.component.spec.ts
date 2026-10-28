@@ -98,7 +98,6 @@ describe('OverviewTabComponent', () => {
       expect(component.scraping).toBe(false);
       expect(component.error).toBeNull();
       expect(component.lastUpdated).toBeNull();
-      expect(component.scrapedCount).toBe(0);
     });
 
     it('should load aggregated data and scraping status on init', () => {
@@ -250,8 +249,22 @@ describe('OverviewTabComponent', () => {
       component.triggerScrape();
 
       expect(flatsService.triggerScrape).toHaveBeenCalled();
-      expect(component.scrapedCount).toBe(150);
+      expect(component.success).toBe('Scraping started');
       expect(component.error).toBeNull();
+    });
+
+    it('shows a single queued message after triggering a scrape', () => {
+      flatsService.getAggregated.and.returnValue(of(mockAggregatedResponse));
+      flatsService.triggerScrape.and.returnValue(of(mockScrapeResponse));
+      fixture.detectChanges();
+
+      component.triggerScrape();
+      fixture.detectChanges();
+
+      const alerts = Array.from(fixture.nativeElement.querySelectorAll('.alert')) as HTMLElement[];
+      expect(alerts.length).toBe(1);
+      expect(alerts[0].textContent).toContain('Scraping started');
+      expect(fixture.nativeElement.textContent).not.toContain('flats successfully');
     });
 
     it('should handle scrape failure response', () => {
@@ -266,7 +279,7 @@ describe('OverviewTabComponent', () => {
       component.triggerScrape();
 
       expect(component.error).toBe('Failed to start scrape');
-      expect(component.scrapedCount).toBe(0);
+      expect(component.success).toBeNull();
     });
 
     it('should handle scrape network errors', () => {
