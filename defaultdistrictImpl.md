@@ -24,7 +24,7 @@ and exposed through a small REST endpoint.
 
 ## Backend
 
-### 1. Extract the district list into a shared place
+### 1. Extract the district list into a shared place ✅ DONE
 `AllowedDistricts` is currently a `private static` set inside `ScraperCoordinator`
 (`FlatMonitor/Scraping/ScraperCoordinator.cs:9`). The new endpoint needs it for validation.
 
@@ -34,6 +34,10 @@ and exposed through a small REST endpoint.
     (exact match only, **no** substring matching. That fuzzy logic stays in `ScraperCoordinator.NormalizeDistrict` for scraped data).
 - `ScraperCoordinator` uses `KarlsruheDistricts.All`. No behaviour change; existing `ScraperCoordinatorTests` must stay green.
 - Note: FILTERING.md / CLAUDE.md say "26 districts"; the list actually has 27. Fix the docs while touching this.
+
+**Status:** implemented. `KarlsruheDistricts` lives in `FlatMonitor/Models/KarlsruheDistricts.cs` (`ToCanonical` also trims).
+Tests: `FlatMonitor.Tests/Models/KarlsruheDistrictsTests.cs`. Docs updated (FILTERING.md, CLAUDE.md, AGENTS.md).
+All 209 .NET tests pass.
 
 ### 2. Model + DbContext
 `FlatMonitor/Models/FilterDefaults.cs`:
@@ -156,7 +160,7 @@ Frontend:
 - `FILTERING.md` / `CLAUDE.md`: district count 26 → 27; one line about the frontend default filter.
 
 ## Suggested commit sequence
-1. `refactor(scrape): extract allowed districts into KarlsruheDistricts`
+1. `refactor(scrape): extract allowed districts into KarlsruheDistricts` ✅ ready to commit
 2. `feat(db): add FilterDefaults table and repository`
 3. `feat(api): add filter-defaults settings endpoint`
 4. `feat(frontend): add filter defaults service and default-filter actions`

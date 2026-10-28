@@ -2,11 +2,11 @@
 
 ## Overview
 
-All flats scraped are filtered to match `AllowedDistricts` (26 Karlsruhe districts) before saving to the database. Filtering ensures only valid Karlsruhe flats reach the canonical SQLite database.
+All flats scraped are filtered to match `KarlsruheDistricts.All` (27 Karlsruhe districts) before saving to the database. Filtering ensures only valid Karlsruhe flats reach the canonical SQLite database.
 
-## AllowedDistricts List
+## KarlsruheDistricts List
 
-Located in `ScraperCoordinator.cs`:
+Located in `Models/KarlsruheDistricts.cs` (used by `ScraperCoordinator.cs`):
 
 ```csharp
 "Beiertheim-Bulach", "Daxlanden", "Durlach", "Grötzingen", "Grünwettersbach",
@@ -32,7 +32,7 @@ Located in `ScraperCoordinator.cs`:
 | `"oberreut"` | `"Oberreut"` | Case-insensitive match |
 | `"KA-Oberreut"` | `"Oberreut"` | Substring: "Oberreut" is in "KA-Oberreut" |
 | `"ka-innenstadt-west"` | `"Innenstadt-West"` | Case-insensitive substring |
-| `"Bad Schönborn"` | `null` (filtered) | Not in AllowedDistricts |
+| `"Bad Schönborn"` | `null` (filtered) | Not in KarlsruheDistricts |
 | `null` | `null` (filtered) | Empty/null district |
 
 ## Filtering Flow
@@ -59,7 +59,7 @@ If scraper doesn't use batch callback:
 ✓ **Only normalized, allowed-district flats reach the database**
 - No `District IS NULL` rows
 - No out-of-area districts (Bad Schönborn, Bruchsal, etc.)
-- All districts match `AllowedDistricts` exactly
+- All districts match `KarlsruheDistricts.All` exactly
 
 ## Testing
 

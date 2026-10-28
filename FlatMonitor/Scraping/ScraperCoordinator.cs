@@ -6,37 +6,6 @@ using FlatMonitor.Storage;
 
 public sealed class ScraperCoordinator : IAsyncDisposable
 {
-    private static readonly HashSet<string> AllowedDistricts = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "Beiertheim-Bulach",
-        "Daxlanden",
-        "Durlach",
-        "Grötzingen",
-        "Grünwettersbach",
-        "Grünwinkel",
-        "Hagsfeld",
-        "Hohenwettersbach",
-        "Innenstadt-Ost",
-        "Innenstadt-West",
-        "Knielingen",
-        "Mühlburg",
-        "Neureut",
-        "Nordstadt",
-        "Nordweststadt",
-        "Oberreut",
-        "Oststadt",
-        "Palmbach",
-        "Rintheim",
-        "Rüppurr",
-        "Stupferich",
-        "Südstadt",
-        "Südweststadt",
-        "Waldstadt",
-        "Weiherfeld-Dammerstock",
-        "Weststadt",
-        "Wolfartsweier"
-    };
-
     private readonly IEnumerable<IScraper> _scrapers;
     private readonly ISnapshotRepository _repository;
     private readonly SnapshotWriter _snapshotWriter;
@@ -198,12 +167,12 @@ public sealed class ScraperCoordinator : IAsyncDisposable
             return null;
 
         // Try exact match first (case-insensitive)
-        var match = AllowedDistricts.FirstOrDefault(d => d.Equals(district, StringComparison.OrdinalIgnoreCase));
+        var match = KarlsruheDistricts.All.FirstOrDefault(d => d.Equals(district, StringComparison.OrdinalIgnoreCase));
         if (match != null)
             return match;
 
         // Try substring match (case-insensitive) — handles "KA-Oberreut" containing "Oberreut"
-        match = AllowedDistricts.FirstOrDefault(d => district.Contains(d, StringComparison.OrdinalIgnoreCase));
+        match = KarlsruheDistricts.All.FirstOrDefault(d => district.Contains(d, StringComparison.OrdinalIgnoreCase));
         if (match != null)
             return match;
 
