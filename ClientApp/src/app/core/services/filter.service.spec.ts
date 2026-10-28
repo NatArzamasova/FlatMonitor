@@ -98,9 +98,9 @@ describe('FilterService', () => {
       { price: undefined, value: 40 }
     ];
 
-    it('should return all valid data when both min and max are null', () => {
+    it('should return all data, including items without a price, when both min and max are null', () => {
       const result = service.filterByPriceRange(testData, null, null, item => item.price);
-      expect(result.length).toBe(3);
+      expect(result).toEqual(testData);
     });
 
     it('should filter by minimum price', () => {
@@ -125,12 +125,17 @@ describe('FilterService', () => {
 
     it('should ignore min/max when set to 0 or less', () => {
       const result = service.filterByPriceRange(testData, 0, -1, item => item.price);
-      expect(result.length).toBe(3);
+      expect(result).toEqual(testData);
     });
 
-    it('should exclude undefined prices', () => {
-      const result = service.filterByPriceRange(testData, null, null, item => item.price);
-      expect(result.every(d => d.price !== undefined)).toBe(true);
+    it('should exclude items without a price when a minimum is set', () => {
+      const result = service.filterByPriceRange(testData, 500, null, item => item.price);
+      expect(result.map(d => d.price)).toEqual([1000, 2000, 3000]);
+    });
+
+    it('should exclude items without a price when a maximum is set', () => {
+      const result = service.filterByPriceRange(testData, null, 5000, item => item.price);
+      expect(result.map(d => d.price)).toEqual([1000, 2000, 3000]);
     });
   });
 });

@@ -54,8 +54,13 @@ the "Manual Scrape" / "Cancel Scraping" toggle silently stop updating.
 **Fix:** catch inside the `switchMap` (`catchError(() => EMPTY)`), or use `retry({ delay: 2000 })`.
 See also B3.
 
-### A3. Price filter hides offers without a price even when no range is set
+### A3. Price filter hides offers without a price even when no range is set ✅ COMPLETED
 `filter.service.ts:32-51`
+
+> **Done:** `filterByPriceRange` returns the input unchanged when neither bound is active
+> (`null` or `<= 0`); items without a price are only dropped once a min or max is set. The two
+> `FilterService` specs that asserted the old behaviour were rewritten, plus new service and
+> `OffersTabComponent` specs for priced/unpriced offers with and without a range.
 
 `filterByPriceRange` returns `false` for `value === undefined` before looking at `min`/`max`, so with
 both bounds empty every offer lacking `priceEur` disappears from the Current Offers table.

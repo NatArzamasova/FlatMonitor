@@ -173,6 +173,30 @@ describe('OffersTabComponent', () => {
       expect(component.filteredOffers.length).toBe(1);
       expect(component.filteredOffers[0].district).toBe('Mitte');
     });
+
+    it('should show offers without a price when no price range is set', () => {
+      flatsService.getCurrentOffers.and.returnValue(of({
+        success: true,
+        data: [...mockOffersResponse.data!, { district: 'Mitte', roomsCount: 2, source: 'OhneMakler' }],
+        message: 'Success'
+      }));
+      component.loadCurrentOffers();
+
+      expect(component.filteredOffers.length).toBe(3);
+    });
+
+    it('should hide offers without a price once a price range is set', () => {
+      flatsService.getCurrentOffers.and.returnValue(of({
+        success: true,
+        data: [...mockOffersResponse.data!, { district: 'Mitte', roomsCount: 2, source: 'OhneMakler' }],
+        message: 'Success'
+      }));
+      component.loadCurrentOffers();
+      component.priceRangeMax = 5000;
+      component.onOfferFiltersChange();
+
+      expect(component.filteredOffers.map(offer => offer.priceEur)).toEqual([2000, 2500]);
+    });
   });
 
   describe('Table sorting', () => {

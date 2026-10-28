@@ -35,15 +35,21 @@ export class FilterService {
     max: number | null,
     selector: (item: T) => number | undefined
   ): T[] {
+    const lower = min !== null && min > 0 ? min : null;
+    const upper = max !== null && max > 0 ? max : null;
+    if (lower === null && upper === null) {
+      return data;
+    }
+
     return data.filter(item => {
       const value = selector(item);
       if (value === undefined) {
         return false;
       }
-      if (min !== null && min > 0 && value < min) {
+      if (lower !== null && value < lower) {
         return false;
       }
-      if (max !== null && max > 0 && value > max) {
+      if (upper !== null && value > upper) {
         return false;
       }
       return true;
