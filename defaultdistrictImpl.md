@@ -1,176 +1,234 @@
-# Default District Filter: Implementation Plan
+# Default District Filter (Named Presets): Implementation Plan
 
 ## Goal
 
-When the dashboard opens, the district filter in the tabs starts with a saved **default selection**
-instead of "all districts". The user can change the default from the frontend and save it. There
-are no users, so exactly **one** default is stored. It is persisted in SQLite (the canonical store)
-and exposed through a small REST endpoint.
+The dashboard's district filter can be saved as **named filter presets** (e.g. "South", "Near work").
+Any number of presets can exist. **At most one preset is marked as the default**. That one is applied when
+the dashboard opens, instead of "all districts". From the frontend the user can:
+
+- apply any preset to the current view,
+- create a new preset from the current selection,
+- update a preset (selection and/or name),
+- delete a preset,
+- mark a preset as the default, or clear the default.
+
+There are no users, so presets are global. They are persisted in SQLite (the canonical store) and
+exposed through a small REST API.
 
 ## Behaviour
 
 | Situation | District filter starts with |
 |---|---|
-| URL has `?district=...` (e.g. a link from the overview table into the offers tab) | The URL districts. **URL wins over the default** |
-| No `district` param, a default is saved | The saved default |
-| No default saved yet / saved default is empty | Nothing selected = all districts (today's behaviour) |
-| Loading the default fails (backend down, 500) | Nothing selected = all districts; the tab still loads its data |
+| URL has `?district=...` (e.g. a link from the overview table into the offers tab) | The URL districts. **URL wins over the default preset** |
+| No `district` param, a default preset exists | The default preset's districts |
+| No default preset (none saved, or default cleared) | Nothing selected = all districts (today's behaviour) |
+| Loading presets fails (backend down, 500) | Nothing selected = all districts; the tab still loads its data |
 
-- A saved **empty list means "all districts"**. That matches `filterByDistricts`, where an empty selection keeps everything.
-- Changing the multi-select only changes the current view. Only **"Save as default"** persists it.
-- **"Reset to default"** puts the saved default back into the current filter.
-- A saved default is used by every tab with a district filter. After saving in one tab, the other
-  tab uses the new default the next time it starts (the frontend cache is updated on save).
+- A preset with an **empty district list means "all districts"**. That matches `filterByDistricts`, where an empty selection keeps everything.
+- Changing the multi-select only changes the current view. Presets change only through explicit actions (Save / Save as new / Delete / Set as default).
+- Applying a different preset does **not** change which preset is the default. Only "Set as default" does that.
+- Presets are shared by every tab with a district filter. After a change in one tab, the other tab sees it
+  (the frontend cache is updated after every successful write).
 
 ## Backend
 
 ### 1. Extract the district list into a shared place ✅ DONE
-`AllowedDistricts` is currently a `private static` set inside `ScraperCoordinator`
-(`FlatMonitor/Scraping/ScraperCoordinator.cs:9`). The new endpoint needs it for validation.
+`AllowedDistricts` was a `private static` set inside `ScraperCoordinator`. The new API needs it for validation.
 
-- Move it to a new public static class, e.g. `FlatMonitor/Models/KarlsruheDistricts.cs`:
-  - `public static IReadOnlySet<string> All` (same 27 names, `StringComparer.OrdinalIgnoreCase`)
-  - `public static string? ToCanonical(string name)`: exact case-insensitive match → canonical spelling, else `null`
-    (exact match only, **no** substring matching. That fuzzy logic stays in `ScraperCoordinator.NormalizeDistrict` for scraped data).
-- `ScraperCoordinator` uses `KarlsruheDistricts.All`. No behaviour change; existing `ScraperCoordinatorTests` must stay green.
-- Note: FILTERING.md / CLAUDE.md say "26 districts"; the list actually has 27. Fix the docs while touching this.
+- Moved to `FlatMonitor/Models/KarlsruheDistricts.cs`:
+  - `public static IReadOnlySet<string> All` (27 names, `StringComparer.OrdinalIgnoreCase`)
+  - `public static string? ToCanonical(string? name)`: exact case-insensitive match (after trimming) → canonical spelling, else `null`.
+    No substring matching. That fuzzy logic stays in `ScraperCoordinator.NormalizeDistrict` for scraped data.
+- `ScraperCoordinator` uses `KarlsruheDistricts.All`. No behaviour change.
+- Docs fixed: 26 → 27 districts (FILTERING.md, CLAUDE.md, AGENTS.md).
 
-**Status:** implemented. `KarlsruheDistricts` lives in `FlatMonitor/Models/KarlsruheDistricts.cs` (`ToCanonical` also trims).
-Tests: `FlatMonitor.Tests/Models/KarlsruheDistrictsTests.cs`. Docs updated (FILTERING.md, CLAUDE.md, AGENTS.md).
-All 209 .NET tests pass.
+**Status:** implemented. Tests: `FlatMonitor.Tests/Models/KarlsruheDistrictsTests.cs`. All 209 .NET tests passed at that point.
 
-### 2. Model + DbContext
-`FlatMonitor/Models/FilterDefaults.cs`:
+### 2. Model + DbContext ✅ DONE
+`FlatMonitor/Models/FilterPreset.cs`:
 ```csharp
-public class FilterDefaults
+public sealed class FilterPreset
 {
-    public const int SingletonId = 1;
+    public const int MaxNameLength = 100;
 
-    public int Id { get; set; } = SingletonId;
-    public List<string> Districts { get; set; } = [];
+    public int Id { get; set; }
+    public required string Name { get; set; }      // unique, case-insensitive
+    public List<string> Districts { get; set; } = []; // empty = all districts
+    public bool IsDefault { get; set; }
     public DateTime UpdatedAtUtc { get; set; }
 }
 ```
-- `FlatsDbContext`: `DbSet<FilterDefaults> FilterDefaults`, table `FilterDefaults`, key `Id`
-  (`ValueGeneratedNever()`, since it is always 1).
-- `Districts` is an EF Core primitive collection, stored as a JSON text column in SQLite. No
-  join table is needed for a single list of strings. The InMemory provider used in tests supports it as well.
-- Single-row table: no seed row. "No row" means "no default saved yet" and returns an empty list.
+`FlatsDbContext`: `DbSet<FilterPreset> FilterPresets`, table `FilterPresets`:
+- `Id`: auto-increment key.
+- `Name`: required, max 100, `COLLATE NOCASE`, unique index `idx_FilterPresets_Name`.
+  "East" and "east" count as the same name, and lookups by name ignore case.
+- `Districts`: EF Core primitive collection, stored as a JSON text column (`["Durlach","Südstadt"]`).
+- `IsDefault`: required, DB default `false`. **Partial unique index** `idx_FilterPresets_SingleDefault`
+  on `IsDefault` with filter `"IsDefault" = 1`, so the database itself guarantees at most one default.
+- `UpdatedAtUtc`: required.
+- No seed data. An empty table means no presets and no default (all districts).
+
+**Status:** implemented. Mapping tests run against a real SQLite in-memory database, so the JSON column, the
+collation and the partial index are actually tested: `FlatMonitor.Tests/Storage/FilterPresetMappingTests.cs` (9 tests, all pass).
+They cover round-trip, empty list, JSON storage, several presets, duplicate name rejected (also with different case),
+case-insensitive lookup, many non-default presets, and a second default rejected.
+⚠ Until step 3 adds the migration, `MigrateAsync` throws `PendingModelChangesWarning`. That breaks app startup
+and 4 backup/restore tests in `FlatSnapshotRepositoryTests`. Commit steps 2–4 together (see commit sequence).
 
 ### 3. Migration
 ```bash
-dotnet ef migrations add AddFilterDefaults --project FlatMonitor
+dotnet ef migrations add AddFilterPresets --project FlatMonitor
 ```
 (Requires the `dotnet-ef` tool. It is not in `.config/dotnet-tools.json`; use the global tool or add it as a local tool.)
+Check the generated migration for the `NOCASE` collation on `Name` and the `filter: "\"IsDefault\" = 1"` on the index.
 Migrations already run on startup (`MigrateAsync` in `Program.cs`), so nothing else is needed for deployment.
 
 ### 4. Repository
-`FlatMonitor/Storage/IFilterDefaultsRepository.cs` + `FilterDefaultsRepository.cs`, styled like
-`ScrapingHistoryRepository` (takes `FlatsDbContext` directly):
+`FlatMonitor/Storage/IFilterPresetRepository.cs` + `FilterPresetRepository.cs`, styled like
+`ScrapingHistoryRepository` (takes `FlatsDbContext` directly). All methods take a `CancellationToken ct = default`.
 ```csharp
-Task<IReadOnlyList<string>> GetDistrictsAsync(CancellationToken ct = default);   // [] when no row
-Task<IReadOnlyList<string>> SaveDistrictsAsync(IReadOnlyList<string> districts, CancellationToken ct = default); // upsert row Id=1, returns stored list
+Task<IReadOnlyList<FilterPreset>> GetAllAsync(ct);                 // ordered by Name
+Task<FilterPreset?> GetByIdAsync(int id, ct);
+Task<bool> NameExistsAsync(string name, int? excludingId, ct);     // case-insensitive (NOCASE)
+Task<FilterPreset> CreateAsync(string name, IReadOnlyList<string> districts, ct);
+Task<FilterPreset?> UpdateAsync(int id, string name, IReadOnlyList<string> districts, ct); // null if not found
+Task<bool> DeleteAsync(int id, ct);                                 // false if not found
+Task<FilterPreset?> SetDefaultAsync(int id, ct);                    // null if not found
+Task ClearDefaultAsync(ct);
 ```
+- `SetDefaultAsync` runs in **one transaction with two `SaveChanges`**: first clear the current default, then set
+  the new one. With a single `SaveChanges`, EF may issue the two UPDATEs in either order and break the partial unique index.
+  Setting the preset that is already the default is a no-op.
+- Deleting the default preset leaves no default (all districts). It does not promote another preset.
+- Every write sets `UpdatedAtUtc = DateTime.UtcNow`.
+- Validation (names, districts) is **not** done here. That's the controller's job. The unique indexes are the last line of defence.
+
 Register in `Program.cs` (web server only; the CLI `scrape` mode doesn't need it):
 ```csharp
-builder.Services.AddScoped<IFilterDefaultsRepository, FilterDefaultsRepository>();
+builder.Services.AddScoped<IFilterPresetRepository, FilterPresetRepository>();
 ```
 
-### 5. Contract + controller
-`FlatMonitor/Api/Contracts/FilterDefaultsDto.cs`: `public sealed class FilterDefaultsDto { public List<string> Districts { get; set; } = []; }`
+### 5. Contracts + controller
+`FlatMonitor/Api/Contracts/`:
+- `FilterPresetDto`: `Id`, `Name`, `Districts`, `IsDefault`, `UpdatedAtUtc` (response).
+- `SaveFilterPresetRequest`: `Name`, `Districts` (body for create and update).
 
-New `FlatMonitor/Api/Controllers/SettingsController.cs`, `[Route("api/settings")]`. It uses the same
+New `FlatMonitor/Api/Controllers/FilterPresetsController.cs`, `[Route("api/filter-presets")]`. It uses the same
 `ApiResponse<T>` + try/catch shape as `FlatsController`:
 
-| Method | Route | Body | Responses |
-|---|---|---|---|
-| GET | `/api/settings/filter-defaults` | — | 200 `ApiResponse<FilterDefaultsDto>` (`districts: []` if none saved); 500 on error |
-| PUT | `/api/settings/filter-defaults` | `FilterDefaultsDto` | 200 `ApiResponse<FilterDefaultsDto>` with the stored (normalised) value; 400 on invalid input; 500 on error |
+| Method | Route | Body | Success | Errors |
+|---|---|---|---|---|
+| GET | `/api/filter-presets` | — | 200 `ApiResponse<List<FilterPresetDto>>` (ordered by name, `[]` if none) | 500 |
+| POST | `/api/filter-presets` | `SaveFilterPresetRequest` | 201 `ApiResponse<FilterPresetDto>` | 400 invalid, 409 name taken, 500 |
+| PUT | `/api/filter-presets/{id}` | `SaveFilterPresetRequest` | 200 `ApiResponse<FilterPresetDto>` | 400, 404, 409, 500 |
+| DELETE | `/api/filter-presets/{id}` | — | 200 `ApiResponse<object>` | 404, 500 |
+| PUT | `/api/filter-presets/{id}/default` | — | 200 `ApiResponse<FilterPresetDto>` (now default) | 404, 500 |
+| DELETE | `/api/filter-presets/default` | — | 200 `ApiResponse<object>` (no default any more) | 500 |
 
-PUT validation / normalisation (in the controller or a small static helper, not in the repository):
-- `null` body or `null` districts → 400.
-- Trim entries, drop blanks.
-- Map each entry with `KarlsruheDistricts.ToCanonical`. If any entry is unknown → 400, message lists the unknown names.
-- Remove duplicates (case-insensitive) and sort, so the stored value is stable.
+There is no separate "get default" endpoint. The list already carries `isDefault`, and the frontend needs the list anyway.
+
+Request validation / normalisation (small static helper, e.g. `FilterPresetRequestNormalizer`, so it can be unit-tested on its own):
+- `null` body → 400.
+- `Name`: trim; blank → 400; longer than 100 → 400.
+- `Districts`: `null` → treated as `[]`. Trim entries, drop blanks, map each with `KarlsruheDistricts.ToCanonical`;
+  any unknown entry → 400 with the unknown names in the message; remove duplicates and sort, so the stored value is stable.
+- Name uniqueness: `NameExistsAsync(name, excludingId: id)` → 409 before writing. A `DbUpdateException` from the unique
+  index (race) is also mapped to 409.
+- Renaming a preset to its own name with different case (e.g. "east" → "East") is allowed.
 
 ## Frontend
 
 ### 6. Model + service
-- `core/models/filter-defaults.model.ts`: `export interface FilterDefaults { districts: string[]; }`
-- New `core/services/filter-defaults.service.ts` (`providedIn: 'root'`). Settings are not flats, so this
-  does not go into `FlatsService`:
-  - `getDefaultDistricts(): Observable<string[]>`: GET once, `unwrapApiResponse()`, cached with
-    `shareReplay(1)`. On error it returns `[]` (`catchError`), so a failing settings call never breaks a tab.
-  - `saveDefaultDistricts(districts: string[]): Observable<string[]>`: PUT, unwrap, and on success
-    replace the cache with the returned (normalised) list so other tabs see it.
-  - Implementation hint: keep a private `BehaviorSubject<string[] | null>` plus a "loaded" flag, or
-    reset the `shareReplay` source on save. Either works; keep it small.
+- `core/models/filter-preset.model.ts`:
+  `export interface FilterPreset { id: number; name: string; districts: string[]; isDefault: boolean; updatedAtUtc: string; }`
+  and `export interface SaveFilterPresetRequest { name: string; districts: string[]; }`
+- New `core/services/filter-presets.service.ts` (`providedIn: 'root'`), separate from `FlatsService`:
+  - `presets$: Observable<FilterPreset[]>`: loaded once on first subscribe, cached (`BehaviorSubject` or `shareReplay(1)`).
+    On load error it emits `[]`, so a failing presets call never breaks a tab.
+  - `defaultPreset$: Observable<FilterPreset | null>`: derived from `presets$`.
+  - `create(request)`, `update(id, request)`, `delete(id)`, `setDefault(id)`, `clearDefault()`:
+    each call the API, `unwrapApiResponse()`, and **on success update the cached list**. Setting a default clears `isDefault` on the others in the cache.
+    Errors propagate to the caller, which shows them (e.g. 409 "name already exists").
 
-### 7. Shared UI piece
-New `shared/default-filter-actions/default-filter-actions.component.ts` (small, standalone), placed
-right after the district `app-multi-select-filter` in each tab:
-- Buttons: **Save as default** and **Reset to default** (`btn btn-sm btn-outline-secondary`).
-- Inputs: `selected: string[]`, `defaults: string[]`; outputs: `save`, `reset`.
-- "Save as default" is disabled while saving and when `selected` equals `defaults` (same set).
-- Shows a short success/error message (reuse `DismissibleAlertComponent` or inline text).
-- The component only emits. The tab calls the service. This keeps the component free of HTTP and easy to test.
-
-(Alternative if this seems over-engineered: put the two buttons directly in both tab templates. Two copies are acceptable.)
+### 7. Shared UI: preset bar
+New `shared/filter-preset-bar/filter-preset-bar.component.ts` (standalone), placed next to the district
+`app-multi-select-filter` in each tab. Since it behaves the same in every tab, it **talks to `FilterPresetsService` itself**
+and only tells the tab which districts to apply:
+- Input: `selected: string[]` (the tab's current district selection).
+- Output: `apply: string[]` (the tab sets `selectedDistricts` and re-filters).
+- UI (Bootstrap, `form-select-sm` / `btn-sm`):
+  - **Preset dropdown**: all presets by name, the default marked with ★, plus "— none —". Picking a preset emits `apply` with its districts.
+  - **Save**: overwrite the chosen preset's districts with `selected`. Disabled when no preset is chosen or nothing changed (same set).
+  - **Save as new…**: small inline name input + confirm; creates a preset from `selected` and selects it.
+  - **Rename**: inline name input for the chosen preset.
+  - **Set as default** / **Unset default** (toggle for the chosen preset).
+  - **Delete**: with `confirm()`.
+  - Errors (409 name taken, 400, network) are shown inline next to the bar.
+- On start the dropdown shows the default preset (if any) as chosen.
 
 ### 8. Tabs
 **Offers tab** (`offers-tab.component.ts`)
 - In `loadInitialFiltersFromUrl()`: if `params.getAll('district')` is non-empty, use it (as today).
-  Otherwise subscribe to `getDefaultDistricts()` (`take(1)`), set `selectedDistricts`, and call `applyFilters()`.
-- The defaults request and `getCurrentOffers()` run in parallel; `applyFilters()` works with whatever
-  has arrived, so the order doesn't matter. Defaults don't block the offers load.
-- Add `onSaveDefaultDistricts()` / `onResetDistricts()` handlers.
+  Otherwise take the default preset once (`defaultPreset$.pipe(take(1))`), set `selectedDistricts` to its districts
+  (or `[]`), and call `applyFilters()`.
+- The presets request and `getCurrentOffers()` run in parallel. `applyFilters()` works with whatever has arrived,
+  so the order doesn't matter, and presets don't block the offers load.
+- `(apply)` from the preset bar → `selectedDistricts = districts; applyFilters()`.
 
 **Overview tab** (`overview-tab.component.ts`)
-- Same, without the URL part: in `ngOnInit`, load defaults → `selectedDistricts` → `applyFiltersAndGrouping()`.
+- Same, without the URL part.
 - A reload after a scrape (`scrapeFinished$`) must **not** reset the user's current selection to the default.
 
 **Options vs. selected values**
-`availableDistricts` is built from the loaded data. A default district with no current flats would
-be selected but would not appear in the `<select>`. Fix: `availableDistricts = distinctSorted([...fromData, ...selectedDistricts])`,
-so saved districts are always visible and can be deselected.
+`availableDistricts` is built from the loaded data. A preset district with no current flats would be selected but
+would not appear in the `<select>`. Fix: `availableDistricts = distinctSorted([...fromData, ...selectedDistricts])`,
+so preset districts are always visible and can be deselected.
 
 **History tab**: open question, see below.
 
 ## Tests (NUnit + Moq + FluentAssertions / Jasmine)
 
 Backend:
-- `KarlsruheDistrictsTests`: `ToCanonical` exact match, case-insensitive (`"durlach"` → `"Durlach"`), unknown → `null`, no substring match.
-- `FilterDefaultsRepositoryTests` (InMemory, like `ScrapingHistoryRepositoryTests`): empty when no row; save then get round-trips;
-  a second save overwrites (still one row); `UpdatedAtUtc` set.
-- `SettingsControllerTests` (Moq repo, like `FlatsControllerTests`): GET success / empty / 500;
-  PUT success returns normalised list; PUT dedupes + canonicalises case + sorts; PUT with unknown district → 400 and repo not called;
-  PUT null → 400; repo throws → 500.
-- `ScraperCoordinatorTests` unchanged and green after the extraction.
+- `KarlsruheDistrictsTests` ✅.
+- `FilterPresetMappingTests` ✅ (SQLite).
+- `FilterPresetRepositoryTests` (SQLite in-memory, because the transaction and the partial index matter): GetAll ordered by name;
+  create/update/delete round-trip; update/delete/setDefault on unknown id → null/false; `SetDefaultAsync` moves the default
+  from A to B (exactly one default afterwards); setting the current default again is a no-op; `ClearDefaultAsync` leaves no default;
+  deleting the default leaves no default; `NameExistsAsync` ignores case and honours `excludingId`; `UpdatedAtUtc` set on writes.
+- `FilterPresetRequestNormalizerTests`: trims the name; blank or too-long name → error; null districts → `[]`;
+  canonicalises case, dedupes, sorts; unknown districts → error listing them.
+- `FilterPresetsControllerTests` (Moq repo, like `FlatsControllerTests`): each endpoint's success response;
+  400 on invalid input (repo not called); 409 on a taken name (create, and update to another preset's name); rename to own name in
+  different case allowed; 404 on unknown id; 500 when the repo throws; `DbUpdateException` → 409.
+- `ScraperCoordinatorTests` unchanged and green.
 
 Frontend:
-- `filter-defaults.service.spec.ts`: GET hits the URL once even with two subscribers; error → `[]`;
-  save sends PUT body and updates the cache; failed save does not change the cache.
-- `default-filter-actions.component.spec.ts`: emits `save`/`reset`; save disabled when selection equals defaults.
-- `offers-tab.component.spec.ts`: URL districts win over defaults; no URL param → defaults applied; defaults error → all offers shown;
-  saved district without data still appears in options.
-- `overview-tab.component.spec.ts`: defaults applied on init; reload after `scrapeFinished$` keeps the current selection.
+- `filter-presets.service.spec.ts`: GET only once with several subscribers; error → `[]`; `defaultPreset$` picks the
+  `isDefault` one or `null`; create/update/delete/setDefault/clearDefault send the right request and update the cache;
+  setDefault leaves exactly one default in the cache; a failed write leaves the cache unchanged.
+- `filter-preset-bar.component.spec.ts`: lists presets with the default marked; picking a preset emits `apply`; Save disabled
+  when unchanged; Save as new / Rename / Delete / Set as default call the service; a 409 shows the error.
+- `offers-tab.component.spec.ts`: URL districts win over the default; no URL param → default preset applied; no default → all offers;
+  presets error → all offers; `(apply)` re-filters; a preset district without data still appears in the options.
+- `overview-tab.component.spec.ts`: default applied on init; `(apply)` re-filters; reload after `scrapeFinished$` keeps the current selection.
 
 ## Docs
-- `WohnungMonitor.md`: add the `FilterDefaults` table and the two endpoints.
-- `FILTERING.md` / `CLAUDE.md`: district count 26 → 27; one line about the frontend default filter.
+- `WohnungMonitor.md`: add the `FilterPresets` table and the API endpoints.
+- `FILTERING.md`: one short section on frontend filter presets (separate from scrape-time filtering).
 
 ## Suggested commit sequence
 1. `refactor(scrape): extract allowed districts into KarlsruheDistricts` ✅ ready to commit
-2. `feat(db): add FilterDefaults table and repository`
-3. `feat(api): add filter-defaults settings endpoint`
-4. `feat(frontend): add filter defaults service and default-filter actions`
-5. `feat(frontend): apply and save default district filter in overview and offers tabs`
-6. `docs(filtering): document default district filter`
+2. `feat(db): add FilterPresets table and repository` (steps 2–4 together; step 2 alone breaks startup)
+3. `feat(api): add filter presets endpoints`
+4. `feat(frontend): add filter presets service and preset bar`
+5. `feat(frontend): apply default filter preset in overview and offers tabs`
+6. `docs(filtering): document filter presets`
 
 ## Open questions
 1. **History tab:** it currently has no district filter, only a "group by district / rooms" radio.
-   Should it get a district multi-select (filtering `historyData` before aggregation, only when grouping by district) that also uses the default?
+   Should it get a district multi-select (filtering `historyData` before aggregation, only when grouping by district) and the preset bar?
    This plan leaves it out until decided.
-2. **Rooms / price:** should the default later also cover rooms and price range? If so, the
-   `FilterDefaults` row gets more columns (`Rooms`, `PriceMin`, `PriceMax`), and the endpoint stays the same. The current design allows this. Not in scope now.
-3. **Shared component vs. inline buttons** (step 7): which do you prefer?
+2. **Rooms / price:** should presets later also store rooms and price range? If so, `FilterPreset` gets more columns
+   (`Rooms`, `PriceMin`, `PriceMax`) and the API shapes grow by those fields. The design allows this. Not in scope now.
+3. **Chosen preset across tabs:** if you pick preset "East" in the overview tab, should the offers tab also switch to "East",
+   or does each tab start with the default (current plan)?

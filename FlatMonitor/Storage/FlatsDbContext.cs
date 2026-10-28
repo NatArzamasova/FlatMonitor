@@ -11,6 +11,7 @@ public class FlatsDbContext : DbContext
     public DbSet<FlatSnapshot> FlatsSnapshots { get; set; }
     public DbSet<ScrapingHistory> ScrapingHistories { get; set; }
     public DbSet<FlatAggregationSnapshot> FlatAggregations { get; set; }
+    public DbSet<FilterPreset> FilterPresets { get; set; }
 
     public FlatsDbContext(DbContextOptions<FlatsDbContext> options) : base(options)
     {
@@ -171,5 +172,36 @@ public class FlatsDbContext : DbContext
 
         aggregationBuilder.HasIndex(a => a.ScrapingDate)
             .HasDatabaseName("idx_FlatAggregations_ScrapingDate");
+
+        // FilterPreset configuration
+        var presetBuilder = modelBuilder.Entity<FilterPreset>();
+        presetBuilder.HasKey(p => p.Id);
+        presetBuilder.ToTable("FilterPresets");
+
+        presetBuilder.Property(p => p.Name)
+            .IsRequired()
+            .HasMaxLength(FilterPreset.MaxNameLength)
+            .UseCollation("NOCASE");
+
+        // Primitive collection, stored as a JSON text column
+        presetBuilder.PrimitiveCollection(p => p.Districts)
+            .IsRequired();
+
+        presetBuilder.Property(p => p.IsDefault)
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        presetBuilder.Property(p => p.UpdatedAtUtc)
+            .IsRequired();
+
+        presetBuilder.HasIndex(p => p.Name)
+            .IsUnique()
+            .HasDatabaseName("idx_FilterPresets_Name");
+
+        // Partial unique index: at most one preset can be the default
+        presetBuilder.HasIndex(p => p.IsDefault)
+            .IsUnique()
+            .HasFilter("\"IsDefault\" = 1")
+            .HasDatabaseName("idx_FilterPresets_SingleDefault");
     }
 }
