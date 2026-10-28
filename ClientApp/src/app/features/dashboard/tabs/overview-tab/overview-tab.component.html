@@ -97,26 +97,10 @@
     <table class="table table-striped table-hover">
       <thead class="table-dark">
         <tr>
-          <th [attr.aria-sort]="sortAriaValue('district')">
-            <button type="button" class="btn btn-link link-light p-0 text-decoration-none" aria-label="Sort by District" (click)="onSort('district')">
-              District <span aria-hidden="true">{{ sortIndicator('district') }}</span>
-            </button>
-          </th>
-          <th [attr.aria-sort]="sortAriaValue('roomsCount')">
-            <button type="button" class="btn btn-link link-light p-0 text-decoration-none" aria-label="Sort by Rooms" (click)="onSort('roomsCount')">
-              Rooms <span aria-hidden="true">{{ sortIndicator('roomsCount') }}</span>
-            </button>
-          </th>
-          <th class="text-end" [attr.aria-sort]="sortAriaValue('count')">
-            <button type="button" class="btn btn-link link-light p-0 text-decoration-none" aria-label="Sort by Count" (click)="onSort('count')">
-              Count <span aria-hidden="true">{{ sortIndicator('count') }}</span>
-            </button>
-          </th>
-          <th class="text-end" [attr.aria-sort]="sortAriaValue('avgPricePerMeter')">
-            <button type="button" class="btn btn-link link-light p-0 text-decoration-none" aria-label="Sort by Average Price per Square Meter" (click)="onSort('avgPricePerMeter')">
-              Avg Price/m² <span aria-hidden="true">{{ sortIndicator('avgPricePerMeter') }}</span>
-            </button>
-          </th>
+          <th appSortableHeader [sort]="sort" column="district" sortLabel="District" (sortRequested)="onSort($event)">District</th>
+          <th appSortableHeader [sort]="sort" column="roomsCount" sortLabel="Rooms" (sortRequested)="onSort($event)">Rooms</th>
+          <th appSortableHeader class="text-end" [sort]="sort" column="count" sortLabel="Count" (sortRequested)="onSort($event)">Count</th>
+          <th appSortableHeader class="text-end" [sort]="sort" column="avgPricePerMeter" sortLabel="Average Price per Square Meter" (sortRequested)="onSort($event)">Avg Price/m²</th>
         </tr>
       </thead>
       <tbody>

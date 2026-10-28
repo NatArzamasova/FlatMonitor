@@ -9,25 +9,20 @@ import { FlatOffer } from '../../../../core/models/flat-offer.model';
 import { isHttpUrl } from '../../../../core/utils/url.utils';
 import { normalizeRooms } from '../../../../core/utils/rooms.utils';
 import { describeLoadError } from '../../../../core/utils/api-response.utils';
+import { TableSort } from '../../../../core/utils/table-sort';
+import { SortableHeaderComponent } from '../../../../shared/sortable-header/sortable-header.component';
+
+type OfferSortColumn =
+  'district' | 'roomsCount' | 'priceEur' | 'originalPriceEur' | 'livingAreaSqm' | 'pricePerMeter' | 'source';
 
 @Component({
   selector: 'app-offers-tab',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, SortableHeaderComponent],
   templateUrl: './offers-tab.component.html',
 })
 export class OffersTabComponent implements OnInit {
-  private readonly sortableColumns = [
-    'district',
-    'roomsCount',
-    'priceEur',
-    'originalPriceEur',
-    'livingAreaSqm',
-    'pricePerMeter',
-    'source'
-  ] as const;
-  private sortColumn: typeof this.sortableColumns[number] | null = null;
-  private sortDirection: 'asc' | 'desc' = 'asc';
+  readonly sort = new TableSort<FlatOffer, OfferSortColumn>();
 
   currentOffers: FlatOffer[] = [];
   filteredOffers: FlatOffer[] = [];
@@ -127,49 +122,15 @@ export class OffersTabComponent implements OnInit {
       offer => offer.priceEur
     );
 
-    this.filteredOffers = this.sortOffers(filtered);
+    this.filteredOffers = this.sort.apply(filtered);
   }
 
   onOfferFiltersChange(): void {
     this.applyOfferFilters();
   }
 
-  onSort(column: typeof this.sortableColumns[number]): void {
-    if (this.sortColumn === column) {
-      this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
-    } else {
-      this.sortColumn = column;
-      this.sortDirection = 'asc';
-    }
+  onSort(column: OfferSortColumn): void {
+    this.sort.toggle(column);
     this.applyOfferFilters();
-  }
-
-  sortIndicator(column: typeof this.sortableColumns[number]): string {
-    return this.sortColumn === column ? (this.sortDirection === 'asc' ? '↑' : '↓') : '';
-  }
-
-  sortAriaValue(column: typeof this.sortableColumns[number]): string | null {
-    return this.sortColumn === column
-      ? (this.sortDirection === 'asc' ? 'ascending' : 'descending')
-      : null;
-  }
-
-  private sortOffers(offers: FlatOffer[]): FlatOffer[] {
-    if (!this.sortColumn) {
-      return offers;
-    }
-
-    const column = this.sortColumn;
-    const direction = this.sortDirection === 'asc' ? 1 : -1;
-    return [...offers].sort((left, right) => {
-      const leftValue = left[column];
-      const rightValue = right[column];
-      if (leftValue == null) return rightValue == null ? 0 : 1;
-      if (rightValue == null) return -1;
-      const comparison = typeof leftValue === 'number' && typeof rightValue === 'number'
-        ? leftValue - rightValue
-        : String(leftValue).localeCompare(String(rightValue), undefined, { numeric: true, sensitivity: 'base' });
-      return comparison * direction;
-    });
   }
 }

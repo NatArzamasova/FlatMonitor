@@ -12,17 +12,19 @@ import { mergeWeightedAverage, roundPriceToEuro } from '../../../../core/utils/a
 import { normalizeRooms } from '../../../../core/utils/rooms.utils';
 import { describeLoadError } from '../../../../core/utils/api-response.utils';
 import { ScrapingStatusComponent } from '../../scraping-status/scraping-status.component';
+import { TableSort } from '../../../../core/utils/table-sort';
+import { SortableHeaderComponent } from '../../../../shared/sortable-header/sortable-header.component';
+
+type AggregationSortColumn = 'district' | 'roomsCount' | 'count' | 'avgPricePerMeter';
 
 @Component({
   selector: 'app-overview-tab',
   standalone: true,
-  imports: [CommonModule, FormsModule, ScrapingStatusComponent],
+  imports: [CommonModule, FormsModule, ScrapingStatusComponent, SortableHeaderComponent],
   templateUrl: './overview-tab.component.html',
 })
 export class OverviewTabComponent implements OnInit, OnDestroy {
-  private readonly sortableColumns = ['district', 'roomsCount', 'count', 'avgPricePerMeter'] as const;
-  private sortColumn: typeof this.sortableColumns[number] | null = null;
-  private sortDirection: 'asc' | 'desc' = 'asc';
+  readonly sort = new TableSort<FlatAggregation, AggregationSortColumn>();
 
   aggregatedData: FlatAggregation[] = [];
   rawData: FlatAggregation[] = [];
@@ -124,43 +126,13 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
     this.applyFiltersAndGrouping();
   }
 
-  onSort(column: typeof this.sortableColumns[number]): void {
-    if (this.sortColumn === column) {
-      this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
-    } else {
-      this.sortColumn = column;
-      this.sortDirection = 'asc';
-    }
+  onSort(column: AggregationSortColumn): void {
+    this.sort.toggle(column);
     this.applySort();
   }
 
-  sortIndicator(column: typeof this.sortableColumns[number]): string {
-    return this.sortColumn === column ? (this.sortDirection === 'asc' ? '↑' : '↓') : '';
-  }
-
-  sortAriaValue(column: typeof this.sortableColumns[number]): string | null {
-    return this.sortColumn === column
-      ? (this.sortDirection === 'asc' ? 'ascending' : 'descending')
-      : null;
-  }
-
   private applySort(): void {
-    if (!this.sortColumn) {
-      return;
-    }
-
-    const column = this.sortColumn;
-    const direction = this.sortDirection === 'asc' ? 1 : -1;
-    this.aggregatedData = [...this.aggregatedData].sort((left, right) => {
-      const leftValue = left[column];
-      const rightValue = right[column];
-      if (leftValue == null) return rightValue == null ? 0 : 1;
-      if (rightValue == null) return -1;
-      const comparison = typeof leftValue === 'number' && typeof rightValue === 'number'
-        ? leftValue - rightValue
-        : String(leftValue).localeCompare(String(rightValue), undefined, { numeric: true, sensitivity: 'base' });
-      return comparison * direction;
-    });
+    this.aggregatedData = this.sort.apply(this.aggregatedData);
   }
 
   private aggregateByDistrict(data: FlatAggregation[]): FlatAggregation[] {

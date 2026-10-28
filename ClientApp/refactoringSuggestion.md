@@ -290,7 +290,16 @@ scrape lifecycle (polling, trigger, cancel, 6 status fields, badges).
 - This also removes the separate initial `loadScrapingStatus()` call, which duplicates the first tick.
 - Optional: only poll quickly while a scrape is running, slowly (e.g. 30 s) otherwise.
 
-### B4. Shared table sorting
+### B4. Shared table sorting ✅ COMPLETED
+
+> **Done:** `core/utils/table-sort.ts` → `TableSort<T, K>` (`toggle`, `indicator`, `ariaSort`,
+> `apply` returning a sorted copy; nulls last in both directions, numeric vs. `localeCompare`).
+> `shared/sortable-header/SortableHeaderComponent` (`th[appSortableHeader]`, inputs `sort`,
+> `column`, `sortLabel`, output `sortRequested`) replaces the 11 hand-written `<th><button>` blocks;
+> it only displays the sort state, the tab decides what a click does. Both tabs keep `onSort(column)`
+> (now `sort.toggle` + re-apply), so the existing tab sorting specs pass unchanged. New specs for
+> `TableSort` and the header component. Only difference: the overview now always assigns a copy of
+> the rows, even before a column is selected.
 `onSort`, `sortIndicator`, `sortAriaValue` and the comparator are copy-pasted between
 `overview-tab.component.ts:145-182` and `offers-tab.component.ts:134-171`.
 
