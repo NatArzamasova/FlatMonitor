@@ -85,7 +85,12 @@ counts **filtered** flats. The UI shows the first number; the CLI prints the sec
 "deleting backup" is printed after it finishes. The service already logs these steps with
 `ILogger`. Delete the `Console.WriteLine` calls.
 
-### 1.5 Info logs are invisible in the web server
+### 1.5 Info logs are invisible in the web server ✅ Done
+> **Done:** new `LoggingExtensions.AddFlatMonitorLogging()` used by both the web server and the CLI: `FlatMonitor.*`
+> from Information, `Microsoft.*`/`System.*` from Warning. This also stops the CLI from printing EF Core SQL
+> commands. Moving the levels to `appsettings.json` is left for 2.1 (needs the content root fixed first).
+> Replacing `Console.WriteLine` is still 2.6. Tests: `FlatMonitor.Tests/LoggingExtensionsTests.cs`.
+
 **Severity:** Low · **File:** `Program.cs:184`
 
 The minimum log level is `Warning`, so every `_logger.LogInformation` in `ScrapeBackgroundService`

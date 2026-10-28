@@ -8,7 +8,6 @@ using FlatMonitor.Storage;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 
 var commandArgs = Environment.GetCommandLineArgs().Skip(1).ToArray();
 
@@ -66,7 +65,7 @@ async Task<int> RunScrapeAsync()
         return client;
     });
 
-    services.AddLogging(logging => logging.AddConsole());
+    services.AddLogging(logging => logging.AddFlatMonitorLogging());
     services.AddScrapeServices();
 
     var serviceProvider = services.BuildServiceProvider();
@@ -174,12 +173,7 @@ async Task<int> RunWebServerAsync(string[] args)
         Console.WriteLine("Starting FlatMonitor Web Server...");
         var builder = WebApplication.CreateBuilder(args);
 
-        // Configure logging - suppress verbose logs
-        builder.Logging.ClearProviders();
-        builder.Logging.AddConsole();
-        builder.Logging.SetMinimumLevel(LogLevel.Warning);
-        builder.Logging.AddFilter("Microsoft.AspNetCore", LogLevel.Warning);
-        builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning);
+        builder.Logging.AddFlatMonitorLogging();
 
         // Add services to the container
         var dbPath = Path.Combine(Directory.GetCurrentDirectory(), "FlatMonitor", "data", "listings.db");
