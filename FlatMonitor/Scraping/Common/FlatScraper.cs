@@ -19,10 +19,10 @@ public abstract class FlatScraper : IScraper
     /// </summary>
     public Func<List<Flat>, CancellationToken, Task>? SaveListingsCallback { get; set; }
 
-    public async Task<IEnumerable<Flat>> ScrapeAsync(CancellationToken ct = default, Func<int, Task>? onBatchSaved = null)
-        => await ScrapeAllListingsAsync(ct, onBatchSaved);
+    public async Task<IEnumerable<Flat>> ScrapeAsync(CancellationToken ct = default)
+        => await ScrapeAllListingsAsync(ct);
 
-    public async Task<List<Flat>> ScrapeAllListingsAsync(CancellationToken ct = default, Func<int, Task>? onBatchSaved = null)
+    public async Task<List<Flat>> ScrapeAllListingsAsync(CancellationToken ct = default)
     {
         var allFlats = new List<Flat>();
         var allPageFlats = new List<Flat>();
@@ -81,8 +81,6 @@ public abstract class FlatScraper : IScraper
                     {
                         await SaveListingsCallback(pageBuffer, ct);
                     }
-                    if (onBatchSaved != null)
-                        await onBatchSaved(pageBuffer.Count);
                     pageBuffer.Clear();
                     pageNumber++;
                 }

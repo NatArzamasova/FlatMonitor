@@ -76,8 +76,7 @@ public sealed class ScraperCoordinator : IAsyncDisposable
         flatScraper.SaveListingsCallback = async (batch, batchCt) =>
         {
             var filtered = FilterAndNormalizeBatch(batch);
-            if (filtered.Count > 0)
-                await _repository.UpsertListingsAsync(filtered, batchCt);
+            await SaveAndReportAsync(filtered, batchCt);
         };
     }
 
@@ -96,7 +95,7 @@ public sealed class ScraperCoordinator : IAsyncDisposable
     private async Task<List<Flat>> ScrapeSourceAsync(IScraper scraper, CancellationToken ct)
     {
         Console.WriteLine($"Starting scrape for source: {scraper.Source}");
-        var listings = (await scraper.ScrapeAsync(ct, _onBatchSaved)).ToList();
+        var listings = (await scraper.ScrapeAsync(ct)).ToList();
 
         if (listings.Count == 0)
         {
@@ -111,10 +110,21 @@ public sealed class ScraperCoordinator : IAsyncDisposable
             Console.WriteLine($"Skipped {skipped} listings without allowed districts");
 
         // FlatScrapers already saved every batch via SaveListingsCallback; only other scrapers are saved here
-        if (filtered.Count > 0 && scraper is not FlatScraper)
-            await _repository.UpsertListingsAsync(filtered, ct);
+        if (scraper is not FlatScraper)
+            await SaveAndReportAsync(filtered, ct);
 
         return filtered;
+    }
+
+    /// <summary>Saves already-filtered flats and reports how many were saved to the batch-saved callback.</summary>
+    private async Task SaveAndReportAsync(List<Flat> filtered, CancellationToken ct)
+    {
+        if (filtered.Count == 0)
+            return;
+
+        await _repository.UpsertListingsAsync(filtered, ct);
+        if (_onBatchSaved != null)
+            await _onBatchSaved(filtered.Count);
     }
 
     private async Task WriteSnapshotAsync(IScraper scraper, List<Flat> listings, CancellationToken ct)

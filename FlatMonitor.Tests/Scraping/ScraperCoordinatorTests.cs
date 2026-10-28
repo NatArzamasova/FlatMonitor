@@ -581,6 +581,58 @@ public class ScraperCoordinatorTests
     }
 
     [Test]
+    public async Task ScrapeAllSourcesAsync_FlatScraper_ReportsSavedCountPerBatchAfterDistrictFilter()
+    {
+        // Arrange: batch 1 = flats 1..20, batch 2 = flats 21..24 + one outside the allowed districts
+        var flats = Enumerable.Range(1, 24).Select(i => FakeFlatScraper.CreateFlat(i.ToString())).ToList();
+        flats.Add(FakeFlatScraper.CreateFlat("outside", "Bad Schönborn"));
+        var scraper = new FakeFlatScraper("OhneMakler") { Flats = flats };
+
+        var reported = new List<int>();
+        var coordinator = new ScraperCoordinator(new IScraper[] { scraper }, _mockRepository.Object, _snapshotWriter, _testDir);
+        coordinator.SetOnBatchSavedCallback(count =>
+        {
+            reported.Add(count);
+            return Task.CompletedTask;
+        });
+
+        // Act
+        var total = await coordinator.ScrapeAllSourcesAsync();
+
+        // Assert
+        reported.Should().Equal(20, 4);
+        reported.Sum().Should().Be(total);
+    }
+
+    [Test]
+    public async Task ScrapeAllSourcesAsync_OtherScraper_ReportsSavedCountAfterDistrictFilter()
+    {
+        // Arrange
+        _mockScraper1.Setup(s => s.ScrapeAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Flat>
+            {
+                FakeFlatScraper.CreateFlat("1", "Durlach"),
+                FakeFlatScraper.CreateFlat("2", "Bad Schönborn"),
+                FakeFlatScraper.CreateFlat("3", "KA-Oberreut"),
+            });
+
+        var reported = new List<int>();
+        var coordinator = new ScraperCoordinator(new[] { _mockScraper1.Object }, _mockRepository.Object, _snapshotWriter, _testDir);
+        coordinator.SetOnBatchSavedCallback(count =>
+        {
+            reported.Add(count);
+            return Task.CompletedTask;
+        });
+
+        // Act
+        var total = await coordinator.ScrapeAllSourcesAsync();
+
+        // Assert
+        reported.Should().Equal(2);
+        total.Should().Be(2);
+    }
+
+    [Test]
     public async Task ScrapeAllSourcesAsync_WhenFlatScraperInitializationFails_RecordsSourceErrorAndScrapesOtherSources()
     {
         // Arrange

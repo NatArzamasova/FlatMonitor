@@ -61,7 +61,11 @@ and `UpsertListingsAsync` reloads every existing row for the source on each call
 **Fix:** Remove the batch callback concept from the coordinator (see 2.3). If the callback
 stays, at minimum skip the second upsert when the scraper is a `FlatScraper`.
 
-### 1.3 Progress counter and result count disagree
+### 1.3 Progress counter and result count disagree ✅ Done
+> **Done:** progress is now reported by `ScraperCoordinator.SaveAndReportAsync` right after each save, with the
+> count after district filtering (also for non-`FlatScraper` sources). `FlatScraper` no longer reports progress, and
+> the `onBatchSaved` parameter was removed from `IScraper.ScrapeAsync`. Tests: `ScraperCoordinatorTests.*ReportsSavedCount*`.
+
 **Severity:** Low · **Files:** `Scraping/Common/FlatScraper.cs:84-85`, `Scraping/ScraperCoordinator.cs:54`
 
 `onBatchSaved(pageBuffer.Count)` reports the **unfiltered** batch size, so
