@@ -543,7 +543,20 @@ Also `onFiltersChange()` and `onGroupingToggle()` in the overview are both just
 `FilterService` is stateless; like `aggregation.utils.ts` it can be exported functions in
 `core/utils/filter.utils.ts`. Removes a DI dependency from two components and their spec setup.
 
-### C6. Build configuration
+### C6. Build configuration ✅ COMPLETED
+
+> **Done** (by hand — `ng update … --name use-application-builder` always fetches the latest CLI,
+> which needs Node ≥ 22; this machine has Node 20.11):
+> - Build uses the esbuild-based `@angular-devkit/build-angular:application` builder (`main` →
+>   `browser`, dropped `buildOptimizer` / `vendorChunk`); `serve` uses `buildTarget`. Output is now
+>   `dist/flatmonitor/browser/` — nothing in the repo consumes the old path.
+> - `ng test` loads `bootstrap.min.css` like the build.
+> - Missing `src/favicon.ico` / `src/assets` (every page load 404'd on `favicon.ico`) replaced by
+>   `src/favicon.svg` (house icon in the heading blue), linked from `index.html`.
+> - Initial budget raised to 750 kB warning / 1 MB error; the bundle is 645 kB (≈ 230 kB of it is
+>   Bootstrap CSS), so the warning is meaningful again instead of firing on every build.
+> - Remaining build message `1 rules skipped … .form-floating>~label` comes from Bootstrap's own
+>   CSS and is harmless (`.form-floating` is not used).
 - `angular.json` uses the legacy `browser` builder and `browserTarget`; Angular 18 defaults to the
   esbuild-based `application` builder with `buildTarget` (`ng update` migration
   `use-application-builder`). Faster builds, and `browserTarget` is deprecated.
