@@ -89,8 +89,13 @@ a filter that can never match (offers are compared as `3`), and the select shows
 **Fix:** one shared `normalizeRooms(value)` helper in `core/utils`, used by all three tabs and by the
 drill-down URL builder.
 
-### A5. Weighted average can produce `NaN`
+### A5. Weighted average can produce `NaN` ✅ COMPLETED
 `aggregation.utils.ts:10-20`
+
+> **Done:** `mergeWeightedAverage` returns early when the combined count is 0, leaving the
+> aggregation untouched (`count: 0`, average unchanged) instead of dividing `0 / 0`. Specs added for
+> the util (both counts zero, zero-count item into existing data) and for the overview's
+> group-by-district view with zero-count rows. History's own `count <= 0` skip is kept.
 
 When both counts are 0 the division is `0 / 0`. History guards against it (`count <= 0` skip), the
 overview grouping does not. Guard in the util itself (`if (newTotalCount === 0) return`) so callers

@@ -13,6 +13,9 @@ export function mergeWeightedAverage(
 ): void {
   const oldCount = current.count;
   const newTotalCount = oldCount + item.count;
+  if (newTotalCount === 0) {
+    return;
+  }
   current.avgPricePerMeter =
     (oldCount * current.avgPricePerMeter + item.count * item.avgPricePerMeter) /
     newTotalCount;

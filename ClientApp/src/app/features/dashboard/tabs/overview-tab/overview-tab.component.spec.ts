@@ -562,6 +562,26 @@ describe('OverviewTabComponent', () => {
       expect(component.aggregatedData[0].avgPricePerMeter).toBeCloseTo(12.535, 2);
     });
 
+    it('should not produce NaN averages when aggregating rows with a zero count', () => {
+      flatsService.getAggregated.and.returnValue(of({
+        success: true,
+        data: [
+          { district: 'Mitte', roomsCount: 1, count: 0, avgPricePerMeter: 99 },
+          { district: 'Mitte', roomsCount: 2, count: 5, avgPricePerMeter: 10 },
+          { district: 'Weststadt', roomsCount: 1, count: 0, avgPricePerMeter: 50 }
+        ],
+        message: 'Success'
+      }));
+      component.loadAggregatedData();
+
+      component.groupByDistrict = true;
+      component.groupByRooms = false;
+      component.onGroupingToggle();
+
+      expect(component.aggregatedData.map(item => [item.district, item.count, item.avgPricePerMeter]))
+        .toEqual([['Mitte', 5, 10], ['Weststadt', 0, 0]]);
+    });
+
     it('should apply filter and then aggregate correctly', () => {
       flatsService.getAggregated.and.returnValue(of(multiRoomData));
       component.loadAggregatedData();

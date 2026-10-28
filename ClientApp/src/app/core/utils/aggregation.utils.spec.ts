@@ -43,6 +43,26 @@ describe('aggregation.utils', () => {
       expect(current.avgPricePerMeter).toBeCloseTo(100, 5);
     });
 
+    it('should leave the aggregation unchanged when both counts are zero', () => {
+      const current = { count: 0, avgPricePerMeter: 0 };
+      const item = { count: 0, avgPricePerMeter: 100 };
+
+      mergeWeightedAverage(current, item);
+
+      expect(current.count).toBe(0);
+      expect(current.avgPricePerMeter).toBe(0);
+    });
+
+    it('should ignore a zero-count item when merging into an existing aggregation', () => {
+      const current = { count: 5, avgPricePerMeter: 100 };
+      const item = { count: 0, avgPricePerMeter: 999 };
+
+      mergeWeightedAverage(current, item);
+
+      expect(current.count).toBe(5);
+      expect(current.avgPricePerMeter).toBe(100);
+    });
+
     it('should handle large counts', () => {
       const current = { count: 1000, avgPricePerMeter: 150 };
       const item = { count: 500, avgPricePerMeter: 140 };
