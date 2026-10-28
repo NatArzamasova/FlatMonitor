@@ -102,7 +102,17 @@ configuration (see 2.6).
 
 ## 2. Structural refactorings
 
-### 2.1 One composition root, configuration instead of hard-coded paths
+### 2.1 One composition root, configuration instead of hard-coded paths ✅ Done
+> **Done:** `FlatMonitor/appsettings.json` (connection string, `Storage:DataDirectory`, log levels) +
+> `Storage/StorageOptions` (resolves relative paths against the content root, fails with a clear message if the
+> settings are missing). `AddFlatMonitorCore(configuration, contentRoot)` is the single registration for web and
+> CLI (CLI now uses `Host.CreateApplicationBuilder` and a proper async scope); `AddHttpClient<OhneMaklerScraper>`;
+> scrapers registered as `IEnumerable<IScraper>`. `Directory.SetCurrentDirectory` and `StoragePaths` are gone;
+> `RunWorkingDirectory` makes `dotnet run` use the project directory. Scrapers take `StorageOptions` instead of the
+> unused repository; repositories no longer fall back to the real DB file. Migrations run in one helper at startup
+> (the repositories' own `InitializeAsync` is still there; removed in 2.2). Not done: `ICommand` classes (optional).
+> Tests: `AppSettingsTests`, `StorageOptionsTests`, `ServiceRegistrationExtensionsTests`. Verified by starting
+> the new build on another port against the existing `FlatMonitor/data/listings.db` (577 offers returned).
 **Severity:** High · **Impact:** Maintainability, correctness when adding services
 **Files:** `Program.cs`, `ServiceRegistrationExtensions.cs`, `Storage/StoragePaths.cs`, `Storage/FlatsDbContextFactory.cs`
 
@@ -431,7 +441,7 @@ Each step is independently shippable and keeps `dotnet test` green.
 |---|------|-----------|------|
 | 1 | ✅ Fix 1.1 (swallowed exceptions) + test | Data loss risk today | Low |
 | 2 | Delete dead code: `ScrapeStateService`, `ScrapingCounterService`, unused scraper repo params, `ExtractAddressFromCurrentPageAsync`, no-op `SaveChanges` | Shrinks the surface before restructuring | Low |
-| 3 | 2.1 composition root + configuration (single DI registration, connection string, `AddHttpClient`) | Every later step touches DI | Medium |
+| 3 | ✅ 2.1 composition root + configuration (single DI registration, connection string, `AddHttpClient`) | Every later step touches DI | Medium |
 | 4 | 2.2 repositories inject `FlatsDbContext`; move clear/restore into the repository; restore logic into `ScrapeExecutionService` | Enables transactions and simpler tests | Medium |
 | 5 | 2.3 + 2.4 streaming `IScraper`, coordinator owns filtering/persistence, `Flat` as record | Fixes 1.2/1.3 structurally | Medium–High (touches both scrapers) |
 | 6 | 2.6 `ILogger` everywhere | Mechanical once DI is clean | Low |

@@ -1,23 +1,19 @@
 using dotenv.net;
 using FlatMonitor;
 using FlatMonitor.Api.Services;
-using FlatMonitor.Scraping;
 using FlatMonitor.Scraping.ImmobilienScout24;
-using FlatMonitor.Scraping.OhneMakler;
 using FlatMonitor.Storage;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 var commandArgs = Environment.GetCommandLineArgs().Skip(1).ToArray();
 
 try
 {
-    // Change to solution root to find .env
-    var solutionRoot = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..");
-    solutionRoot = Path.GetFullPath(solutionRoot);
-    Directory.SetCurrentDirectory(solutionRoot);
-    DotEnv.Load();
+    // .env lives in the repository root; probe upwards from the build output (bin/<config>/<tfm>)
+    DotEnv.Load(new DotEnvOptions(probeForEnv: true, probeLevelsToSearch: 5));
 
     if (commandArgs.Length > 0 && (commandArgs[0] == "--help" || commandArgs[0] == "-h"))
     {
@@ -51,32 +47,19 @@ async Task<int> RunScrapeAsync()
 {
     Console.WriteLine("Starting scraper...");
 
-    var services = new ServiceCollection();
-    var dbPath = Path.Combine(Directory.GetCurrentDirectory(), "FlatMonitor", "data", "listings.db");
-    Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
-
-    services.AddDbContext<FlatsDbContext>(options =>
-        options.UseSqlite($"Data Source={dbPath}"));
-
-    services.AddSingleton<HttpClient>(sp =>
-    {
-        var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-        client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
-        return client;
-    });
-
-    services.AddLogging(logging => logging.AddFlatMonitorLogging());
-    services.AddScrapeServices();
-
-    var serviceProvider = services.BuildServiceProvider();
+    // No args: "scrape" is a command, not configuration
+    var builder = Host.CreateApplicationBuilder();
+    builder.Logging.AddFlatMonitorLogging();
+    builder.Services.AddFlatMonitorCore(builder.Configuration, builder.Environment.ContentRootPath);
+    using var host = builder.Build();
+    await using var scope = host.Services.CreateAsyncScope();
 
     try
     {
-        await using var dbContext = serviceProvider.GetRequiredService<FlatsDbContext>();
-        await dbContext.Database.MigrateAsync();
+        await MigrateDatabaseAsync(scope.ServiceProvider);
 
-        await using var snapshotRepo = (FlatSnapshotRepository)serviceProvider.GetRequiredService<ISnapshotRepository>();
-        var executionService = serviceProvider.GetRequiredService<ScrapeExecutionService>();
+        var snapshotRepo = scope.ServiceProvider.GetRequiredService<ISnapshotRepository>();
+        var executionService = scope.ServiceProvider.GetRequiredService<ScrapeExecutionService>();
 
         try
         {
@@ -118,10 +101,6 @@ async Task<int> RunScrapeAsync()
     {
         Console.Error.WriteLine($"Scrape failed: {ex.Message}");
         return 1;
-    }
-    finally
-    {
-        await serviceProvider.DisposeAsync();
     }
 }
 
@@ -175,42 +154,10 @@ async Task<int> RunWebServerAsync(string[] args)
 
         builder.Logging.AddFlatMonitorLogging();
 
-        // Add services to the container
-        var dbPath = Path.Combine(Directory.GetCurrentDirectory(), "FlatMonitor", "data", "listings.db");
-        Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
-
-        builder.Services.AddDbContext<FlatsDbContext>(options =>
-            options.UseSqlite($"Data Source={dbPath}"));
-
-        builder.Services.AddSingleton<HttpClient>(sp =>
-        {
-            var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-            client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
-            return client;
-        });
-
-        builder.Services.AddScoped<OhneMaklerScraper>();
-        builder.Services.AddScoped<ImmobilienScout24Scraper>();
-        builder.Services.AddScoped<ISnapshotRepository>(sp => new FlatSnapshotRepository(sp.GetRequiredService<DbContextOptions<FlatsDbContext>>()));
-        builder.Services.AddScoped<IFlatAggregationRepository>(sp => new FlatAggregationRepository(sp.GetRequiredService<DbContextOptions<FlatsDbContext>>()));
-        builder.Services.AddScoped<IScrapingHistoryRepository, ScrapingHistoryRepository>();
-        builder.Services.AddScoped<IFilterPresetRepository, FilterPresetRepository>();
-        builder.Services.AddScoped<SnapshotWriter>();
-        builder.Services.AddScoped<ScraperCoordinator>(sp =>
-        {
-            var scrapers = new IScraper[]
-            {
-                sp.GetRequiredService<OhneMaklerScraper>(),
-                sp.GetRequiredService<ImmobilienScout24Scraper>(),
-            };
-            var repository = sp.GetRequiredService<ISnapshotRepository>();
-            var snapshotWriter = sp.GetRequiredService<SnapshotWriter>();
-            return new ScraperCoordinator(scrapers, repository, snapshotWriter);
-        });
+        builder.Services.AddFlatMonitorCore(builder.Configuration, builder.Environment.ContentRootPath);
 
         builder.Services.AddSingleton<ScrapeStateService>();
         builder.Services.AddSingleton<ScrapeJobService>();
-        builder.Services.AddScoped<ScrapeExecutionService>();
         builder.Services.AddSingleton<ScrapeBackgroundService>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<ScrapeBackgroundService>());
 
@@ -219,11 +166,9 @@ async Task<int> RunWebServerAsync(string[] args)
 
         var app = builder.Build();
 
-        // Apply migrations
-        using (var scope = app.Services.CreateScope())
+        await using (var scope = app.Services.CreateAsyncScope())
         {
-            var dbContext = scope.ServiceProvider.GetRequiredService<FlatsDbContext>();
-            await dbContext.Database.MigrateAsync();
+            await MigrateDatabaseAsync(scope.ServiceProvider);
         }
 
         if (app.Environment.EnvironmentName == "Development")
@@ -247,6 +192,12 @@ async Task<int> RunWebServerAsync(string[] args)
             Console.Error.WriteLine(ex.StackTrace);
         return 1;
     }
+}
+
+async Task MigrateDatabaseAsync(IServiceProvider services)
+{
+    services.GetRequiredService<StorageOptions>().EnsureDirectoriesExist();
+    await services.GetRequiredService<FlatsDbContext>().Database.MigrateAsync();
 }
 
 void PrintUsage()

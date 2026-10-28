@@ -36,6 +36,22 @@ This mode:
 - Writes new snapshots to `data/snapshots/`
 - Useful for CI/CD pipelines
 
+## Configuration
+
+`FlatMonitor/appsettings.json` holds the settings shared by the web server and the CLI:
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `ConnectionStrings:Flats` | `Data Source=data/listings.db` | SQLite database |
+| `Storage:DataDirectory` | `data` | JSONL and HTML snapshots |
+| `Logging:LogLevel` | FlatMonitor `Information`, `Microsoft`/`System` `Warning` | Console log levels |
+
+Relative paths are resolved against the content root, which is the `FlatMonitor/` project directory: `dotnet run`
+always runs there (`RunWorkingDirectory` in `FlatMonitor.csproj`), from any directory. When starting the built app
+directly (`dotnet FlatMonitor.dll`), start it from `FlatMonitor/` or override the settings with environment variables,
+e.g. `ConnectionStrings__Flats="Data Source=C:/flats/listings.db"` and `Storage__DataDirectory=C:/flats`.
+`dotnet ef` reads the same file (run it from `FlatMonitor/` or with `--project FlatMonitor`).
+
 ## Project Structure
 
 ```

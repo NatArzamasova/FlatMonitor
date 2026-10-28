@@ -33,7 +33,7 @@ dotnet run -- report
 - `ScraperCoordinator` orchestrates all scrapers and manages snapshots per source
 
 **Two storage layers:**
-1. **SQLite database** (`data/flats.db`) — **canonical source of truth**. Persists all flats with source attribution. Used for all reads, aggregations, and statistics. Git-ignored.
+1. **SQLite database** (`FlatMonitor/data/listings.db`, set in `FlatMonitor/appsettings.json`) — **canonical source of truth**. Persists all flats with source attribution. Used for all reads, aggregations, and statistics. Git-ignored.
 2. **Snapshot files** (`data/snapshots/{source}/{utc-timestamp}.jsonl`) — optional backups for debugging only. JSON Lines format (one flat per line). Do NOT use snapshots as source for database rebuilds; snapshots may contain stale or unfiltered data.
 
 **Two run modes:**

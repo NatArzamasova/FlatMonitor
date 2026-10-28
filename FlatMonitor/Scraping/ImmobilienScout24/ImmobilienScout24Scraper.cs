@@ -19,7 +19,7 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
 
     private readonly FlatExtractor _extractor;
     private readonly IFlatSelectors _selectors;
-    private readonly ISnapshotRepository _repository;
+    private readonly string _htmlSnapshotsDir;
     private IBrowser? _browser;
     private IPage? _page;
     private ImmobilienScout24DetailScraper? _detailScraper;
@@ -28,11 +28,11 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
 
     public override string Source => SourceName;
 
-    public ImmobilienScout24Scraper(ISnapshotRepository? repository = null)
+    public ImmobilienScout24Scraper(StorageOptions storage)
     {
         _extractor = new FlatExtractor();
         _selectors = new ImmobilienScout24Selectors();
-        _repository = repository ?? new FlatSnapshotRepository();
+        _htmlSnapshotsDir = Path.Combine(storage.DataDirectory, "snapshots", "html", SourceName);
     }
 
     protected override async Task InitializeAsync(CancellationToken ct)
@@ -47,7 +47,7 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
 
         _browser = browser;
         _page = page;
-        _detailScraper = new ImmobilienScout24DetailScraper(page);
+        _detailScraper = new ImmobilienScout24DetailScraper(page, _htmlSnapshotsDir);
         _detailParser = new ImmobilienScout24DetailParser();
         _pageFetcher = new ImmobilienScout24FlatsPageFetcher(browser, page);
     }
@@ -56,8 +56,7 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
     {
         try
         {
-            var dataDir = StoragePaths.GetDefaultDataDirectory();
-            var htmlDir = Path.Combine(dataDir, "snapshots", "html", "ImmobilienScout24");
+            var htmlDir = _htmlSnapshotsDir;
 
             if (Directory.Exists(htmlDir))
             {

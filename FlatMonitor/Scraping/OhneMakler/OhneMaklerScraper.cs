@@ -17,17 +17,17 @@ public sealed class OhneMaklerScraper : FlatScraper
     public const string SourceName = "OhneMakler";
 
     private readonly HttpClient _httpClient;
-    private readonly ISnapshotRepository _repository;
+    private readonly string _htmlSnapshotsDir;
     private OhneMaklerFlatsPageFetcher? _pageFetcher;
     private readonly OhneMaklerFlatCardParser _cardParser;
     private readonly OhneMaklerDetailPageParser _detailParser;
 
     public override string Source => SourceName;
 
-    public OhneMaklerScraper(HttpClient httpClient, ISnapshotRepository? repository = null)
+    public OhneMaklerScraper(HttpClient httpClient, StorageOptions storage)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-        _repository = repository ?? new FlatSnapshotRepository();
+        _htmlSnapshotsDir = Path.Combine(storage.DataDirectory, "snapshots", "html", SourceName);
         _cardParser = new OhneMaklerFlatCardParser();
         _detailParser = new OhneMaklerDetailPageParser();
     }
@@ -42,8 +42,7 @@ public sealed class OhneMaklerScraper : FlatScraper
     {
         try
         {
-            var dataDir = StoragePaths.GetDefaultDataDirectory();
-            var htmlDir = Path.Combine(dataDir, "snapshots", "html", "OhneMakler");
+            var htmlDir = _htmlSnapshotsDir;
 
             if (Directory.Exists(htmlDir))
             {
@@ -206,8 +205,7 @@ public sealed class OhneMaklerScraper : FlatScraper
     {
         try
         {
-            var dataDir = StoragePaths.GetDefaultDataDirectory();
-            var htmlDir = Path.Combine(dataDir, "snapshots", "html", "OhneMakler");
+            var htmlDir = _htmlSnapshotsDir;
             if (!Directory.Exists(htmlDir))
             {
                 Directory.CreateDirectory(htmlDir);

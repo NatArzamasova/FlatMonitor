@@ -16,12 +16,12 @@ public sealed class ScraperCoordinator : IAsyncDisposable
         IEnumerable<IScraper> scrapers,
         ISnapshotRepository repository,
         SnapshotWriter snapshotWriter,
-        string? dataDirectory = null)
+        string dataDirectory)
     {
         _scrapers = scrapers ?? throw new ArgumentNullException(nameof(scrapers));
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _snapshotWriter = snapshotWriter ?? throw new ArgumentNullException(nameof(snapshotWriter));
-        _dataDirectory = dataDirectory ?? StoragePaths.GetDefaultDataDirectory();
+        _dataDirectory = dataDirectory ?? throw new ArgumentNullException(nameof(dataDirectory));
     }
 
     public void SetOnBatchSavedCallback(Func<int, Task> callback)

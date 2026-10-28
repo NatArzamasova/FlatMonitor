@@ -3,7 +3,6 @@ namespace FlatMonitor.Scraping.Debug;
 using System.Text.Json;
 using FlatMonitor.Json;
 using FlatMonitor.Models;
-using FlatMonitor.Storage;
 
 
 
@@ -16,9 +15,8 @@ public sealed class SnapshotLoader
 {
     private const string SnapshotsDir = "snapshots";
 
-    public List<Flat> LoadAllSnapshots(string? baseDirectory = null)
+    public List<Flat> LoadAllSnapshots(string baseDirectory)
     {
-        baseDirectory ??= StoragePaths.GetDefaultDataDirectory();
         var snapshotsPath = Path.Combine(baseDirectory, SnapshotsDir);
         var listings = new List<Flat>();
 

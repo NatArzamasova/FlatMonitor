@@ -17,11 +17,10 @@ public sealed class SnapshotWriter
 
     public async Task<string> WriteSnapshotAsync(
         List<Flat> listings,
-        string? baseDirectory = null,
+        string baseDirectory,
         string? source = null,
         CancellationToken ct = default)
     {
-        baseDirectory ??= StoragePaths.GetDefaultDataDirectory();
         source ??= "default";
 
         // Ensure data/snapshots/{source} directory exists

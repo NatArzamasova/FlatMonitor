@@ -4,10 +4,14 @@ using NUnit.Framework;
 using FluentAssertions;
 using FlatMonitor.Models;
 using FlatMonitor.Scraping.OhneMakler;
+using FlatMonitor.Storage;
 
 [TestFixture]
 public class OhneMaklerScraperTests
 {
+    private static readonly StorageOptions TempStorage =
+        new(Path.Combine(Path.GetTempPath(), "OhneMaklerScraperTests"), "Data Source=:memory:");
+
     [Test]
     public void OhneMaklerScraper_CanBeInstantiated()
     {
@@ -15,7 +19,7 @@ public class OhneMaklerScraperTests
         using var httpClient = new HttpClient();
 
         // Act
-        var scraper = new OhneMaklerScraper(httpClient);
+        var scraper = new OhneMaklerScraper(httpClient, TempStorage);
 
         // Assert
         scraper.Should().NotBeNull();
@@ -28,7 +32,7 @@ public class OhneMaklerScraperTests
     {
         // Arrange
         using var httpClient = new HttpClient();
-        var scraper = new OhneMaklerScraper(httpClient);
+        var scraper = new OhneMaklerScraper(httpClient, TempStorage);
 
         // Act & Assert
         // This test verifies the method exists and can be called.

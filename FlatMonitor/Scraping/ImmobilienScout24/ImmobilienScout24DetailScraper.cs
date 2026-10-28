@@ -1,7 +1,6 @@
 namespace FlatMonitor.Scraping.ImmobilienScout24;
 
 using FlatMonitor.Models;
-using FlatMonitor.Storage;
 using Microsoft.Playwright;
 
 /// <summary>
@@ -14,21 +13,11 @@ public class ImmobilienScout24DetailScraper
     private readonly IPage _page;
     private readonly string _htmlSnapshotsDir;
 
-    public ImmobilienScout24DetailScraper(IPage page)
+    public ImmobilienScout24DetailScraper(IPage page, string htmlSnapshotsDir)
     {
         _page = page ?? throw new ArgumentNullException(nameof(page));
-        _htmlSnapshotsDir = InitializeSnapshotsDirectory();
-    }
-
-    private static string InitializeSnapshotsDirectory()
-    {
-        var dataDir = StoragePaths.GetDefaultDataDirectory();
-        var htmlDir = Path.Combine(dataDir, "snapshots", "html", "ImmobilienScout24");
-        if (!Directory.Exists(htmlDir))
-        {
-            Directory.CreateDirectory(htmlDir);
-        }
-        return htmlDir;
+        _htmlSnapshotsDir = htmlSnapshotsDir ?? throw new ArgumentNullException(nameof(htmlSnapshotsDir));
+        Directory.CreateDirectory(_htmlSnapshotsDir);
     }
 
     /// <summary>

@@ -8,21 +8,11 @@ public sealed class FlatSnapshotRepository : ISnapshotRepository
     private readonly FlatsDbContext _dbContext;
     private readonly bool _ownsContext;
 
-    public FlatSnapshotRepository(DbContextOptions<FlatsDbContext>? options = null)
+    public FlatSnapshotRepository(DbContextOptions<FlatsDbContext> options)
     {
-        if (options != null)
-        {
-            _dbContext = new FlatsDbContext(options);
-            _ownsContext = true;
-        }
-        else
-        {
-            var defaultOptions = new DbContextOptionsBuilder<FlatsDbContext>()
-                .UseSqlite(GetDefaultConnectionString())
-                .Options;
-            _dbContext = new FlatsDbContext(defaultOptions);
-            _ownsContext = true;
-        }
+        ArgumentNullException.ThrowIfNull(options);
+        _dbContext = new FlatsDbContext(options);
+        _ownsContext = true;
     }
 
     public async Task InitializeAsync(CancellationToken ct = default)
@@ -186,16 +176,6 @@ public sealed class FlatSnapshotRepository : ISnapshotRepository
             return null;
 
         return (int)Math.Round((double)priceEur.Value / livingAreaSqm.Value);
-    }
-
-    private static string GetDefaultConnectionString()
-    {
-        var dataDir = StoragePaths.GetDefaultDataDirectory();
-        if (!Directory.Exists(dataDir))
-            Directory.CreateDirectory(dataDir);
-
-        var dbPath = Path.Combine(dataDir, "listings.db");
-        return $"Data Source={dbPath}";
     }
 
     public async Task<List<FlatOffer>> GetCurrentOffersAsync(CancellationToken ct = default)
