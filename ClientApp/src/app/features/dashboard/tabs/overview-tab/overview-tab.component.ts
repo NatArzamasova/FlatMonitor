@@ -69,11 +69,10 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
         takeUntil(this.destroy$)
       )
       .subscribe((status) => {
+        // Capture before updateScrapingStatus overwrites `scraping`, or the finish is never detected.
+        const wasScraping = this.scraping;
         this.updateScrapingStatus(status);
-        if (status.isScrapingInProgress) {
-          this.scraping = true;
-        } else if (this.scraping) {
-          this.scraping = false;
+        if (wasScraping && !status.isScrapingInProgress) {
           this.loadAggregatedData();
         }
       });

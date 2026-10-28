@@ -126,8 +126,18 @@ them to `styles.scss` (if they are meant to be global) or delete them. (`.btn-gr
 drives a second "Scraped N flats successfully" alert — at queue time, before anything was scraped.
 Keep only the queued message; report the final count from the status poll when the run finishes.
 
-### A8. Data is never auto-refreshed when a scrape finishes
+### A8. Data is never auto-refreshed when a scrape finishes ✅ COMPLETED
 `overview-tab.component.ts:71-79` (found while writing the A2 specs)
+
+> **Done:** the poll handler captures `wasScraping` before `updateScrapingStatus` and reloads the
+> aggregated data on the running → not-running transition. Specs: reload exactly once when a scrape
+> finishes, reload after a failed poll in between, no reload while nothing is running.
+>
+> Remaining gap (backend): `IsScrapingInProgress()` only counts `Running` jobs, not `Queued` ones.
+> Right after "Manual Scrape", the immediate status reload can still report "not in progress" and
+> flip the button back until the job starts. If a job finished between two polls (< 2 s) its
+> completion would also be missed. Counting `Queued` jobs as in progress in `ScrapeJobService`
+> would close both.
 
 The poll handler calls `updateScrapingStatus(status)` first, which already sets
 `this.scraping = status.isScrapingInProgress`. The following check

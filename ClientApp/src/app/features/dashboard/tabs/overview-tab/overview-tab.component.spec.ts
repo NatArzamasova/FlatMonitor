@@ -235,6 +235,63 @@ describe('OverviewTabComponent', () => {
 
       component.ngOnDestroy();
     }));
+
+    it('reloads aggregated data once when a running scrape finishes', fakeAsync(() => {
+      flatsService.getAggregated.and.returnValue(of(mockAggregatedResponse));
+      flatsService.getScrapeStatus.and.returnValues(
+        of(mockScrapingStatusRunning),
+        of(mockScrapingStatusRunning),
+        of(mockScrapingStatusNotRunning),
+        of(mockScrapingStatusNotRunning)
+      );
+
+      component.ngOnInit();
+      const initialLoadCount = flatsService.getAggregated.calls.count();
+      tick(2000);
+      expect(flatsService.getAggregated.calls.count()).toBe(initialLoadCount);
+
+      tick(2000);
+      expect(component.scraping).toBe(false);
+      expect(flatsService.getAggregated.calls.count()).toBe(initialLoadCount + 1);
+
+      tick(2000);
+      expect(flatsService.getAggregated.calls.count()).toBe(initialLoadCount + 1);
+
+      component.ngOnDestroy();
+    }));
+
+    it('reloads aggregated data when a scrape finishes after a failed status request', fakeAsync(() => {
+      spyOn(console, 'error');
+      flatsService.getAggregated.and.returnValue(of(mockAggregatedResponse));
+      flatsService.getScrapeStatus.and.returnValues(
+        of(mockScrapingStatusRunning),
+        throwError(() => new Error('Network error')),
+        of(mockScrapingStatusNotRunning)
+      );
+
+      component.ngOnInit();
+      const initialLoadCount = flatsService.getAggregated.calls.count();
+      tick(2000);
+      tick(2000);
+
+      expect(component.scraping).toBe(false);
+      expect(flatsService.getAggregated.calls.count()).toBe(initialLoadCount + 1);
+
+      component.ngOnDestroy();
+    }));
+
+    it('does not reload aggregated data while no scrape is running', fakeAsync(() => {
+      flatsService.getAggregated.and.returnValue(of(mockAggregatedResponse));
+      flatsService.getScrapeStatus.and.returnValue(of(mockScrapingStatusNotRunning));
+
+      component.ngOnInit();
+      const initialLoadCount = flatsService.getAggregated.calls.count();
+      tick(6000);
+
+      expect(flatsService.getAggregated.calls.count()).toBe(initialLoadCount);
+
+      component.ngOnDestroy();
+    }));
   });
 
   describe('triggerScrape', () => {
