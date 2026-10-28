@@ -72,16 +72,21 @@ public sealed class FilterPreset
 collation and the partial index are actually tested: `FlatMonitor.Tests/Storage/FilterPresetMappingTests.cs` (9 tests, all pass).
 They cover round-trip, empty list, JSON storage, several presets, duplicate name rejected (also with different case),
 case-insensitive lookup, many non-default presets, and a second default rejected.
-⚠ Until step 3 adds the migration, `MigrateAsync` throws `PendingModelChangesWarning`. That breaks app startup
-and 4 backup/restore tests in `FlatSnapshotRepositoryTests`. Commit steps 2–4 together (see commit sequence).
+(The pending-migration warning that broke startup and 4 backup/restore tests is resolved by step 3.)
 
-### 3. Migration
+### 3. Migration ✅ DONE
 ```bash
 dotnet ef migrations add AddFilterPresets --project FlatMonitor
 ```
-(Requires the `dotnet-ef` tool. It is not in `.config/dotnet-tools.json`; use the global tool or add it as a local tool.)
+(Requires the global `dotnet-ef` tool, version 10.0.1 to match EF Core. Add `--configuration Release` while the API server is
+running, because the server locks the Debug output.)
 Check the generated migration for the `NOCASE` collation on `Name` and the `filter: "\"IsDefault\" = 1"` on the index.
 Migrations already run on startup (`MigrateAsync` in `Program.cs`), so nothing else is needed for deployment.
+
+**Status:** implemented. `FlatMonitor/Migrations/20261028104827_AddFilterPresets.cs` (+ Designer, updated model snapshot).
+Collation and partial index are present. `dotnet ef migrations has-pending-model-changes` reports none. All 218 .NET tests pass.
+The snapshot diff also renames entity types `workInProgress.Models.*` → `FlatMonitor.Models.*`, left over from an earlier
+namespace rename. This changes no schema.
 
 ### 4. Repository
 `FlatMonitor/Storage/IFilterPresetRepository.cs` + `FilterPresetRepository.cs`, styled like
@@ -218,7 +223,7 @@ Frontend:
 
 ## Suggested commit sequence
 1. `refactor(scrape): extract allowed districts into KarlsruheDistricts` ✅ ready to commit
-2. `feat(db): add FilterPresets table and repository` (steps 2–4 together; step 2 alone breaks startup)
+2. `feat(db): add FilterPresets table and repository` (steps 2–4 together; steps 2+3 alone are also safe to commit now)
 3. `feat(api): add filter presets endpoints`
 4. `feat(frontend): add filter presets service and preset bar`
 5. `feat(frontend): apply default filter preset in overview and offers tabs`
@@ -228,7 +233,6 @@ Frontend:
 1. **History tab:** it currently has no district filter, only a "group by district / rooms" radio.
    Should it get a district multi-select (filtering `historyData` before aggregation, only when grouping by district) and the preset bar?
    This plan leaves it out until decided.
-2. **Rooms / price:** should presets later also store rooms and price range? If so, `FilterPreset` gets more columns
-   (`Rooms`, `PriceMin`, `PriceMax`) and the API shapes grow by those fields. The design allows this. Not in scope now.
+2. ~~**Rooms / price**~~ **Decided:** presets store districts only. Rooms/price can be added later with a new migration.
 3. **Chosen preset across tabs:** if you pick preset "East" in the overview tab, should the offers tab also switch to "East",
    or does each tab start with the default (current plan)?

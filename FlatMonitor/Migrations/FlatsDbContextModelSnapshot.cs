@@ -17,7 +17,45 @@ namespace FlatMonitor.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.1");
 
-            modelBuilder.Entity("workInProgress.Models.FlatAggregationSnapshot", b =>
+            modelBuilder.Entity("FlatMonitor.Models.FilterPreset", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.PrimitiveCollection<string>("Districts")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDefault")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT")
+                        .UseCollation("NOCASE");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsDefault")
+                        .IsUnique()
+                        .HasDatabaseName("idx_FilterPresets_SingleDefault")
+                        .HasFilter("\"IsDefault\" = 1");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("idx_FilterPresets_Name");
+
+                    b.ToTable("FilterPresets", (string)null);
+                });
+
+            modelBuilder.Entity("FlatMonitor.Models.FlatAggregationSnapshot", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -50,7 +88,7 @@ namespace FlatMonitor.Migrations
                     b.ToTable("FlatAggregations", (string)null);
                 });
 
-            modelBuilder.Entity("workInProgress.Models.FlatSnapshot", b =>
+            modelBuilder.Entity("FlatMonitor.Models.FlatSnapshot", b =>
                 {
                     b.Property<string>("Source")
                         .HasMaxLength(50)
@@ -124,7 +162,7 @@ namespace FlatMonitor.Migrations
                     b.ToTable("FlatsSnapshots", (string)null);
                 });
 
-            modelBuilder.Entity("workInProgress.Models.ScrapingHistory", b =>
+            modelBuilder.Entity("FlatMonitor.Models.ScrapingHistory", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -155,9 +193,9 @@ namespace FlatMonitor.Migrations
                     b.ToTable("ScrapingHistories", (string)null);
                 });
 
-            modelBuilder.Entity("workInProgress.Models.FlatSnapshot", b =>
+            modelBuilder.Entity("FlatMonitor.Models.FlatSnapshot", b =>
                 {
-                    b.OwnsOne("workInProgress.Models.FlatDetails", "Details", b1 =>
+                    b.OwnsOne("FlatMonitor.Models.FlatDetails", "Details", b1 =>
                         {
                             b1.Property<string>("FlatSnapshotSource")
                                 .HasColumnType("TEXT");
