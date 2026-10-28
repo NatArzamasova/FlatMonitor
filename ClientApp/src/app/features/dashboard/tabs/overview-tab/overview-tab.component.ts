@@ -5,7 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { Params, Router } from '@angular/router';
 import { finalize } from 'rxjs/operators';
 import { FlatsService } from '../../../../core/services/flats.service';
-import { FilterService } from '../../../../core/services/filter.service';
+import { filterByDistricts, filterByRooms } from '../../../../core/utils/filter.utils';
 import { ScrapeStatusService } from '../../../../core/services/scrape-status.service';
 import { FlatAggregation } from '../../../../core/models/flat-aggregation.model';
 import { groupWeighted } from '../../../../core/utils/aggregation.utils';
@@ -39,7 +39,6 @@ type AggregationSortColumn = 'district' | 'roomsCount' | 'count' | 'avgPricePerM
 })
 export class OverviewTabComponent implements OnInit {
   private readonly flatsService = inject(FlatsService);
-  private readonly filterService = inject(FilterService);
   private readonly scrapeStatus = inject(ScrapeStatusService);
   private readonly router = inject(Router);
   private readonly location = inject(Location);
@@ -94,8 +93,8 @@ export class OverviewTabComponent implements OnInit {
 
   applyFiltersAndGrouping(): void {
     let filtered = this.rawData;
-    filtered = this.filterService.filterByDistricts(filtered, this.selectedDistricts, item => item.district);
-    filtered = this.filterService.filterByRooms(filtered, this.selectedRooms, item => normalizeRooms(item.roomsCount));
+    filtered = filterByDistricts(filtered, this.selectedDistricts, item => item.district);
+    filtered = filterByRooms(filtered, this.selectedRooms, item => normalizeRooms(item.roomsCount));
 
     // Backend rows are already one per district + rooms combination.
     this.aggregatedData = this.groupByDistrict && this.groupByRooms ? filtered : this.aggregate(filtered);

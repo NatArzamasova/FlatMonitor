@@ -533,7 +533,13 @@ Also `onFiltersChange()` and `onGroupingToggle()` in the overview are both just
 - `FlatHistory.scrapingDate` / `count` / `avgPricePerMeter` are all optional; if the API always sends
   them, make them required and remove the defensive defaults (`count ?? 1`).
 
-### C5. `FilterService` → plain functions
+### C5. `FilterService` → plain functions ✅ COMPLETED
+
+> **Done:** `core/services/filter.service.ts` → `core/utils/filter.utils.ts` with exported
+> `filterByDistricts`, `filterByRooms`, `filterByPriceRange` (same signatures and behaviour, short
+> doc comments added). Overview and Offers import the functions instead of injecting the service.
+> The spec moved to `filter.utils.spec.ts`; only the TestBed setup and the "should be created"
+> test were dropped, all filter assertions are unchanged.
 `FilterService` is stateless; like `aggregation.utils.ts` it can be exported functions in
 `core/utils/filter.utils.ts`. Removes a DI dependency from two components and their spec setup.
 

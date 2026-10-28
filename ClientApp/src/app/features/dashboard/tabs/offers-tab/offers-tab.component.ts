@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { finalize } from 'rxjs/operators';
 import { FlatsService } from '../../../../core/services/flats.service';
-import { FilterService } from '../../../../core/services/filter.service';
+import { filterByDistricts, filterByPriceRange, filterByRooms } from '../../../../core/utils/filter.utils';
 import { FlatOffer } from '../../../../core/models/flat-offer.model';
 import { isHttpUrl } from '../../../../core/utils/url.utils';
 import { normalizeRooms } from '../../../../core/utils/rooms.utils';
@@ -42,7 +42,6 @@ interface OfferRow {
 })
 export class OffersTabComponent implements OnInit {
   private readonly flatsService = inject(FlatsService);
-  private readonly filterService = inject(FilterService);
   private readonly route = inject(ActivatedRoute);
 
   readonly sort = new TableSort<FlatOffer, OfferSortColumn>();
@@ -113,13 +112,13 @@ export class OffersTabComponent implements OnInit {
 
   applyFilters(): void {
     let filtered = this.currentOffers;
-    filtered = this.filterService.filterByDistricts(filtered, this.selectedDistricts, offer => offer.district);
-    filtered = this.filterService.filterByRooms(
+    filtered = filterByDistricts(filtered, this.selectedDistricts, offer => offer.district);
+    filtered = filterByRooms(
       filtered,
       this.selectedRooms,
       offer => normalizeRooms(offer.roomsCount)
     );
-    filtered = this.filterService.filterByPriceRange(
+    filtered = filterByPriceRange(
       filtered,
       this.priceRangeMin,
       this.priceRangeMax,
