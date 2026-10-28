@@ -404,7 +404,18 @@ three templates.
 The `<option disabled selected hidden>Select...</option>` placeholder inside a `multiple` select
 doesn't behave like a placeholder; a proper dropdown-with-checkboxes component would be clearer UX.
 
-### B8. Compute view state once instead of calling methods from templates
+### B8. Compute view state once instead of calling methods from templates ✅ COMPLETED
+
+> **Done:**
+> - Offers: `applyOfferFilters()` also builds `offerRows: { offer, discountPercentage, priceChanged,
+>   hasLink }[]`; the table iterates `offerRows`, so the discount, price-change and URL checks run
+>   once per filter/sort change instead of 2× each per row on every change detection.
+>   `filteredOffers` is unchanged (still the filtered + sorted offers).
+> - History: `latestAverageDate` / `latestAverageData` are fields computed in
+>   `updateHistoryChart()` instead of getters that re-filtered and re-sorted on every change detection.
+> - Specs: two tests that failed before (no recomputation on repeated `detectChanges()`, stable
+>   `latestAverageData` reference) plus DOM checks for the latest-averages table and row order;
+>   existing price-display and link specs pass unchanged.
 Template-bound methods run on every change-detection cycle:
 - Offers: `getDiscountPercentage(offer)` ×2, `hasChangedPrice(offer)` ×2, `isValidUrl` ×2,
   `getSafeUrl` per row (`offers-tab.component.html:119-137`).

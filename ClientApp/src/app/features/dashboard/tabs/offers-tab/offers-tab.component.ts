@@ -18,6 +18,13 @@ import { DismissibleAlertComponent } from '../../../../shared/dismissible-alert/
 type OfferSortColumn =
   'district' | 'roomsCount' | 'priceEur' | 'originalPriceEur' | 'livingAreaSqm' | 'pricePerMeter' | 'source';
 
+interface OfferRow {
+  offer: FlatOffer;
+  discountPercentage: number | null;
+  priceChanged: boolean;
+  hasLink: boolean;
+}
+
 @Component({
   selector: 'app-offers-tab',
   standalone: true,
@@ -36,6 +43,8 @@ export class OffersTabComponent implements OnInit {
 
   currentOffers: FlatOffer[] = [];
   filteredOffers: FlatOffer[] = [];
+  /** `filteredOffers` with the per-row display state, computed once per filter/sort change. */
+  offerRows: OfferRow[] = [];
   loadingOffers = false;
   error: string | null = null;
 
@@ -45,8 +54,6 @@ export class OffersTabComponent implements OnInit {
   priceRangeMax: number | null = null;
   availableOfferDistricts: string[] = [];
   availableOfferRooms: number[] = [];
-
-  isHttpUrl = isHttpUrl;
 
   constructor(
     private flatsService: FlatsService,
@@ -133,6 +140,12 @@ export class OffersTabComponent implements OnInit {
     );
 
     this.filteredOffers = this.sort.apply(filtered);
+    this.offerRows = this.filteredOffers.map(offer => ({
+      offer,
+      discountPercentage: this.getDiscountPercentage(offer),
+      priceChanged: this.hasChangedPrice(offer),
+      hasLink: isHttpUrl(offer.url)
+    }));
   }
 
   onOfferFiltersChange(): void {

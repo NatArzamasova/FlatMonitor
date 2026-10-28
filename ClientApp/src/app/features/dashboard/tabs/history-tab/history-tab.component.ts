@@ -24,21 +24,9 @@ export class HistoryTabComponent implements OnInit {
   error: string | null = null;
   historyGroupBy: 'district' | 'rooms' = 'district';
   chartData: HistoryPoint[] = [];
-
-  get latestAverageDate(): string {
-    return this.chartData.reduce(
-      (latest, item) => item.date > latest ? item.date : latest,
-      ''
-    );
-  }
-
-  get latestAverageData(): { label: string; price: number }[] {
-    const latestDate = this.latestAverageDate;
-    return this.chartData
-      .filter(item => item.date === latestDate)
-      .map(({ label, price }) => ({ label, price }))
-      .sort((left, right) => right.price - left.price || left.label.localeCompare(right.label));
-  }
+  // Derived from chartData in updateHistoryChart(), so the table is not recomputed on every change detection.
+  latestAverageDate = '';
+  latestAverageData: { label: string; price: number }[] = [];
 
   get chartTitle(): string {
     return `Price per m² Trend (${this.historyGroupBy === 'district' ? 'by District' : 'by Room Number'})`;
@@ -78,6 +66,19 @@ export class HistoryTabComponent implements OnInit {
     } else {
       this.aggregateByRoomsHistory();
     }
+    this.updateLatestAverages();
+  }
+
+  private updateLatestAverages(): void {
+    const latestDate = this.chartData.reduce(
+      (latest, item) => item.date > latest ? item.date : latest,
+      ''
+    );
+    this.latestAverageDate = latestDate;
+    this.latestAverageData = this.chartData
+      .filter(item => item.date === latestDate)
+      .map(({ label, price }) => ({ label, price }))
+      .sort((left, right) => right.price - left.price || left.label.localeCompare(right.label));
   }
 
   private aggregateByDistrictHistory(): void {

@@ -227,6 +227,35 @@ describe('HistoryTabComponent', () => {
     });
   });
 
+  describe('Latest averages table', () => {
+    it('renders the latest date and its averages sorted by price', () => {
+      flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
+      fixture.detectChanges();
+
+      const heading = fixture.nativeElement.querySelector('h2') as HTMLElement;
+      const rows = Array.from(fixture.nativeElement.querySelectorAll('table tbody tr')) as HTMLElement[];
+      expect(heading.textContent).toContain('Latest averages (2024-01-16)');
+      expect(rows.map(row => Array.from(row.querySelectorAll('td')).map(cell => cell.textContent!.trim())))
+        .toEqual([['Mitte', '€13']]);
+    });
+
+    it('computes the latest averages when the data changes, not on every change detection', () => {
+      flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
+      fixture.detectChanges();
+      const latest = component.latestAverageData;
+
+      fixture.detectChanges();
+
+      expect(component.latestAverageData).toBe(latest);
+
+      component.historyGroupBy = 'rooms';
+      component.onHistoryGroupByChange();
+
+      expect(component.latestAverageData).not.toBe(latest);
+      expect(component.latestAverageData).toEqual([{ label: '2 rooms', price: 13 }]);
+    });
+  });
+
   describe('Spinner and alerts (DOM)', () => {
     it('shows a loading spinner while history is loading', () => {
       flatsService.getHistory.and.returnValue(NEVER);

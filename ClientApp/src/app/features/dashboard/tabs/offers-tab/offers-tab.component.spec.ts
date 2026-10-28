@@ -441,6 +441,38 @@ describe('OffersTabComponent', () => {
     });
   });
 
+  describe('Row view state', () => {
+    it('computes price-change and link state when the rows change, not on every change detection', () => {
+      flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
+      fixture.detectChanges();
+      const discountSpy = spyOn(component, 'getDiscountPercentage').and.callThrough();
+      const changedPriceSpy = spyOn(component, 'hasChangedPrice').and.callThrough();
+
+      fixture.detectChanges();
+      fixture.detectChanges();
+
+      expect(discountSpy).not.toHaveBeenCalled();
+      expect(changedPriceSpy).not.toHaveBeenCalled();
+
+      component.onSort('priceEur');
+
+      expect(discountSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it('still renders the rows in the filtered and sorted order', () => {
+      flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
+      fixture.detectChanges();
+
+      component.onSort('priceEur');
+      component.onSort('priceEur');
+      fixture.detectChanges();
+
+      const districts = Array.from(fixture.nativeElement.querySelectorAll('tbody tr td:first-child'))
+        .map(cell => (cell as HTMLElement).textContent!.trim());
+      expect(districts).toEqual(['Charlottenburg', 'Mitte']);
+    });
+  });
+
   describe('Initial URL filters', () => {
     it('loads district and room filters from the URL', () => {
       queryParams = { district: 'Mitte', rooms: '2' };
