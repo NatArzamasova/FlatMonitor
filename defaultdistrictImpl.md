@@ -118,7 +118,7 @@ builder.Services.AddScoped<IFilterPresetRepository, FilterPresetRepository>();
 `SetDefaultAsync` reuses it inside its transaction. Updating a preset keeps its default flag. Tests (SQLite in-memory, 24):
 `FlatMonitor.Tests/Storage/FilterPresetRepositoryTests.cs`. All 242 .NET tests pass.
 
-### 5. Contracts + controller
+### 5. Contracts + controller ✅ DONE
 `FlatMonitor/Api/Contracts/`:
 - `FilterPresetDto`: `Id`, `Name`, `Districts`, `IsDefault`, `UpdatedAtUtc` (response).
 - `SaveFilterPresetRequest`: `Name`, `Districts` (body for create and update).
@@ -131,9 +131,13 @@ New `FlatMonitor/Api/Controllers/FilterPresetsController.cs`, `[Route("api/filte
 | GET | `/api/filter-presets` | — | 200 `ApiResponse<List<FilterPresetDto>>` (ordered by name, `[]` if none) | 500 |
 | POST | `/api/filter-presets` | `SaveFilterPresetRequest` | 201 `ApiResponse<FilterPresetDto>` | 400 invalid, 409 name taken, 500 |
 | PUT | `/api/filter-presets/{id}` | `SaveFilterPresetRequest` | 200 `ApiResponse<FilterPresetDto>` | 400, 404, 409, 500 |
-| DELETE | `/api/filter-presets/{id}` | — | 200 `ApiResponse<object>` | 404, 500 |
+| DELETE | `/api/filter-presets/{id}` | — | 200 `ApiResponse<List<FilterPresetDto>>` (remaining presets) | 404, 500 |
 | PUT | `/api/filter-presets/{id}/default` | — | 200 `ApiResponse<FilterPresetDto>` (now default) | 404, 500 |
-| DELETE | `/api/filter-presets/default` | — | 200 `ApiResponse<object>` (no default any more) | 500 |
+| DELETE | `/api/filter-presets/default` | — | 200 `ApiResponse<List<FilterPresetDto>>` (all presets, none default) | 500 |
+
+The two DELETEs return the preset list instead of an empty `ApiResponse<object>`. The frontend's `unwrapApiResponse()`
+treats `data: null` as an error, and the list lets the service simply replace its cache.
+`{id:int}` route constraints keep `DELETE /default` from being matched as an id.
 
 There is no separate "get default" endpoint. The list already carries `isDefault`, and the frontend needs the list anyway.
 
@@ -145,6 +149,14 @@ Request validation / normalisation (small static helper, e.g. `FilterPresetReque
 - Name uniqueness: `NameExistsAsync(name, excludingId: id)` → 409 before writing. A `DbUpdateException` from the unique
   index (race) is also mapped to 409.
 - Renaming a preset to its own name with different case (e.g. "east" → "East") is allowed.
+
+**Status:** implemented. Files: `Api/Contracts/FilterPresetDto.cs`, `SaveFilterPresetRequest.cs`,
+`FilterPresetRequestNormalizer.cs` (`TryNormalize`, districts sorted with `InvariantCulture`, so "Grötzingen" sorts next to "Grünwinkel"),
+`Api/Controllers/FilterPresetsController.cs`. A `DbUpdateException` on create/update is mapped to 409 only if the name is
+now taken; otherwise it is a 500. Tests: `FlatMonitor.Tests/Api/Contracts/FilterPresetRequestNormalizerTests.cs`,
+`FlatMonitor.Tests/Api/Controllers/FilterPresetsControllerTests.cs`. All 279 .NET tests pass.
+Not covered: malformed JSON in the body gets ASP.NET's automatic 400 `ProblemDetails`, not an `ApiResponse`.
+No end-to-end HTTP check yet; do one after restarting the server (see step 3).
 
 ## Frontend
 
