@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { EMPTY, merge, Observable, Subject, timer } from 'rxjs';
 import { catchError, filter, map, pairwise, shareReplay, switchMap, tap } from 'rxjs/operators';
 import { FlatsService } from './flats.service';
-import { ScrapeResponse } from '../models/scrape-response.model';
+import { CancelScrapeResponse, ScrapeResponse } from '../models/scrape-response.model';
 import { ScrapingStatusResponse } from '../models/scraping-status-response.model';
 
 export const SCRAPE_STATUS_POLL_INTERVAL_MS = 2000;
@@ -54,7 +54,7 @@ export class ScrapeStatusService {
     );
   }
 
-  cancelScrape(): Observable<unknown> {
+  cancelScrape(): Observable<CancelScrapeResponse> {
     return this.flatsService.cancelScrape();
   }
 }

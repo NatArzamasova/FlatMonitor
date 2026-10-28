@@ -148,7 +148,7 @@ describe('FlatsService', () => {
       const mockResponse: ScrapeResponse = {
         success: true,
         message: 'Scraping started',
-        scrapedAtUtc: new Date('2024-01-15T10:30:00Z'),
+        scrapedAtUtc: '2024-01-15T10:30:00Z',
         flatsCount: 42
       };
 
@@ -168,7 +168,7 @@ describe('FlatsService', () => {
       const mockResponse: ScrapeResponse = {
         success: false,
         message: 'Scraping failed',
-        scrapedAtUtc: new Date(),
+        scrapedAtUtc: '2024-01-15T10:30:00Z',
         flatsCount: 0
       };
 
@@ -200,7 +200,7 @@ describe('FlatsService', () => {
         isScrapingInProgress: true,
         lastScrapingHistory: {
           id: 1,
-          startTimeUtc: new Date('2024-01-15T10:30:00Z'),
+          startTimeUtc: '2024-01-15T10:30:00Z',
           status: 'Running',
           flatsScrapedCount: 25
         }
@@ -222,8 +222,8 @@ describe('FlatsService', () => {
         isScrapingInProgress: false,
         lastScrapingHistory: {
           id: 1,
-          startTimeUtc: new Date('2024-01-15T10:30:00Z'),
-          endTimeUtc: new Date('2024-01-15T10:45:00Z'),
+          startTimeUtc: '2024-01-15T10:30:00Z',
+          endTimeUtc: '2024-01-15T10:45:00Z',
           status: 'Successful',
           flatsScrapedCount: 150
         }

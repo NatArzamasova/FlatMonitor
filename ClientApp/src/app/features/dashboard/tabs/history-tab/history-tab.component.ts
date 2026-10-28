@@ -98,22 +98,18 @@ export class HistoryTabComponent implements OnInit {
         return;
       }
 
-      const label = getLabel(item);
-      const date = item.scrapingDate;
-      const count = item.count ?? 1;
-      if (count <= 0) {
+      if (item.count <= 0) {
         return;
       }
 
+      const label = getLabel(item);
+      const date = item.scrapingDate;
       if (!grouped.has(label)) {
         grouped.set(label, new Map());
       }
 
       const dateMap = grouped.get(label)!;
-      dateMap.set(date, mergeWeightedAverage(dateMap.get(date) ?? { count: 0, avgPricePerMeter: 0 }, {
-        count,
-        avgPricePerMeter: item.avgPricePerMeter ?? 0
-      }));
+      dateMap.set(date, mergeWeightedAverage(dateMap.get(date) ?? { count: 0, avgPricePerMeter: 0 }, item));
     });
 
     this.chartData = [];

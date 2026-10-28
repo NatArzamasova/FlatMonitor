@@ -505,7 +505,25 @@ Also `onFiltersChange()` and `onGroupingToggle()` in the overview are both just
 - Shared distinct-and-sort logic for filter options (`updateAvailableFilters` /
   `updateAvailableOfferFilters`) → `distinctSorted(rows, selector)` util.
 
-### C4. Make models match the wire format
+### C4. Make models match the wire format ✅ COMPLETED
+
+> **Done (models checked against the C# contracts):**
+> - Date fields (`ScrapeResponse.scrapedAtUtc`, `ScrapingHistoryDto.startTimeUtc/endTimeUtc`) are
+>   `string`; the scraping status parses them with the new `core/utils/date.utils.ts` →
+>   `parseUtcDate`. **Bug fixed:** EF Core reads the SQLite timestamps without a DateTimeKind, so
+>   the API sends them without an offset and `new Date()` read them as local time — "Last scrape"
+>   was shown 1–2 h too early in Germany. `parseUtcDate` appends `Z` when no offset is present.
+>   (Backend alternative: a UTC `ValueConverter` in `FlatsDbContext`; the helper keeps working
+>   either way.)
+> - `ScrapingStatus` union includes **`PartialFailed`**, which the backend writes
+>   (`ScrapeBackgroundService`) but the frontend did not know — its badge had no colour. Badge
+>   classes come from a typed `Record<ScrapingStatus, string>`; `PartialFailed` → `bg-warning`.
+> - `cancelScrape()` returns `Observable<CancelScrapeResponse>` (`{ message }`) instead of `any`.
+> - `FlatHistory.avgPricePerMeter` / `count` are required (non-nullable in C#), the `count ?? 1` /
+>   `?? 0` defaults are gone; nullable fields are typed `| null`. The C3 spec for missing prices was
+>   replaced by one for zero counts / missing dates / missing districts (inputs the API can send).
+> - The two new component specs (UTC timestamp, coloured `PartialFailed`) fail against the old
+>   component and pass now; spec mocks use ISO strings like the real API.
 - `ScrapeResponse.scrapedAtUtc` and `ScrapingHistoryDto.startTimeUtc/endTimeUtc` are typed `Date` but
   arrive as ISO strings from JSON; type them as `string` and convert explicitly.
 - `ScrapingHistoryDto.status: string` with a comment listing the values →

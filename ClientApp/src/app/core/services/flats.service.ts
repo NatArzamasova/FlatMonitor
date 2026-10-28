@@ -5,7 +5,7 @@ import { ApiResponse } from '../models/api-response.model';
 import { FlatAggregation } from '../models/flat-aggregation.model';
 import { FlatOffer } from '../models/flat-offer.model';
 import { FlatHistory } from '../models/flat-history.model';
-import { ScrapeResponse } from '../models/scrape-response.model';
+import { CancelScrapeResponse, ScrapeResponse } from '../models/scrape-response.model';
 import { ScrapingStatusResponse } from '../models/scraping-status-response.model';
 import { unwrapApiResponse } from '../utils/api-response.utils';
 
@@ -40,7 +40,7 @@ export class FlatsService {
     return this.http.get<ScrapingStatusResponse>(`${this.apiUrl}/scrape/status`);
   }
 
-  cancelScrape(): Observable<any> {
-    return this.http.post(`${this.apiUrl}/scrape/cancel`, {});
+  cancelScrape(): Observable<CancelScrapeResponse> {
+    return this.http.post<CancelScrapeResponse>(`${this.apiUrl}/scrape/cancel`, {});
   }
 }

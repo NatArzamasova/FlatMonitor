@@ -2,8 +2,17 @@ import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { DatePipe, NgClass } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ScrapeStatusService } from '../../../core/services/scrape-status.service';
-import { ScrapingStatusResponse } from '../../../core/models/scraping-status-response.model';
+import { ScrapingStatus, ScrapingStatusResponse } from '../../../core/models/scraping-status-response.model';
+import { parseUtcDate } from '../../../core/utils/date.utils';
 import { DismissibleAlertComponent } from '../../../shared/dismissible-alert/dismissible-alert.component';
+
+const STATUS_BADGE_CLASS: Record<ScrapingStatus, string> = {
+  Running: 'bg-info',
+  Successful: 'bg-success',
+  PartialFailed: 'bg-warning',
+  Failed: 'bg-danger',
+  Canceled: 'bg-warning'
+};
 
 /**
  * Last/last-successful scrape info with the Manual Scrape / Cancel buttons.
@@ -24,7 +33,8 @@ export class ScrapingStatusComponent implements OnInit {
   success: string | null = null;
 
   lastScrapingTime: Date | null = null;
-  lastScrapingStatus: string | null = null;
+  lastScrapingStatus: ScrapingStatus | null = null;
+  lastScrapingBadgeClass = '';
   lastScrapingCount = 0;
 
   lastSuccessfulScrapingTime: Date | null = null;
@@ -70,13 +80,15 @@ export class ScrapingStatusComponent implements OnInit {
     this.scraping = status.isScrapingInProgress;
 
     if (status.lastScrapingHistory) {
-      this.lastScrapingTime = new Date(status.lastScrapingHistory.startTimeUtc);
+      this.lastScrapingTime = parseUtcDate(status.lastScrapingHistory.startTimeUtc);
       this.lastScrapingStatus = status.lastScrapingHistory.status;
+      // An unknown status from a newer backend just gets an uncoloured badge.
+      this.lastScrapingBadgeClass = STATUS_BADGE_CLASS[this.lastScrapingStatus] ?? '';
       this.lastScrapingCount = status.lastScrapingHistory.flatsScrapedCount;
     }
 
     if (status.lastSuccessfulScrapingHistory) {
-      this.lastSuccessfulScrapingTime = new Date(status.lastSuccessfulScrapingHistory.startTimeUtc);
+      this.lastSuccessfulScrapingTime = parseUtcDate(status.lastSuccessfulScrapingHistory.startTimeUtc);
       this.lastSuccessfulScrapingCount = status.lastSuccessfulScrapingHistory.flatsScrapedCount;
     }
   }

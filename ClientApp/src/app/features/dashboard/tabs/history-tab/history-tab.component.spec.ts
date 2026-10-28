@@ -180,18 +180,19 @@ describe('HistoryTabComponent', () => {
       ]);
     });
 
-    it('should treat missing average prices as 0 when weighting', () => {
+    it('should skip rows with zero flats and rows without a date, and label missing districts as Unknown', () => {
       component.historyData = [
         { scrapingDate: '2024-01-15', district: 'Mitte', avgPricePerMeter: 4000, count: 1 },
-        { scrapingDate: '2024-01-15', district: 'Mitte', avgPricePerMeter: undefined, count: 1 },
-        { scrapingDate: '2024-01-15', district: 'West', avgPricePerMeter: null as unknown as number, count: 1 }
+        { scrapingDate: '2024-01-15', district: 'Mitte', avgPricePerMeter: 9999, count: 0 },
+        { scrapingDate: null, district: 'Mitte', avgPricePerMeter: 9999, count: 5 },
+        { scrapingDate: '2024-01-15', district: null, avgPricePerMeter: 3000, count: 2 }
       ];
       component.groupBy = 'district';
       (component as any).updateChartData();
 
       expect(component.chartData).toEqual([
-        { date: '2024-01-15', price: 2000, label: 'Mitte' },
-        { date: '2024-01-15', price: 0, label: 'West' }
+        { date: '2024-01-15', price: 4000, label: 'Mitte' },
+        { date: '2024-01-15', price: 3000, label: 'Unknown' }
       ]);
     });
 

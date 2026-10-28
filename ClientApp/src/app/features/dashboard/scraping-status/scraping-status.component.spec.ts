@@ -4,7 +4,7 @@ import { of, Subject, throwError } from 'rxjs';
 import { ScrapingStatusComponent } from './scraping-status.component';
 import { ScrapeStatusService } from '../../../core/services/scrape-status.service';
 import { ScrapeResponse } from '../../../core/models/scrape-response.model';
-import { ScrapingStatusResponse } from '../../../core/models/scraping-status-response.model';
+import { ScrapingStatus, ScrapingStatusResponse } from '../../../core/models/scraping-status-response.model';
 
 @Component({
   standalone: true,
@@ -28,14 +28,14 @@ describe('ScrapingStatusComponent', () => {
     isScrapingInProgress: false,
     lastScrapingHistory: {
       id: 1,
-      startTimeUtc: new Date('2024-01-15T10:00:00Z'),
-      endTimeUtc: new Date('2024-01-15T10:15:00Z'),
+      startTimeUtc: '2024-01-15T10:00:00Z',
+      endTimeUtc: '2024-01-15T10:15:00Z',
       status: 'Successful',
       flatsScrapedCount: 42
     },
     lastSuccessfulScrapingHistory: {
       id: 1,
-      startTimeUtc: new Date('2024-01-15T10:00:00Z'),
+      startTimeUtc: '2024-01-15T10:00:00Z',
       status: 'Successful',
       flatsScrapedCount: 42
     }
@@ -45,7 +45,7 @@ describe('ScrapingStatusComponent', () => {
     isScrapingInProgress: true,
     lastScrapingHistory: {
       id: 2,
-      startTimeUtc: new Date('2024-01-15T10:30:00Z'),
+      startTimeUtc: '2024-01-15T10:30:00Z',
       status: 'Running',
       flatsScrapedCount: 25
     }
@@ -54,7 +54,7 @@ describe('ScrapingStatusComponent', () => {
   const queued: ScrapeResponse = {
     success: true,
     message: 'Scraping started',
-    scrapedAtUtc: new Date(),
+    scrapedAtUtc: '2024-01-15T10:30:00Z',
     flatsCount: 0
   };
 
@@ -99,6 +99,35 @@ describe('ScrapingStatusComponent', () => {
       expect(component.scraping).toBe(true);
       expect(buttonLabels()).toEqual(['Cancel Scraping']);
       expect(fixture.nativeElement.querySelector('.badge.bg-info')?.textContent).toContain('Running');
+    });
+
+    it('reads scrape times without an offset as UTC, as the backend sends them', () => {
+      status$.next({
+        isScrapingInProgress: false,
+        lastScrapingHistory: { id: 3, startTimeUtc: '2024-01-15T10:00:00', status: 'Successful', flatsScrapedCount: 1 },
+        lastSuccessfulScrapingHistory: { id: 3, startTimeUtc: '2024-01-15T10:00:00', status: 'Successful', flatsScrapedCount: 1 }
+      });
+
+      expect(component.lastScrapingTime!.toISOString()).toBe('2024-01-15T10:00:00.000Z');
+      expect(component.lastSuccessfulScrapingTime!.toISOString()).toBe('2024-01-15T10:00:00.000Z');
+    });
+
+    it('colours every status the backend can report', () => {
+      const badgeFor = (status: ScrapingStatus) => {
+        status$.next({
+          isScrapingInProgress: false,
+          lastScrapingHistory: { id: 4, startTimeUtc: '2024-01-15T10:00:00Z', status, flatsScrapedCount: 0 }
+        });
+        fixture.detectChanges();
+        return fixture.nativeElement.querySelector('p .badge') as HTMLElement;
+      };
+
+      expect(badgeFor('Running').classList).toContain('bg-info');
+      expect(badgeFor('Successful').classList).toContain('bg-success');
+      expect(badgeFor('PartialFailed').classList).toContain('bg-warning');
+      expect(badgeFor('PartialFailed').textContent).toBe('PartialFailed');
+      expect(badgeFor('Failed').classList).toContain('bg-danger');
+      expect(badgeFor('Canceled').classList).toContain('bg-warning');
     });
 
     it('stops listening to status updates when destroyed', () => {
@@ -184,7 +213,7 @@ describe('ScrapingStatusComponent', () => {
 
   describe('cancelScrape', () => {
     it('cancels the current scrape job', () => {
-      scrapeStatus.cancelScrape.and.returnValue(of({}));
+      scrapeStatus.cancelScrape.and.returnValue(of({ message: 'Scrape cancellation requested' }));
 
       component.cancelScrape();
 

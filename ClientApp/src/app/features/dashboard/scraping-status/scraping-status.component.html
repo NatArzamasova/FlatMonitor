@@ -5,12 +5,7 @@
       @if (lastScrapingTime) {
         <p class="mb-1">
           <strong>Last scrape:</strong> {{ lastScrapingTime | date: 'short' }}
-          <span class="badge" [ngClass]="{
-            'bg-success': lastScrapingStatus === 'Successful',
-            'bg-danger': lastScrapingStatus === 'Failed',
-            'bg-warning': lastScrapingStatus === 'Canceled',
-            'bg-info': lastScrapingStatus === 'Running'
-          }">{{ lastScrapingStatus }}</span>
+          <span class="badge" [ngClass]="lastScrapingBadgeClass">{{ lastScrapingStatus }}</span>
           @if (lastScrapingCount > 0) {
             <span class="badge bg-secondary ms-2">
               {{ lastScrapingCount }} flats
