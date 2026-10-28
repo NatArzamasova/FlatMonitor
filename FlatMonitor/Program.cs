@@ -81,15 +81,11 @@ async Task<int> RunScrapeAsync()
 
         try
         {
-            Console.WriteLine("Backing up FlatsSnapshots table...");
-            Console.WriteLine("Clearing FlatsSnapshots table...");
-            Console.WriteLine("Refreshing flat aggregations...");
-
+            // ScrapeExecutionService logs each step (backup, clear, refresh, delete backup) when it happens
             var result = await executionService.ExecuteAsync();
 
             if (result.Success)
             {
-                Console.WriteLine("Scrape successful, deleting backup...");
                 Console.WriteLine($"✓ Scraping completed. Total flats scraped: {result.FlatsCount}");
                 return 0;
             }

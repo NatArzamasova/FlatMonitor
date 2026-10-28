@@ -74,7 +74,11 @@ counts **filtered** flats. The UI shows the first number; the CLI prints the sec
 
 **Fix:** Report the number actually saved (after district filtering).
 
-### 1.4 CLI prints steps before they happen
+### 1.4 CLI prints steps before they happen ✅ Done
+> **Done:** removed the four `Console.WriteLine` calls; the CLI's console logger shows `ScrapeExecutionService`'s
+> step logs as they happen. Added the first tests for `ScrapeExecutionService.ExecuteAsync` (in-memory SQLite):
+> step logs in order on success, and a failing source keeps the backup (end-to-end check for 1.1).
+
 **Severity:** Low · **File:** `Program.cs:84-86, 92`
 
 "Backing up…", "Clearing…", and "Refreshing…" are printed before `ExecuteAsync` starts, and

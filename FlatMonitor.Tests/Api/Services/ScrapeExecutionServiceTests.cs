@@ -6,6 +6,8 @@ using Microsoft.Extensions.Logging;
 using FlatMonitor.Api.Services;
 using FlatMonitor.Scraping;
 using FlatMonitor.Storage;
+using FlatMonitor.Tests.Scraping.Common;
+using Microsoft.Data.Sqlite;
 
 namespace FlatMonitor.Tests.Api.Services;
 
@@ -147,5 +149,99 @@ public class ScrapeExecutionServiceTests
             null!);
 
         action.Should().Throw<ArgumentNullException>();
+    }
+}
+
+// Uses SQLite, not InMemory: ExecuteAsync clears the table with ExecuteDeleteAsync, which InMemory does not support.
+[TestFixture]
+public class ScrapeExecutionServiceExecuteTests
+{
+    private SqliteConnection _connection = null!;
+    private FlatsDbContext _dbContext = null!;
+    private Mock<ISnapshotRepository> _mockSnapshotRepository = null!;
+    private Mock<IFlatAggregationRepository> _mockAggregationRepository = null!;
+    private ListLogger<ScrapeExecutionService> _logger = null!;
+    private string _dataDir = null!;
+
+    [SetUp]
+    public async Task Setup()
+    {
+        _connection = new SqliteConnection("Data Source=:memory:");
+        await _connection.OpenAsync();
+        _dbContext = new FlatsDbContext(new DbContextOptionsBuilder<FlatsDbContext>().UseSqlite(_connection).Options);
+        await _dbContext.Database.EnsureCreatedAsync();
+
+        // Loose mocks: every repository call completes without doing anything
+        _mockSnapshotRepository = new Mock<ISnapshotRepository>();
+        _mockAggregationRepository = new Mock<IFlatAggregationRepository>();
+        _logger = new ListLogger<ScrapeExecutionService>();
+        _dataDir = Path.Combine(Path.GetTempPath(), $"ScrapeExecutionServiceExecuteTests_{Guid.NewGuid()}");
+    }
+
+    [TearDown]
+    public async Task TearDown()
+    {
+        await _dbContext.DisposeAsync();
+        await _connection.DisposeAsync();
+        if (Directory.Exists(_dataDir))
+            Directory.Delete(_dataDir, recursive: true);
+    }
+
+    [Test]
+    public async Task ExecuteAsync_OnSuccess_LogsEachStepInOrder()
+    {
+        // Arrange
+        var service = CreateService(new FakeFlatScraper { Flats = [FakeFlatScraper.CreateFlat("1")] });
+
+        // Act
+        var result = await service.ExecuteAsync();
+
+        // Assert
+        result.Success.Should().BeTrue();
+        _logger.Messages.Should().Equal(
+            "Backing up FlatsSnapshots table",
+            "Clearing FlatsSnapshots table",
+            "Refreshing flat aggregations",
+            "Scrape successful, deleting backup");
+    }
+
+    [Test]
+    public async Task ExecuteAsync_WhenASourceFails_KeepsBackupAndReportsFailure()
+    {
+        // Arrange
+        var failing = new FakeFlatScraper("ImmobilienScout24") { InitializeException = new InvalidOperationException("Login failed") };
+        var service = CreateService(failing);
+
+        // Act
+        var result = await service.ExecuteAsync();
+
+        // Assert
+        result.Success.Should().BeFalse();
+        result.ScraperErrors.Should().Equal("ImmobilienScout24: Login failed");
+        _mockSnapshotRepository.Verify(r => r.DeleteBackupAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _logger.Messages.Should().NotContain("Scrape successful, deleting backup");
+    }
+
+    private ScrapeExecutionService CreateService(params IScraper[] scrapers)
+    {
+        var coordinator = new ScraperCoordinator(scrapers, _mockSnapshotRepository.Object, new SnapshotWriter(), _dataDir);
+        return new ScrapeExecutionService(
+            _dbContext,
+            _mockSnapshotRepository.Object,
+            _mockAggregationRepository.Object,
+            coordinator,
+            _logger);
+    }
+
+    private sealed class ListLogger<T> : ILogger<T>
+    {
+        public List<string> Messages { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+            => Messages.Add(formatter(state, exception));
     }
 }
