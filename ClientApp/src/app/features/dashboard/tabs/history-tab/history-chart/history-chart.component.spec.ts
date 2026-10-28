@@ -30,7 +30,7 @@ describe('HistoryChartComponent', () => {
     expect(chart).toBe(component.chart as unknown as Chart);
     expect(chart.data.labels).toEqual(['2024-01-15', '2024-01-16']);
     expect(chart.data.datasets.map(dataset => dataset.label)).toEqual(['Mitte', 'Weststadt']);
-    expect(canvas().height).toBe(400);
+    expect(canvas().height).toBe(600);
     expect(canvas().width).toBeGreaterThan(0);
   });
 

@@ -19,7 +19,7 @@ Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryS
   selector: 'app-history-chart',
   standalone: true,
   template: `
-    <div style="position: relative; height: 400px; width: 100%;">
+    <div style="position: relative; height: 600px; width: 100%;">
       <canvas #canvas></canvas>
     </div>
   `
