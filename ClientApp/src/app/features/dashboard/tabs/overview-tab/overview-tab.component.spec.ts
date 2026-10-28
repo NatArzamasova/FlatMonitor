@@ -8,12 +8,19 @@ import { ScrapeStatusService } from '../../../../core/services/scrape-status.ser
 import { apiResult } from '../../../../core/testing/api-response.testing';
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { FlatAggregation } from '../../../../core/models/flat-aggregation.model';
+import { FilterPresetsService } from '../../../../core/services/filter-presets.service';
+import {
+  createFilterPresetsServiceStub,
+  filterPreset,
+  FilterPresetsServiceStub
+} from '../../../../core/testing/filter-presets.testing';
 
 describe('OverviewTabComponent', () => {
   let component: OverviewTabComponent;
   let fixture: ComponentFixture<OverviewTabComponent>;
   let flatsService: jasmine.SpyObj<FlatsService>;
   let scrapeFinished$: Subject<void>;
+  let presets: FilterPresetsServiceStub;
 
   const mockAggregatedResponse: ApiResponse<FlatAggregation[]> = {
     success: true,
@@ -39,6 +46,7 @@ describe('OverviewTabComponent', () => {
   beforeEach(async () => {
     const flatsServiceSpy = jasmine.createSpyObj('FlatsService', ['getAggregated']);
     scrapeFinished$ = new Subject<void>();
+    presets = createFilterPresetsServiceStub();
     const scrapeStatusStub = { status$: NEVER, scrapeFinished$ };
 
     await TestBed.configureTestingModule({
@@ -46,6 +54,7 @@ describe('OverviewTabComponent', () => {
       providers: [
         { provide: FlatsService, useValue: flatsServiceSpy },
         { provide: ScrapeStatusService, useValue: scrapeStatusStub },
+        { provide: FilterPresetsService, useValue: presets.service },
         provideRouter([]),
         { provide: APP_BASE_HREF, useValue: '/' }
       ]
@@ -700,6 +709,79 @@ describe('OverviewTabComponent', () => {
         '_blank',
         'noopener,noreferrer'
       );
+    });
+  });
+
+  describe('Filter presets', () => {
+    const mitte = filterPreset(1, 'Center', ['Mitte']);
+
+    it('applies the active preset when the tab opens', () => {
+      presets.activePreset$.next(mitte);
+      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
+
+      fixture.detectChanges();
+
+      expect(component.selectedDistricts).toEqual(['Mitte']);
+      expect(component.aggregatedData.map(row => row.district)).toEqual(['Mitte']);
+    });
+
+    it('shows all rows when there is no active preset', () => {
+      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
+
+      fixture.detectChanges();
+
+      expect(component.selectedDistricts).toEqual([]);
+      expect(component.aggregatedData.length).toBe(2);
+    });
+
+    it('applies a preset chosen later', () => {
+      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
+      fixture.detectChanges();
+
+      presets.activePreset$.next(filterPreset(2, 'North', ['Prenzlauer Berg']));
+
+      expect(component.aggregatedData.map(row => row.district)).toEqual(['Prenzlauer Berg']);
+    });
+
+    it('keeps the current selection when the active preset becomes null', () => {
+      presets.activePreset$.next(mitte);
+      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
+      fixture.detectChanges();
+
+      presets.activePreset$.next(null);
+
+      expect(component.selectedDistricts).toEqual(['Mitte']);
+    });
+
+    it('keeps a manually changed selection when the data reloads after a scrape', () => {
+      presets.activePreset$.next(mitte);
+      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
+      fixture.detectChanges();
+      component.selectedDistricts = ['Prenzlauer Berg'];
+      component.applyFiltersAndGrouping();
+
+      scrapeFinished$.next();
+
+      expect(flatsService.getAggregated).toHaveBeenCalledTimes(2);
+      expect(component.selectedDistricts).toEqual(['Prenzlauer Berg']);
+      expect(component.aggregatedData.map(row => row.district)).toEqual(['Prenzlauer Berg']);
+    });
+
+    it('offers preset districts that have no data, so they can be deselected', () => {
+      presets.activePreset$.next(filterPreset(3, 'Far', ['Durlach']));
+      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
+
+      fixture.detectChanges();
+
+      expect(component.availableDistricts).toEqual(['Durlach', 'Mitte', 'Prenzlauer Berg']);
+    });
+
+    it('renders the preset bar', () => {
+      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
+
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('app-filter-preset-bar select').id).toBe('presetSelect');
     });
   });
 });

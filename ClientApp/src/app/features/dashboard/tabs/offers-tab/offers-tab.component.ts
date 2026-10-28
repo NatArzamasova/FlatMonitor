@@ -1,9 +1,12 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { CurrencyPipe, DecimalPipe } from '@angular/common';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { finalize } from 'rxjs/operators';
+import { filter, finalize, skip } from 'rxjs/operators';
 import { FlatsService } from '../../../../core/services/flats.service';
+import { FilterPresetsService } from '../../../../core/services/filter-presets.service';
+import { FilterPreset } from '../../../../core/models/filter-preset.model';
 import { filterByDistricts, filterByPriceRange, filterByRooms } from '../../../../core/utils/filter.utils';
 import { FlatOffer } from '../../../../core/models/flat-offer.model';
 import { isHttpUrl } from '../../../../core/utils/url.utils';
@@ -15,6 +18,7 @@ import { SortableHeaderComponent } from '../../../../shared/sortable-header/sort
 import { MultiSelectFilterComponent } from '../../../../shared/multi-select-filter/multi-select-filter.component';
 import { LoadingSpinnerComponent } from '../../../../shared/loading-spinner/loading-spinner.component';
 import { DismissibleAlertComponent } from '../../../../shared/dismissible-alert/dismissible-alert.component';
+import { FilterPresetBarComponent } from '../../../../shared/filter-preset-bar/filter-preset-bar.component';
 
 type OfferSortColumn =
   'district' | 'roomsCount' | 'priceEur' | 'originalPriceEur' | 'livingAreaSqm' | 'pricePerMeter' | 'source';
@@ -36,13 +40,16 @@ interface OfferRow {
     SortableHeaderComponent,
     MultiSelectFilterComponent,
     LoadingSpinnerComponent,
-    DismissibleAlertComponent
+    DismissibleAlertComponent,
+    FilterPresetBarComponent
   ],
   templateUrl: './offers-tab.component.html',
 })
 export class OffersTabComponent implements OnInit {
   private readonly flatsService = inject(FlatsService);
   private readonly route = inject(ActivatedRoute);
+  private readonly filterPresets = inject(FilterPresetsService);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly sort = new TableSort<FlatOffer, OfferSortColumn>();
 
@@ -61,7 +68,8 @@ export class OffersTabComponent implements OnInit {
   availableRooms: number[] = [];
 
   ngOnInit(): void {
-    this.loadInitialFiltersFromUrl();
+    const districtsFromUrl = this.loadInitialFiltersFromUrl();
+    this.followActivePreset(districtsFromUrl);
     this.loadCurrentOffers();
   }
 
@@ -80,12 +88,32 @@ export class OffersTabComponent implements OnInit {
     return discountPercentage > 0 ? discountPercentage : null;
   }
 
-  private loadInitialFiltersFromUrl(): void {
+  /** Returns whether the URL set the districts. */
+  private loadInitialFiltersFromUrl(): boolean {
     const params = this.route.snapshot.queryParamMap;
     this.selectedDistricts = params.getAll('district');
     this.selectedRooms = params.getAll('rooms')
       .map(value => normalizeRooms(Number(value)))
       .filter((value): value is number => value !== undefined);
+    return this.selectedDistricts.length > 0;
+  }
+
+  /**
+   * Applies the active preset's districts now and whenever another preset is chosen. Districts from the URL win
+   * over the preset that is active when the tab opens; a `null` preset keeps the current selection.
+   */
+  private followActivePreset(districtsFromUrl: boolean): void {
+    this.filterPresets.activePreset$
+      .pipe(
+        skip(districtsFromUrl ? 1 : 0),
+        filter((preset): preset is FilterPreset => preset !== null),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe(preset => {
+        this.selectedDistricts = [...preset.districts];
+        this.updateDistrictOptions();
+        this.applyFilters();
+      });
   }
 
   loadCurrentOffers(): void {
@@ -106,8 +134,13 @@ export class OffersTabComponent implements OnInit {
   }
 
   private updateAvailableFilters(): void {
-    this.availableDistricts = distinctSorted(this.currentOffers.map(offer => offer.district));
+    this.updateDistrictOptions();
     this.availableRooms = distinctSorted(this.currentOffers.map(offer => normalizeRooms(offer.roomsCount)), (a, b) => a - b);
+  }
+
+  /** Districts from the data plus selected ones without offers, so a preset's districts can always be deselected. */
+  private updateDistrictOptions(): void {
+    this.availableDistricts = distinctSorted([...this.currentOffers.map(offer => offer.district), ...this.selectedDistricts]);
   }
 
   applyFilters(): void {

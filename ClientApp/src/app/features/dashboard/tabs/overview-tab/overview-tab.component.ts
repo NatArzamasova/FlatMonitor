@@ -3,8 +3,10 @@ import { CurrencyPipe, DatePipe, DecimalPipe, Location } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Params, Router } from '@angular/router';
-import { finalize } from 'rxjs/operators';
+import { filter, finalize } from 'rxjs/operators';
 import { FlatsService } from '../../../../core/services/flats.service';
+import { FilterPresetsService } from '../../../../core/services/filter-presets.service';
+import { FilterPreset } from '../../../../core/models/filter-preset.model';
 import { filterByDistricts, filterByRooms } from '../../../../core/utils/filter.utils';
 import { ScrapeStatusService } from '../../../../core/services/scrape-status.service';
 import { FlatAggregation } from '../../../../core/models/flat-aggregation.model';
@@ -18,6 +20,7 @@ import { SortableHeaderComponent } from '../../../../shared/sortable-header/sort
 import { MultiSelectFilterComponent } from '../../../../shared/multi-select-filter/multi-select-filter.component';
 import { LoadingSpinnerComponent } from '../../../../shared/loading-spinner/loading-spinner.component';
 import { DismissibleAlertComponent } from '../../../../shared/dismissible-alert/dismissible-alert.component';
+import { FilterPresetBarComponent } from '../../../../shared/filter-preset-bar/filter-preset-bar.component';
 
 type AggregationSortColumn = 'district' | 'roomsCount' | 'count' | 'avgPricePerMeter';
 
@@ -33,13 +36,15 @@ type AggregationSortColumn = 'district' | 'roomsCount' | 'count' | 'avgPricePerM
     SortableHeaderComponent,
     MultiSelectFilterComponent,
     LoadingSpinnerComponent,
-    DismissibleAlertComponent
+    DismissibleAlertComponent,
+    FilterPresetBarComponent
   ],
   templateUrl: './overview-tab.component.html',
 })
 export class OverviewTabComponent implements OnInit {
   private readonly flatsService = inject(FlatsService);
   private readonly scrapeStatus = inject(ScrapeStatusService);
+  private readonly filterPresets = inject(FilterPresetsService);
   private readonly router = inject(Router);
   private readonly location = inject(Location);
   private readonly destroyRef = inject(DestroyRef);
@@ -61,11 +66,26 @@ export class OverviewTabComponent implements OnInit {
   availableRooms: number[] = [];
 
   ngOnInit(): void {
+    this.followActivePreset();
     this.loadAggregatedData();
 
     this.scrapeStatus.scrapeFinished$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.loadAggregatedData());
+  }
+
+  /** Applies the active preset's districts now and whenever another preset is chosen; `null` keeps the selection. */
+  private followActivePreset(): void {
+    this.filterPresets.activePreset$
+      .pipe(
+        filter((preset): preset is FilterPreset => preset !== null),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe(preset => {
+        this.selectedDistricts = [...preset.districts];
+        this.updateDistrictOptions();
+        this.applyFiltersAndGrouping();
+      });
   }
 
   loadAggregatedData(): void {
@@ -87,8 +107,13 @@ export class OverviewTabComponent implements OnInit {
   }
 
   private updateAvailableFilters(): void {
-    this.availableDistricts = distinctSorted(this.rawData.map(item => item.district));
+    this.updateDistrictOptions();
     this.availableRooms = distinctSorted(this.rawData.map(item => normalizeRooms(item.roomsCount)), (a, b) => a - b);
+  }
+
+  /** Districts from the data plus selected ones without data, so a preset's districts can always be deselected. */
+  private updateDistrictOptions(): void {
+    this.availableDistricts = distinctSorted([...this.rawData.map(item => item.district), ...this.selectedDistricts]);
   }
 
   applyFiltersAndGrouping(): void {

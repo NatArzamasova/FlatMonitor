@@ -6,12 +6,19 @@ import { FlatsService } from '../../../../core/services/flats.service';
 import { apiResult } from '../../../../core/testing/api-response.testing';
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { FlatOffer } from '../../../../core/models/flat-offer.model';
+import { FilterPresetsService } from '../../../../core/services/filter-presets.service';
+import {
+  createFilterPresetsServiceStub,
+  filterPreset,
+  FilterPresetsServiceStub
+} from '../../../../core/testing/filter-presets.testing';
 
 describe('OffersTabComponent', () => {
   let component: OffersTabComponent;
   let fixture: ComponentFixture<OffersTabComponent>;
   let flatsService: jasmine.SpyObj<FlatsService>;
   let queryParams: Params;
+  let presets: FilterPresetsServiceStub;
 
   const mockOffersResponse: ApiResponse<FlatOffer[]> = {
     success: true,
@@ -46,6 +53,7 @@ describe('OffersTabComponent', () => {
     ]);
 
     queryParams = {};
+    presets = createFilterPresetsServiceStub();
     const activatedRouteStub = {
       snapshot: {
         get queryParamMap() {
@@ -58,7 +66,8 @@ describe('OffersTabComponent', () => {
       imports: [OffersTabComponent],
       providers: [
         { provide: FlatsService, useValue: flatsServiceSpy },
-        { provide: ActivatedRoute, useValue: activatedRouteStub }
+        { provide: ActivatedRoute, useValue: activatedRouteStub },
+        { provide: FilterPresetsService, useValue: presets.service }
       ]
     }).compileComponents();
 
@@ -493,6 +502,110 @@ describe('OffersTabComponent', () => {
 
       expect(component.selectedDistricts).toEqual(['Mitte', 'Charlottenburg']);
       expect(component.selectedRooms).toEqual([3]);
+    });
+  });
+
+  describe('Filter presets', () => {
+    const east = filterPreset(1, 'East', ['Mitte']);
+
+    it('applies the active preset when the tab opens', () => {
+      presets.activePreset$.next(east);
+      flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
+
+      fixture.detectChanges();
+
+      expect(component.selectedDistricts).toEqual(['Mitte']);
+      expect(component.filteredOffers.map(offer => offer.district)).toEqual(['Mitte']);
+    });
+
+    it('shows all offers when there is no active preset', () => {
+      flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
+
+      fixture.detectChanges();
+
+      expect(component.selectedDistricts).toEqual([]);
+      expect(component.filteredOffers.length).toBe(2);
+    });
+
+    it('applies a preset that arrives after the offers', () => {
+      flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
+      fixture.detectChanges();
+
+      presets.activePreset$.next(filterPreset(2, 'West', ['Charlottenburg']));
+
+      expect(component.selectedDistricts).toEqual(['Charlottenburg']);
+      expect(component.filteredOffers.map(offer => offer.district)).toEqual(['Charlottenburg']);
+    });
+
+    it('applies a preset that arrives before the offers', () => {
+      flatsService.getCurrentOffers.and.returnValue(NEVER);
+      fixture.detectChanges();
+      presets.activePreset$.next(east);
+
+      component.currentOffers = mockOffersResponse.data!;
+      component.applyFilters();
+
+      expect(component.filteredOffers.map(offer => offer.district)).toEqual(['Mitte']);
+    });
+
+    it('keeps the current selection when the active preset becomes null', () => {
+      presets.activePreset$.next(east);
+      flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
+      fixture.detectChanges();
+
+      presets.activePreset$.next(null);
+
+      expect(component.selectedDistricts).toEqual(['Mitte']);
+    });
+
+    it('lets URL districts win over the preset active when the tab opens', () => {
+      queryParams = { district: 'Charlottenburg' };
+      presets.activePreset$.next(east);
+      flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
+
+      fixture.detectChanges();
+
+      expect(component.selectedDistricts).toEqual(['Charlottenburg']);
+      expect(component.filteredOffers.map(offer => offer.district)).toEqual(['Charlottenburg']);
+    });
+
+    it('applies a preset chosen later even when the URL set the districts', () => {
+      queryParams = { district: 'Charlottenburg' };
+      presets.activePreset$.next(east);
+      flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
+      fixture.detectChanges();
+
+      presets.activePreset$.next(filterPreset(3, 'Both', ['Mitte', 'Charlottenburg']));
+
+      expect(component.selectedDistricts).toEqual(['Mitte', 'Charlottenburg']);
+    });
+
+    it('offers preset districts that have no offers, so they can be deselected', () => {
+      presets.activePreset$.next(filterPreset(4, 'Far', ['Durlach']));
+      flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
+
+      fixture.detectChanges();
+
+      expect(component.availableDistricts).toEqual(['Charlottenburg', 'Durlach', 'Mitte']);
+      expect(component.filteredOffers).toEqual([]);
+    });
+
+    it('stops following the active preset when destroyed', () => {
+      flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
+      fixture.detectChanges();
+      fixture.destroy();
+
+      presets.activePreset$.next(east);
+
+      expect(component.selectedDistricts).toEqual([]);
+    });
+
+    it('renders the preset bar next to the district filter', () => {
+      flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
+
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('app-filter-preset-bar select').id).toBe('offerPresetSelect');
     });
   });
 

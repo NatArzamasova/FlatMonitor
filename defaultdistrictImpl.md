@@ -211,7 +211,7 @@ is one, else "Could not save the preset. Is the backend running?". Tests: `filte
 (its "1 rules skipped due to selector errors" CSS warning was there before).
 Not yet used by any tab; that is step 8.
 
-### 8. Tabs
+### 8. Tabs ✅ DONE
 **Offers tab** (`offers-tab.component.ts`)
 - Subscribe to `activePreset$` (`takeUntilDestroyed`). On each non-null emission: `selectedDistricts = preset.districts; applyFilters()`.
   A `null` emission keeps the current selection.
@@ -231,6 +231,14 @@ would not appear in the `<select>`. Fix: `availableDistricts = distinctSorted([.
 so preset districts are always visible and can be deselected.
 
 **History tab**: open question, see below.
+
+**Status:** implemented. Both tabs have `followActivePreset()` (subscribed in `ngOnInit`, `takeUntilDestroyed`) and
+`updateDistrictOptions()`; the offers tab skips the first emission when the URL had `district` params.
+The bar sits right after the district multi-select (`inputId="offerPresetSelect"` in offers, default `presetSelect` in overview).
+Tests: new `Filter presets` blocks in `offers-tab.component.spec.ts` (10) and `overview-tab.component.spec.ts` (7).
+The shared stub `core/testing/filter-presets.testing.ts` (`createFilterPresetsServiceStub`, `filterPreset`) is also provided in
+`dashboard.component.spec.ts`, whose routing tests render the real tabs. All 327 frontend tests pass; `ng build` succeeds.
+Not yet checked in a browser against the real backend (needs a server restart for the migration).
 
 ## Tests (NUnit + Moq + FluentAssertions / Jasmine)
 
@@ -254,9 +262,9 @@ Frontend:
   setDefault leaves exactly one default in the cache; a failed write leaves the cache unchanged.
 - `filter-preset-bar.component.spec.ts` ✅: lists presets with the default marked; picking a preset calls `selectPreset`; Save disabled
   when unchanged; Save as new / Rename / Delete / Set as default call the service; a 409 shows the error.
-- `offers-tab.component.spec.ts`: URL districts win over the active preset; no URL param → active preset applied; none → all offers;
+- `offers-tab.component.spec.ts` ✅: URL districts win over the active preset; no URL param → active preset applied; none → all offers;
   presets error → all offers; a later `activePreset$` emission re-filters; a preset district without data still appears in the options.
-- `overview-tab.component.spec.ts`: active preset applied on init; a later emission re-filters; reload after `scrapeFinished$` keeps the current selection.
+- `overview-tab.component.spec.ts` ✅: active preset applied on init; a later emission re-filters; reload after `scrapeFinished$` keeps the current selection.
 
 ## Docs
 - `WohnungMonitor.md`: add the `FilterPresets` table and the API endpoints.

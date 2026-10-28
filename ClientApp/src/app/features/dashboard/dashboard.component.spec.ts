@@ -7,6 +7,8 @@ import { routes } from '../../app.routes';
 import { OffersTabComponent } from './tabs/offers-tab/offers-tab.component';
 import { FlatsService } from '../../core/services/flats.service';
 import { apiResult } from '../../core/testing/api-response.testing';
+import { FilterPresetsService } from '../../core/services/filter-presets.service';
+import { createFilterPresetsServiceStub } from '../../core/testing/filter-presets.testing';
 
 describe('DashboardComponent (Shell) routing', () => {
   let harness: RouterTestingHarness;
@@ -29,7 +31,8 @@ describe('DashboardComponent (Shell) routing', () => {
     TestBed.configureTestingModule({
       providers: [
         provideRouter(routes),
-        { provide: FlatsService, useValue: flatsServiceSpy }
+        { provide: FlatsService, useValue: flatsServiceSpy },
+        { provide: FilterPresetsService, useValue: createFilterPresetsServiceStub().service }
       ]
     });
 
