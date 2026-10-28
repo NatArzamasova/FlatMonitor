@@ -22,7 +22,10 @@ Line references are to the files as of commit `3ac3f09`.
 
 ## 1. Bugs found during review
 
-### 1.1 Scraper failures are swallowed, so a failed source counts as success
+### 1.1 Scraper failures are swallowed, so a failed source counts as success ✅ Done
+> **Done:** removed the outer `catch` in `FlatScraper.ScrapeAllListingsAsync` (the `finally` → `CleanupAsync` stays);
+> the per-flat enrichment `catch` no longer swallows `OperationCanceledException`. Tests: `FlatMonitor.Tests/Scraping/Common/FlatScraperTests.cs`.
+
 **Severity:** High · **Files:** `Scraping/Common/FlatScraper.cs:93-96`, `Api/Services/ScrapeExecutionService.cs:51-57`
 
 `FlatScraper.ScrapeAllListingsAsync` wraps the whole run in `catch (Exception)` and only writes
@@ -408,7 +411,7 @@ Each step is independently shippable and keeps `dotnet test` green.
 
 | # | Step | Why first | Risk |
 |---|------|-----------|------|
-| 1 | Fix 1.1 (swallowed exceptions) + test | Data loss risk today | Low |
+| 1 | ✅ Fix 1.1 (swallowed exceptions) + test | Data loss risk today | Low |
 | 2 | Delete dead code: `ScrapeStateService`, `ScrapingCounterService`, unused scraper repo params, `ExtractAddressFromCurrentPageAsync`, no-op `SaveChanges` | Shrinks the surface before restructuring | Low |
 | 3 | 2.1 composition root + configuration (single DI registration, connection string, `AddHttpClient`) | Every later step touches DI | Medium |
 | 4 | 2.2 repositories inject `FlatsDbContext`; move clear/restore into the repository; restore logic into `ScrapeExecutionService` | Enables transactions and simpler tests | Medium |

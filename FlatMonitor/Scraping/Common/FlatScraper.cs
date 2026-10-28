@@ -65,7 +65,7 @@ public abstract class FlatScraper : IScraper
                     pageBuffer.Add(enrichedFlat);
                     allFlats.Add(enrichedFlat);
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     // Log error but continue with partial data
                     FlatScraperLogger.LogEnrichmentFailed(Source, flat.ListingId, ex.Message, totalProcessed, totalFlats);
@@ -90,10 +90,7 @@ public abstract class FlatScraper : IScraper
 
             Console.WriteLine($"\n=== {Source}: Scraping complete: {pageNumber - 1} batches saved, {totalProcessed}/{totalFlats} listings processed ===\n");
         }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"Error scraping {Source}: {ex.Message}");
-        }
+        // No catch: failures and cancellation must reach ScraperCoordinator, which records them as source errors.
         finally
         {
             // Cleanup (close browser, dispose resources, etc.)
