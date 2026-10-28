@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ApiResponse } from '../models/api-response.model';
@@ -15,7 +15,7 @@ import { unwrapApiResponse } from '../utils/api-response.utils';
 export class FlatsService {
   private apiUrl = '/api';
 
-  constructor(private http: HttpClient) {}
+  private http = inject(HttpClient);
 
   getAggregated(): Observable<FlatAggregation[]> {
     return this.http.get<ApiResponse<FlatAggregation[]>>(`${this.apiUrl}/flats/aggregated`)

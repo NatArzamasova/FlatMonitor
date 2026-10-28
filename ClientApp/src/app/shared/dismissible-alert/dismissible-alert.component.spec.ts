@@ -1,13 +1,14 @@
 import { Component } from '@angular/core';
-import { NgIf } from '@angular/common';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { DismissibleAlertComponent } from './dismissible-alert.component';
 
 @Component({
   standalone: true,
-  imports: [NgIf, DismissibleAlertComponent],
+  imports: [DismissibleAlertComponent],
   template: `
-    <app-dismissible-alert *ngIf="message" [type]="type" (dismissed)="message = null">✓ {{ message }}</app-dismissible-alert>
+    @if (message) {
+      <app-dismissible-alert [type]="type" (dismissed)="message = null">✓ {{ message }}</app-dismissible-alert>
+    }
   `
 })
 class HostComponent {

@@ -1,72 +1,83 @@
 <div>
-  <app-loading-spinner *ngIf="loadingHistory"></app-loading-spinner>
+  @if (loadingHistory) {
+    <app-loading-spinner></app-loading-spinner>
+  }
 
-  <div *ngIf="!loadingHistory && historyData.length > 0" class="mb-3">
-    <div class="d-flex gap-3 align-items-center flex-wrap">
-      <div>
-        <label class="form-label mb-0 me-2">Group By:</label>
-        <div class="form-check form-check-inline">
-          <input
-            class="form-check-input"
-            type="radio"
-            id="groupByDistrictRadio"
-            name="historyGroupBy"
-            value="district"
-            [(ngModel)]="historyGroupBy"
-            (change)="onHistoryGroupByChange()"
-          />
-          <label class="form-check-label" for="groupByDistrictRadio">
-            District
-          </label>
-        </div>
-        <div class="form-check form-check-inline">
-          <input
-            class="form-check-input"
-            type="radio"
-            id="groupByRoomsRadio"
-            name="historyGroupBy"
-            value="rooms"
-            [(ngModel)]="historyGroupBy"
-            (change)="onHistoryGroupByChange()"
-          />
-          <label class="form-check-label" for="groupByRoomsRadio">
-            Room Number
-          </label>
+  @if (!loadingHistory && historyData.length > 0) {
+    <div class="mb-3">
+      <div class="d-flex gap-3 align-items-center flex-wrap">
+        <div>
+          <label class="form-label mb-0 me-2">Group By:</label>
+          <div class="form-check form-check-inline">
+            <input
+              class="form-check-input"
+              type="radio"
+              id="groupByDistrictRadio"
+              name="historyGroupBy"
+              value="district"
+              [(ngModel)]="historyGroupBy"
+              (change)="onHistoryGroupByChange()"
+            />
+            <label class="form-check-label" for="groupByDistrictRadio">
+              District
+            </label>
+          </div>
+          <div class="form-check form-check-inline">
+            <input
+              class="form-check-input"
+              type="radio"
+              id="groupByRoomsRadio"
+              name="historyGroupBy"
+              value="rooms"
+              [(ngModel)]="historyGroupBy"
+              (change)="onHistoryGroupByChange()"
+            />
+            <label class="form-check-label" for="groupByRoomsRadio">
+              Room Number
+            </label>
+          </div>
         </div>
       </div>
-
     </div>
-  </div>
+  }
 
-  <div *ngIf="!loadingHistory && chartData.length > 0" class="row g-3 mb-3 align-items-stretch">
-    <div class="col-12 col-lg-8">
-      <app-history-chart [points]="chartData" [title]="chartTitle"></app-history-chart>
-    </div>
+  @if (!loadingHistory && chartData.length > 0) {
+    <div class="row g-3 mb-3 align-items-stretch">
+      <div class="col-12 col-lg-8">
+        <app-history-chart [points]="chartData" [title]="chartTitle"></app-history-chart>
+      </div>
 
-    <div class="col-12 col-lg-4">
-      <h2 class="h5">Latest averages ({{ latestAverageDate }})</h2>
-      <div class="table-responsive">
-        <table class="table table-sm table-striped">
-          <thead>
-            <tr>
-              <th scope="col">{{ historyGroupBy === 'district' ? 'District' : 'Room count' }}</th>
-              <th scope="col" class="text-end">Avg. price/m²</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let item of latestAverageData">
-              <td>{{ item.label }}</td>
-              <td class="text-end">{{ item.price | currency: 'EUR': 'symbol': '1.0-0' }}</td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="col-12 col-lg-4">
+        <h2 class="h5">Latest averages ({{ latestAverageDate }})</h2>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped">
+            <thead>
+              <tr>
+                <th scope="col">{{ historyGroupBy === 'district' ? 'District' : 'Room count' }}</th>
+                <th scope="col" class="text-end">Avg. price/m²</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of latestAverageData; track item.label) {
+                <tr>
+                  <td>{{ item.label }}</td>
+                  <td class="text-end">{{ item.price | currency: 'EUR': 'symbol': '1.0-0' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
-  </div>
+  }
 
-  <div *ngIf="!loadingHistory && historyData.length === 0" class="alert alert-info">
-    No history data available yet. Historical data will be collected after multiple scrapes.
-  </div>
+  @if (!loadingHistory && historyData.length === 0) {
+    <div class="alert alert-info">
+      No history data available yet. Historical data will be collected after multiple scrapes.
+    </div>
+  }
 
-  <app-dismissible-alert *ngIf="error" type="danger" (dismissed)="error = null">{{ error }}</app-dismissible-alert>
+  @if (error) {
+    <app-dismissible-alert type="danger" (dismissed)="error = null">{{ error }}</app-dismissible-alert>
+  }
 </div>

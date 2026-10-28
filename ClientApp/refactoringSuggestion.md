@@ -429,7 +429,24 @@ and compute the latest-averages table when `chartData` changes (or use `computed
 
 ## C. Cleanup and modernisation
 
-### C1. Adopt Angular 18 idioms (incrementally, per component)
+### C1. Adopt Angular 18 idioms (incrementally, per component) 🟡 PARTLY DONE
+
+> **Done (step 1, behaviour-neutral, all components and services):**
+> - Built-in control flow via `ng generate @angular/core:control-flow`, then templates re-indented
+>   by hand (the migration's formatter drifted after self-closing `<input />` tags) and opposite
+>   `@if` pairs merged into `@if … @else`.
+> - Real `track` keys instead of the migration's `track item`: offers `track row.offer` (offer
+>   objects survive filter/sort), overview `track item.district + '|' + item.roomsCount` (backend
+>   groups by exactly that pair, see `FlatAggregationCalculator`), history `track item.label`.
+> - `inject()` instead of constructor injection; `takeUntilDestroyed(destroyRef)` instead of the
+>   `destroy$` subjects (overview spec's `destroy$` test removed — unsubscribe-on-destroy is
+>   covered by the existing `.observed` specs).
+> - `CommonModule` replaced by the pipes/directives actually used (`DatePipe`, `DecimalPipe`,
+>   `CurrencyPipe`, `NgClass`).
+>
+> **Still open (step 2, per component):** signals (`signal` / `computed`) for component state and
+> `ChangeDetectionStrategy.OnPush`. This changes each component's public state API (specs read and
+> assign fields directly), so it should be done and reviewed one component at a time.
 - `inject()` instead of constructor injection.
 - `takeUntilDestroyed()` instead of the `destroy$` Subject.
 - Signals (`signal`, `computed`) for component state → derived values such as `filteredOffers`,

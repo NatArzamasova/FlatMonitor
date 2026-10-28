@@ -1,5 +1,5 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject } from '@angular/core';
+import { CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs/operators';
 import { FlatsService } from '../../../../core/services/flats.service';
@@ -15,10 +15,12 @@ import { DismissibleAlertComponent } from '../../../../shared/dismissible-alert/
 @Component({
   selector: 'app-history-tab',
   standalone: true,
-  imports: [CommonModule, FormsModule, HistoryChartComponent, LoadingSpinnerComponent, DismissibleAlertComponent],
+  imports: [CurrencyPipe, FormsModule, HistoryChartComponent, LoadingSpinnerComponent, DismissibleAlertComponent],
   templateUrl: './history-tab.component.html',
 })
 export class HistoryTabComponent implements OnInit {
+  private readonly flatsService = inject(FlatsService);
+
   historyData: FlatHistory[] = [];
   loadingHistory = false;
   error: string | null = null;
@@ -31,10 +33,6 @@ export class HistoryTabComponent implements OnInit {
   get chartTitle(): string {
     return `Price per m² Trend (${this.historyGroupBy === 'district' ? 'by District' : 'by Room Number'})`;
   }
-
-  constructor(
-    private flatsService: FlatsService
-  ) {}
 
   ngOnInit(): void {
     this.loadHistory();

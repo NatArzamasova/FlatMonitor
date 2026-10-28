@@ -1,7 +1,6 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { DatePipe, NgClass } from '@angular/common';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ScrapeStatusService } from '../../../core/services/scrape-status.service';
 import { ScrapingStatusResponse } from '../../../core/models/scraping-status-response.model';
 import { DismissibleAlertComponent } from '../../../shared/dismissible-alert/dismissible-alert.component';
@@ -13,10 +12,13 @@ import { DismissibleAlertComponent } from '../../../shared/dismissible-alert/dis
 @Component({
   selector: 'app-scraping-status',
   standalone: true,
-  imports: [CommonModule, DismissibleAlertComponent],
+  imports: [DatePipe, NgClass, DismissibleAlertComponent],
   templateUrl: './scraping-status.component.html',
 })
-export class ScrapingStatusComponent implements OnInit, OnDestroy {
+export class ScrapingStatusComponent implements OnInit {
+  private readonly scrapeStatus = inject(ScrapeStatusService);
+  private readonly destroyRef = inject(DestroyRef);
+
   scraping = false;
   error: string | null = null;
   success: string | null = null;
@@ -28,19 +30,10 @@ export class ScrapingStatusComponent implements OnInit, OnDestroy {
   lastSuccessfulScrapingTime: Date | null = null;
   lastSuccessfulScrapingCount = 0;
 
-  private destroy$ = new Subject<void>();
-
-  constructor(private scrapeStatus: ScrapeStatusService) {}
-
   ngOnInit(): void {
     this.scrapeStatus.status$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(status => this.updateScrapingStatus(status));
-  }
-
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
   }
 
   triggerScrape(): void {

@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { EMPTY, merge, Observable, Subject, timer } from 'rxjs';
 import { catchError, filter, map, pairwise, shareReplay, switchMap, tap } from 'rxjs/operators';
 import { FlatsService } from './flats.service';
@@ -12,6 +12,8 @@ export const SCRAPE_STATUS_POLL_INTERVAL_MS = 2000;
   providedIn: 'root'
 })
 export class ScrapeStatusService {
+  // Declared first: the stream fields below use it in their initializers.
+  private readonly flatsService = inject(FlatsService);
   private readonly refresh$ = new Subject<void>();
 
   /** Latest scrape status: polled immediately and then every 2 s, shared by all subscribers. */
@@ -36,8 +38,6 @@ export class ScrapeStatusService {
     filter(([wasScraping, isScraping]) => wasScraping && !isScraping),
     map(() => undefined)
   );
-
-  constructor(private flatsService: FlatsService) {}
 
   /** Polls once now instead of waiting for the next tick. */
   refresh(): void {

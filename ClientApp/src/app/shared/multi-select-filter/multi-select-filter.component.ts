@@ -1,5 +1,4 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { NgFor } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
 /**
@@ -11,7 +10,7 @@ import { FormsModule } from '@angular/forms';
 @Component({
   selector: 'app-multi-select-filter',
   standalone: true,
-  imports: [NgFor, FormsModule],
+  imports: [FormsModule],
   host: { class: 'd-flex align-items-center gap-1' },
   template: `
     <label [for]="inputId" class="form-label mb-0 filter-label">{{ label }}</label>
@@ -25,9 +24,11 @@ import { FormsModule } from '@angular/forms';
       [style.min-width.px]="minWidth"
     >
       <option disabled selected hidden>Select...</option>
-      <option *ngFor="let option of options" [value]="option">
-        {{ option }}
-      </option>
+      @for (option of options; track option) {
+        <option [value]="option">
+          {{ option }}
+        </option>
+      }
     </select>
   `
 })

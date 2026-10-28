@@ -264,17 +264,6 @@ describe('OverviewTabComponent', () => {
     });
   });
 
-  describe('Cleanup', () => {
-    it('should complete destroy subject', () => {
-      const destroySubject = (component as any).destroy$ as Subject<void>;
-      const completeSpy = spyOn(destroySubject, 'complete');
-
-      component.ngOnDestroy();
-
-      expect(completeSpy).toHaveBeenCalled();
-    });
-  });
-
   describe('Error handling edge cases', () => {
     it('should handle response with success=true but no data field', () => {
       const responseWithoutData: ApiResponse<FlatAggregation[]> = {

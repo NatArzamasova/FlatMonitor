@@ -1,5 +1,5 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject } from '@angular/core';
+import { CurrencyPipe, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { finalize } from 'rxjs/operators';
@@ -29,7 +29,8 @@ interface OfferRow {
   selector: 'app-offers-tab',
   standalone: true,
   imports: [
-    CommonModule,
+    CurrencyPipe,
+    DecimalPipe,
     FormsModule,
     SortableHeaderComponent,
     MultiSelectFilterComponent,
@@ -39,6 +40,10 @@ interface OfferRow {
   templateUrl: './offers-tab.component.html',
 })
 export class OffersTabComponent implements OnInit {
+  private readonly flatsService = inject(FlatsService);
+  private readonly filterService = inject(FilterService);
+  private readonly route = inject(ActivatedRoute);
+
   readonly sort = new TableSort<FlatOffer, OfferSortColumn>();
 
   currentOffers: FlatOffer[] = [];
@@ -54,12 +59,6 @@ export class OffersTabComponent implements OnInit {
   priceRangeMax: number | null = null;
   availableOfferDistricts: string[] = [];
   availableOfferRooms: number[] = [];
-
-  constructor(
-    private flatsService: FlatsService,
-    private filterService: FilterService,
-    private route: ActivatedRoute
-  ) {}
 
   ngOnInit(): void {
     this.loadInitialFiltersFromUrl();

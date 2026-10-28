@@ -2,47 +2,54 @@
   <div class="col">
     <div class="text-muted small mt-2">
       <ng-content select="[scrapingStatusInfo]"></ng-content>
-      <p *ngIf="lastScrapingTime" class="mb-1">
-        <strong>Last scrape:</strong> {{ lastScrapingTime | date: 'short' }}
-        <span class="badge" [ngClass]="{
-          'bg-success': lastScrapingStatus === 'Successful',
-          'bg-danger': lastScrapingStatus === 'Failed',
-          'bg-warning': lastScrapingStatus === 'Canceled',
-          'bg-info': lastScrapingStatus === 'Running'
-        }">{{ lastScrapingStatus }}</span>
-        <span class="badge bg-secondary ms-2" *ngIf="lastScrapingCount > 0">
-          {{ lastScrapingCount }} flats
-        </span>
-      </p>
-      <p *ngIf="lastSuccessfulScrapingTime" class="mb-1">
-        <strong>Last successful scrape:</strong> {{ lastSuccessfulScrapingTime | date: 'short' }}
-        <span class="badge bg-success">Successful</span>
-        <span class="badge bg-secondary ms-2" *ngIf="lastSuccessfulScrapingCount > 0">
-          {{ lastSuccessfulScrapingCount }} flats
-        </span>
-      </p>
+      @if (lastScrapingTime) {
+        <p class="mb-1">
+          <strong>Last scrape:</strong> {{ lastScrapingTime | date: 'short' }}
+          <span class="badge" [ngClass]="{
+            'bg-success': lastScrapingStatus === 'Successful',
+            'bg-danger': lastScrapingStatus === 'Failed',
+            'bg-warning': lastScrapingStatus === 'Canceled',
+            'bg-info': lastScrapingStatus === 'Running'
+          }">{{ lastScrapingStatus }}</span>
+          @if (lastScrapingCount > 0) {
+            <span class="badge bg-secondary ms-2">
+              {{ lastScrapingCount }} flats
+            </span>
+          }
+        </p>
+      }
+      @if (lastSuccessfulScrapingTime) {
+        <p class="mb-1">
+          <strong>Last successful scrape:</strong> {{ lastSuccessfulScrapingTime | date: 'short' }}
+          <span class="badge bg-success">Successful</span>
+          @if (lastSuccessfulScrapingCount > 0) {
+            <span class="badge bg-secondary ms-2">
+              {{ lastSuccessfulScrapingCount }} flats
+            </span>
+          }
+        </p>
+      }
     </div>
   </div>
   <div class="col-auto d-flex gap-2 align-items-center">
     <ng-content select="[scrapingStatusActions]"></ng-content>
-    <button
-      class="btn btn-success"
-      (click)="triggerScrape()"
-      *ngIf="!scraping"
-    >
-      Manual Scrape
-    </button>
-    <button
-      class="btn btn-danger"
-      (click)="cancelScrape()"
-      *ngIf="scraping"
-    >
-      <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-      Cancel Scraping
-    </button>
+    @if (scraping) {
+      <button class="btn btn-danger" (click)="cancelScrape()">
+        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+        Cancel Scraping
+      </button>
+    } @else {
+      <button class="btn btn-success" (click)="triggerScrape()">
+        Manual Scrape
+      </button>
+    }
   </div>
 </div>
 
-<app-dismissible-alert *ngIf="success" type="info" (dismissed)="success = null">✓ {{ success }}</app-dismissible-alert>
+@if (success) {
+  <app-dismissible-alert type="info" (dismissed)="success = null">✓ {{ success }}</app-dismissible-alert>
+}
 
-<app-dismissible-alert *ngIf="error" type="danger" (dismissed)="error = null">{{ error }}</app-dismissible-alert>
+@if (error) {
+  <app-dismissible-alert type="danger" (dismissed)="error = null">{{ error }}</app-dismissible-alert>
+}

@@ -2,7 +2,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 
 /**
  * Bootstrap alert with a close button; the message is projected:
- * `<app-dismissible-alert *ngIf="error" type="danger" (dismissed)="error = null">{{ error }}</app-dismissible-alert>`.
+ * `@if (error) { <app-dismissible-alert type="danger" (dismissed)="error = null">{{ error }}</app-dismissible-alert> }`.
  */
 @Component({
   selector: 'app-dismissible-alert',

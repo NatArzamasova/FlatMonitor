@@ -1,9 +1,9 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
-import { CommonModule, Location } from '@angular/common';
+import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { CurrencyPipe, DatePipe, DecimalPipe, Location } from '@angular/common';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Params, Router } from '@angular/router';
-import { Subject } from 'rxjs';
-import { finalize, takeUntil } from 'rxjs/operators';
+import { finalize } from 'rxjs/operators';
 import { FlatsService } from '../../../../core/services/flats.service';
 import { FilterService } from '../../../../core/services/filter.service';
 import { ScrapeStatusService } from '../../../../core/services/scrape-status.service';
@@ -24,7 +24,9 @@ type AggregationSortColumn = 'district' | 'roomsCount' | 'count' | 'avgPricePerM
   selector: 'app-overview-tab',
   standalone: true,
   imports: [
-    CommonModule,
+    CurrencyPipe,
+    DatePipe,
+    DecimalPipe,
     FormsModule,
     ScrapingStatusComponent,
     SortableHeaderComponent,
@@ -34,7 +36,14 @@ type AggregationSortColumn = 'district' | 'roomsCount' | 'count' | 'avgPricePerM
   ],
   templateUrl: './overview-tab.component.html',
 })
-export class OverviewTabComponent implements OnInit, OnDestroy {
+export class OverviewTabComponent implements OnInit {
+  private readonly flatsService = inject(FlatsService);
+  private readonly filterService = inject(FilterService);
+  private readonly scrapeStatus = inject(ScrapeStatusService);
+  private readonly router = inject(Router);
+  private readonly location = inject(Location);
+  private readonly destroyRef = inject(DestroyRef);
+
   readonly sort = new TableSort<FlatAggregation, AggregationSortColumn>();
 
   aggregatedData: FlatAggregation[] = [];
@@ -51,29 +60,14 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
   availableDistricts: string[] = [];
   availableRooms: number[] = [];
 
-  private destroy$ = new Subject<void>();
-
   roundPriceToEuro = roundPriceToEuro;
-
-  constructor(
-    private flatsService: FlatsService,
-    private filterService: FilterService,
-    private scrapeStatus: ScrapeStatusService,
-    private router: Router,
-    private location: Location
-  ) {}
 
   ngOnInit(): void {
     this.loadAggregatedData();
 
     this.scrapeStatus.scrapeFinished$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.loadAggregatedData());
-  }
-
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
   }
 
   loadAggregatedData(): void {
