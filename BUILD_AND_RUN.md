@@ -67,6 +67,37 @@ ClientApp/                # Angular Frontend
 - `POST /api/scrape` — Triggers manual scrape
 - `GET /swagger` — Swagger UI (development only)
 
+## CI Pipelines
+
+Every push runs a pipeline on the platform it was pushed to: `.gitlab-ci.yml` on GitLab (`origin`),
+`.github/workflows/ci.yml` on GitHub (`GitHubFlatMonitor`). Both run the same five jobs:
+
+| Job | Script | Checks |
+|---|---|---|
+| commit-messages | `scripts/check-commit-msg.sh --range <from>..<to>` | every pushed commit matches `type(scope): message` |
+| backend-build | `scripts/ci/backend-build.sh` | `dotnet restore` + `dotnet build -c Release` |
+| backend-test | `scripts/ci/backend-test.sh` | NUnit tests from the build's output, JUnit report |
+| frontend-build | `scripts/ci/frontend-build.sh` | `ng build` (production) |
+| frontend-test | `scripts/ci/frontend-test.sh` | Karma/Jasmine specs in headless Chrome, JUnit report |
+
+The test jobs start once their build job is green. Failed tests are listed by name in GitLab's pipeline "Tests" tab /
+the "Backend tests" and "Frontend tests" check runs on GitHub.
+
+**Reproduce a job locally** (Git Bash, from the repository root):
+```bash
+sh scripts/ci/backend-build.sh && sh scripts/ci/backend-test.sh
+sh scripts/ci/frontend-build.sh && sh scripts/ci/frontend-test.sh
+sh scripts/check-commit-msg.sh --range origin/main..HEAD
+```
+Locally the frontend scripts reuse `ClientApp/node_modules` (CI does a clean `npm ci`). Reports go to `test-results/`
+and `ClientApp/test-results/` (git-ignored).
+
+**Live tests:** tests that call real websites are marked `[Explicit]` + `[Category("Live")]`. They are skipped by
+`dotnet test` and in CI. Run them on purpose with `dotnet test --filter "TestCategory=Live"`.
+
+**GitLab runner:** jobs run on the instance runner tagged `not-ao-code-runner0` (`default: tags` in `.gitlab-ci.yml`).
+If jobs stay "pending", change that tag. Runners are listed under *Settings → CI/CD → Runners*.
+
 ## Troubleshooting
 
 ### Angular build fails

@@ -113,6 +113,8 @@ dotnet test
 ```
 
 - Parser logic is covered by unit tests against saved HTML fixtures
+- Tests that call real websites are `[Explicit]` + `[Category("Live")]`: skipped by `dotnet test` and CI, run with `dotnet test --filter "TestCategory=Live"`
+- CI: GitLab (`.gitlab-ci.yml`) and GitHub (`.github/workflows/ci.yml`) run the same scripts in `scripts/ci/` on every push; see [BUILD_AND_RUN.md](BUILD_AND_RUN.md#ci-pipelines)
 
 ## Data Flow
 

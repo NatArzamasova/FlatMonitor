@@ -1,22 +1,6 @@
-#!/bin/bash
-
+#!/bin/sh
 # Validate commit message format: type(scope): message
-# Types: feat, fix, refactor, docs, test, chore
+# The rule lives in scripts/check-commit-msg.sh, shared with the CI pipelines.
+# Git runs hooks from the repository root.
 
-commit_msg=$(cat "$1")
-first_line=$(echo "$commit_msg" | head -n1)
-
-# Pattern: type(scope): message
-# Example: feat(scrape): add HTTP parser
-
-if echo "$first_line" | grep -qE '^(feat|fix|refactor|docs|test|chore)\([a-z0-9_-]+\): .+'; then
-  exit 0
-else
-  echo "❌ Commit message does not match required format: type(scope): message"
-  echo ""
-  echo "Valid types: feat, fix, refactor, docs, test, chore"
-  echo "Example: feat(scrape): add HTTP client for pagination"
-  echo ""
-  echo "Your message: $first_line"
-  exit 1
-fi
+exec sh scripts/check-commit-msg.sh "$1"

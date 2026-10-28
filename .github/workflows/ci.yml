@@ -1,0 +1,134 @@
+# CI for GitHub (remote "GitHubFlatMonitor"). GitLab runs .gitlab-ci.yml instead.
+# The jobs only prepare the environment; the work is done by the shared scripts in scripts/.
+#
+#   commit-messages
+#   backend-build  ──► backend-test
+#   frontend-build ──► frontend-test
+
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  checks: write          # dorny/test-reporter creates the "… tests" check runs
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "1"
+
+jobs:
+  commit-messages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history, so the pushed commit range can be read
+      - name: Check commit messages
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            range="$AFTER~1..$AFTER"   # first push of a branch or manual run: check the tip
+          else
+            range="$BEFORE..$AFTER"
+          fi
+          sh scripts/check-commit-msg.sh --range "$range"
+
+  backend-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ hashFiles('Directory.Packages.props') }}
+      - run: sh scripts/ci/backend-build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-binaries
+          # Hidden folders such as .playwright (browser driver, ~80 MB, not used by tests) are skipped by default.
+          path: FlatMonitor.Tests/bin/Release/net10.0/
+          retention-days: 1
+
+  backend-test:
+    needs: backend-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/download-artifact@v4
+        with:
+          name: backend-test-binaries
+          path: FlatMonitor.Tests/bin/Release/net10.0/
+      - run: sh scripts/ci/backend-test.sh
+      - uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Backend tests
+          path: test-results/backend-junit.xml
+          reporter: java-junit
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-test-results
+          path: test-results/
+          retention-days: 7
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ClientApp/package-lock.json
+      - run: sh scripts/ci/frontend-build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: ClientApp/dist/
+          retention-days: 7
+
+  frontend-test:
+    needs: frontend-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ClientApp/package-lock.json
+      - run: sh scripts/ci/frontend-test.sh     # Chrome is preinstalled on ubuntu-latest
+      - uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Frontend tests
+          path: ClientApp/test-results/junit.xml
+          reporter: java-junit
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-test-results
+          path: ClientApp/test-results/
+          retention-days: 7

@@ -12,3 +12,8 @@ FlatMonitor/data/
 FlatMonitor.Tests/data/
 ClientApp/dist/
 FlatMonitor/wwwroot/
+
+# CI test reports (JUnit XML), also written by local runs of scripts/ci/*.sh
+test-results/
+.nuget/
+.npm/

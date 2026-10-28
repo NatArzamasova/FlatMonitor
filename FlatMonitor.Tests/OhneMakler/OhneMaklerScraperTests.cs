@@ -22,6 +22,8 @@ public class OhneMaklerScraperTests
     }
 
     [Test]
+    [Explicit("Calls the live ohne-makler.net site; run with: dotnet test --filter \"TestCategory=Live\"")]
+    [Category("Live")]
     public async Task OhneMaklerScraper_ScrapeAllListingsAsync_ReturnsListOfListings()
     {
         // Arrange

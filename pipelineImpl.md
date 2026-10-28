@@ -42,16 +42,20 @@ prepare the environment (images, SDKs, caches) and call the same scripts. A chan
 ## Pipeline design (same on both platforms)
 
 ```
-commit-messages          backend                        frontend
-(check the pushed   ┐    restore → build → test   ┐     npm ci → build → test
- commits)           │    (scripts/ci/backend.sh)  │     (scripts/ci/frontend.sh)
-                    └── all three run in parallel ┘
+commit-messages
+backend-build  ──► backend-test        (scripts/ci/backend-build.sh  → scripts/ci/backend-test.sh)
+frontend-build ──► frontend-test       (scripts/ci/frontend-build.sh → scripts/ci/frontend-test.sh)
 ```
+Five jobs (decided during implementation: build and test are separate jobs, so a red job shows at a glance whether it's
+a compile or a test failure). The three left-hand jobs start in parallel; each test job starts when its build job is green.
+- `backend-test` runs the **compiled** `FlatMonitor.Tests.dll` from `backend-build`'s artifact (`dotnet test <dll>`),
+  no second compile. The artifact is `FlatMonitor.Tests/bin/Release/net10.0/` **without** `.playwright/` (Playwright's
+  browser driver, ~80 MB, only used by the scraper): about 81 MB instead of 158 MB.
+- `frontend-test` only waits for `frontend-build`; `ng test` compiles on its own, so it doesn't download `dist/`.
 
 - **Trigger:** every push to any branch. GitLab additionally runs merge request pipelines; a `workflow:` rule prevents
   a duplicate branch + MR pipeline for the same commit. GitHub: `push` only (the push run's result is shown on a PR too),
   plus a manual "Run workflow" button (`workflow_dispatch`).
-- **Parallel:** the three jobs don't depend on each other, so you get all three results in one run.
 - **Cancel outdated runs:** pushing again cancels the still-running pipeline of the same branch
   (GitLab `interruptible: true`; GitHub `concurrency` with `cancel-in-progress`).
 - **Caches:** NuGet packages keyed on `Directory.Packages.props`, npm cache keyed on `ClientApp/package-lock.json`.
@@ -64,14 +68,16 @@ commit-messages          backend                        frontend
 
 ## Implementation steps
 
-### 1. Live scraper test: only run when asked
+### 1. Live scraper test: only run when asked ✅ DONE
 `FlatMonitor.Tests/OhneMaklerScraperTests.cs`, test `OhneMaklerScraper_ScrapeAllListingsAsync_ReturnsListOfListings`:
 - add `[Explicit("Calls the live ohne-makler.net site")]` and `[Category("Live")]`.
 - `[Explicit]`: NUnit skips it in every normal run (`dotnet test` locally and in CI).
 - To run it on purpose: `dotnet test --filter "TestCategory=Live"` (or select it in the IDE's test explorer).
 - CI needs no special filter.
 
-### 2. Commit-message check shared by hook and CI
+**Status:** done. `dotnet test` → 278 passed (5 s instead of ~20 s); `--filter "TestCategory=Live"` → runs the live test.
+
+### 2. Commit-message check shared by hook and CI ✅ DONE
 - New `scripts/check-commit-msg.sh` (POSIX `sh`, no bash, so it also runs in a minimal Alpine image):
   - `check-commit-msg.sh <message-file>`: checks the first line (what the hook does today).
   - `check-commit-msg.sh --range <from>..<to>`: checks every non-merge commit in the range
@@ -90,7 +96,12 @@ commit-messages          backend                        frontend
   Both need the full history checked out (GitLab `GIT_DEPTH: 0`, GitHub `fetch-depth: 0`).
   Force-pushes whose old tip no longer exists: fall back to "tip only" (the script handles an unknown `from`).
 
-### 3. Frontend: Karma CI launcher + JUnit output
+**Status:** done. Also added **`.gitattributes`** (`*.sh` and `scripts/hooks/*` → `eol=lf`): with `core.autocrlf=true`
+Windows checkouts would otherwise get CRLF, and `sh` fails on CRLF. Checked: hook mode (good/bad message), range over the
+last 10 commits, unknown `from` (falls back to the tip), a range containing a `wip` commit (in a throwaway clone) → listed, exit 1.
+**After pulling this change, run `bash scripts/setup-hooks.sh` once**: the installed hook is a copy of the old one.
+
+### 3. Frontend: Karma CI launcher + JUnit output ✅ DONE
 - `ng generate config karma` → `ClientApp/karma.conf.js`, then:
   - custom launcher `ChromeHeadlessCI`: `base: 'ChromeHeadless'`, `flags: ['--no-sandbox', '--disable-dev-shm-usage']`;
   - `karma-junit-reporter` (devDependency) → `ClientApp/test-results/junit.xml`.
@@ -98,196 +109,48 @@ commit-messages          backend                        frontend
 - Locally `npm test` keeps working as before (normal Chrome, watch mode).
 - `.gitignore`: add `ClientApp/test-results/`.
 
-### 4. Backend: JUnit output
+**Status:** done (`karma-junit-reporter` 2.0.1). 343 specs pass with `ChromeHeadlessCI`; `junit.xml` has 343 test cases.
+
+### 4. Backend: JUnit output ✅ DONE
 - Add `JunitXml.TestLogger` to `Directory.Packages.props` and `FlatMonitor.Tests.csproj`.
-- `.gitignore`: add `test-results/`.
+- `.gitignore`: add `test-results/` (also `.nuget/`, `.npm/`: GitLab's cache folders inside the project directory).
 
-### 5. Shared CI scripts (`scripts/ci/`)
-Both pipelines call these; they can also be run locally (Git Bash) to reproduce a CI failure.
+**Status:** done (`JunitXml.TestLogger` 8.1.0, listed under "Test packages"). Report has 279 cases: 278 passed, 1 skipped (live).
 
-`scripts/ci/backend.sh`:
-```sh
-#!/bin/sh
-set -eu
-dotnet restore FlatMonitor.sln
-dotnet build FlatMonitor.sln -c Release --no-restore
-dotnet test FlatMonitor.sln -c Release --no-build \
-  --logger "junit;LogFilePath=$PWD/test-results/backend-junit.xml"
-```
+### 5. Shared CI scripts (`scripts/ci/`) ✅ DONE
+One script per job; both pipelines call them, and they run locally in Git Bash to reproduce a CI failure:
 
-`scripts/ci/frontend.sh`:
-```sh
-#!/bin/sh
-set -eu
-cd ClientApp
-npm ci
-npx ng build
-npx ng test --watch=false --browsers=ChromeHeadlessCI
-```
+| Script | Does |
+|---|---|
+| `backend-build.sh` | `dotnet restore` + `dotnet build -c Release` |
+| `backend-test.sh` | `dotnet test FlatMonitor.Tests/bin/Release/net10.0/FlatMonitor.Tests.dll` + JUnit logger |
+| `frontend-build.sh` | `npm ci` (see below) + `ng build` |
+| `frontend-test.sh` | `npm ci` (see below) + `ng test --watch=false --browsers=ChromeHeadlessCI` |
 
-### 6. `.gitlab-ci.yml` (draft)
-```yaml
-workflow:
-  rules:
-    # Merge request open → MR pipeline only; otherwise a branch pipeline. Avoids duplicates.
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
-      when: never
-    - if: $CI_COMMIT_BRANCH
+All use `set -eu`. The frontend scripts run `npm ci` only when `CI=true` (set by GitLab and GitHub) or `node_modules` is
+missing. Locally they keep `node_modules`: `npm ci` deletes it first, which broke a running `ng serve` during testing and
+fails on Windows while files are in use.
 
-default:
-  interruptible: true
-  timeout: 15 minutes
+**Status:** all four run green locally (build → test order). Also checked: tests run from a copy of the output without `.playwright`.
 
-commit-messages:
-  image:
-    name: alpine/git:2.45.2
-    entrypoint: [""]
-  variables:
-    GIT_DEPTH: 0
-  script:
-    - |
-      if [ -n "${CI_MERGE_REQUEST_DIFF_BASE_SHA:-}" ]; then
-        range="$CI_MERGE_REQUEST_DIFF_BASE_SHA..$CI_COMMIT_SHA"
-      elif [ "$CI_COMMIT_BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
-        range="$CI_COMMIT_SHA~1..$CI_COMMIT_SHA"
-      else
-        range="$CI_COMMIT_BEFORE_SHA..$CI_COMMIT_SHA"
-      fi
-      sh scripts/check-commit-msg.sh --range "$range"
+### 6. `.gitlab-ci.yml` ✅ DONE
+See the file. Notes:
+- `default: tags: [not-ao-code-runner0]`: pins all jobs to that instance runner (the first in the list). If jobs stay
+  "pending", change or remove this line; ask the IT team (`it-kuemmerlinge`) which tag fits jobs that need Docker + internet.
+- `commit-messages` uses `alpine:3.20` + `apk add git` (no guessing of an `alpine/git` tag) and sets `safe.directory`
+  (git refuses repos owned by another user in containers).
+- Artifacts: backend test binaries 1 day (excluding `.playwright/`), test results and `ClientApp/dist/` 1 week.
+- NuGet cache in `backend-build`; npm cache filled by `frontend-build`, only pulled by `frontend-test`.
+- Chromium is installed in `frontend-test` (`apt-get`, about 30–60 s). If that gets annoying, switch to an image with Chrome.
+- Not run yet: needs a push. Validate first in *Build → Pipeline editor → Validate*.
 
-backend:
-  image: mcr.microsoft.com/dotnet/sdk:10.0
-  variables:
-    NUGET_PACKAGES: $CI_PROJECT_DIR/.nuget/packages
-    DOTNET_CLI_TELEMETRY_OPTOUT: "1"
-    DOTNET_NOLOGO: "1"
-  cache:
-    key:
-      files: [Directory.Packages.props]
-    paths: [.nuget/packages]
-  script:
-    - sh scripts/ci/backend.sh
-  artifacts:
-    when: always
-    reports:
-      junit: test-results/backend-junit.xml
+### 7. `.github/workflows/ci.yml` ✅ DONE
+See the file. Same five jobs on `ubuntu-latest`; `actions/setup-dotnet` 10.0.x, `actions/setup-node` 20 with npm cache,
+`actions/cache` for NuGet. Test binaries are passed via `upload-artifact`/`download-artifact` (hidden folders such as
+`.playwright` are skipped by `upload-artifact` by default). Test reports via `dorny/test-reporter` (`checks: write`).
+Triggers: every branch push + manual `workflow_dispatch`; `concurrency` cancels outdated runs. Not run yet: needs a push.
 
-frontend:
-  image: node:20-bookworm
-  variables:
-    CHROME_BIN: /usr/bin/chromium
-    npm_config_cache: $CI_PROJECT_DIR/.npm
-  cache:
-    key:
-      files: [ClientApp/package-lock.json]
-    paths: [.npm]
-  before_script:
-    - apt-get update && apt-get install -y --no-install-recommends chromium
-  script:
-    - sh scripts/ci/frontend.sh
-  artifacts:
-    when: always
-    expire_in: 1 week
-    paths: [ClientApp/dist/]
-    reports:
-      junit: ClientApp/test-results/junit.xml
-```
-- No `stages:` needed: all jobs are in the default `test` stage and run in parallel.
-- Installing Chromium costs about 30–60 s per run. If that gets annoying, switch to an image with Node 20 + Chrome
-  preinstalled (e.g. a pinned `cypress/browsers` tag). Not needed for a first version.
-
-### 7. `.github/workflows/ci.yml` (draft)
-```yaml
-name: CI
-
-on:
-  push:
-    branches: ['**']
-  workflow_dispatch:
-
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
-
-permissions:
-  contents: read
-  checks: write          # test-reporter creates the "… tests" check runs
-
-jobs:
-  commit-messages:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Check commit messages
-        env:
-          BEFORE: ${{ github.event.before }}
-          AFTER: ${{ github.sha }}
-        run: |
-          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
-            range="$AFTER~1..$AFTER"
-          else
-            range="$BEFORE..$AFTER"
-          fi
-          sh scripts/check-commit-msg.sh --range "$range"
-
-  backend:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
-      DOTNET_NOLOGO: "1"
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 10.0.x
-      - uses: actions/cache@v4
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ hashFiles('Directory.Packages.props') }}
-      - run: sh scripts/ci/backend.sh
-      - uses: dorny/test-reporter@v1
-        if: always()
-        with:
-          name: Backend tests
-          path: test-results/backend-junit.xml
-          reporter: java-junit
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: backend-test-results
-          path: test-results/
-
-  frontend:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: ClientApp/package-lock.json
-      - run: sh scripts/ci/frontend.sh      # Chrome is preinstalled on ubuntu-latest
-      - uses: dorny/test-reporter@v1
-        if: always()
-        with:
-          name: Frontend tests
-          path: ClientApp/test-results/junit.xml
-          reporter: java-junit
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: frontend
-          path: |
-            ClientApp/test-results/
-            ClientApp/dist/
-          retention-days: 7
-```
+Both YAML files parse, and their job graphs were checked (test jobs need their build job; the others are independent).
 
 ### 8. Platform settings (manual, in the web UI)
 
@@ -310,15 +173,17 @@ jobs:
   Actions minutes; one run is about 3–5 min.
 - Optional: **Settings → Branches → Branch protection rule** for `main` with "Require status checks to pass".
 
-### 9. Docs
+### 9. Docs ✅ DONE
 - `BUILD_AND_RUN.md`: section "CI": what runs where, how to reproduce a job locally (`sh scripts/ci/backend.sh`,
   `sh scripts/ci/frontend.sh`), how to run the live test (`dotnet test --filter "TestCategory=Live"`).
 - `CLAUDE.md` / `AGENTS.md`: one line under "Testing" about the `[Explicit]` live test and the pipelines.
 
+**Status:** done. `BUILD_AND_RUN.md` has a "CI Pipelines" section (jobs table, local reproduction, live tests, runner tag).
+
 ## Verification
 1. GitLab: validate `.gitlab-ci.yml` in the pipeline editor.
 2. Push a branch to **GitLab** → pipeline appears under Build → Pipelines; all three jobs green; "Tests" tab shows about
-   278 backend tests (279 minus the explicit live test) and 343 frontend tests.
+   279 backend tests (278 passed + 1 skipped live test) and 343 frontend tests.
 3. Push the same branch to **GitHub** → run appears in the Actions tab; all three jobs green; "Backend tests" /
    "Frontend tests" check runs list the tests.
 4. Negative checks on a throwaway branch (on both platforms):
@@ -331,16 +196,15 @@ jobs:
 
 ## Suggested commit sequence
 1. `test(tests): run the live ohne-makler scraper test only when asked`
-2. `chore(ci): share commit message check between hook and CI`
+2. `chore(ci): share commit message check between hook and CI` (incl. `.gitattributes`)
 3. `chore(ci): add karma CI launcher and junit test reports`
-4. `chore(ci): add shared CI scripts`
-5. `chore(ci): add GitLab pipeline`
-6. `chore(ci): add GitHub Actions workflow`
-7. `docs(ci): document the pipelines`
+4. `chore(ci): add GitLab and GitHub pipelines with shared CI scripts`
+5. `docs(ci): document the pipelines`
 
 ## Open questions
-1. **GitLab runner:** is a runner with Docker executor available for `csharp/workinprogress`, and does it need a proxy or an
-   internal registry mirror? (Check as described in step 8.)
+1. **GitLab runner:** no project or group runners; 3 instance runners exist. The pipeline tries `not-ao-code-runner0`.
+   Unknown: Docker executor? Internet access (the `dmz-access` tag suggests only some runners have it)? The first push will
+   tell; otherwise ask `it-kuemmerlinge`.
 2. **GitHub repo visibility:** public (unlimited Actions minutes) or private (monthly quota)? Only matters for cost.
 
 ## Later: scheduled scrape (recycled from the old Story 3)

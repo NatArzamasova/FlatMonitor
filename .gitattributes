@@ -1,0 +1,4 @@
+# Shell scripts and git hooks must keep LF line endings, also in Windows checkouts (core.autocrlf=true):
+# sh/bash fail on CRLF. CI runs these scripts on Linux; the commit-msg hook runs them locally.
+*.sh              text eol=lf
+scripts/hooks/*   text eol=lf
