@@ -8,7 +8,7 @@ import { FlatsService } from '../../../../core/services/flats.service';
 import { FilterService } from '../../../../core/services/filter.service';
 import { ScrapeStatusService } from '../../../../core/services/scrape-status.service';
 import { FlatAggregation } from '../../../../core/models/flat-aggregation.model';
-import { mergeWeightedAverage, roundPriceToEuro } from '../../../../core/utils/aggregation.utils';
+import { groupWeighted, roundPriceToEuro } from '../../../../core/utils/aggregation.utils';
 import { normalizeRooms } from '../../../../core/utils/rooms.utils';
 import { describeLoadError } from '../../../../core/utils/api-response.utils';
 import { ScrapingStatusComponent } from '../../scraping-status/scraping-status.component';
@@ -110,15 +110,8 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
     filtered = this.filterService.filterByDistricts(filtered, this.selectedDistricts, item => item.district);
     filtered = this.filterService.filterByRooms(filtered, this.selectedRoomCounts, item => normalizeRooms(item.roomsCount));
 
-    if (this.groupByDistrict && this.groupByRooms) {
-      this.aggregatedData = filtered;
-    } else if (this.groupByDistrict && !this.groupByRooms) {
-      this.aggregatedData = this.aggregateByDistrict(filtered);
-    } else if (!this.groupByDistrict && this.groupByRooms) {
-      this.aggregatedData = this.aggregateByRooms(filtered);
-    } else {
-      this.aggregatedData = this.aggregateAll(filtered);
-    }
+    // Backend rows are already one per district + rooms combination.
+    this.aggregatedData = this.groupByDistrict && this.groupByRooms ? filtered : this.aggregate(filtered);
     this.applySort();
   }
 
@@ -135,79 +128,34 @@ export class OverviewTabComponent implements OnInit, OnDestroy {
     this.aggregatedData = this.sort.apply(this.aggregatedData);
   }
 
-  private aggregateByDistrict(data: FlatAggregation[]): FlatAggregation[] {
-    const grouped = new Map<string | undefined, FlatAggregation>();
+  /** Merges rows by the selected dimension (or into one row when none is selected). */
+  private aggregate(data: FlatAggregation[]): FlatAggregation[] {
+    const byDistrict = this.groupByDistrict;
+    const byRooms = this.groupByRooms;
+    // A group keeps its first row's postal code / availability; the all-in-one row has none.
+    const keepDetails = byDistrict || byRooms;
 
-    data.forEach(item => {
-      const key = item.district;
-      if (!grouped.has(key)) {
-        grouped.set(key, {
-          district: item.district,
-          roomsCount: undefined,
-          count: 0,
-          avgPricePerMeter: 0,
-          postalCode: item.postalCode,
-          availability: item.availability
-        });
-      }
+    const groups = groupWeighted(
+      data,
+      item => byDistrict ? item.district : byRooms ? item.roomsCount : 'all',
+      item => ({
+        district: byDistrict ? item.district : undefined,
+        roomsCount: byRooms ? item.roomsCount : undefined,
+        count: 0,
+        avgPricePerMeter: 0,
+        postalCode: keepDetails ? item.postalCode : undefined,
+        availability: keepDetails ? item.availability : undefined
+      })
+    );
+    const rows = Array.from(groups.values());
 
-      const current = grouped.get(key)!;
-      mergeWeightedAverage(current, item);
-    });
-
-    return Array.from(grouped.values()).sort((a, b) => {
-      const districtA = a.district || '';
-      const districtB = b.district || '';
-      return districtA.localeCompare(districtB);
-    });
-  }
-
-  private aggregateByRooms(data: FlatAggregation[]): FlatAggregation[] {
-    const grouped = new Map<number | undefined, FlatAggregation>();
-
-    data.forEach(item => {
-      const key = item.roomsCount;
-      if (!grouped.has(key)) {
-        grouped.set(key, {
-          district: undefined,
-          roomsCount: item.roomsCount,
-          count: 0,
-          avgPricePerMeter: 0,
-          postalCode: item.postalCode,
-          availability: item.availability
-        });
-      }
-
-      const current = grouped.get(key)!;
-      mergeWeightedAverage(current, item);
-    });
-
-    return Array.from(grouped.values()).sort((a, b) => {
-      const roomsA = a.roomsCount ?? -1;
-      const roomsB = b.roomsCount ?? -1;
-      return roomsA - roomsB;
-    });
-  }
-
-  private aggregateAll(data: FlatAggregation[]): FlatAggregation[] {
-    if (data.length === 0) {
-      return [];
+    if (byDistrict) {
+      return rows.sort((a, b) => (a.district || '').localeCompare(b.district || ''));
     }
-
-    const aggregated: FlatAggregation = {
-      district: undefined,
-      roomsCount: undefined,
-      count: 0,
-      avgPricePerMeter: 0,
-      postalCode: undefined,
-      availability: undefined
-    };
-
-    data.forEach(item => {
-      mergeWeightedAverage(aggregated, item);
-    });
-
-    return [aggregated];
+    if (byRooms) {
+      return rows.sort((a, b) => (a.roomsCount ?? -1) - (b.roomsCount ?? -1));
+    }
+    return rows;
   }
 
   onGroupingToggle(): void {

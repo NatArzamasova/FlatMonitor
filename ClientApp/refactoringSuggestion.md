@@ -320,7 +320,18 @@ Plus a `SortableHeaderComponent` (`<th app-sortable-header [sort]="sort" column=
 to replace the 11 identical `<th><button ...>` blocks in the two templates. The comparator gets its
 own spec instead of being tested indirectly through two components.
 
-### B5. Collapse the overview grouping into one function
+### B5. Collapse the overview grouping into one function ✅ COMPLETED
+
+> **Done:** `aggregation.utils.ts` gets `groupWeighted(rows, keyOf, seed)` (one count-weighted row
+> per key, first-appearance order), and `mergeWeightedAverage` now returns a new object instead of
+> mutating its argument. Overview's `aggregateByDistrict` / `aggregateByRooms` / `aggregateAll` and
+> the 4-way `if/else` became one `aggregate()` that picks key, seed and ordering from the two
+> checkboxes. History uses the returned merge value. Before refactoring, six characterization specs
+> pinned the exact grouped rows (order, kept postal code / availability, empty case, input not
+> modified); they pass unchanged afterwards.
+>
+> Not done: History's nested label → date grouping still uses its own loop (B6 reworks that map
+> anyway); room grouping keys are still not normalized (A4 edge) — that would be a behaviour change.
 `aggregateByDistrict`, `aggregateByRooms`, `aggregateAll` (`overview-tab.component.ts:184-257`) and the
 4-way `if/else` in `applyFiltersAndGrouping` (`:129-137`) are the same algorithm with a different key.
 History has its own variant (`aggregateHistoryByLabel`). Move to `aggregation.utils.ts`:

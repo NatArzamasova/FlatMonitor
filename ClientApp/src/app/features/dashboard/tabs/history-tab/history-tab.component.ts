@@ -128,13 +128,10 @@ export class HistoryTabComponent implements OnInit, OnDestroy {
       }
 
       const dateMap = grouped.get(label)!;
-      if (!dateMap.has(date)) {
-        dateMap.set(date, { count: 0, avgPricePerMeter: 0 });
-      }
-      mergeWeightedAverage(dateMap.get(date)!, {
+      dateMap.set(date, mergeWeightedAverage(dateMap.get(date) ?? { count: 0, avgPricePerMeter: 0 }, {
         count,
         avgPricePerMeter: this.parsePrice(item.avgPricePerMeter)
-      });
+      }));
     });
 
     this.chartData = [];

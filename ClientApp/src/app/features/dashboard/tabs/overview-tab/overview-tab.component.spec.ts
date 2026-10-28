@@ -439,6 +439,64 @@ describe('OverviewTabComponent', () => {
         .toEqual([['Mitte', 5, 10], ['Weststadt', 0, 0]]);
     });
 
+    describe('exact grouped rows', () => {
+      const detailedRows: FlatAggregation[] = [
+        { district: 'Weststadt', roomsCount: 3, count: 2, avgPricePerMeter: 10, postalCode: '76135', availability: 'sofort' },
+        { district: 'Mitte', roomsCount: 2, count: 1, avgPricePerMeter: 20, postalCode: '76133', availability: 'ab 01.05.' },
+        { district: 'Weststadt', roomsCount: 2, count: 3, avgPricePerMeter: 30, postalCode: '76137', availability: 'nach Vereinbarung' },
+        { district: undefined, roomsCount: undefined, count: 4, avgPricePerMeter: 40, postalCode: '76131', availability: undefined }
+      ];
+
+      const group = (groupByDistrict: boolean, groupByRooms: boolean, rows = detailedRows) => {
+        flatsService.getAggregated.and.returnValue(apiResult({ success: true, data: rows, message: 'Success' }));
+        component.loadAggregatedData();
+        component.groupByDistrict = groupByDistrict;
+        component.groupByRooms = groupByRooms;
+        component.onGroupingToggle();
+        return component.aggregatedData.map(row => ({ ...row, avgPricePerMeter: Number(row.avgPricePerMeter.toFixed(6)) }));
+      };
+
+      it('keeps the raw rows when grouping by district and rooms', () => {
+        expect(group(true, true)).toEqual(detailedRows);
+      });
+
+      it('groups by district, sorted by district with missing first, keeping the first row details', () => {
+        expect(group(true, false)).toEqual([
+          { district: undefined, roomsCount: undefined, count: 4, avgPricePerMeter: 40, postalCode: '76131', availability: undefined },
+          { district: 'Mitte', roomsCount: undefined, count: 1, avgPricePerMeter: 20, postalCode: '76133', availability: 'ab 01.05.' },
+          { district: 'Weststadt', roomsCount: undefined, count: 5, avgPricePerMeter: 22, postalCode: '76135', availability: 'sofort' }
+        ]);
+      });
+
+      it('groups by rooms, sorted by room count with missing first, keeping the first row details', () => {
+        expect(group(false, true)).toEqual([
+          { district: undefined, roomsCount: undefined, count: 4, avgPricePerMeter: 40, postalCode: '76131', availability: undefined },
+          { district: undefined, roomsCount: 2, count: 4, avgPricePerMeter: 27.5, postalCode: '76133', availability: 'ab 01.05.' },
+          { district: undefined, roomsCount: 3, count: 2, avgPricePerMeter: 10, postalCode: '76135', availability: 'sofort' }
+        ]);
+      });
+
+      it('merges everything into one row without details when no grouping is selected', () => {
+        expect(group(false, false)).toEqual([
+          { district: undefined, roomsCount: undefined, count: 10, avgPricePerMeter: 29, postalCode: undefined, availability: undefined }
+        ]);
+      });
+
+      it('returns no rows when no grouping is selected and there is no data', () => {
+        expect(group(false, false, [])).toEqual([]);
+      });
+
+      it('does not modify the loaded rows while grouping', () => {
+        const rows = detailedRows.map(row => ({ ...row }));
+
+        group(true, false, rows);
+        group(false, true, rows);
+        group(false, false, rows);
+
+        expect(rows).toEqual(detailedRows);
+      });
+    });
+
     it('should apply filter and then aggregate correctly', () => {
       flatsService.getAggregated.and.returnValue(apiResult(multiRoomData));
       component.loadAggregatedData();
