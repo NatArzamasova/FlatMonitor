@@ -204,6 +204,7 @@ async Task<int> RunWebServerAsync(string[] args)
         builder.Services.AddScoped<ISnapshotRepository>(sp => new FlatSnapshotRepository(sp.GetRequiredService<DbContextOptions<FlatsDbContext>>()));
         builder.Services.AddScoped<IFlatAggregationRepository>(sp => new FlatAggregationRepository(sp.GetRequiredService<DbContextOptions<FlatsDbContext>>()));
         builder.Services.AddScoped<IScrapingHistoryRepository, ScrapingHistoryRepository>();
+        builder.Services.AddScoped<IFilterPresetRepository, FilterPresetRepository>();
         builder.Services.AddScoped<SnapshotWriter>();
         builder.Services.AddScoped<ScraperCoordinator>(sp =>
         {

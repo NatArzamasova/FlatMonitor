@@ -88,7 +88,7 @@ Collation and partial index are present. `dotnet ef migrations has-pending-model
 The snapshot diff also renames entity types `workInProgress.Models.*` → `FlatMonitor.Models.*`, left over from an earlier
 namespace rename. This changes no schema.
 
-### 4. Repository
+### 4. Repository ✅ DONE
 `FlatMonitor/Storage/IFilterPresetRepository.cs` + `FilterPresetRepository.cs`, styled like
 `ScrapingHistoryRepository` (takes `FlatsDbContext` directly). All methods take a `CancellationToken ct = default`.
 ```csharp
@@ -112,6 +112,11 @@ Register in `Program.cs` (web server only; the CLI `scrape` mode doesn't need it
 ```csharp
 builder.Services.AddScoped<IFilterPresetRepository, FilterPresetRepository>();
 ```
+
+**Status:** implemented as planned and registered in `Program.cs`. `GetAllAsync`/`GetByIdAsync` are no-tracking;
+`NameExistsAsync` relies on the `NOCASE` collation. `ClearDefaultAsync` clears all defaults in one `SaveChanges`, and
+`SetDefaultAsync` reuses it inside its transaction. Updating a preset keeps its default flag. Tests (SQLite in-memory, 24):
+`FlatMonitor.Tests/Storage/FilterPresetRepositoryTests.cs`. All 242 .NET tests pass.
 
 ### 5. Contracts + controller
 `FlatMonitor/Api/Contracts/`:
