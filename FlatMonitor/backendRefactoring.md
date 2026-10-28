@@ -44,7 +44,12 @@ at line 59), so cancelling during the last source does not stop the run cleanly.
 existing per-source `catch` record the error. Add a test: a scraper whose `InitializeAsync`
 throws must lead to `Success == false` and keep the backup.
 
-### 1.2 Every flat is saved twice
+### 1.2 Every flat is saved twice ✅ Done
+> **Done (minimal fix):** `ScrapeSourceAsync` skips the final upsert for `FlatScraper`s, whose batches are already
+> saved by the callback, and now passes `ct` to the upsert. The structural fix (no callbacks at all) is still 2.3.
+> Tests: `ScraperCoordinatorTests.ScrapeAllSourcesAsync_FlatScraper_SavesEachFlatExactlyOnce`; the fake scraper
+> moved to `FlatMonitor.Tests/Scraping/Common/FakeFlatScraper.cs` so it can be shared.
+
 **Severity:** Medium · **File:** `Scraping/ScraperCoordinator.cs:96-118`
 
 For `FlatScraper` subclasses (that is, all production scrapers), the batch callback already

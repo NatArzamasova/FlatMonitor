@@ -4,6 +4,7 @@ using Moq;
 using FlatMonitor.Models;
 using FlatMonitor.Scraping;
 using FlatMonitor.Storage;
+using FlatMonitor.Tests.Scraping.Common;
 
 namespace FlatMonitor.Tests.Scraping;
 
@@ -553,5 +554,47 @@ public class ScraperCoordinatorTests
             l => l.Count == 2 &&
                  l.Any(f => f.ListingId == "1" && f.District == "Oberreut") &&
                  l.Any(f => f.ListingId == "3" && f.District == "Innenstadt-West"))), Times.Once);
+    }
+
+    [Test]
+    public async Task ScrapeAllSourcesAsync_FlatScraper_SavesEachFlatExactlyOnce()
+    {
+        // Arrange: 25 flats → batches of 20 + 5; one flat outside the allowed districts
+        var flats = Enumerable.Range(1, 24).Select(i => FakeFlatScraper.CreateFlat(i.ToString())).ToList();
+        flats.Add(FakeFlatScraper.CreateFlat("outside", "Bad Schönborn"));
+        var scraper = new FakeFlatScraper("OhneMakler") { Flats = flats };
+
+        var saved = new List<Flat>();
+        _mockRepository.Setup(r => r.UpsertListingsAsync(It.IsAny<List<Flat>>(), It.IsAny<CancellationToken>()))
+            .Callback<List<Flat>, CancellationToken>((batch, _) => saved.AddRange(batch))
+            .Returns(Task.CompletedTask);
+
+        var coordinator = new ScraperCoordinator(new IScraper[] { scraper }, _mockRepository.Object, _snapshotWriter, _testDir);
+
+        // Act
+        var total = await coordinator.ScrapeAllSourcesAsync();
+
+        // Assert
+        _mockRepository.Verify(r => r.UpsertListingsAsync(It.IsAny<List<Flat>>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+        saved.Select(f => f.ListingId).Should().OnlyHaveUniqueItems().And.HaveCount(24).And.NotContain("outside");
+        total.Should().Be(24);
+    }
+
+    [Test]
+    public async Task ScrapeAllSourcesAsync_WhenFlatScraperInitializationFails_RecordsSourceErrorAndScrapesOtherSources()
+    {
+        // Arrange
+        var failing = new FakeFlatScraper("ImmobilienScout24") { InitializeException = new InvalidOperationException("Login failed") };
+        var working = new FakeFlatScraper("OhneMakler") { Flats = [FakeFlatScraper.CreateFlat("1", "Durlach")] };
+
+        var coordinator = new ScraperCoordinator(new IScraper[] { failing, working }, _mockRepository.Object, _snapshotWriter, _testDir);
+
+        // Act
+        var total = await coordinator.ScrapeAllSourcesAsync();
+
+        // Assert
+        coordinator.ScraperErrors.Should().ContainSingle()
+            .Which.Should().Be("ImmobilienScout24: Login failed");
+        total.Should().Be(1);
     }
 }

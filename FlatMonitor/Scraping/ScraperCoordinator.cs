@@ -104,15 +104,15 @@ public sealed class ScraperCoordinator : IAsyncDisposable
             return listings;
         }
 
-        // Fallback filter for scrapers that don't use batch saving callback (e.g., test mocks)
-        // Production scrapers (FlatScraper) already filtered via callback during scraping
+        // Filter again for the returned list (snapshot file, flat count)
         var filtered = FilterAndNormalizeBatch(listings);
         var skipped = listings.Count - filtered.Count;
         if (skipped > 0)
             Console.WriteLine($"Skipped {skipped} listings without allowed districts");
 
-        if (filtered.Count > 0)
-            await _repository.UpsertListingsAsync(filtered);
+        // FlatScrapers already saved every batch via SaveListingsCallback; only other scrapers are saved here
+        if (filtered.Count > 0 && scraper is not FlatScraper)
+            await _repository.UpsertListingsAsync(filtered, ct);
 
         return filtered;
     }
