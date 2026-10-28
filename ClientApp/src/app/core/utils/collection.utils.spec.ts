@@ -1,4 +1,4 @@
-import { distinctSorted } from './collection.utils';
+import { distinctSorted, sameElements } from './collection.utils';
 
 describe('collection.utils', () => {
   describe('distinctSorted', () => {
@@ -16,6 +16,29 @@ describe('collection.utils', () => {
 
     it('accepts any iterable', () => {
       expect(distinctSorted(new Set(['b', 'a']))).toEqual(['a', 'b']);
+    });
+  });
+
+  describe('sameElements', () => {
+    it('is true for the same values in a different order', () => {
+      expect(sameElements(['a', 'b'], ['b', 'a'])).toBeTrue();
+    });
+
+    it('ignores duplicates', () => {
+      expect(sameElements(['a', 'a', 'b'], ['b', 'a'])).toBeTrue();
+    });
+
+    it('is true for two empty arrays', () => {
+      expect(sameElements([], [])).toBeTrue();
+    });
+
+    it('is false when a value is missing', () => {
+      expect(sameElements(['a', 'b'], ['a'])).toBeFalse();
+      expect(sameElements(['a'], ['a', 'b'])).toBeFalse();
+    });
+
+    it('is false for different values of the same count', () => {
+      expect(sameElements(['a', 'b'], ['a', 'c'])).toBeFalse();
     });
   });
 });

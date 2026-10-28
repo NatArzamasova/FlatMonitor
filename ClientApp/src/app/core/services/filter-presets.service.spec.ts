@@ -259,6 +259,114 @@ describe('FilterPresetsService', () => {
     });
   });
 
+  describe('activePreset$', () => {
+    function recordActive(): (FilterPreset | null)[] {
+      const emissions: (FilterPreset | null)[] = [];
+      service.activePreset$.subscribe(value => emissions.push(value));
+      return emissions;
+    }
+
+    it('should start with the default preset', () => {
+      const emissions = recordActive();
+
+      flushLoad([preset(1, 'East'), preset(2, 'West', true)]);
+
+      expect(emissions).toEqual([preset(2, 'West', true)]);
+    });
+
+    it('should start with null when there is no default', () => {
+      const emissions = recordActive();
+
+      flushLoad([preset(1, 'East')]);
+
+      expect(emissions).toEqual([null]);
+    });
+
+    it('should switch to the chosen preset', () => {
+      const emissions = recordActive();
+      flushLoad([preset(1, 'East'), preset(2, 'West', true)]);
+
+      service.selectPreset(1);
+
+      expect(emissions.at(-1)).toEqual(preset(1, 'East'));
+    });
+
+    it('should keep the chosen preset for subscribers that come later (tab switch)', () => {
+      recordActive();
+      flushLoad([preset(1, 'East'), preset(2, 'West', true)]);
+      service.selectPreset(1);
+
+      const laterTab = recordActive();
+
+      expect(laterTab).toEqual([preset(1, 'East')]);
+    });
+
+    it('should emit null when no preset is chosen', () => {
+      const emissions = recordActive();
+      flushLoad([preset(1, 'East', true)]);
+
+      service.selectPreset(null);
+
+      expect(emissions.at(-1)).toBeNull();
+    });
+
+    it('should re-emit when the active preset gets new districts', () => {
+      const emissions = recordActive();
+      flushLoad([preset(1, 'East', true, ['Durlach'])]);
+
+      service.update(1, { name: 'East', districts: ['Durlach', 'Hagsfeld'] }).subscribe();
+      httpMock.expectOne(`${url}/1`).flush({ success: true, data: preset(1, 'East', true, ['Durlach', 'Hagsfeld']), message: 'ok' });
+
+      expect(emissions.length).toBe(2);
+      expect(emissions.at(-1)!.districts).toEqual(['Durlach', 'Hagsfeld']);
+    });
+
+    it('should not re-emit on a rename or a change to another preset', () => {
+      const emissions = recordActive();
+      flushLoad([preset(1, 'East', true, ['Durlach']), preset(2, 'West')]);
+
+      service.update(1, { name: 'Far east', districts: ['Durlach'] }).subscribe();
+      httpMock.expectOne(`${url}/1`).flush({ success: true, data: preset(1, 'Far east', true, ['Durlach']), message: 'ok' });
+      service.update(2, { name: 'West', districts: ['Weststadt'] }).subscribe();
+      httpMock.expectOne(`${url}/2`).flush({ success: true, data: preset(2, 'West', false, ['Weststadt']), message: 'ok' });
+
+      expect(emissions.length).toBe(1);
+    });
+
+    it('should become null when the active preset is deleted, and stay null', () => {
+      const emissions = recordActive();
+      flushLoad([preset(1, 'East'), preset(2, 'West', true)]);
+      service.selectPreset(1);
+
+      service.delete(1).subscribe();
+      httpMock.expectOne(`${url}/1`).flush({ success: true, data: [preset(2, 'West', true)], message: 'ok' });
+
+      expect(emissions.at(-1)).toBeNull();
+    });
+
+    it('should keep the active preset when the default is cleared before anything was chosen', () => {
+      const emissions = recordActive();
+      flushLoad([preset(1, 'East', true)]);
+
+      service.clearDefault().subscribe();
+      httpMock.expectOne(`${url}/default`).flush({ success: true, data: [preset(1, 'East')], message: 'ok' });
+
+      expect(emissions.length).toBe(1);
+      expect(emissions[0]!.id).toBe(1);
+    });
+
+    it('should keep the active preset when another preset becomes default before anything was chosen', () => {
+      const emissions = recordActive();
+      flushLoad([preset(1, 'East', true), preset(2, 'West')]);
+
+      service.setDefault(2).subscribe();
+      httpMock.expectOne(`${url}/2/default`).flush({ success: true, data: preset(2, 'West', true), message: 'ok' });
+
+      expect(emissions.length).toBe(1);
+      expect(emissions[0]!.id).toBe(1);
+    });
+  });
+
   describe('writes before the first load', () => {
     it('should not invent a cache from a single created preset', () => {
       service.create({ name: 'East', districts: [] }).subscribe();

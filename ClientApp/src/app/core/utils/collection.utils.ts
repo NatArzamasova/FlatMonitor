@@ -14,3 +14,10 @@ export function distinctSorted<T>(
   }
   return Array.from(distinct).sort(compare);
 }
+
+/** Whether both arrays contain the same values, ignoring order and duplicates. */
+export function sameElements<T>(left: readonly T[], right: readonly T[]): boolean {
+  const leftSet = new Set(left);
+  const rightSet = new Set(right);
+  return leftSet.size === rightSet.size && [...leftSet].every(value => rightSet.has(value));
+}

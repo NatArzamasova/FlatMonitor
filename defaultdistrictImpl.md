@@ -178,33 +178,51 @@ the first subscribe and only once. On a failed load it emits `[]`, logs the erro
 the cache with the list the backend returns. A write before the first load finished doesn't touch the cache; the load brings it.
 Tests: `core/services/filter-presets.service.spec.ts` (19 specs). All 274 frontend tests pass.
 
-### 7. Shared UI: preset bar
+### 7. Shared UI: preset bar ✅ DONE
 New `shared/filter-preset-bar/filter-preset-bar.component.ts` (standalone), placed next to the district
-`app-multi-select-filter` in each tab. Since it behaves the same in every tab, it **talks to `FilterPresetsService` itself**
-and only tells the tab which districts to apply:
-- Input: `selected: string[]` (the tab's current district selection).
-- Output: `apply: string[]` (the tab sets `selectedDistricts` and re-filters).
+`app-multi-select-filter` in each tab. Since it behaves the same in every tab, it **talks to `FilterPresetsService` itself**.
+Because the chosen preset is shared across tabs (Q3), the bar has **no output**. It calls `selectPreset(id)`, and the tab
+applies districts by subscribing to `activePreset$` (step 8):
+- Input: `selected: string[]` (the tab's current district selection), optional `inputId`.
 - UI (Bootstrap, `form-select-sm` / `btn-sm`):
-  - **Preset dropdown**: all presets by name, the default marked with ★, plus "— none —". Picking a preset emits `apply` with its districts.
+  - **Preset dropdown**: all presets by name, the default marked with ★, plus "— none —". Picking one calls `selectPreset`.
+    "— none —" detaches from the preset and keeps the current districts.
   - **Save**: overwrite the chosen preset's districts with `selected`. Disabled when no preset is chosen or nothing changed (same set).
   - **Save as new…**: small inline name input + confirm; creates a preset from `selected` and selects it.
   - **Rename**: inline name input for the chosen preset.
   - **Set as default** / **Unset default** (toggle for the chosen preset).
   - **Delete**: with `confirm()`.
   - Errors (409 name taken, 400, network) are shown inline next to the bar.
-- On start the dropdown shows the default preset (if any) as chosen.
+- On start the dropdown shows the active preset: the one chosen in any tab, else the default.
+- Shows a small "modified" hint when the current selection differs from the active preset (that is also when Save is enabled).
+
+**Service additions for Q3** (in `filter-presets.service.ts`):
+- `activePreset$`: the chosen preset (`selectPreset(id)`), or the default until something is chosen. It re-emits only when
+  the active preset's id or districts change, not on a rename or on changes to other presets, so tabs can apply it on
+  every emission without losing manual edits.
+- Deleting the active preset makes it `null` (tabs keep their districts).
+- `setDefault`/`clearDefault` first pin the active preset if nothing was chosen yet, so the dropdown and the tab's districts don't jump.
+- `sameElements(a, b)` added to `core/utils/collection.utils.ts` (set comparison).
+
+**Status:** implemented. The bar finds `activePreset` in `presets` by id, so a rename or a default change shows immediately.
+"Rename" keeps the preset's stored districts; "Save" writes the current selection. Error text is the API's `message` when there
+is one, else "Could not save the preset. Is the backend running?". Tests: `filter-preset-bar.component.spec.ts` (21),
+10 new `activePreset$` specs in the service spec, 5 `sameElements` specs. All 310 frontend tests pass; `ng build` succeeds
+(its "1 rules skipped due to selector errors" CSS warning was there before).
+Not yet used by any tab; that is step 8.
 
 ### 8. Tabs
 **Offers tab** (`offers-tab.component.ts`)
-- In `loadInitialFiltersFromUrl()`: if `params.getAll('district')` is non-empty, use it (as today).
-  Otherwise take the default preset once (`defaultPreset$.pipe(take(1))`), set `selectedDistricts` to its districts
-  (or `[]`), and call `applyFilters()`.
+- Subscribe to `activePreset$` (`takeUntilDestroyed`). On each non-null emission: `selectedDistricts = preset.districts; applyFilters()`.
+  A `null` emission keeps the current selection.
+- URL wins: if `params.getAll('district')` is non-empty, use it and **skip the first** `activePreset$` emission
+  (later emissions, e.g. picking a preset in the bar, apply normally).
 - The presets request and `getCurrentOffers()` run in parallel. `applyFilters()` works with whatever has arrived,
   so the order doesn't matter, and presets don't block the offers load.
-- `(apply)` from the preset bar → `selectedDistricts = districts; applyFilters()`.
+- Add `<app-filter-preset-bar [selected]="selectedDistricts">` next to the district filter.
 
 **Overview tab** (`overview-tab.component.ts`)
-- Same, without the URL part.
+- Same, without the URL part (and calling `applyFiltersAndGrouping()`).
 - A reload after a scrape (`scrapeFinished$`) must **not** reset the user's current selection to the default.
 
 **Options vs. selected values**
@@ -234,11 +252,11 @@ Frontend:
 - `filter-presets.service.spec.ts`: GET only once with several subscribers; error → `[]`; `defaultPreset$` picks the
   `isDefault` one or `null`; create/update/delete/setDefault/clearDefault send the right request and update the cache;
   setDefault leaves exactly one default in the cache; a failed write leaves the cache unchanged.
-- `filter-preset-bar.component.spec.ts`: lists presets with the default marked; picking a preset emits `apply`; Save disabled
+- `filter-preset-bar.component.spec.ts` ✅: lists presets with the default marked; picking a preset calls `selectPreset`; Save disabled
   when unchanged; Save as new / Rename / Delete / Set as default call the service; a 409 shows the error.
-- `offers-tab.component.spec.ts`: URL districts win over the default; no URL param → default preset applied; no default → all offers;
-  presets error → all offers; `(apply)` re-filters; a preset district without data still appears in the options.
-- `overview-tab.component.spec.ts`: default applied on init; `(apply)` re-filters; reload after `scrapeFinished$` keeps the current selection.
+- `offers-tab.component.spec.ts`: URL districts win over the active preset; no URL param → active preset applied; none → all offers;
+  presets error → all offers; a later `activePreset$` emission re-filters; a preset district without data still appears in the options.
+- `overview-tab.component.spec.ts`: active preset applied on init; a later emission re-filters; reload after `scrapeFinished$` keeps the current selection.
 
 ## Docs
 - `WohnungMonitor.md`: add the `FilterPresets` table and the API endpoints.
@@ -257,5 +275,6 @@ Frontend:
    Should it get a district multi-select (filtering `historyData` before aggregation, only when grouping by district) and the preset bar?
    This plan leaves it out until decided.
 2. ~~**Rooms / price**~~ **Decided:** presets store districts only. Rooms/price can be added later with a new migration.
-3. **Chosen preset across tabs:** if you pick preset "East" in the overview tab, should the offers tab also switch to "East",
-   or does each tab start with the default (current plan)?
+3. ~~**Chosen preset across tabs**~~ **Decided:** yes. The preset chosen in one tab is active in the other tabs too
+   (held in `FilterPresetsService` while the app is open; a page reload starts with the default again).
+   Manual district edits that aren't saved to the preset are **not** carried over to the other tab.
