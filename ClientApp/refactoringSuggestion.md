@@ -346,7 +346,25 @@ Overview then picks a key function from `(groupByDistrict, groupByRooms)` — th
 a constant key. Also make `mergeWeightedAverage` return a new object rather than mutating its argument
 (previous round's item 12 is still open here).
 
-### B6. Extract `HistoryChartComponent` and type Chart.js properly
+### B6. Extract `HistoryChartComponent` and type Chart.js properly ✅ COMPLETED
+
+> **Done:**
+> - `chart.js@4.4.0` (same version as the old CDN tag) installed from npm; the CDN `<script>` in
+>   `index.html` and all `(window as any).Chart` / `any` typings are gone. Only the line-chart
+>   pieces are registered (`LineController`, `LineElement`, `PointElement`, `LinearScale`,
+>   `CategoryScale`, `Legend`, `Title`, `Tooltip`).
+> - `history-tab/history-chart/history-chart.config.ts`: pure, typed `buildHistoryChartConfig(points,
+>   title)` with a `Map<label, Map<date, price>>` lookup instead of `find` in nested loops; palette
+>   and date formatter are module-level.
+> - `HistoryChartComponent` (`[points]`, `[title]`): renders after view init and on input changes,
+>   destroys on destroy. The History tab keeps loading, grouping and the latest-averages table and
+>   exposes `chartTitle`; it no longer touches the canvas or Chart.js.
+> - `/history` route is lazy-loaded so Chart.js is only downloaded when the tab is opened: initial
+>   bundle 650 kB → 666 kB, History chunk 154 kB (48 kB gzipped) instead of the ~205 kB CDN file
+>   loaded on every page.
+> - Specs: config builder (labels, null gaps, latest point, colours, y-axis min, tick and tooltip
+>   formatting) and chart component against real Chart.js (draws, replaces on input change, no
+>   chart without points, destroys); History tab spec checks what it passes to the chart.
 `history-tab.component.ts:154-280`
 
 - Chart.js is loaded from a CDN `<script>` in `index.html` and accessed as `(window as any).Chart`;

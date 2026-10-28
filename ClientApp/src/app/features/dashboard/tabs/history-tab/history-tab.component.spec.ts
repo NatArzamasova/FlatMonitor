@@ -1,6 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { of, throwError } from 'rxjs';
 import { HistoryTabComponent } from './history-tab.component';
+import { HistoryChartComponent } from './history-chart/history-chart.component';
 import { FlatsService } from '../../../../core/services/flats.service';
 import { apiResult } from '../../../../core/testing/api-response.testing';
 import { ApiResponse } from '../../../../core/models/api-response.model';
@@ -10,18 +12,6 @@ describe('HistoryTabComponent', () => {
   let component: HistoryTabComponent;
   let fixture: ComponentFixture<HistoryTabComponent>;
   let flatsService: jasmine.SpyObj<FlatsService>;
-
-  beforeAll(() => {
-    (window as any).Chart = class {
-      config: any;
-
-      constructor(ctx: any, config: any) {
-        this.config = config;
-      }
-
-      destroy() {}
-    };
-  });
 
   const mockHistoryResponse: ApiResponse<FlatHistory[]> = {
     success: true,
@@ -237,82 +227,38 @@ describe('HistoryTabComponent', () => {
     });
   });
 
-  describe('Chart scaling', () => {
-    it('starts the price axis at the minimum plotted price', () => {
-      component.chartData = [
-        { date: '2024-01-15', price: 12.5, label: 'Mitte' },
-        { date: '2024-01-16', price: 13.25, label: 'Mitte' }
-      ];
-      const canvas = document.createElement('canvas');
-      spyOn(canvas, 'getContext').and.returnValue({} as CanvasRenderingContext2D);
-      component.historyChart = { nativeElement: canvas } as any;
+  describe('Chart', () => {
+    const chartComponent = (): HistoryChartComponent | undefined =>
+      fixture.debugElement.query(By.directive(HistoryChartComponent))?.componentInstance;
 
-      (component as any).renderChart();
-
-      expect(component.chart.config.options.scales.y.beginAtZero).toBe(false);
-      expect(component.chart.config.options.scales.y.min).toBeLessThan(12.5);
-      expect(component.chart.config.options.scales.x.ticks.callback(0)).toBe('15 Jan');
-      expect(component.chart.config.options.plugins.tooltip.callbacks.label({
-        dataset: { label: 'Mitte' },
-        parsed: { y: 12.49 }
-      })).toBe('Mitte: €12/m²');
-      expect(component.chart.config.options.plugins.tooltip.callbacks.label({
-        dataset: { label: 'Mitte' },
-        parsed: { y: 12.5 }
-      })).toBe('Mitte: €13/m²');
-    });
-  });
-
-  describe('Chart rendering', () => {
-    it('renders the chart as soon as history data is shown, without waiting for timers or tab events', () => {
+    it('passes the grouped series and title to the chart as soon as history data is shown', () => {
       flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
 
       fixture.detectChanges();
 
-      expect(fixture.nativeElement.querySelector('canvas')).toBeTruthy();
-      expect(component.chart).toBeDefined();
-      expect(component.chart.config.data.labels).toEqual(['2024-01-15', '2024-01-16']);
-      expect(component.chart.config.data.datasets.map((dataset: any) => dataset.label))
-        .toEqual(['Mitte', 'Charlottenburg']);
+      expect(chartComponent()!.points).toBe(component.chartData);
+      expect(chartComponent()!.title).toBe('Price per m² Trend (by District)');
+      expect(chartComponent()!.chart).toBeDefined();
     });
 
-    it('re-renders the chart when the grouping changes', () => {
+    it('passes new series and title when the grouping changes', () => {
       flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
       fixture.detectChanges();
-      const firstChart = component.chart;
-      spyOn(firstChart, 'destroy').and.callThrough();
 
       component.historyGroupBy = 'rooms';
       component.onHistoryGroupByChange();
+      fixture.detectChanges();
 
-      expect(firstChart.destroy).toHaveBeenCalled();
-      expect(component.chart).not.toBe(firstChart);
-      expect(component.chart.config.options.plugins.title.text).toContain('by Room Number');
+      expect(chartComponent()!.title).toBe('Price per m² Trend (by Room Number)');
+      expect(chartComponent()!.points.map(point => point.label)).toContain('2 rooms');
     });
 
-    it('does not render a chart when there is no history data', () => {
+    it('does not show a chart when there is no history data', () => {
       flatsService.getHistory.and.returnValue(apiResult({ success: true, data: [], message: 'Success' }));
 
       fixture.detectChanges();
 
-      expect(fixture.nativeElement.querySelector('canvas')).toBeNull();
-      expect(component.chart).toBeUndefined();
-    });
-  });
-
-  describe('Cleanup', () => {
-    it('should destroy chart on component destroy', () => {
-      flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
-      fixture.detectChanges();
-
-      const mockChart = {
-        destroy: jasmine.createSpy('destroy')
-      };
-      component.chart = mockChart;
-
-      component.ngOnDestroy();
-
-      expect(mockChart.destroy).toHaveBeenCalled();
+      expect(chartComponent()).toBeUndefined();
     });
   });
 });

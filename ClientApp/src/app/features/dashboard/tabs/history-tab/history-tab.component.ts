@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs/operators';
@@ -7,20 +7,21 @@ import { FlatHistory } from '../../../../core/models/flat-history.model';
 import { Aggregatable, mergeWeightedAverage, roundPriceToEuro } from '../../../../core/utils/aggregation.utils';
 import { normalizeRooms } from '../../../../core/utils/rooms.utils';
 import { describeLoadError } from '../../../../core/utils/api-response.utils';
+import { HistoryChartComponent } from './history-chart/history-chart.component';
+import { HistoryPoint } from './history-chart/history-chart.config';
 
 @Component({
   selector: 'app-history-tab',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, HistoryChartComponent],
   templateUrl: './history-tab.component.html',
 })
-export class HistoryTabComponent implements OnInit, OnDestroy {
+export class HistoryTabComponent implements OnInit {
   historyData: FlatHistory[] = [];
   loadingHistory = false;
   error: string | null = null;
   historyGroupBy: 'district' | 'rooms' = 'district';
-  chartData: { date: string; price: number; label: string }[] = [];
-  chart: any;
+  chartData: HistoryPoint[] = [];
 
   get latestAverageDate(): string {
     return this.chartData.reduce(
@@ -37,22 +38,8 @@ export class HistoryTabComponent implements OnInit, OnDestroy {
       .sort((left, right) => right.price - left.price || left.label.localeCompare(right.label));
   }
 
-  private historyChartRef: ElementRef<HTMLCanvasElement> | undefined;
-
-  // The canvas sits inside an *ngIf and only exists once chart data is shown, so render as soon as
-  // it appears and drop the chart when it goes away.
-  @ViewChild('historyChart')
-  set historyChart(ref: ElementRef<HTMLCanvasElement> | undefined) {
-    this.historyChartRef = ref;
-    if (ref) {
-      this.renderChart();
-    } else {
-      this.destroyChart();
-    }
-  }
-
-  get historyChart(): ElementRef<HTMLCanvasElement> | undefined {
-    return this.historyChartRef;
+  get chartTitle(): string {
+    return `Price per m² Trend (${this.historyGroupBy === 'district' ? 'by District' : 'by Room Number'})`;
   }
 
   constructor(
@@ -61,10 +48,6 @@ export class HistoryTabComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadHistory();
-  }
-
-  ngOnDestroy(): void {
-    this.destroyChart();
   }
 
   loadHistory(): void {
@@ -76,7 +59,6 @@ export class HistoryTabComponent implements OnInit, OnDestroy {
         next: (history) => {
           this.historyData = history;
           this.updateHistoryChart();
-          this.renderChart();
         },
         error: (err) => {
           this.error = describeLoadError(err, 'Failed to load history', 'Error loading history');
@@ -86,7 +68,6 @@ export class HistoryTabComponent implements OnInit, OnDestroy {
 
   onHistoryGroupByChange(): void {
     this.updateHistoryChart();
-    this.renderChart();
   }
 
   private updateHistoryChart(): void {
@@ -151,132 +132,4 @@ export class HistoryTabComponent implements OnInit, OnDestroy {
     return Number(price) || 0;
   }
 
-  private renderChart(): void {
-    if (!this.historyChart || this.chartData.length === 0) return;
-
-    const canvas = this.historyChart.nativeElement;
-    this.destroyChart();
-
-    const wrapper = canvas.parentElement;
-    canvas.width = wrapper?.clientWidth || canvas.clientWidth;
-    canvas.height = wrapper?.clientHeight || canvas.clientHeight;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const uniqueDates = Array.from(new Set(this.chartData.map(d => d.date))).sort();
-    const uniqueLabels = Array.from(new Set(this.chartData.map(d => d.label)));
-    const minPrice = Math.min(...this.chartData.map(d => d.price));
-    const maxPrice = Math.max(...this.chartData.map(d => d.price));
-    const pricePadding = Math.max((maxPrice - minPrice) * 0.1, minPrice * 0.05, 0.5);
-    const chartMinPrice = Math.max(0, minPrice - pricePadding);
-
-    const datasets = uniqueLabels.map((label, idx) => {
-      const color = this.getColorForIndex(idx);
-      const data = uniqueDates.map(date => {
-        const item = this.chartData.find(d => d.date === date && d.label === label);
-        return item ? item.price : null;
-      });
-      const latestDataIndex = data.reduce(
-        (latestIndex, value, index) => value !== null ? index : latestIndex,
-        -1
-      );
-
-      return {
-        label,
-        data,
-        borderColor: color,
-        backgroundColor: color + '20',
-        borderWidth: 2,
-        pointRadius: data.map((value, index) => index === latestDataIndex ? 6 : 3),
-        pointHoverRadius: 7,
-        pointBackgroundColor: color,
-        tension: 0.4,
-        fill: false
-      };
-    });
-
-    const chartConfig = {
-      type: 'line' as const,
-      data: {
-        labels: uniqueDates,
-        datasets
-      },
-      options: {
-        // The canvas is sized from its wrapper above. Letting Chart.js own the sizing makes its
-        // resize observer fight the Bootstrap tab pane and lock the main thread.
-        responsive: false,
-        maintainAspectRatio: false,
-        animation: false as const,
-        plugins: {
-          legend: {
-            display: true,
-            position: 'top' as const
-          },
-          title: {
-            display: true,
-            text: `Price per m² Trend (${this.historyGroupBy === 'district' ? 'by District' : 'by Room Number'})`
-          },
-          tooltip: {
-            callbacks: {
-              label: (context: any) => `${context.dataset.label}: €${roundPriceToEuro(Number(context.parsed.y))}/m²`
-            }
-          }
-        },
-        scales: {
-          y: {
-            beginAtZero: false,
-            min: chartMinPrice,
-            title: {
-              display: true,
-              text: 'Price per m² (€)'
-            }
-          },
-          x: {
-            ticks: {
-              callback: (value: any) => this.formatHistoryDate(uniqueDates[Number(value)])
-            },
-            title: {
-              display: true,
-              text: 'Date'
-            }
-          }
-        }
-      }
-    };
-
-    const Chart = (window as any).Chart;
-    this.chart = new Chart(ctx, chartConfig);
-  }
-
-  private destroyChart(): void {
-    if (this.chart) {
-      this.chart.destroy();
-      this.chart = undefined;
-    }
-  }
-
-  private getColorForIndex(index: number): string {
-    const colors = [
-      '#0072B2', '#E69F00', '#009E73', '#D55E00', '#CC79A7', '#56B4E9',
-      '#F0E442', '#000000', '#332288', '#88CCEE', '#44AA99', '#117733',
-      '#999933', '#DDCC77', '#CC6677', '#882255', '#AA4499', '#661100',
-      '#6699CC', '#AA4466', '#4477AA', '#228833', '#EE6677', '#BBBBBB',
-      '#1B9E77', '#D95F02', '#7570B3', '#E7298A'
-    ];
-    return colors[index % colors.length];
-  }
-
-  private formatHistoryDate(date: string): string {
-    const parsedDate = new Date(`${date}T00:00:00Z`);
-    if (Number.isNaN(parsedDate.getTime())) {
-      return date;
-    }
-
-    return new Intl.DateTimeFormat('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      timeZone: 'UTC'
-    }).format(parsedDate);
-  }
 }
