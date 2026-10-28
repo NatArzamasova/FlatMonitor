@@ -160,7 +160,7 @@ No end-to-end HTTP check yet; do one after restarting the server (see step 3).
 
 ## Frontend
 
-### 6. Model + service
+### 6. Model + service ✅ DONE
 - `core/models/filter-preset.model.ts`:
   `export interface FilterPreset { id: number; name: string; districts: string[]; isDefault: boolean; updatedAtUtc: string; }`
   and `export interface SaveFilterPresetRequest { name: string; districts: string[]; }`
@@ -171,6 +171,12 @@ No end-to-end HTTP check yet; do one after restarting the server (see step 3).
   - `create(request)`, `update(id, request)`, `delete(id)`, `setDefault(id)`, `clearDefault()`:
     each call the API, `unwrapApiResponse()`, and **on success update the cached list**. Setting a default clears `isDefault` on the others in the cache.
     Errors propagate to the caller, which shows them (e.g. 409 "name already exists").
+
+**Status:** implemented. `presets$` uses a private `BehaviorSubject<FilterPreset[] | null>` plus `defer`; the GET happens on
+the first subscribe and only once. On a failed load it emits `[]`, logs the error, and lets the **next** subscriber retry.
+`create`/`update`/`setDefault` patch the cache and keep it sorted by name (case-insensitive); `delete`/`clearDefault` replace
+the cache with the list the backend returns. A write before the first load finished doesn't touch the cache; the load brings it.
+Tests: `core/services/filter-presets.service.spec.ts` (19 specs). All 274 frontend tests pass.
 
 ### 7. Shared UI: preset bar
 New `shared/filter-preset-bar/filter-preset-bar.component.ts` (standalone), placed next to the district
