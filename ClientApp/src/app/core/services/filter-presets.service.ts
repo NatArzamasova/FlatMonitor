@@ -1,16 +1,20 @@
 import { Injectable, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, combineLatest, defer, Observable, of } from 'rxjs';
+import { BehaviorSubject, combineLatest, defer, EMPTY, Observable, of } from 'rxjs';
 import { catchError, distinctUntilChanged, filter, map, tap } from 'rxjs/operators';
 import { ApiResponse } from '../models/api-response.model';
 import { FilterPreset, SaveFilterPresetRequest } from '../models/filter-preset.model';
 import { unwrapApiResponse } from '../utils/api-response.utils';
 import { sameElements } from '../utils/collection.utils';
+import { PresetsChannel } from './presets-channel.service';
 
 /**
  * Named district filter presets, shared by all tabs. The list is fetched once on first subscribe and
  * kept up to date by the write methods, so every subscriber sees changes made in any tab.
  * Also holds the preset chosen in the UI, so switching tabs keeps it.
+ * Other browser tabs (e.g. the `/presets` page) are told about every write through `PresetsChannel`
+ * and reload the list.
  */
 @Injectable({
   providedIn: 'root'
@@ -19,6 +23,7 @@ export class FilterPresetsService {
   private readonly apiUrl = '/api/filter-presets';
 
   private readonly http = inject(HttpClient);
+  private readonly channel = inject(PresetsChannel);
 
   /** `null` until the first load has finished. */
   private readonly presetsState = new BehaviorSubject<FilterPreset[] | null>(null);
@@ -51,6 +56,12 @@ export class FilterPresetsService {
       previous?.id === current?.id && sameElements(previous?.districts ?? [], current?.districts ?? []))
   );
 
+  constructor() {
+    this.channel.changed$
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => this.reloadAfterRemoteChange());
+  }
+
   /** Makes a preset the active one in all tabs; `null` detaches from any preset and keeps the current selection. */
   selectPreset(id: number | null): void {
     this.chosenPresetId.next(id);
@@ -59,6 +70,7 @@ export class FilterPresetsService {
   create(request: SaveFilterPresetRequest): Observable<FilterPreset> {
     return this.http.post<ApiResponse<FilterPreset>>(this.apiUrl, request).pipe(
       unwrapApiResponse(),
+      tap(() => this.channel.notifyChanged()),
       tap(created => this.updateCache(presets => [...presets, created]))
     );
   }
@@ -66,6 +78,7 @@ export class FilterPresetsService {
   update(id: number, request: SaveFilterPresetRequest): Observable<FilterPreset> {
     return this.http.put<ApiResponse<FilterPreset>>(`${this.apiUrl}/${id}`, request).pipe(
       unwrapApiResponse(),
+      tap(() => this.channel.notifyChanged()),
       tap(updated => this.updateCache(presets => presets.map(preset => preset.id === id ? updated : preset)))
     );
   }
@@ -74,6 +87,7 @@ export class FilterPresetsService {
   delete(id: number): Observable<FilterPreset[]> {
     return this.http.delete<ApiResponse<FilterPreset[]>>(`${this.apiUrl}/${id}`).pipe(
       unwrapApiResponse(),
+      tap(() => this.channel.notifyChanged()),
       tap(presets => {
         if (this.chosenPresetId.value === id) {
           this.chosenPresetId.next(null);
@@ -86,6 +100,7 @@ export class FilterPresetsService {
   setDefault(id: number): Observable<FilterPreset> {
     return this.http.put<ApiResponse<FilterPreset>>(`${this.apiUrl}/${id}/default`, {}).pipe(
       unwrapApiResponse(),
+      tap(() => this.channel.notifyChanged()),
       tap(() => this.pinActivePreset()),
       tap(newDefault => this.updateCache(presets => presets.map(preset =>
         preset.id === id ? newDefault : { ...preset, isDefault: false }
@@ -97,6 +112,7 @@ export class FilterPresetsService {
   clearDefault(): Observable<FilterPreset[]> {
     return this.http.delete<ApiResponse<FilterPreset[]>>(`${this.apiUrl}/default`).pipe(
       unwrapApiResponse(),
+      tap(() => this.channel.notifyChanged()),
       tap(presets => {
         this.pinActivePreset();
         this.presetsState.next(presets);
@@ -114,6 +130,32 @@ export class FilterPresetsService {
     }
     const currentDefault = this.presetsState.value?.find(preset => preset.isDefault);
     this.chosenPresetId.next(currentDefault?.id ?? null);
+  }
+
+  /**
+   * Another browser tab changed the presets. Same rules as a local write: the active preset doesn't jump when
+   * the default changes, and a deleted chosen preset becomes "no preset" (the tabs keep their selection).
+   */
+  private reloadAfterRemoteChange(): void {
+    if (this.presetsState.value === null) {
+      // Never loaded, or the first load is still running: the list is fetched fresh anyway.
+      return;
+    }
+
+    this.http.get<ApiResponse<FilterPreset[]>>(this.apiUrl).pipe(
+      unwrapApiResponse(),
+      catchError((err) => {
+        console.error('Failed to reload filter presets:', err);
+        return EMPTY;
+      })
+    ).subscribe(presets => {
+      this.pinActivePreset();
+      const chosenId = this.chosenPresetId.value;
+      if (typeof chosenId === 'number' && !presets.some(preset => preset.id === chosenId)) {
+        this.chosenPresetId.next(null);
+      }
+      this.presetsState.next(presets);
+    });
   }
 
   private load(): void {

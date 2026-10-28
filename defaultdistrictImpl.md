@@ -179,6 +179,10 @@ the cache with the list the backend returns. A write before the first load finis
 Tests: `core/services/filter-presets.service.spec.ts` (19 specs). All 274 frontend tests pass.
 
 ### 7. Shared UI: preset bar ✅ DONE
+
+> **Changed later:** Rename, Set/Unset default and Delete moved to the `/presets` page; the bar keeps the dropdown,
+> Save and Save as new. See [presetFilterRefactoring.md](presetFilterRefactoring.md).
+
 New `shared/filter-preset-bar/filter-preset-bar.component.ts` (standalone), placed next to the district
 `app-multi-select-filter` in each tab. Since it behaves the same in every tab, it **talks to `FilterPresetsService` itself**.
 Because the chosen preset is shared across tabs (Q3), the bar has **no output**. It calls `selectPreset(id)`, and the tab

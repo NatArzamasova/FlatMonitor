@@ -3,6 +3,7 @@ import { RedirectFunction, Router, Routes } from '@angular/router';
 import { DashboardComponent } from './features/dashboard/dashboard.component';
 import { OverviewTabComponent } from './features/dashboard/tabs/overview-tab/overview-tab.component';
 import { OffersTabComponent } from './features/dashboard/tabs/offers-tab/offers-tab.component';
+import { FilterPresetsPageComponent } from './features/filter-presets/filter-presets-page.component';
 
 // Overview rows used to open `/?tab=offers&district=…&rooms=…`; keep those links working.
 const redirectLegacyTabLinks: RedirectFunction = ({ queryParams }) => {
@@ -27,5 +28,7 @@ export const routes: Routes = [
       }
     ]
   },
+  // Opened in its own browser tab from the dashboard header, so it has no tab navigation.
+  { path: 'presets', component: FilterPresetsPageComponent },
   { path: '**', redirectTo: '' }
 ];

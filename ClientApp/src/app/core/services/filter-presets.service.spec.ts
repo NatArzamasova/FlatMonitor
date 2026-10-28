@@ -1,6 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
+import { Subject } from 'rxjs';
 import { FilterPresetsService } from './filter-presets.service';
+import { PresetsChannel } from './presets-channel.service';
 import { FilterPreset } from '../models/filter-preset.model';
 import { ApiResponseError } from '../utils/api-response.utils';
 
@@ -9,6 +11,9 @@ describe('FilterPresetsService', () => {
 
   let service: FilterPresetsService;
   let httpMock: HttpTestingController;
+  /** Emit to simulate a change made in another browser tab. */
+  let remoteChange: Subject<void>;
+  let notifyChanged: jasmine.Spy;
 
   function preset(id: number, name: string, isDefault = false, districts: string[] = []): FilterPreset {
     return { id, name, districts, isDefault, updatedAtUtc: '2026-10-28T09:30:00Z' };
@@ -27,9 +32,14 @@ describe('FilterPresetsService', () => {
 
   beforeEach(() => {
     spyOn(console, 'error');
+    remoteChange = new Subject<void>();
+    notifyChanged = jasmine.createSpy('notifyChanged');
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
-      providers: [FilterPresetsService]
+      providers: [
+        FilterPresetsService,
+        { provide: PresetsChannel, useValue: { changed$: remoteChange.asObservable(), notifyChanged } }
+      ]
     });
     service = TestBed.inject(FilterPresetsService);
     httpMock = TestBed.inject(HttpTestingController);
@@ -376,6 +386,102 @@ describe('FilterPresetsService', () => {
       flushLoad([preset(1, 'East'), preset(2, 'West')]);
 
       expect(emissions).toEqual([[preset(1, 'East'), preset(2, 'West')]]);
+    });
+  });
+
+  describe('other browser tabs', () => {
+    function recordActive(): (FilterPreset | null)[] {
+      const emissions: (FilterPreset | null)[] = [];
+      service.activePreset$.subscribe(value => emissions.push(value));
+      return emissions;
+    }
+
+    it('should notify them after each successful write', () => {
+      recordPresets();
+      flushLoad([preset(1, 'East', true)]);
+
+      service.create({ name: 'West', districts: [] }).subscribe();
+      httpMock.expectOne(url).flush({ success: true, data: preset(2, 'West'), message: 'ok' });
+      service.update(2, { name: 'West', districts: ['Weststadt'] }).subscribe();
+      httpMock.expectOne(`${url}/2`).flush({ success: true, data: preset(2, 'West', false, ['Weststadt']), message: 'ok' });
+      service.setDefault(2).subscribe();
+      httpMock.expectOne(`${url}/2/default`).flush({ success: true, data: preset(2, 'West', true), message: 'ok' });
+      service.clearDefault().subscribe();
+      httpMock.expectOne(`${url}/default`).flush({ success: true, data: [preset(1, 'East'), preset(2, 'West')], message: 'ok' });
+      service.delete(2).subscribe();
+      httpMock.expectOne(`${url}/2`).flush({ success: true, data: [preset(1, 'East')], message: 'ok' });
+
+      expect(notifyChanged).toHaveBeenCalledTimes(5);
+    });
+
+    it('should not notify them after a failed write', () => {
+      service.create({ name: 'East', districts: [] }).subscribe({ error: () => undefined });
+      httpMock.expectOne(url).flush({ success: false, message: 'exists' }, { status: 409, statusText: 'Conflict' });
+
+      expect(notifyChanged).not.toHaveBeenCalled();
+    });
+
+    it('should reload the presets when another tab changed them', () => {
+      const emissions = recordPresets();
+      flushLoad([preset(1, 'East')]);
+
+      remoteChange.next();
+      flushLoad([preset(1, 'East'), preset(2, 'West')]);
+
+      expect(emissions.at(-1)).toEqual([preset(1, 'East'), preset(2, 'West')]);
+      expect(notifyChanged).not.toHaveBeenCalled();
+    });
+
+    it('should not request anything before the presets were loaded', () => {
+      remoteChange.next();
+
+      httpMock.expectNone(url);
+    });
+
+    it('should keep the presets when the reload fails', () => {
+      const emissions = recordPresets();
+      flushLoad([preset(1, 'East')]);
+
+      remoteChange.next();
+      httpMock.expectOne(url).flush('down', { status: 500, statusText: 'Server Error' });
+
+      expect(emissions).toEqual([[preset(1, 'East')]]);
+    });
+
+    it('should keep the active preset when the default changed remotely before anything was chosen', () => {
+      const emissions = recordActive();
+      flushLoad([preset(1, 'East', true), preset(2, 'West')]);
+
+      remoteChange.next();
+      flushLoad([preset(1, 'East'), preset(2, 'West', true)]);
+
+      expect(emissions).toEqual([preset(1, 'East', true)]);
+    });
+
+    it('should apply new districts of the active preset', () => {
+      const emissions = recordActive();
+      flushLoad([preset(1, 'East', true, ['Durlach'])]);
+
+      remoteChange.next();
+      flushLoad([preset(1, 'East', true, ['Durlach', 'Hagsfeld'])]);
+
+      expect(emissions.at(-1)!.districts).toEqual(['Durlach', 'Hagsfeld']);
+    });
+
+    it('should drop a chosen preset that was deleted remotely, and stay without a preset', () => {
+      const emissions = recordActive();
+      flushLoad([preset(1, 'East'), preset(2, 'West', true)]);
+      service.selectPreset(1);
+
+      remoteChange.next();
+      flushLoad([preset(2, 'West', true)]);
+
+      expect(emissions.at(-1)).toBeNull();
+
+      remoteChange.next();
+      flushLoad([preset(2, 'West', true), preset(3, 'East')]);
+
+      expect(emissions.at(-1)).toBeNull();
     });
   });
 });

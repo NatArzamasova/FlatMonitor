@@ -9,6 +9,7 @@ import { FlatsService } from '../../core/services/flats.service';
 import { apiResult } from '../../core/testing/api-response.testing';
 import { FilterPresetsService } from '../../core/services/filter-presets.service';
 import { createFilterPresetsServiceStub } from '../../core/testing/filter-presets.testing';
+import { DistrictsService } from '../../core/services/districts.service';
 
 describe('DashboardComponent (Shell) routing', () => {
   let harness: RouterTestingHarness;
@@ -32,7 +33,8 @@ describe('DashboardComponent (Shell) routing', () => {
       providers: [
         provideRouter(routes),
         { provide: FlatsService, useValue: flatsServiceSpy },
-        { provide: FilterPresetsService, useValue: createFilterPresetsServiceStub().service }
+        { provide: FilterPresetsService, useValue: createFilterPresetsServiceStub().service },
+        { provide: DistrictsService, useValue: { districts$: of([]) } }
       ]
     });
 
@@ -107,5 +109,22 @@ describe('DashboardComponent (Shell) routing', () => {
 
     expect(router.url).toBe('/history');
     expect(rendered('app-history-tab')).toBeTruthy();
+  });
+
+  it('links to the presets page in a new browser tab from the header', async () => {
+    await harness.navigateByUrl('/overview');
+
+    const link = harness.routeNativeElement!.querySelector('a[href="/presets"]') as HTMLAnchorElement;
+    expect(link.textContent).toContain('Configure filters');
+    expect(link.target).toBe('_blank');
+    expect(link.rel).toBe('noopener');
+  });
+
+  it('renders the presets page on /presets without the dashboard tabs', async () => {
+    await harness.navigateByUrl('/presets');
+
+    const page = harness.fixture.nativeElement as HTMLElement;
+    expect(page.querySelector('app-filter-presets-page')).toBeTruthy();
+    expect(page.querySelector('.nav-tabs')).toBeNull();
   });
 });

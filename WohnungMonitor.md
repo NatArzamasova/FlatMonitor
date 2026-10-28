@@ -57,10 +57,14 @@ by implementing the `IScraper` interface.
 - Multi-select filtering with flexible grouping modes
 - Manual "Scrape" button to trigger scraping on-demand
 - Auto-refresh on page load and after scrape
+- District filter presets: applied from a dropdown in each tab, managed on the `/presets` page
+  ("⚙ Configure filters" in the top right corner opens it in a new browser tab)
 
 **REST API** — JSON endpoints with consistent response format:
 - `GET /api/flats/aggregated` — returns aggregated statistics grouped by postal code, district, rooms, availability
 - `POST /api/scrape` — triggers an on-demand scrape (background or synchronous)
+- `GET/POST/PUT/DELETE /api/filter-presets` — named district filter presets, incl. `PUT /{id}/default` and `DELETE /default`
+- `GET /api/districts` — all tracked Karlsruhe districts, sorted
 - All responses use standard JSON structure with proper HTTP status codes
 
 ### Multi-source architecture

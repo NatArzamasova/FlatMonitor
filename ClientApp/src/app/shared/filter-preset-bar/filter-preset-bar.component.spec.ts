@@ -204,74 +204,10 @@ describe('FilterPresetBarComponent', () => {
     });
   });
 
-  describe('Rename', () => {
-    it('prefills the current name and keeps the stored districts', async () => {
-      service.update.and.returnValue(of({ ...east, name: 'Far east' }));
-      host.selected = ['Hagsfeld'];
-      await render();
+  it('leaves renaming, the default and deleting to the presets page', () => {
+    const labels = Array.from(element().querySelectorAll('button')).map(b => b.textContent!.trim());
 
-      button('Rename…').click();
-      await render();
-      expect(nameInput().value).toBe('East');
-
-      await typeName('Far east');
-      button('Rename').click();
-      await render();
-
-      expect(service.update).toHaveBeenCalledWith(1, { name: 'Far east', districts: ['Durlach'] });
-      expect(nameInput()).toBeNull();
-    });
-
-    it('is disabled without an active preset', async () => {
-      activePreset$.next(null);
-      await render();
-
-      expect(button('Rename…').disabled).toBeTrue();
-    });
-  });
-
-  describe('default', () => {
-    it('offers "Unset default" for the default preset and clears it', async () => {
-      service.clearDefault.and.returnValue(of([{ ...east, isDefault: false }, west]));
-
-      button('Unset default').click();
-      await render();
-
-      expect(service.clearDefault).toHaveBeenCalled();
-    });
-
-    it('offers "Set as default" for another preset and sets it', async () => {
-      service.setDefault.and.returnValue(of({ ...west, isDefault: true }));
-      activePreset$.next(west);
-      await render();
-
-      button('Set as default').click();
-      await render();
-
-      expect(service.setDefault).toHaveBeenCalledWith(2);
-    });
-  });
-
-  describe('Delete', () => {
-    it('deletes the active preset after confirmation', async () => {
-      spyOn(window, 'confirm').and.returnValue(true);
-      service.delete.and.returnValue(of([west]));
-
-      button('Delete').click();
-      await render();
-
-      expect(window.confirm).toHaveBeenCalledWith('Delete preset "East"?');
-      expect(service.delete).toHaveBeenCalledWith(1);
-    });
-
-    it('does nothing when the confirmation is declined', async () => {
-      spyOn(window, 'confirm').and.returnValue(false);
-
-      button('Delete').click();
-      await render();
-
-      expect(service.delete).not.toHaveBeenCalled();
-    });
+    expect(labels).toEqual(['Save', 'Save as new…']);
   });
 
   it('shows a renamed active preset without activePreset$ re-emitting', async () => {
