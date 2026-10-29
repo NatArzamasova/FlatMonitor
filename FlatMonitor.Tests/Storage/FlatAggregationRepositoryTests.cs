@@ -47,7 +47,7 @@ public class FlatAggregationRepositoryTests
         dbContext.ScrapingHistories.Add(history);
         await dbContext.SaveChangesAsync();
 
-        var snap1 = new FlatSnapshot
+        var snap1 = new PublishedFlat
         {
             Source = "OhneMakler",
             ListingId = "1",
@@ -57,7 +57,7 @@ public class FlatAggregationRepositoryTests
             PricePerMeter = 5000,
             ScrapedAtUtc = now
         };
-        var snap2 = new FlatSnapshot
+        var snap2 = new PublishedFlat
         {
             Source = "OhneMakler",
             ListingId = "2",
@@ -103,7 +103,7 @@ public class FlatAggregationRepositoryTests
 
         // Seed old aggregations
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        dbContext.FlatAggregations.Add(new FlatAggregationSnapshot
+        dbContext.FlatAggregations.Add(new DailyFlatAggregation
         {
             District = "OldDistrict",
             RoomsCount = 1,
@@ -127,7 +127,7 @@ public class FlatAggregationRepositoryTests
         dbContext.ScrapingHistories.Add(history);
         await dbContext.SaveChangesAsync();
 
-        var snap = new FlatSnapshot
+        var snap = new PublishedFlat
         {
             Source = "OhneMakler",
             ListingId = "1",
@@ -154,7 +154,7 @@ public class FlatAggregationRepositoryTests
     }
 
     [Test]
-    public async Task RefreshAsync_WithNoMatchingSnapshots_ResultsInEmptyTable()
+    public async Task RefreshAsync_WithNoMatchingFlats_ResultsInEmptyTable()
     {
         // Arrange
         var options = CreateInMemoryOptions();
@@ -173,7 +173,7 @@ public class FlatAggregationRepositoryTests
     }
 
     [Test]
-    public async Task RefreshAsync_ExcludesInvalidSnapshots()
+    public async Task RefreshAsync_ExcludesInvalidFlats()
     {
         // Arrange
         var options = CreateInMemoryOptions();
@@ -194,8 +194,8 @@ public class FlatAggregationRepositoryTests
         dbContext.ScrapingHistories.Add(history);
         await dbContext.SaveChangesAsync();
 
-        // Seed snapshots: one valid, one with null district, one with zero price
-        var snap1 = new FlatSnapshot
+        // Seed flats: one valid, one without a living area (no price per m²), one with zero price
+        var snap1 = new PublishedFlat
         {
             Source = "OhneMakler",
             ListingId = "1",
@@ -205,17 +205,17 @@ public class FlatAggregationRepositoryTests
             PricePerMeter = 5000,
             ScrapedAtUtc = now
         };
-        var snap2 = new FlatSnapshot
+        var snap2 = new PublishedFlat
         {
             Source = "OhneMakler",
             ListingId = "2",
-            District = null,
+            District = "Innenstadt",
             RoomsCount = 2,
             PriceEur = 500000,
-            PricePerMeter = 5000,
+            PricePerMeter = null,
             ScrapedAtUtc = now
         };
-        var snap3 = new FlatSnapshot
+        var snap3 = new PublishedFlat
         {
             Source = "OhneMakler",
             ListingId = "3",
@@ -243,7 +243,7 @@ public class FlatAggregationRepositoryTests
         // Act
         await repo.RefreshAsync();
 
-        // Assert - only 1 valid aggregation
+        // Assert - only 1 valid aggregation, counting only the flat in its average
         var aggregations = await dbContext.FlatAggregations.ToListAsync();
         aggregations.Should().HaveCount(1);
         aggregations.First().Count.Should().Be(1);
@@ -259,8 +259,8 @@ public class FlatAggregationRepositoryTests
         await using (var dbContext = new FlatsDbContext(options))
         {
             dbContext.FlatAggregations.AddRange(
-                new FlatAggregationSnapshot { ScrapingDate = date, District = "Zentrum", RoomsCount = 1, Count = 1, AvgPricePerMeter = 10 },
-                new FlatAggregationSnapshot { ScrapingDate = date.AddDays(-1), District = "Innenstadt", RoomsCount = 2, Count = 2, AvgPricePerMeter = 20 });
+                new DailyFlatAggregation { ScrapingDate = date, District = "Zentrum", RoomsCount = 1, Count = 1, AvgPricePerMeter = 10 },
+                new DailyFlatAggregation { ScrapingDate = date.AddDays(-1), District = "Innenstadt", RoomsCount = 2, Count = 2, AvgPricePerMeter = 20 });
             await dbContext.SaveChangesAsync();
         }
 
@@ -281,10 +281,10 @@ public class FlatAggregationRepositoryTests
         await using (var dbContext = new FlatsDbContext(options))
         {
             dbContext.FlatAggregations.AddRange(
-                new FlatAggregationSnapshot { ScrapingDate = yesterday, District = "Alt", RoomsCount = 1, Count = 99, AvgPricePerMeter = 1 },
-                new FlatAggregationSnapshot { ScrapingDate = today, District = "Zentrum", RoomsCount = 3, Count = 3, AvgPricePerMeter = 3 },
-                new FlatAggregationSnapshot { ScrapingDate = today, District = "Innenstadt", RoomsCount = 3, Count = 2, AvgPricePerMeter = 2 },
-                new FlatAggregationSnapshot { ScrapingDate = today, District = "Innenstadt", RoomsCount = 2, Count = 5, AvgPricePerMeter = 5 });
+                new DailyFlatAggregation { ScrapingDate = yesterday, District = "Alt", RoomsCount = 1, Count = 99, AvgPricePerMeter = 1 },
+                new DailyFlatAggregation { ScrapingDate = today, District = "Zentrum", RoomsCount = 3, Count = 3, AvgPricePerMeter = 3 },
+                new DailyFlatAggregation { ScrapingDate = today, District = "Innenstadt", RoomsCount = 3, Count = 2, AvgPricePerMeter = 2 },
+                new DailyFlatAggregation { ScrapingDate = today, District = "Innenstadt", RoomsCount = 2, Count = 5, AvgPricePerMeter = 5 });
             await dbContext.SaveChangesAsync();
         }
 

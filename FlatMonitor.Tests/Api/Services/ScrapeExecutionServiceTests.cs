@@ -46,8 +46,8 @@ public class ScrapeExecutionServiceTests
         _mockLogger = new Mock<ILogger<ScrapeExecutionService>>();
         _coordinator = new ScraperCoordinator(
             Array.Empty<IScraper>(),
-            new Mock<ISnapshotRepository>().Object,
-            new SnapshotWriter(),
+            new Mock<IFlatRepository>().Object,
+            new JsonlBackupWriter(),
             Path.GetTempPath(),
             NullLogger<ScraperCoordinator>.Instance);
     }
@@ -80,7 +80,7 @@ public class ScrapeExecutionServiceTests
 [TestFixture]
 public class ScrapeExecutionServiceExecuteTests
 {
-    private Mock<ISnapshotRepository> _mockSnapshotRepository = null!;
+    private Mock<IFlatRepository> _mockFlatRepository = null!;
     private Mock<IFlatAggregationRepository> _mockAggregationRepository = null!;
     private ListLogger<ScrapeExecutionService> _logger = null!;
     private List<string> _calls = null!;
@@ -91,14 +91,14 @@ public class ScrapeExecutionServiceExecuteTests
     {
         // Every repository call completes without doing anything; the calls are recorded in order
         _calls = [];
-        _mockSnapshotRepository = new Mock<ISnapshotRepository>();
-        _mockSnapshotRepository.Setup(r => r.BeginRunAsync(It.IsAny<CancellationToken>()))
+        _mockFlatRepository = new Mock<IFlatRepository>();
+        _mockFlatRepository.Setup(r => r.BeginRunAsync(It.IsAny<CancellationToken>()))
             .Callback(() => _calls.Add("begin")).Returns(Task.CompletedTask);
-        _mockSnapshotRepository.Setup(r => r.AddToRunAsync(It.IsAny<List<Flat>>(), It.IsAny<CancellationToken>()))
+        _mockFlatRepository.Setup(r => r.AddToRunAsync(It.IsAny<List<Flat>>(), It.IsAny<CancellationToken>()))
             .Callback(() => _calls.Add("add")).Returns(Task.CompletedTask);
-        _mockSnapshotRepository.Setup(r => r.PublishSourceAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        _mockFlatRepository.Setup(r => r.PublishSourceAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Callback<string, CancellationToken>((source, _) => _calls.Add($"publish {source}")).ReturnsAsync(1);
-        _mockSnapshotRepository.Setup(r => r.DiscardRunAsync(It.IsAny<CancellationToken>()))
+        _mockFlatRepository.Setup(r => r.DiscardRunAsync(It.IsAny<CancellationToken>()))
             .Callback(() => _calls.Add("discard")).Returns(Task.CompletedTask);
         _mockAggregationRepository = new Mock<IFlatAggregationRepository>();
         _mockAggregationRepository.Setup(r => r.RefreshAsync(It.IsAny<CancellationToken>()))
@@ -236,7 +236,7 @@ public class ScrapeExecutionServiceExecuteTests
     private ScrapeExecutionService CreateService(params IScraper[] scrapers)
     {
         var coordinator = new ScraperCoordinator(
-            scrapers, _mockSnapshotRepository.Object, new SnapshotWriter(), _dataDir, NullLogger<ScraperCoordinator>.Instance);
+            scrapers, _mockFlatRepository.Object, new JsonlBackupWriter(), _dataDir, NullLogger<ScraperCoordinator>.Instance);
         return new ScrapeExecutionService(_mockAggregationRepository.Object, coordinator, _logger);
     }
 }

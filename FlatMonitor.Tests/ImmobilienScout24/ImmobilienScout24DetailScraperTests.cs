@@ -17,7 +17,7 @@ public class ImmobilienScout24DetailScraperTests
     private string _dataDir = null!;
     private Mock<IPage> _page = null!;
     private ListLogger<ImmobilienScout24DetailScraperTests> _logger = null!;
-    private HtmlSnapshotStore _snapshots = null!;
+    private HtmlPageArchive _snapshots = null!;
     private ImmobilienScout24DetailScraper _scraper = null!;
 
     [SetUp]
@@ -25,7 +25,7 @@ public class ImmobilienScout24DetailScraperTests
     {
         _dataDir = Path.Combine(Path.GetTempPath(), $"ImmobilienScout24DetailScraperTests_{Guid.NewGuid()}");
         _logger = new ListLogger<ImmobilienScout24DetailScraperTests>();
-        _snapshots = HtmlSnapshotStore.ForSource(new StorageOptions(_dataDir, "Data Source=:memory:"), ImmobilienScout24Scraper.SourceName, _logger);
+        _snapshots = HtmlPageArchive.ForSource(new StorageOptions(_dataDir, "Data Source=:memory:"), ImmobilienScout24Scraper.SourceName, _logger);
 
         _page = new Mock<IPage>(MockBehavior.Strict);
         _page.Setup(p => p.GotoAsync(Url, It.IsAny<PageGotoOptions>())).ReturnsAsync((IResponse?)null);

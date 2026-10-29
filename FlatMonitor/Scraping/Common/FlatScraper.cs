@@ -8,24 +8,24 @@ using Microsoft.Extensions.Logging;
 
 /// <summary>
 /// Base class for scrapers that fetch all pages first, then enrich each flat with its details.
-/// Flow: clear the HTML snapshots → start a session → fetch all pages (on the flats index) → enrich and yield each
+/// Flow: clear the HTML page archive → start a session → fetch all pages (on the flats index) → enrich and yield each
 /// flat (navigate to detail pages) → dispose the session.
 /// Collecting all cards first avoids losing pagination context when navigating to detail pages.
 /// Derived classes only start a session; everything a run needs (browser, fetchers) lives in that session.
 /// </summary>
 public abstract class FlatScraper : IScraper
 {
-    protected FlatScraper(string source, HtmlSnapshotStore htmlSnapshots, ILogger logger)
+    protected FlatScraper(string source, HtmlPageArchive htmlPages, ILogger logger)
     {
         Source = source ?? throw new ArgumentNullException(nameof(source));
-        HtmlSnapshots = htmlSnapshots ?? throw new ArgumentNullException(nameof(htmlSnapshots));
+        HtmlPages = htmlPages ?? throw new ArgumentNullException(nameof(htmlPages));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     public string Source { get; }
 
     /// <summary>The detail pages of the current run, for debugging; emptied when a run starts.</summary>
-    protected HtmlSnapshotStore HtmlSnapshots { get; }
+    protected HtmlPageArchive HtmlPages { get; }
 
     /// <summary>The derived scraper's logger; also handed to the helpers it creates.</summary>
     protected ILogger Logger { get; }
@@ -33,7 +33,7 @@ public abstract class FlatScraper : IScraper
     public async IAsyncEnumerable<Flat> ScrapeAsync([EnumeratorCancellation] CancellationToken ct = default)
     {
         // No catch: failures and cancellation must reach ScraperCoordinator, which records them as source errors.
-        await HtmlSnapshots.ClearAsync(ct);
+        await HtmlPages.ClearAsync(ct);
 
         // A session that fails to start cleans up after itself; once started, it is disposed however the run ends
         await using var session = await StartAsync(ct);

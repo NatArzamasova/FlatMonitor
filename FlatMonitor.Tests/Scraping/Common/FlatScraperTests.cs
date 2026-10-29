@@ -32,7 +32,7 @@ public class FlatScraperTests
     {
         // Arrange: a page saved by the previous run
         var dir = Path.Combine(Path.GetTempPath(), $"FlatScraperTests_{Guid.NewGuid()}");
-        var snapshots = new HtmlSnapshotStore(dir, NullLogger.Instance);
+        var snapshots = new HtmlPageArchive(dir, NullLogger.Instance);
         await snapshots.SaveAsync("old", "<html></html>");
         var scraper = new SnapshotCheckingScraper(snapshots);
 
@@ -52,14 +52,14 @@ public class FlatScraperTests
     }
 
     /// <summary>Records which HTML snapshots exist when its session starts; yields nothing.</summary>
-    private sealed class SnapshotCheckingScraper(HtmlSnapshotStore snapshots)
+    private sealed class SnapshotCheckingScraper(HtmlPageArchive snapshots)
         : FlatScraper("Checking", snapshots, NullLogger.Instance)
     {
         public string[] SnapshotsWhenStarted { get; private set; } = [];
 
         protected override Task<IScrapeSession> StartAsync(CancellationToken ct)
         {
-            SnapshotsWhenStarted = Directory.Exists(HtmlSnapshots.Directory) ? Directory.GetFiles(HtmlSnapshots.Directory) : [];
+            SnapshotsWhenStarted = Directory.Exists(HtmlPages.Directory) ? Directory.GetFiles(HtmlPages.Directory) : [];
             return Task.FromResult<IScrapeSession>(new EmptySession());
         }
 

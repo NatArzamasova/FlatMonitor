@@ -10,12 +10,12 @@ using Microsoft.AspNetCore.Mvc;
 [Route("api/[controller]")]
 public class FlatsController : ApiControllerBase
 {
-    private readonly ISnapshotRepository _snapshotRepository;
+    private readonly IFlatRepository _flatRepository;
     private readonly IFlatAggregationRepository _aggregationRepository;
 
-    public FlatsController(ISnapshotRepository snapshotRepository, IFlatAggregationRepository aggregationRepository)
+    public FlatsController(IFlatRepository flatRepository, IFlatAggregationRepository aggregationRepository)
     {
-        _snapshotRepository = snapshotRepository;
+        _flatRepository = flatRepository;
         _aggregationRepository = aggregationRepository;
     }
 
@@ -29,7 +29,7 @@ public class FlatsController : ApiControllerBase
     [HttpGet("current-offers")]
     public async Task<ActionResult<ApiResponse<List<FlatOffer>>>> GetCurrentOffersAsync(CancellationToken ct = default)
     {
-        var offers = await _snapshotRepository.GetCurrentOffersAsync(ct);
+        var offers = await _flatRepository.GetCurrentOffersAsync(ct);
         return Ok(Success(offers, "Current offers fetched successfully"));
     }
 

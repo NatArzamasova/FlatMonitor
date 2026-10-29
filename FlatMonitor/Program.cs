@@ -201,7 +201,7 @@ void PrintUsage()
     Console.Error.WriteLine("Usage: dotnet run [-- <command>]");
     Console.Error.WriteLine("Default: Starts the web server on http://localhost:5000");
     Console.Error.WriteLine("Commands:");
-    Console.Error.WriteLine("  scrape        Fetch current listings and write snapshot (CLI mode, then exit)");
+    Console.Error.WriteLine("  scrape        Fetch current listings into the database (CLI mode, then exit)");
     Console.Error.WriteLine("  explore-is24  Login and fetch ImmobilienScout24 listings page for analysis");
     Console.Error.WriteLine("  --help        Show this message");
 }

@@ -2,7 +2,7 @@ namespace FlatMonitor.Models;
 
 /// <summary>
 /// A <see cref="Flat"/> as stored in a flats table. Both tables have the same columns:
-/// <see cref="FlatSnapshot"/> (FlatsSnapshots, what the API serves) and <see cref="StagedFlatSnapshot"/>
+/// <see cref="PublishedFlat"/> (FlatsSnapshots, what the API serves) and <see cref="StagedFlat"/>
 /// (FlatsSnapshots_Staging, the running scrape until its sources are published).
 /// </summary>
 public abstract class FlatRecord
@@ -66,35 +66,35 @@ public abstract class FlatRecord
     private void EnsureSameKey(string source, string listingId)
     {
         if (source != Source || listingId != ListingId)
-            throw new ArgumentException($"Flat {source}/{listingId} does not belong to snapshot {Source}/{ListingId}");
+            throw new ArgumentException($"Flat {source}/{listingId} does not belong to row {Source}/{ListingId}");
     }
 }
 
 /// <summary>A row of the FlatsSnapshots table: a flat of the latest published scrape of its source.</summary>
-public sealed class FlatSnapshot : FlatRecord
+public sealed class PublishedFlat : FlatRecord
 {
-    public static FlatSnapshot From(Flat flat)
+    public static PublishedFlat From(Flat flat)
     {
-        var snapshot = new FlatSnapshot { Source = flat.Source, ListingId = flat.ListingId, ScrapedAtUtc = flat.ScrapedAtUtc };
-        snapshot.UpdateFrom(flat);
-        return snapshot;
+        var published = new PublishedFlat { Source = flat.Source, ListingId = flat.ListingId, ScrapedAtUtc = flat.ScrapedAtUtc };
+        published.UpdateFrom(flat);
+        return published;
     }
 
-    public static FlatSnapshot From(FlatRecord record)
+    public static PublishedFlat From(FlatRecord record)
     {
-        var snapshot = new FlatSnapshot { Source = record.Source, ListingId = record.ListingId, ScrapedAtUtc = record.ScrapedAtUtc };
-        snapshot.UpdateFrom(record);
-        return snapshot;
+        var published = new PublishedFlat { Source = record.Source, ListingId = record.ListingId, ScrapedAtUtc = record.ScrapedAtUtc };
+        published.UpdateFrom(record);
+        return published;
     }
 }
 
 /// <summary>A row of the FlatsSnapshots_Staging table: a flat of the running scrape, not yet published.</summary>
-public sealed class StagedFlatSnapshot : FlatRecord
+public sealed class StagedFlat : FlatRecord
 {
-    public static StagedFlatSnapshot From(Flat flat)
+    public static StagedFlat From(Flat flat)
     {
-        var snapshot = new StagedFlatSnapshot { Source = flat.Source, ListingId = flat.ListingId, ScrapedAtUtc = flat.ScrapedAtUtc };
-        snapshot.UpdateFrom(flat);
-        return snapshot;
+        var staged = new StagedFlat { Source = flat.Source, ListingId = flat.ListingId, ScrapedAtUtc = flat.ScrapedAtUtc };
+        staged.UpdateFrom(flat);
+        return staged;
     }
 }

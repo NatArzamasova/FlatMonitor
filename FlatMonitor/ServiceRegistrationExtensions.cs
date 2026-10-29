@@ -28,11 +28,11 @@ public static class ServiceRegistrationExtensions
         services.AddDbContext<FlatsDbContext>(options => options.UseSqlite(storage.ConnectionString));
 
         // All repositories share the scoped FlatsDbContext, so one scrape runs on one context and connection
-        services.AddScoped<ISnapshotRepository, FlatSnapshotRepository>();
+        services.AddScoped<IFlatRepository, FlatRepository>();
         services.AddScoped<IFlatAggregationRepository, FlatAggregationRepository>();
         services.AddScoped<IScrapingHistoryRepository, ScrapingHistoryRepository>();
         services.AddScoped<IFilterPresetRepository, FilterPresetRepository>();
-        services.AddScoped<SnapshotWriter>();
+        services.AddScoped<JsonlBackupWriter>();
 
         services.AddHttpClient<OhneMaklerScraper>(client =>
         {
@@ -48,8 +48,8 @@ public static class ServiceRegistrationExtensions
 
         services.AddScoped(sp => new ScraperCoordinator(
             sp.GetServices<IScraper>(),
-            sp.GetRequiredService<ISnapshotRepository>(),
-            sp.GetRequiredService<SnapshotWriter>(),
+            sp.GetRequiredService<IFlatRepository>(),
+            sp.GetRequiredService<JsonlBackupWriter>(),
             storage.DataDirectory,
             sp.GetRequiredService<ILogger<ScraperCoordinator>>()));
         services.AddScoped<ScrapeExecutionService>();

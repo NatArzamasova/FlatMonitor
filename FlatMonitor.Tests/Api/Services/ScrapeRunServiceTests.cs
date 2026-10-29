@@ -156,7 +156,7 @@ public class ScrapeRunServiceTests
     private ScrapeRunService CreateService(params IScraper[] scrapers)
     {
         var coordinator = new ScraperCoordinator(
-            scrapers, new Mock<ISnapshotRepository>().Object, new SnapshotWriter(), _dataDir, NullLogger<ScraperCoordinator>.Instance);
+            scrapers, new Mock<IFlatRepository>().Object, new JsonlBackupWriter(), _dataDir, NullLogger<ScraperCoordinator>.Instance);
         var execution = new ScrapeExecutionService(_aggregations.Object, coordinator, NullLogger<ScrapeExecutionService>.Instance);
         return new ScrapeRunService(_history.Object, execution, _logger);
     }

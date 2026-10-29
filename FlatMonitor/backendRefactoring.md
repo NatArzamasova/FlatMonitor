@@ -359,7 +359,15 @@ The size heuristic is gone: a first page without cards throws, and the message s
 - `ScrapeJobStatusResponse.Status` is `string` (`job.Status.ToString()`), while `ScrapingStatus` uses
   `JsonStringEnumConverter`. Do the same for `ScrapeJobStatus`; the JSON stays the same.
 
-### 4.2 "Snapshot" means five things
+### 4.2 "Snapshot" means five things ✅ Done
+
+**Status:** Done, with one change to the suggested names: `FlatRecord` had become the shared base class of the
+live and staging rows in 2.1, so the rows are `PublishedFlat` (FlatsSnapshots) and `StagedFlat`
+(FlatsSnapshots_Staging). Otherwise as suggested: `IFlatRepository`/`FlatRepository`, `DailyFlatAggregation`,
+`JsonlBackupWriter` (+ `JsonlBackupFile`, `JsonOptions.JsonlBackup`), `HtmlPageArchive`; in the tests
+`JsonlBackupLoader`. Table names and the on-disk `data/snapshots/` folders are unchanged, so no migration
+(`has-pending-model-changes`: none; the current model snapshot's entity names were updated, old migrations
+left as they are). The DbSet properties keep their table names (`FlatsSnapshots`, `FlatsSnapshotsStaging`).
 
 `FlatSnapshot` (a row of the live table), `ISnapshotRepository` (that table), `FlatsSnapshots_Backup`,
 `SnapshotWriter`/`SnapshotFile` (JSONL debug files), `HtmlSnapshotStore` and `ClearPreviousSnapshotsAsync`
@@ -371,7 +379,13 @@ Suggested class renames (table names unchanged, so no migration): `FlatSnapshot`
 `SnapshotWriter` → `JsonlBackupWriter`, `HtmlSnapshotStore` → `HtmlPageArchive`. Do this after 2.1, which
 removes several of these members anyway.
 
-### 4.3 Aggregation: `Count` and the average use different flats
+### 4.3 Aggregation: `Count` and the average use different flats ✅ Done
+
+**Status:** Done. `Compute` keeps only flats with `PricePerMeter > 0`, so `Count` is "flats in the average" and no
+group has `0 €/m²`; the `District != null` filter is gone. This also makes the frontend's count-weighted merge
+(`mergeWeightedAverage`, overview and history) correct: before, flats without an area raised a group's weight and
+0-average groups pulled combined averages down. Rows already in `FlatAggregations` from earlier days keep the old
+counts and zero averages; the "flats offered" count is not added (open product question).
 
 **File:** `Storage/FlatAggregationCalculator.cs:13-22`
 

@@ -14,7 +14,7 @@ namespace FlatMonitor.Tests.Scraping.Common;
 internal sealed class FakeFlatScraper(string source = "Fake", ILogger? logger = null)
     : FlatScraper(
         source,
-        new HtmlSnapshotStore(Path.Combine(Path.GetTempPath(), $"FakeFlatScraper_{Guid.NewGuid()}"), NullLogger.Instance),
+        new HtmlPageArchive(Path.Combine(Path.GetTempPath(), $"FakeFlatScraper_{Guid.NewGuid()}"), NullLogger.Instance),
         logger ?? NullLogger.Instance)
 {
     public List<Flat> Flats { get; init; } = [];

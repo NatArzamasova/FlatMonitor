@@ -14,16 +14,16 @@ public sealed class ScrapeStartupRecovery
     public const string InterruptedRunMessage = "Interrupted: the service stopped before the scrape finished";
 
     private readonly IScrapingHistoryRepository _history;
-    private readonly ISnapshotRepository _snapshots;
+    private readonly IFlatRepository _flats;
     private readonly ILogger<ScrapeStartupRecovery> _logger;
 
     public ScrapeStartupRecovery(
         IScrapingHistoryRepository history,
-        ISnapshotRepository snapshots,
+        IFlatRepository flats,
         ILogger<ScrapeStartupRecovery> logger)
     {
         _history = history;
-        _snapshots = snapshots;
+        _flats = flats;
         _logger = logger;
     }
 
@@ -33,6 +33,6 @@ public sealed class ScrapeStartupRecovery
         if (canceled > 0)
             _logger.LogWarning("Marked {Count} scrape run(s) left running by a previous instance as canceled", canceled);
 
-        await _snapshots.DiscardRunAsync(ct);
+        await _flats.DiscardRunAsync(ct);
     }
 }

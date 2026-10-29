@@ -6,18 +6,18 @@ using NUnit.Framework;
 namespace FlatMonitor.Tests.Storage;
 
 [TestFixture]
-public class HtmlSnapshotStoreTests
+public class HtmlPageArchiveTests
 {
     private string _dataDir = null!;
-    private ListLogger<HtmlSnapshotStoreTests> _logger = null!;
-    private HtmlSnapshotStore _store = null!;
+    private ListLogger<HtmlPageArchiveTests> _logger = null!;
+    private HtmlPageArchive _store = null!;
 
     [SetUp]
     public void Setup()
     {
-        _dataDir = Path.Combine(Path.GetTempPath(), $"HtmlSnapshotStoreTests_{Guid.NewGuid()}");
-        _logger = new ListLogger<HtmlSnapshotStoreTests>();
-        _store = HtmlSnapshotStore.ForSource(new StorageOptions(_dataDir, "Data Source=:memory:"), "OhneMakler", _logger);
+        _dataDir = Path.Combine(Path.GetTempPath(), $"HtmlPageArchiveTests_{Guid.NewGuid()}");
+        _logger = new ListLogger<HtmlPageArchiveTests>();
+        _store = HtmlPageArchive.ForSource(new StorageOptions(_dataDir, "Data Source=:memory:"), "OhneMakler", _logger);
     }
 
     [TearDown]

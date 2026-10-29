@@ -94,7 +94,7 @@ public class ModelCleanupMigrationTests
     {
         await using (var dbContext = CreateContext())
         {
-            var repository = new FlatSnapshotRepository(dbContext);
+            var repository = new FlatRepository(dbContext);
             await repository.AddToRunAsync([new Flat
             {
                 Source = "OhneMakler",

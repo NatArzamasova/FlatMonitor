@@ -19,7 +19,7 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
     private readonly ImmobilienScout24Options _options;
 
     public ImmobilienScout24Scraper(StorageOptions storage, ImmobilienScout24Options options, ILogger<ImmobilienScout24Scraper> logger)
-        : base(SourceName, HtmlSnapshotStore.ForSource(storage, SourceName, logger), logger)
+        : base(SourceName, HtmlPageArchive.ForSource(storage, SourceName, logger), logger)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
     }
@@ -27,7 +27,7 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
     protected override async Task<IScrapeSession> StartAsync(CancellationToken ct)
     {
         var browser = await new ImmobilienScout24Browser(_options, Logger).LaunchAsync(ct);
-        return new Session(browser, _options, HtmlSnapshots, Logger);
+        return new Session(browser, _options, HtmlPages, Logger);
     }
 
     /// <summary>One run in one browser, which is on the first listings page when the session starts.</summary>
@@ -41,13 +41,13 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
         private readonly ImmobilienScout24CardParser _cardParser;
         private readonly ImmobilienScout24DetailParser _detailParser = new();
 
-        public Session(ImmobilienScout24BrowserSession browser, ImmobilienScout24Options options, HtmlSnapshotStore htmlSnapshots, ILogger logger)
+        public Session(ImmobilienScout24BrowserSession browser, ImmobilienScout24Options options, HtmlPageArchive htmlPages, ILogger logger)
         {
             _browser = browser;
             _options = options;
             _logger = logger;
             _pageFetcher = new ImmobilienScout24FlatsPageFetcher(browser.Page, logger);
-            _detailScraper = new ImmobilienScout24DetailScraper(browser.Page, htmlSnapshots, logger);
+            _detailScraper = new ImmobilienScout24DetailScraper(browser.Page, htmlPages, logger);
             _cardParser = new ImmobilienScout24CardParser(logger);
         }
 

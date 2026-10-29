@@ -100,7 +100,7 @@ public class ServiceRegistrationExtensionsTests
         await using var scope = _provider.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<FlatsDbContext>();
         await dbContext.Database.EnsureCreatedAsync();
-        var repository = scope.ServiceProvider.GetRequiredService<ISnapshotRepository>();
+        var repository = scope.ServiceProvider.GetRequiredService<IFlatRepository>();
         await repository.AddToRunAsync([new Flat
         {
             ListingId = "1",

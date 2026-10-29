@@ -37,7 +37,7 @@ public class ScrapeBackgroundServiceTests
 
         await using var dbContext = CreateDbContext();
         await dbContext.Database.EnsureCreatedAsync();
-        var repository = new FlatSnapshotRepository(dbContext);
+        var repository = new FlatRepository(dbContext);
         await repository.AddToRunAsync([FakeFlatScraper.CreateFlat("existing")]);
         await repository.PublishSourceAsync("OhneMakler");
         await repository.DiscardRunAsync();
@@ -238,13 +238,13 @@ public class ScrapeBackgroundServiceTests
             if (interceptor != null)
                 o.AddInterceptors(interceptor);
         });
-        services.AddScoped<ISnapshotRepository, FlatSnapshotRepository>();
+        services.AddScoped<IFlatRepository, FlatRepository>();
         if (aggregations != null)
             services.AddScoped(aggregations);
         else
             services.AddScoped<IFlatAggregationRepository, FlatAggregationRepository>();
         services.AddScoped(sp => new ScraperCoordinator(
-            scrapers, sp.GetRequiredService<ISnapshotRepository>(), new SnapshotWriter(), _dataDir,
+            scrapers, sp.GetRequiredService<IFlatRepository>(), new JsonlBackupWriter(), _dataDir,
             NullLogger<ScraperCoordinator>.Instance));
         services.AddScoped<ScrapeExecutionService>();
         services.AddScoped<ScrapeRunService>();
@@ -312,7 +312,7 @@ public class ScrapeBackgroundServiceTests
 
         public Task RefreshAsync(CancellationToken ct = default)
         {
-            dbContext.FlatAggregations.Add(new FlatAggregationSnapshot
+            dbContext.FlatAggregations.Add(new DailyFlatAggregation
             {
                 ScrapingDate = DateOnly.FromDateTime(DateTime.UtcNow),
                 District = "Innenstadt",

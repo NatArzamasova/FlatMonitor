@@ -7,11 +7,11 @@ using FlatMonitor.Models;
 
 
 /// <summary>
-/// Writes scraped flats to JSONL snapshot files for debugging purposes only.
-/// Snapshots are NOT used to rebuild the database; they exist as optional backups for troubleshooting.
+/// Writes scraped flats to JSONL backup files (under <c>data/snapshots</c>) for debugging purposes only.
+/// The backups are NOT used to rebuild the database; they exist for troubleshooting.
 /// The SQLite database (FlatsSnapshots table) is the canonical source of truth.
 /// </summary>
-public sealed class SnapshotWriter
+public sealed class JsonlBackupWriter
 {
     private const string SnapshotsDir = "snapshots";
 
@@ -26,8 +26,8 @@ public sealed class SnapshotWriter
         return file.Path;
     }
 
-    /// <summary>Creates a new, empty snapshot file; append flats to it batch by batch while scraping.</summary>
-    public SnapshotFile Create(string baseDirectory, string? source = null)
+    /// <summary>Creates a new, empty backup file; append flats to it batch by batch while scraping.</summary>
+    public JsonlBackupFile Create(string baseDirectory, string? source = null)
     {
         source ??= "default";
 
@@ -38,16 +38,16 @@ public sealed class SnapshotWriter
         // Generate timestamped filename: {utc-timestamp}.jsonl
         string timestamp = DateTime.UtcNow.ToString("O").Replace(":", "-").Split('.')[0];
         string filename = $"{timestamp}.jsonl";
-        return new SnapshotFile(Path.Combine(snapshotsPath, filename));
+        return new JsonlBackupFile(Path.Combine(snapshotsPath, filename));
     }
 }
 
-/// <summary>An open JSONL snapshot file (one JSON object per line).</summary>
-public sealed class SnapshotFile : IAsyncDisposable
+/// <summary>An open JSONL backup file (one JSON object per line).</summary>
+public sealed class JsonlBackupFile : IAsyncDisposable
 {
     private readonly StreamWriter _writer;
 
-    internal SnapshotFile(string path)
+    internal JsonlBackupFile(string path)
     {
         Path = path;
         _writer = new StreamWriter(path, append: false);
@@ -59,7 +59,7 @@ public sealed class SnapshotFile : IAsyncDisposable
     {
         foreach (var listing in listings)
         {
-            var json = JsonSerializer.Serialize(listing, JsonOptions.Snapshot);
+            var json = JsonSerializer.Serialize(listing, JsonOptions.JsonlBackup);
             await _writer.WriteLineAsync(json.AsMemory(), ct);
         }
     }

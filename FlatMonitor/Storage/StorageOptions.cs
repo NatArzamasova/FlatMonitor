@@ -4,7 +4,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Configuration;
 
 /// <summary>
-/// Where FlatMonitor keeps its files: the SQLite database and the data directory (JSONL and HTML snapshots).
+/// Where FlatMonitor keeps its files: the SQLite database and the data directory (JSONL backups and archived HTML pages).
 /// Both come from configuration (<c>appsettings.json</c>, overridable by environment variables such as
 /// <c>Storage__DataDirectory</c> or <c>ConnectionStrings__Flats</c>). Relative paths are resolved against the
 /// content root, which is the FlatMonitor project directory under <c>dotnet run</c> and <c>dotnet ef</c>.

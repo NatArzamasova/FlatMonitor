@@ -7,7 +7,7 @@ using FlatMonitor.Models;
 namespace FlatMonitor.Tests.Scraping.Debug;
 
 [TestFixture]
-public class SnapshotLoaderTests
+public class JsonlBackupLoaderTests
 {
     private string _testDir = null!;
     private string _snapshotsDir = null!;
@@ -36,7 +36,7 @@ public class SnapshotLoaderTests
         var testDirWithoutSnapshots = Path.Combine(Path.GetTempPath(), $"OhneMaklerTests_{Guid.NewGuid()}");
         Directory.CreateDirectory(testDirWithoutSnapshots);
 
-        var loader = new SnapshotLoader();
+        var loader = new JsonlBackupLoader();
 
         try
         {
@@ -56,7 +56,7 @@ public class SnapshotLoaderTests
     public void LoadAllSnapshots_WithEmptySnapshotsDirectory_ReturnsEmptyList()
     {
         // Arrange
-        var loader = new SnapshotLoader();
+        var loader = new JsonlBackupLoader();
 
         // Act
         var listings = loader.LoadAllSnapshots(_testDir);
@@ -104,12 +104,12 @@ public class SnapshotLoaderTests
         var snapshotPath = Path.Combine(sourceDir, "2026-10-12T10-00-00.jsonl");
         var lines = new[]
         {
-            JsonSerializer.Serialize(listing1, JsonOptions.Snapshot),
-            JsonSerializer.Serialize(listing2, JsonOptions.Snapshot)
+            JsonSerializer.Serialize(listing1, JsonOptions.JsonlBackup),
+            JsonSerializer.Serialize(listing2, JsonOptions.JsonlBackup)
         };
         File.WriteAllLines(snapshotPath, lines);
 
-        var loader = new SnapshotLoader();
+        var loader = new JsonlBackupLoader();
 
         // Act
         var listings = loader.LoadAllSnapshots(_testDir);
@@ -147,12 +147,12 @@ public class SnapshotLoaderTests
         var sourceDir = Path.Combine(_snapshotsDir, "OhneMakler");
         Directory.CreateDirectory(sourceDir);
         var file1Path = Path.Combine(sourceDir, "2026-10-11T10-00-00.jsonl");
-        File.WriteAllText(file1Path, JsonSerializer.Serialize(listing1, JsonOptions.Snapshot));
+        File.WriteAllText(file1Path, JsonSerializer.Serialize(listing1, JsonOptions.JsonlBackup));
 
         var file2Path = Path.Combine(sourceDir, "2026-10-12T10-00-00.jsonl");
-        File.WriteAllText(file2Path, JsonSerializer.Serialize(listing2, JsonOptions.Snapshot));
+        File.WriteAllText(file2Path, JsonSerializer.Serialize(listing2, JsonOptions.JsonlBackup));
 
-        var loader = new SnapshotLoader();
+        var loader = new JsonlBackupLoader();
 
         // Act
         var listings = loader.LoadAllSnapshots(_testDir);
@@ -181,14 +181,14 @@ public class SnapshotLoaderTests
         var snapshotPath = Path.Combine(sourceDir, "2026-10-12T10-00-00.jsonl");
         var lines = new[]
         {
-            JsonSerializer.Serialize(validListing, JsonOptions.Snapshot),
+            JsonSerializer.Serialize(validListing, JsonOptions.JsonlBackup),
             "this is not valid json {",
             "",
             "another { invalid"
         };
         File.WriteAllLines(snapshotPath, lines);
 
-        var loader = new SnapshotLoader();
+        var loader = new JsonlBackupLoader();
 
         // Act
         var listings = loader.LoadAllSnapshots(_testDir);
@@ -217,9 +217,9 @@ public class SnapshotLoaderTests
         var sourceDir = Path.Combine(_snapshotsDir, "OhneMakler");
         Directory.CreateDirectory(sourceDir);
         var snapshotPath = Path.Combine(sourceDir, "2026-10-12T10-00-00.jsonl");
-        File.WriteAllText(snapshotPath, JsonSerializer.Serialize(listing, JsonOptions.Snapshot));
+        File.WriteAllText(snapshotPath, JsonSerializer.Serialize(listing, JsonOptions.JsonlBackup));
 
-        var loader = new SnapshotLoader();
+        var loader = new JsonlBackupLoader();
 
         // Act
         var listings = loader.LoadAllSnapshots(_testDir);
@@ -257,9 +257,9 @@ public class SnapshotLoaderTests
         var sourceDir = Path.Combine(_snapshotsDir, "OhneMakler");
         Directory.CreateDirectory(sourceDir);
         var snapshotPath = Path.Combine(sourceDir, "2026-10-12T10-00-00.jsonl");
-        File.WriteAllText(snapshotPath, JsonSerializer.Serialize(listing, JsonOptions.Snapshot));
+        File.WriteAllText(snapshotPath, JsonSerializer.Serialize(listing, JsonOptions.JsonlBackup));
 
-        var loader = new SnapshotLoader();
+        var loader = new JsonlBackupLoader();
 
         // Act
         var listings = loader.LoadAllSnapshots(_testDir);
@@ -302,10 +302,10 @@ public class SnapshotLoaderTests
 
         var file1 = Path.Combine(ohneDir, "2026-10-12T10-00-00.jsonl");
         var file2 = Path.Combine(scoutDir, "2026-10-12T10-00-00.jsonl");
-        File.WriteAllText(file1, JsonSerializer.Serialize(listing1, JsonOptions.Snapshot));
-        File.WriteAllText(file2, JsonSerializer.Serialize(listing2, JsonOptions.Snapshot));
+        File.WriteAllText(file1, JsonSerializer.Serialize(listing1, JsonOptions.JsonlBackup));
+        File.WriteAllText(file2, JsonSerializer.Serialize(listing2, JsonOptions.JsonlBackup));
 
-        var loader = new SnapshotLoader();
+        var loader = new JsonlBackupLoader();
 
         // Act
         var listings = loader.LoadAllSnapshots(_testDir);

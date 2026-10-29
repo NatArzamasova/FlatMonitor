@@ -13,16 +13,16 @@ namespace FlatMonitor.Tests.Api.Controllers;
 [TestFixture]
 public class FlatsControllerTests
 {
-    private Mock<ISnapshotRepository> _snapshotRepository = null!;
+    private Mock<IFlatRepository> _flatRepository = null!;
     private Mock<IFlatAggregationRepository> _aggregationRepository = null!;
     private FlatsController _controller = null!;
 
     [SetUp]
     public void Setup()
     {
-        _snapshotRepository = new Mock<ISnapshotRepository>();
+        _flatRepository = new Mock<IFlatRepository>();
         _aggregationRepository = new Mock<IFlatAggregationRepository>();
-        _controller = new FlatsController(_snapshotRepository.Object, _aggregationRepository.Object);
+        _controller = new FlatsController(_flatRepository.Object, _aggregationRepository.Object);
     }
 
     [Test]
@@ -44,7 +44,7 @@ public class FlatsControllerTests
     public async Task GetCurrentOffersAsync_ReturnsSuccessfulApiResponse()
     {
         var offers = new List<FlatOffer> { new() { District = "Zentrum", Source = "source" } };
-        _snapshotRepository.Setup(r => r.GetCurrentOffersAsync(It.IsAny<CancellationToken>())).ReturnsAsync(offers);
+        _flatRepository.Setup(r => r.GetCurrentOffersAsync(It.IsAny<CancellationToken>())).ReturnsAsync(offers);
 
         var result = await _controller.GetCurrentOffersAsync();
 
@@ -52,7 +52,7 @@ public class FlatsControllerTests
         response.Success.Should().BeTrue();
         response.Data.Should().BeSameAs(offers);
         response.Message.Should().Be("Current offers fetched successfully");
-        _snapshotRepository.Verify(r => r.GetCurrentOffersAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _flatRepository.Verify(r => r.GetCurrentOffersAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test]
@@ -88,7 +88,7 @@ public class FlatsControllerTests
         using var cts = new CancellationTokenSource();
         _aggregationRepository.Setup(r => r.GetHistoryAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
         _aggregationRepository.Setup(r => r.GetLatestAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
-        _snapshotRepository.Setup(r => r.GetCurrentOffersAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        _flatRepository.Setup(r => r.GetCurrentOffersAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
 
         await _controller.GetHistoryAsync(cts.Token);
         await _controller.GetAggregatedAsync(cts.Token);
@@ -96,7 +96,7 @@ public class FlatsControllerTests
 
         _aggregationRepository.Verify(r => r.GetHistoryAsync(cts.Token), Times.Once);
         _aggregationRepository.Verify(r => r.GetLatestAsync(cts.Token), Times.Once);
-        _snapshotRepository.Verify(r => r.GetCurrentOffersAsync(cts.Token), Times.Once);
+        _flatRepository.Verify(r => r.GetCurrentOffersAsync(cts.Token), Times.Once);
     }
 
     private static TResponse GetResponseValue<TResponse>(ActionResult<TResponse> result)

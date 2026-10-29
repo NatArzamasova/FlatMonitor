@@ -12,7 +12,7 @@ public class FlatAggregationCalculatorTests
     public void Compute_GroupsByDistrictAndRoomsCount_ReturnsCorrectCounts()
     {
         // Arrange
-        var snapshots = new List<FlatSnapshot>
+        var snapshots = new List<PublishedFlat>
         {
             new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 500000, PricePerMeter = 5000, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "1" },
             new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 550000, PricePerMeter = 5500, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "2" },
@@ -29,28 +29,10 @@ public class FlatAggregationCalculatorTests
     }
 
     [Test]
-    public void Compute_ExcludesSnapshotsWithNullDistrict()
+    public void Compute_ExcludesFlatsWithZeroOrNullPrice()
     {
         // Arrange
-        var snapshots = new List<FlatSnapshot>
-        {
-            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 500000, PricePerMeter = 5000, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "1" },
-            new() { District = null, RoomsCount = 2, PriceEur = 500000, PricePerMeter = 5000, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "2" },
-        };
-
-        // Act
-        var result = FlatAggregationCalculator.Compute(snapshots);
-
-        // Assert
-        result.Should().HaveCount(1);
-        result.First().District.Should().Be("Innenstadt");
-    }
-
-    [Test]
-    public void Compute_ExcludesSnapshotsWithZeroOrNullPrice()
-    {
-        // Arrange
-        var snapshots = new List<FlatSnapshot>
+        var snapshots = new List<PublishedFlat>
         {
             new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 500000, PricePerMeter = 5000, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "1" },
             new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 0, PricePerMeter = null, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "2" },
@@ -66,46 +48,61 @@ public class FlatAggregationCalculatorTests
     }
 
     [Test]
-    public void Compute_AvgPricePerMeter_IgnoresSnapshotsWithoutPricePerMeter()
+    public void Compute_FlatsWithoutPricePerMeter_AreLeftOutOfAverageAndCount()
     {
-        // Arrange
-        var snapshots = new List<FlatSnapshot>
+        // Arrange: three flats, one without a living area (no price per m²)
+        var snapshots = new List<PublishedFlat>
         {
             new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 500000, PricePerMeter = 5000, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "1" },
-            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 600000, PricePerMeter = null, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "2" },
+            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 420000, PricePerMeter = 6000, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "2" },
+            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 600000, PricePerMeter = null, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "3" },
         };
 
         // Act
         var result = FlatAggregationCalculator.Compute(snapshots);
 
-        // Assert
-        result.Should().HaveCount(1);
-        result.First().AvgPricePerMeter.Should().Be(5000m);
+        // Assert: Count is the number of flats in the average
+        var aggregation = result.Should().ContainSingle().Subject;
+        aggregation.AvgPricePerMeter.Should().Be(5500m);
+        aggregation.Count.Should().Be(2);
     }
 
     [Test]
-    public void Compute_AvgPricePerMeter_IsZero_WhenNoSnapshotHasPricePerMeter()
+    public void Compute_GroupWhereNoFlatHasPricePerMeter_HasNoAggregation()
     {
-        // Arrange
-        var snapshots = new List<FlatSnapshot>
+        // Before: "2 flats, 0 €/m²", which the history chart drew as a real point
+        var snapshots = new List<PublishedFlat>
         {
             new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 500000, PricePerMeter = null, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "1" },
             new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 600000, PricePerMeter = null, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "2" },
+            new() { District = "Oststadt", RoomsCount = 2, PriceEur = 400000, PricePerMeter = 5000, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "3" },
         };
 
         // Act
         var result = FlatAggregationCalculator.Compute(snapshots);
 
         // Assert
-        result.Should().HaveCount(1);
-        result.First().AvgPricePerMeter.Should().Be(0m);
+        result.Should().ContainSingle().Which.District.Should().Be("Oststadt");
+        result.Should().NotContain(a => a.AvgPricePerMeter == 0m);
+    }
+
+    [Test]
+    public void Compute_ZeroPricePerMeter_IsLeftOut()
+    {
+        // A price of 0 gives 0 €/m²: not a real price
+        var snapshots = new List<PublishedFlat>
+        {
+            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 0, PricePerMeter = 0, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "1" },
+        };
+
+        FlatAggregationCalculator.Compute(snapshots).Should().BeEmpty();
     }
 
     [Test]
     public void Compute_OrdersByDistrictThenRoomsCount()
     {
         // Arrange
-        var snapshots = new List<FlatSnapshot>
+        var snapshots = new List<PublishedFlat>
         {
             new() { District = "Zentrum", RoomsCount = 3, PriceEur = 500000, PricePerMeter = 5000, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "1" },
             new() { District = "Innenstadt", RoomsCount = 3, PriceEur = 500000, PricePerMeter = 5000, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "2" },
@@ -128,7 +125,7 @@ public class FlatAggregationCalculatorTests
     public void Compute_HandlesNullRoomsCount_AsDistinctGroup()
     {
         // Arrange
-        var snapshots = new List<FlatSnapshot>
+        var snapshots = new List<PublishedFlat>
         {
             new() { District = "Innenstadt", RoomsCount = null, PriceEur = 500000, PricePerMeter = 5000, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "1" },
             new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 550000, PricePerMeter = 5500, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "2" },

@@ -61,7 +61,7 @@ e.g. `ConnectionStrings__Flats="Data Source=C:/flats/listings.db"` and `Storage_
 FlatMonitor/               # .NET Backend
 ├── Api/Controllers/       # REST API endpoints
 ├── Api/Contracts/        # API request and response contracts
-├── Models/               # Domain models (Flat, FlatSnapshot)
+├── Models/               # Domain models (Flat, PublishedFlat/StagedFlat rows, DailyFlatAggregation)
 ├── Storage/              # Database context and migrations
 ├── Scraping/             # Source-specific scrapers
 ├── data/                 # Data folder (snapshots, database)

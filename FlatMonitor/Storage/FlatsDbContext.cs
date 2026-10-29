@@ -5,10 +5,10 @@ using Microsoft.EntityFrameworkCore;
 
 public class FlatsDbContext : DbContext
 {
-    public DbSet<FlatSnapshot> FlatsSnapshots { get; set; }
-    public DbSet<StagedFlatSnapshot> FlatsSnapshotsStaging { get; set; }
+    public DbSet<PublishedFlat> FlatsSnapshots { get; set; }
+    public DbSet<StagedFlat> FlatsSnapshotsStaging { get; set; }
     public DbSet<ScrapingHistory> ScrapingHistories { get; set; }
-    public DbSet<FlatAggregationSnapshot> FlatAggregations { get; set; }
+    public DbSet<DailyFlatAggregation> FlatAggregations { get; set; }
     public DbSet<FilterPreset> FilterPresets { get; set; }
 
     public FlatsDbContext(DbContextOptions<FlatsDbContext> options) : base(options)

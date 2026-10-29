@@ -118,7 +118,7 @@ public class ScrapingHistoryRepositoryTests
         await using var context = await CreateSqliteContextAsync(connection);
         var repository = new ScrapingHistoryRepository(context);
         var runId = await repository.StartAsync();
-        context.FlatAggregations.Add(new FlatAggregationSnapshot
+        context.FlatAggregations.Add(new DailyFlatAggregation
         {
             ScrapingDate = DateOnly.FromDateTime(DateTime.UtcNow), District = "Oststadt", RoomsCount = 2, Count = 1, AvgPricePerMeter = 5000m,
         });

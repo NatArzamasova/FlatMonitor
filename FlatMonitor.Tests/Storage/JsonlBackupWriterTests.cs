@@ -7,15 +7,15 @@ using FlatMonitor.Storage;
 
 namespace FlatMonitor.Tests.Storage;
 [TestFixture]
-public class SnapshotWriterTests
+public class JsonlBackupWriterTests
 {
-    private SnapshotWriter _writer = null!;
+    private JsonlBackupWriter _writer = null!;
     private string _testDir = null!;
 
     [SetUp]
     public void Setup()
     {
-        _writer = new SnapshotWriter();
+        _writer = new JsonlBackupWriter();
         _testDir = Path.Combine(Path.GetTempPath(), $"OhneMaklerTests_{Guid.NewGuid()}");
         Directory.CreateDirectory(_testDir);
     }

@@ -5,11 +5,11 @@ using FlatMonitor.Storage.ReadModels;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 
-public sealed class FlatSnapshotRepository : ISnapshotRepository
+public sealed class FlatRepository : IFlatRepository
 {
     private readonly FlatsDbContext _dbContext;
 
-    public FlatSnapshotRepository(FlatsDbContext dbContext) => _dbContext = dbContext;
+    public FlatRepository(FlatsDbContext dbContext) => _dbContext = dbContext;
 
     public Task BeginRunAsync(CancellationToken ct = default) =>
         _dbContext.FlatsSnapshotsStaging.ExecuteDeleteAsync(ct);
@@ -22,7 +22,7 @@ public sealed class FlatSnapshotRepository : ISnapshotRepository
         var now = DateTime.UtcNow;
 
         // Load only the rows of this batch, not every row of the source
-        var existingMap = new Dictionary<(string Source, string ListingId), StagedFlatSnapshot>();
+        var existingMap = new Dictionary<(string Source, string ListingId), StagedFlat>();
         foreach (var bySource in flats.GroupBy(l => l.Source))
         {
             var source = bySource.Key;
@@ -45,7 +45,7 @@ public sealed class FlatSnapshotRepository : ISnapshotRepository
             }
             else
             {
-                var staged = StagedFlatSnapshot.From(flat);
+                var staged = StagedFlat.From(flat);
                 SetAuditDates(_dbContext.Entry(staged), now);
                 _dbContext.FlatsSnapshotsStaging.Add(staged);
                 existingMap[key] = staged;
@@ -76,9 +76,9 @@ public sealed class FlatSnapshotRepository : ISnapshotRepository
             }
             else
             {
-                var snapshot = FlatSnapshot.From(row);
-                SetAuditDates(_dbContext.Entry(snapshot), now);
-                _dbContext.FlatsSnapshots.Add(snapshot);
+                var published = PublishedFlat.From(row);
+                SetAuditDates(_dbContext.Entry(published), now);
+                _dbContext.FlatsSnapshots.Add(published);
             }
         }
         _dbContext.FlatsSnapshots.RemoveRange(removed.Values);

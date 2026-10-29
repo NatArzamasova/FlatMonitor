@@ -18,7 +18,7 @@ public class ScrapeStartupRecoveryTests
 {
     private SqliteConnection _connection = null!;
     private FlatsDbContext _dbContext = null!;
-    private FlatSnapshotRepository _snapshots = null!;
+    private FlatRepository _flats = null!;
     private ListLogger<ScrapeStartupRecovery> _logger = null!;
 
     [SetUp]
@@ -28,13 +28,13 @@ public class ScrapeStartupRecoveryTests
         await _connection.OpenAsync();
         _dbContext = new FlatsDbContext(new DbContextOptionsBuilder<FlatsDbContext>().UseSqlite(_connection).Options);
         await _dbContext.Database.EnsureCreatedAsync();
-        _snapshots = new FlatSnapshotRepository(_dbContext);
+        _flats = new FlatRepository(_dbContext);
         _logger = new ListLogger<ScrapeStartupRecovery>();
 
-        await _snapshots.AddToRunAsync([FakeFlatScraper.CreateFlat("published")]);
-        await _snapshots.PublishSourceAsync("OhneMakler");
-        await _snapshots.BeginRunAsync();
-        await _snapshots.AddToRunAsync([FakeFlatScraper.CreateFlat("staged")]);
+        await _flats.AddToRunAsync([FakeFlatScraper.CreateFlat("published")]);
+        await _flats.PublishSourceAsync("OhneMakler");
+        await _flats.BeginRunAsync();
+        await _flats.AddToRunAsync([FakeFlatScraper.CreateFlat("staged")]);
     }
 
     [TearDown]
@@ -85,7 +85,7 @@ public class ScrapeStartupRecoveryTests
     }
 
     private Task RunRecoveryAsync() =>
-        new ScrapeStartupRecovery(new ScrapingHistoryRepository(_dbContext), _snapshots, _logger).RunAsync();
+        new ScrapeStartupRecovery(new ScrapingHistoryRepository(_dbContext), _flats, _logger).RunAsync();
 
     private async Task AddRunAsync(ScrapingStatus status)
     {

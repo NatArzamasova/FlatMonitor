@@ -51,11 +51,11 @@ public class FlatTests
     }
 
     [Test]
-    public void Snapshot_From_CopiesEveryStoredField()
+    public void PublishedFlat_From_CopiesEveryStoredField()
     {
         var flat = CreateFlat();
 
-        var snapshot = FlatSnapshot.From(flat);
+        var snapshot = PublishedFlat.From(flat);
 
         snapshot.Should().BeEquivalentTo(new
         {
@@ -78,12 +78,12 @@ public class FlatTests
     }
 
     [Test]
-    public void Snapshot_From_LeavesNoSettablePropertyAtItsDefault()
+    public void PublishedFlat_From_LeavesNoSettablePropertyAtItsDefault()
     {
-        // Guards against a new FlatSnapshot property that the mapping forgets
-        var snapshot = FlatSnapshot.From(CreateFlat());
+        // Guards against a new PublishedFlat property that the mapping forgets
+        var snapshot = PublishedFlat.From(CreateFlat());
 
-        var unset = typeof(FlatSnapshot).GetProperties(BindingFlags.Public | BindingFlags.Instance)
+        var unset = typeof(PublishedFlat).GetProperties(BindingFlags.Public | BindingFlags.Instance)
             .Where(p => p.GetValue(snapshot) is null || Equals(p.GetValue(snapshot), DefaultOf(p.PropertyType)))
             .Select(p => p.Name);
 
@@ -91,9 +91,9 @@ public class FlatTests
     }
 
     [Test]
-    public void Snapshot_UpdateFrom_ReplacesEveryField()
+    public void PublishedFlat_UpdateFrom_ReplacesEveryField()
     {
-        var snapshot = FlatSnapshot.From(CreateFlat());
+        var snapshot = PublishedFlat.From(CreateFlat());
         var updated = CreateFlat() with { Title = "New title", CommissionPercent = null, PriceEur = 150000, Details = null };
 
         snapshot.UpdateFrom(updated);
@@ -105,9 +105,9 @@ public class FlatTests
     }
 
     [Test]
-    public void Snapshot_UpdateFrom_RejectsAFlatWithAnotherKey()
+    public void PublishedFlat_UpdateFrom_RejectsAFlatWithAnotherKey()
     {
-        var snapshot = FlatSnapshot.From(CreateFlat());
+        var snapshot = PublishedFlat.From(CreateFlat());
 
         var act = () => snapshot.UpdateFrom(CreateFlat() with { ListingId = "2" });
 
@@ -115,12 +115,12 @@ public class FlatTests
     }
 
     [Test]
-    public void Snapshot_FromAStagedRow_CopiesEveryStoredField()
+    public void PublishedFlat_FromAStagedRow_CopiesEveryStoredField()
     {
         // Guards against a new FlatRecord property that publishing a staged row forgets
-        var staged = StagedFlatSnapshot.From(CreateFlat());
+        var staged = StagedFlat.From(CreateFlat());
 
-        var snapshot = FlatSnapshot.From(staged);
+        var snapshot = PublishedFlat.From(staged);
 
         snapshot.Should().BeEquivalentTo(staged);
         typeof(FlatRecord).GetProperties(BindingFlags.Public | BindingFlags.Instance)
@@ -130,11 +130,11 @@ public class FlatTests
     }
 
     [Test]
-    public void Snapshot_UpdateFromAStagedRow_RejectsAnotherKey()
+    public void PublishedFlat_UpdateFromAStagedRow_RejectsAnotherKey()
     {
-        var snapshot = FlatSnapshot.From(CreateFlat());
+        var snapshot = PublishedFlat.From(CreateFlat());
 
-        var act = () => snapshot.UpdateFrom(StagedFlatSnapshot.From(CreateFlat() with { ListingId = "2" }));
+        var act = () => snapshot.UpdateFrom(StagedFlat.From(CreateFlat() with { ListingId = "2" }));
 
         act.Should().Throw<ArgumentException>();
     }

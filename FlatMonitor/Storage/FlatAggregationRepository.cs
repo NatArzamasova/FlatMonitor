@@ -13,8 +13,8 @@ public sealed class FlatAggregationRepository : IFlatAggregationRepository
 
     public async Task RefreshAsync(CancellationToken ct = default)
     {
-        var snapshots = await _dbContext.FlatsSnapshots.AsNoTracking().ToListAsync(ct);
-        var aggregated = FlatAggregationCalculator.Compute(snapshots);
+        var flats = await _dbContext.FlatsSnapshots.AsNoTracking().ToListAsync(ct);
+        var aggregated = FlatAggregationCalculator.Compute(flats);
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 

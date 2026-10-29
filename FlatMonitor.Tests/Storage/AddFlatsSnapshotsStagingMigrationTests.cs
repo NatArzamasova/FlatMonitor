@@ -70,7 +70,7 @@ public class AddFlatsSnapshotsStagingMigrationTests
     [Test]
     public async Task ARun_PublishesIntoTheMigratedTable()
     {
-        var repository = new FlatSnapshotRepository(_dbContext);
+        var repository = new FlatRepository(_dbContext);
         await repository.BeginRunAsync();
         await repository.AddToRunAsync([new FlatMonitor.Models.Flat
         {

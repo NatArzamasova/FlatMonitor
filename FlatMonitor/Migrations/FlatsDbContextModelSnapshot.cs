@@ -55,7 +55,7 @@ namespace FlatMonitor.Migrations
                     b.ToTable("FilterPresets", (string)null);
                 });
 
-            modelBuilder.Entity("FlatMonitor.Models.FlatAggregationSnapshot", b =>
+            modelBuilder.Entity("FlatMonitor.Models.DailyFlatAggregation", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -88,7 +88,7 @@ namespace FlatMonitor.Migrations
                     b.ToTable("FlatAggregations", (string)null);
                 });
 
-            modelBuilder.Entity("FlatMonitor.Models.FlatSnapshot", b =>
+            modelBuilder.Entity("FlatMonitor.Models.PublishedFlat", b =>
                 {
                     b.Property<string>("Source")
                         .HasMaxLength(50)
@@ -194,7 +194,7 @@ namespace FlatMonitor.Migrations
                     b.ToTable("ScrapingHistories", (string)null);
                 });
 
-            modelBuilder.Entity("FlatMonitor.Models.StagedFlatSnapshot", b =>
+            modelBuilder.Entity("FlatMonitor.Models.StagedFlat", b =>
                 {
                     b.Property<string>("Source")
                         .HasMaxLength(50)
@@ -260,7 +260,7 @@ namespace FlatMonitor.Migrations
                     b.ToTable("FlatsSnapshots_Staging", (string)null);
                 });
 
-            modelBuilder.Entity("FlatMonitor.Models.FlatSnapshot", b =>
+            modelBuilder.Entity("FlatMonitor.Models.PublishedFlat", b =>
                 {
                     b.OwnsOne("FlatMonitor.Models.FlatDetails", "Details", b1 =>
                         {
@@ -344,7 +344,7 @@ namespace FlatMonitor.Migrations
                     b.Navigation("Details");
                 });
 
-            modelBuilder.Entity("FlatMonitor.Models.StagedFlatSnapshot", b =>
+            modelBuilder.Entity("FlatMonitor.Models.StagedFlat", b =>
                 {
                     b.OwnsOne("FlatMonitor.Models.FlatDetails", "Details", b1 =>
                         {

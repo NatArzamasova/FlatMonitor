@@ -5,13 +5,13 @@ using Microsoft.Extensions.Logging;
 /// <summary>
 /// Debugging copies of the detail pages one source fetched during the current scrape:
 /// <c>{DataDirectory}/snapshots/html/{source}/{listingId}_{yyyyMMdd_HHmmss}.html</c>.
-/// Cleared at the start of every scrape. Failures are logged, never thrown: the snapshots must not stop a scrape.
+/// Cleared at the start of every scrape. Failures are logged, never thrown: the archive must not stop a scrape.
 /// </summary>
-public sealed class HtmlSnapshotStore
+public sealed class HtmlPageArchive
 {
     private readonly ILogger _logger;
 
-    public HtmlSnapshotStore(string directory, ILogger logger)
+    public HtmlPageArchive(string directory, ILogger logger)
     {
         Directory = directory ?? throw new ArgumentNullException(nameof(directory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -20,10 +20,10 @@ public sealed class HtmlSnapshotStore
     public string Directory { get; }
 
     /// <summary>The store for <paramref name="source"/> under the configured data directory.</summary>
-    public static HtmlSnapshotStore ForSource(StorageOptions storage, string source, ILogger logger) =>
+    public static HtmlPageArchive ForSource(StorageOptions storage, string source, ILogger logger) =>
         new(Path.Combine(storage.DataDirectory, "snapshots", "html", source), logger);
 
-    /// <summary>Deletes the previous scrape's snapshots.</summary>
+    /// <summary>Deletes the previous scrape's pages.</summary>
     public Task ClearAsync(CancellationToken ct = default)
     {
         try
@@ -37,11 +37,11 @@ public sealed class HtmlSnapshotStore
                 ct.ThrowIfCancellationRequested();
                 File.Delete(file);
             }
-            _logger.LogDebug("Cleared {Count} previous HTML snapshots from {Directory}", files.Length, Directory);
+            _logger.LogDebug("Cleared {Count} previous HTML pages from {Directory}", files.Length, Directory);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogWarning(ex, "Could not clear previous HTML snapshots in {Directory}", Directory);
+            _logger.LogWarning(ex, "Could not clear previous HTML pages in {Directory}", Directory);
         }
 
         return Task.CompletedTask;
@@ -60,7 +60,7 @@ public sealed class HtmlSnapshotStore
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogWarning(ex, "Could not save HTML snapshot {Path}", path);
+            _logger.LogWarning(ex, "Could not save HTML page {Path}", path);
         }
     }
 

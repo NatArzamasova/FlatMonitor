@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 
 /// <summary>
 /// Runs every scraper in turn and owns everything after scraping: district filtering, saving in batches,
-/// progress reporting, and the JSONL snapshot. Scrapers only produce flats.
+/// progress reporting, and the JSONL backup file. Scrapers only produce flats.
 /// Batches go into the repository's staging table; a source replaces its rows in FlatsSnapshots only once it has
 /// finished with flats. Until then, and for good if it fails, the API keeps serving its rows of the previous run.
 /// </summary>
@@ -21,21 +21,21 @@ public sealed class ScraperCoordinator
     private const double MissingValueWarningShare = 0.2;
 
     private readonly IEnumerable<IScraper> _scrapers;
-    private readonly ISnapshotRepository _repository;
-    private readonly SnapshotWriter _snapshotWriter;
+    private readonly IFlatRepository _repository;
+    private readonly JsonlBackupWriter _backupWriter;
     private readonly string _dataDirectory;
     private readonly ILogger<ScraperCoordinator> _logger;
 
     public ScraperCoordinator(
         IEnumerable<IScraper> scrapers,
-        ISnapshotRepository repository,
-        SnapshotWriter snapshotWriter,
+        IFlatRepository repository,
+        JsonlBackupWriter backupWriter,
         string dataDirectory,
         ILogger<ScraperCoordinator> logger)
     {
         _scrapers = scrapers ?? throw new ArgumentNullException(nameof(scrapers));
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
-        _snapshotWriter = snapshotWriter ?? throw new ArgumentNullException(nameof(snapshotWriter));
+        _backupWriter = backupWriter ?? throw new ArgumentNullException(nameof(backupWriter));
         _dataDirectory = dataDirectory ?? throw new ArgumentNullException(nameof(dataDirectory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -124,7 +124,7 @@ public sealed class ScraperCoordinator
         var withoutDistrict = 0;
         var saved = 0;
         var health = new ParseHealth();
-        SnapshotFile? snapshot = null;
+        JsonlBackupFile? backup = null;
 
         try
         {
@@ -145,16 +145,16 @@ public sealed class ScraperCoordinator
                     await onBatchSaved(filtered.Count);
 
                 // Debugging backup only; written as the flats are staged, so a failed source's file keeps what it scraped
-                snapshot ??= _snapshotWriter.Create(_dataDirectory, scraper.Source);
-                await snapshot.AppendAsync(filtered, ct);
+                backup ??= _backupWriter.Create(_dataDirectory, scraper.Source);
+                await backup.AppendAsync(filtered, ct);
             }
         }
         finally
         {
-            if (snapshot != null)
+            if (backup != null)
             {
-                await snapshot.DisposeAsync();
-                _logger.LogDebug("Snapshot written for {Source}: {Path}", scraper.Source, snapshot.Path);
+                await backup.DisposeAsync();
+                _logger.LogDebug("JSONL backup written for {Source}: {Path}", scraper.Source, backup.Path);
             }
         }
 

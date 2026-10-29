@@ -7,7 +7,7 @@ using FlatMonitor.Storage;
 namespace FlatMonitor.Tests.Storage;
 
 [TestFixture]
-public class FlatSnapshotRepositoryTests
+public class FlatRepositoryTests
 {
     private DbContextOptions<FlatsDbContext> CreateInMemoryOptions()
     {
@@ -29,7 +29,7 @@ public class FlatSnapshotRepositoryTests
         // Arrange
         var options = CreateInMemoryOptions();
         await using var repoContext = await CreateContextAsync(options);
-        var repo = new FlatSnapshotRepository(repoContext);
+        var repo = new FlatRepository(repoContext);
 
         var listings = new List<Flat>
         {
@@ -70,7 +70,7 @@ public class FlatSnapshotRepositoryTests
         // Arrange
         var options = CreateInMemoryOptions();
         await using var repoContext = await CreateContextAsync(options);
-        var repo = new FlatSnapshotRepository(repoContext);
+        var repo = new FlatRepository(repoContext);
 
         var listings = new List<Flat>
         {
@@ -116,7 +116,7 @@ public class FlatSnapshotRepositoryTests
         // Arrange
         var options = CreateInMemoryOptions();
         await using var repoContext = await CreateContextAsync(options);
-        var repo = new FlatSnapshotRepository(repoContext);
+        var repo = new FlatRepository(repoContext);
 
         var listings = new List<Flat>
         {
@@ -148,7 +148,7 @@ public class FlatSnapshotRepositoryTests
         // Arrange
         var options = CreateInMemoryOptions();
         await using var repoContext = await CreateContextAsync(options);
-        var repo = new FlatSnapshotRepository(repoContext);
+        var repo = new FlatRepository(repoContext);
 
         var listing1 = new List<Flat>
         {
@@ -202,7 +202,7 @@ public class FlatSnapshotRepositoryTests
         // Arrange
         var options = CreateInMemoryOptions();
         await using var repoContext = await CreateContextAsync(options);
-        var repo = new FlatSnapshotRepository(repoContext);
+        var repo = new FlatRepository(repoContext);
 
         var listings = new List<Flat>
         {
@@ -250,7 +250,7 @@ public class FlatSnapshotRepositoryTests
         // Arrange
         var options = CreateInMemoryOptions();
         await using var repoContext = await CreateContextAsync(options);
-        var repo = new FlatSnapshotRepository(repoContext);
+        var repo = new FlatRepository(repoContext);
 
         var listings = new List<Flat>
         {
@@ -300,16 +300,16 @@ public class FlatSnapshotRepositoryTests
     {
         var options = CreateInMemoryOptions();
         await using var repoContext = await CreateContextAsync(options);
-        var repo = new FlatSnapshotRepository(repoContext);
+        var repo = new FlatRepository(repoContext);
 
         await using (var dbContext = new FlatsDbContext(options))
         {
-            var older = new FlatSnapshot
+            var older = new PublishedFlat
             {
                 Source = "source", ListingId = "older", ScrapedAtUtc = new DateTime(2026, 10, 20, 8, 0, 0, DateTimeKind.Utc),
                 District = "Innenstadt", RoomsCount = 2, PriceEur = 900, PricePerMeter = 30, Url = "old-url"
             };
-            var newer = new FlatSnapshot
+            var newer = new PublishedFlat
             {
                 Source = "source", ListingId = "newer", ScrapedAtUtc = new DateTime(2026, 10, 21, 8, 0, 0, DateTimeKind.Utc),
                 District = "Zentrum", RoomsCount = 3, PriceEur = 1200, OriginalPriceEur = 1400,
@@ -352,7 +352,7 @@ public class FlatSnapshotRepositoryTests
         // Arrange
         var options = CreateSqliteOptions();
         await using var repoContext = await CreateContextAsync(options);
-        var repo = new FlatSnapshotRepository(repoContext);
+        var repo = new FlatRepository(repoContext);
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
@@ -369,7 +369,7 @@ public class FlatSnapshotRepositoryTests
         // Arrange: the old upsert left Title and CommissionPercent unchanged on update
         var options = CreateSqliteOptions();
         await using var repoContext = await CreateContextAsync(options);
-        var repo = new FlatSnapshotRepository(repoContext);
+        var repo = new FlatRepository(repoContext);
         await repo.AddToRunAsync([CreateFlat("1") with { CommissionPercent = 3.57, PriceEur = 300000, LivingAreaSqm = 75 }]);
 
         // Act
@@ -392,7 +392,7 @@ public class FlatSnapshotRepositoryTests
         var scrapedAt = new DateTime(2026, 10, 29, 8, 7, 48, DateTimeKind.Utc);
 
         // Act
-        await new FlatSnapshotRepository(repoContext).AddToRunAsync([CreateFlat("1") with { ScrapedAtUtc = scrapedAt }]);
+        await new FlatRepository(repoContext).AddToRunAsync([CreateFlat("1") with { ScrapedAtUtc = scrapedAt }]);
 
         // Assert
         await using var dbContext = new FlatsDbContext(options);
@@ -405,12 +405,12 @@ public class FlatSnapshotRepositoryTests
     }
 
     [Test]
-    public async Task AddToRunAsync_AfterSaving_NoLongerTracksSnapshots()
+    public async Task AddToRunAsync_AfterSaving_NoLongerTracksFlatRows()
     {
         // Arrange
         var options = CreateSqliteOptions();
         await using var repoContext = await CreateContextAsync(options);
-        var repo = new FlatSnapshotRepository(repoContext);
+        var repo = new FlatRepository(repoContext);
         await repo.AddToRunAsync([CreateFlat("1"), CreateFlat("2")]);
 
         // Act
@@ -434,7 +434,7 @@ public class FlatSnapshotRepositoryTests
         await repoContext.SaveChangesAsync();
 
         // Act
-        await new FlatSnapshotRepository(repoContext).AddToRunAsync([CreateFlat("1")]);
+        await new FlatRepository(repoContext).AddToRunAsync([CreateFlat("1")]);
 
         // Assert
         repoContext.Entry(history).State.Should().Be(EntityState.Unchanged);
@@ -446,7 +446,7 @@ public class FlatSnapshotRepositoryTests
         // Arrange
         var options = CreateSqliteOptions();
         await using var repoContext = await CreateContextAsync(options);
-        var repo = new FlatSnapshotRepository(repoContext);
+        var repo = new FlatRepository(repoContext);
         await repo.AddToRunAsync([CreateFlat("1"), CreateFlat("2"), CreateFlat("1", source: "ImmobilienScout24")]);
 
         // Act
@@ -471,7 +471,7 @@ public class FlatSnapshotRepositoryTests
         // Arrange: the previous run published OhneMakler 1, 2 and ImmobilienScout24 1
         var options = CreateSqliteOptions();
         await using var repoContext = await CreateContextAsync(options);
-        var repo = new FlatSnapshotRepository(repoContext);
+        var repo = new FlatRepository(repoContext);
         await PublishAsync(repo, CreateFlat("1"), CreateFlat("2"), CreateFlat("1", source: "ImmobilienScout24"));
 
         // Act: this run finds OhneMakler 2 (with a new price) and 3
@@ -493,7 +493,7 @@ public class FlatSnapshotRepositoryTests
         // Arrange
         var options = CreateSqliteOptions();
         await using var repoContext = await CreateContextAsync(options);
-        var repo = new FlatSnapshotRepository(repoContext);
+        var repo = new FlatRepository(repoContext);
         await PublishAsync(repo, CreateFlat("1"));
         var firstSeen = await AuditDatesAsync(options, "1");
 
@@ -518,7 +518,7 @@ public class FlatSnapshotRepositoryTests
         // Arrange
         var options = CreateSqliteOptions();
         await using var repoContext = await CreateContextAsync(options);
-        var repo = new FlatSnapshotRepository(repoContext);
+        var repo = new FlatRepository(repoContext);
         var flat = CreateFlat("1") with
         {
             PostalCode = "76131", District = "Oststadt", PriceEur = 300000, OriginalPriceEur = 320000, RoomsCount = 3,
@@ -532,7 +532,7 @@ public class FlatSnapshotRepositoryTests
         // Assert
         await using var dbContext = new FlatsDbContext(options);
         var stored = await dbContext.FlatsSnapshots.SingleAsync();
-        stored.Should().BeEquivalentTo(FlatSnapshot.From(flat), o => o
+        stored.Should().BeEquivalentTo(PublishedFlat.From(flat), o => o
             .Using<DateTime>(c => c.Subject.Should().BeCloseTo(c.Expectation, TimeSpan.FromMilliseconds(1))).WhenTypeIs<DateTime>());
     }
 
@@ -542,7 +542,7 @@ public class FlatSnapshotRepositoryTests
         // Arrange
         var options = CreateSqliteOptions();
         await using var repoContext = await CreateContextAsync(options);
-        var repo = new FlatSnapshotRepository(repoContext);
+        var repo = new FlatRepository(repoContext);
         await PublishAsync(repo, CreateFlat("1"), CreateFlat("2"));
 
         // Act
@@ -559,7 +559,7 @@ public class FlatSnapshotRepositoryTests
         // Arrange: an interrupted run left a staged flat
         var options = CreateSqliteOptions();
         await using var repoContext = await CreateContextAsync(options);
-        var repo = new FlatSnapshotRepository(repoContext);
+        var repo = new FlatRepository(repoContext);
         await PublishAsync(repo, CreateFlat("published"));
         await repo.AddToRunAsync([CreateFlat("leftover")]);
 
@@ -578,7 +578,7 @@ public class FlatSnapshotRepositoryTests
         // Arrange: OhneMakler was published, ImmobilienScout24 failed after staging a flat
         var options = CreateSqliteOptions();
         await using var repoContext = await CreateContextAsync(options);
-        var repo = new FlatSnapshotRepository(repoContext);
+        var repo = new FlatRepository(repoContext);
         await repo.BeginRunAsync();
         await repo.AddToRunAsync([CreateFlat("1"), CreateFlat("2", source: "ImmobilienScout24")]);
         await repo.PublishSourceAsync("OhneMakler");
@@ -606,7 +606,7 @@ public class FlatSnapshotRepositoryTests
     }
 
     /// <summary>Publishes the flats as a finished run would: stage, publish each source, empty the staging table.</summary>
-    private static async Task PublishAsync(FlatSnapshotRepository repo, params Flat[] flats)
+    private static async Task PublishAsync(FlatRepository repo, params Flat[] flats)
     {
         await repo.BeginRunAsync();
         await repo.AddToRunAsync([.. flats]);

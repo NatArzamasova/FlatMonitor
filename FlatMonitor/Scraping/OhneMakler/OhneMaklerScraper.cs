@@ -17,28 +17,28 @@ public sealed class OhneMaklerScraper : FlatScraper
     private readonly HttpClient _httpClient;
 
     public OhneMaklerScraper(HttpClient httpClient, StorageOptions storage, ILogger<OhneMaklerScraper> logger)
-        : base(SourceName, HtmlSnapshotStore.ForSource(storage, SourceName, logger), logger)
+        : base(SourceName, HtmlPageArchive.ForSource(storage, SourceName, logger), logger)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
     }
 
     // Nothing to open: the HttpClient is a DI singleton, managed by the container
     protected override Task<IScrapeSession> StartAsync(CancellationToken ct) =>
-        Task.FromResult<IScrapeSession>(new Session(_httpClient, HtmlSnapshots, Logger));
+        Task.FromResult<IScrapeSession>(new Session(_httpClient, HtmlPages, Logger));
 
     private sealed class Session : IScrapeSession
     {
         private readonly HttpClient _httpClient;
-        private readonly HtmlSnapshotStore _htmlSnapshots;
+        private readonly HtmlPageArchive _htmlPages;
         private readonly ILogger _logger;
         private readonly OhneMaklerFlatsPageFetcher _pageFetcher;
         private readonly OhneMaklerFlatCardParser _cardParser;
         private readonly OhneMaklerDetailPageParser _detailParser = new();
 
-        public Session(HttpClient httpClient, HtmlSnapshotStore htmlSnapshots, ILogger logger)
+        public Session(HttpClient httpClient, HtmlPageArchive htmlPages, ILogger logger)
         {
             _httpClient = httpClient;
-            _htmlSnapshots = htmlSnapshots;
+            _htmlPages = htmlPages;
             _logger = logger;
             _pageFetcher = new OhneMaklerFlatsPageFetcher(httpClient, logger);
             _cardParser = new OhneMaklerFlatCardParser(logger);
@@ -111,7 +111,7 @@ public sealed class OhneMaklerScraper : FlatScraper
             var html = await response.Content.ReadAsStringAsync(ct);
 
             // Awaited: a write still running could otherwise race with the next scrape's ClearAsync
-            await _htmlSnapshots.SaveAsync(listingId, html, ct);
+            await _htmlPages.SaveAsync(listingId, html, ct);
 
             return html;
         }

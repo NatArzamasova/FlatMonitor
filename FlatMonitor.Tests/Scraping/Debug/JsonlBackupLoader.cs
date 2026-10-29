@@ -13,13 +13,13 @@ using Microsoft.Extensions.Logging.Abstractions;
 /// Test-only helper (it lives in the test project): the SQLite database (FlatsSnapshots table) is the canonical source.
 /// Snapshots are optional backups only and may contain stale data.
 /// </summary>
-public sealed class SnapshotLoader
+public sealed class JsonlBackupLoader
 {
     private const string SnapshotsDir = "snapshots";
 
     private readonly ILogger _logger;
 
-    public SnapshotLoader(ILogger? logger = null)
+    public JsonlBackupLoader(ILogger? logger = null)
     {
         _logger = logger ?? NullLogger.Instance;
     }
@@ -45,7 +45,7 @@ public sealed class SnapshotLoader
                 Flat? listing;
                 try
                 {
-                    listing = JsonSerializer.Deserialize<Flat>(line, JsonOptions.Snapshot);
+                    listing = JsonSerializer.Deserialize<Flat>(line, JsonOptions.JsonlBackup);
                 }
                 catch (JsonException ex)
                 {

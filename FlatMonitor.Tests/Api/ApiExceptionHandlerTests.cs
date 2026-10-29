@@ -89,7 +89,7 @@ public class ApiExceptionHandlingPipelineTests
         builder.Services.Remove(builder.Services.Single(d => d.ImplementationType == typeof(ScrapeBackgroundService)));
         builder.Services.AddControllers().AddApplicationPart(typeof(FlatsController).Assembly);
 
-        var snapshots = new Mock<ISnapshotRepository>();
+        var snapshots = new Mock<IFlatRepository>();
         snapshots.Setup(r => r.GetCurrentOffersAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException(SecretDetail));
         builder.Services.AddSingleton(snapshots.Object);

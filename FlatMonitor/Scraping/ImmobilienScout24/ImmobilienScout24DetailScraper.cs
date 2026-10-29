@@ -7,7 +7,7 @@ using Microsoft.Playwright;
 /// <summary>
 /// Fetches detail pages from ImmobilienScout24 expose URLs.
 /// Uses the authenticated browser session to access detail pages.
-/// Saves each detail page's HTML through the <see cref="HtmlSnapshotStore"/> before returning it, so a page that
+/// Saves each detail page's HTML through the <see cref="HtmlPageArchive"/> before returning it, so a page that
 /// fails to parse is kept.
 /// </summary>
 public class ImmobilienScout24DetailScraper
@@ -17,13 +17,13 @@ public class ImmobilienScout24DetailScraper
     public const int ExposeContentTimeoutMs = 5000;
 
     private readonly IPage _page;
-    private readonly HtmlSnapshotStore _htmlSnapshots;
+    private readonly HtmlPageArchive _htmlPages;
     private readonly ILogger _logger;
 
-    public ImmobilienScout24DetailScraper(IPage page, HtmlSnapshotStore htmlSnapshots, ILogger logger)
+    public ImmobilienScout24DetailScraper(IPage page, HtmlPageArchive htmlPages, ILogger logger)
     {
         _page = page ?? throw new ArgumentNullException(nameof(page));
-        _htmlSnapshots = htmlSnapshots ?? throw new ArgumentNullException(nameof(htmlSnapshots));
+        _htmlPages = htmlPages ?? throw new ArgumentNullException(nameof(htmlPages));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -40,7 +40,7 @@ public class ImmobilienScout24DetailScraper
         var html = await _page.ContentAsync();
         _logger.LogDebug("ImmobilienScout24: detail page fetched ({Bytes} bytes)", html.Length);
 
-        await _htmlSnapshots.SaveAsync(listingId, html, ct);
+        await _htmlPages.SaveAsync(listingId, html, ct);
         return html;
     }
 

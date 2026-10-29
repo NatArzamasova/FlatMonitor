@@ -5,13 +5,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 /// <summary>The FlatsSnapshots table: one row per flat of the latest published scrape of its source.</summary>
-internal sealed class FlatSnapshotConfiguration : FlatRecordConfiguration<FlatSnapshot>
+internal sealed class PublishedFlatConfiguration : FlatRecordConfiguration<PublishedFlat>
 {
-    public FlatSnapshotConfiguration() : base("FlatsSnapshots", indexPrefix: "idx_")
+    public PublishedFlatConfiguration() : base("FlatsSnapshots", indexPrefix: "idx_")
     {
     }
 
-    protected override void ConfigureIndexes(EntityTypeBuilder<FlatSnapshot> builder)
+    protected override void ConfigureIndexes(EntityTypeBuilder<PublishedFlat> builder)
     {
         builder.HasIndex(s => s.ScrapedAtUtc)
             .HasDatabaseName("idx_ScrapedAtUtc");
@@ -28,9 +28,9 @@ internal sealed class FlatSnapshotConfiguration : FlatRecordConfiguration<FlatSn
 /// The FlatsSnapshots_Staging table: the running scrape, written batch by batch and published per source.
 /// Same columns and unique index as FlatsSnapshots, so a staged source always fits into it; no read indexes.
 /// </summary>
-internal sealed class StagedFlatSnapshotConfiguration : FlatRecordConfiguration<StagedFlatSnapshot>
+internal sealed class StagedFlatConfiguration : FlatRecordConfiguration<StagedFlat>
 {
-    public StagedFlatSnapshotConfiguration() : base("FlatsSnapshots_Staging", indexPrefix: "idx_Staging_")
+    public StagedFlatConfiguration() : base("FlatsSnapshots_Staging", indexPrefix: "idx_Staging_")
     {
     }
 }

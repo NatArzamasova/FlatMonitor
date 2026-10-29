@@ -5,9 +5,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 /// <summary>The FlatAggregations table: price per m² by district and rooms, per scraping date.</summary>
-internal sealed class FlatAggregationSnapshotConfiguration : IEntityTypeConfiguration<FlatAggregationSnapshot>
+internal sealed class DailyFlatAggregationConfiguration : IEntityTypeConfiguration<DailyFlatAggregation>
 {
-    public void Configure(EntityTypeBuilder<FlatAggregationSnapshot> builder)
+    public void Configure(EntityTypeBuilder<DailyFlatAggregation> builder)
     {
         builder.HasKey(a => a.Id);
         builder.ToTable("FlatAggregations");
