@@ -120,7 +120,11 @@ detail parser looks like a quiet market.
 coordinator, count flats without a district separately from flats in an untracked district, and warn when a
 source has many without one.
 
-### 1.5 Smaller
+### 1.5 Smaller ✅ Done
+
+**Status:** Done. A cancel before the history row is saved now ends the job as `Canceled` (no history row).
+Unknown CLI commands print the usage and return 1; options such as `--urls` still start the web server
+(`CliCommandParser`).
 
 - **Canceled before the history row is saved** (`ScrapeBackgroundService.cs:88-89`): a cancel between
   `StartJob` and the first `SaveChangesAsync(jobCt)` ends up in the outer `catch` as "Unexpected error" and the

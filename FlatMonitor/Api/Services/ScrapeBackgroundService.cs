@@ -127,6 +127,12 @@ public class ScrapeBackgroundService : BackgroundService
                 await CompleteHistoryAsync(dbContext, history, ScrapingStatus.Failed, ex.Message);
             }
         }
+        catch (OperationCanceledException) when (jobCt.IsCancellationRequested)
+        {
+            // Canceled before the history row was saved: nothing was scraped, so there is no run to record
+            _logger.LogWarning("Scrape job {JobId} was canceled before it started scraping", job.JobId);
+            finalStatus = ScrapeJobStatus.Canceled;
+        }
         finally
         {
             _jobService.FinishJob(job.JobId, finalStatus);

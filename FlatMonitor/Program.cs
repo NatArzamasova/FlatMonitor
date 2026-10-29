@@ -16,25 +16,22 @@ try
     // .env lives in the repository root; probe upwards from the build output (bin/<config>/<tfm>)
     DotEnv.Load(new DotEnvOptions(probeForEnv: true, probeLevelsToSearch: 5));
 
-    if (commandArgs.Length > 0 && (commandArgs[0] == "--help" || commandArgs[0] == "-h"))
+    switch (CliCommandParser.Parse(commandArgs))
     {
-        PrintUsage();
-        return 0;
+        case CliCommand.Help:
+            PrintUsage();
+            return 0;
+        case CliCommand.Scrape:
+            return await RunScrapeAsync();
+        case CliCommand.ExploreImmobilienScout24:
+            return await ExploreImmobilienScout24Async();
+        case CliCommand.Unknown:
+            Console.Error.WriteLine($"Unknown command: {commandArgs[0]}");
+            PrintUsage();
+            return 1;
+        default:
+            return await RunWebServerAsync(commandArgs);
     }
-
-    // If scrape or explore-is24 command, run in CLI mode
-    if (commandArgs.Length > 0)
-    {
-        return commandArgs[0] switch
-        {
-            "scrape" => await RunScrapeAsync(),
-            "explore-is24" => await ExploreImmobilienScout24Async(),
-            _ => await RunWebServerAsync(commandArgs)
-        };
-    }
-
-    // Default: run web server
-    return await RunWebServerAsync(commandArgs);
 }
 catch (Exception ex)
 {

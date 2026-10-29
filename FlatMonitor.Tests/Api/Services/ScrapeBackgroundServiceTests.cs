@@ -3,6 +3,7 @@ using NUnit.Framework;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using FlatMonitor.Api.Services;
@@ -144,6 +145,21 @@ public class ScrapeBackgroundServiceTests
     }
 
     [Test]
+    public async Task ProcessJob_CanceledBeforeTheHistoryRowIsSaved_EndsAsCanceled()
+    {
+        // Act: the job is canceled while its history row is being saved
+        var job = await RunJobAsync(
+            [new FakeFlatScraper { Flats = [FakeFlatScraper.CreateFlat("1")] }],
+            interceptor: new CancelJobOnFirstSaveInterceptor(_jobService));
+
+        // Assert: canceled, not failed; nothing was scraped or recorded
+        job.Status.Should().Be(ScrapeJobStatus.Canceled);
+        await using var dbContext = CreateDbContext();
+        (await dbContext.ScrapingHistories.AnyAsync()).Should().BeFalse();
+        (await dbContext.FlatsSnapshots.SingleAsync()).ListingId.Should().Be("existing");
+    }
+
+    [Test]
     public async Task ProcessJob_JobCanceledBeforeItStarted_IsSkipped()
     {
         // Arrange
@@ -168,9 +184,10 @@ public class ScrapeBackgroundServiceTests
     private async Task<ScrapeJob> RunJobAsync(
         IScraper[] scrapers,
         Func<IServiceProvider, IFlatAggregationRepository>? aggregations = null,
-        Func<Task>? whileRunning = null)
+        Func<Task>? whileRunning = null,
+        IInterceptor? interceptor = null)
     {
-        await using var provider = BuildProvider(scrapers, aggregations);
+        await using var provider = BuildProvider(scrapers, aggregations, interceptor);
         _jobService.TryQueueJob(out var job).Should().BeTrue();
         var service = CreateService(provider);
 
@@ -183,10 +200,18 @@ public class ScrapeBackgroundServiceTests
         return _jobService.GetJobStatus(job.JobId)!;
     }
 
-    private ServiceProvider BuildProvider(IScraper[] scrapers, Func<IServiceProvider, IFlatAggregationRepository>? aggregations = null)
+    private ServiceProvider BuildProvider(
+        IScraper[] scrapers,
+        Func<IServiceProvider, IFlatAggregationRepository>? aggregations = null,
+        IInterceptor? interceptor = null)
     {
         var services = new ServiceCollection().AddLogging();
-        services.AddDbContext<FlatsDbContext>(o => o.UseSqlite(_connection));
+        services.AddDbContext<FlatsDbContext>(o =>
+        {
+            o.UseSqlite(_connection);
+            if (interceptor != null)
+                o.AddInterceptors(interceptor);
+        });
         services.AddScoped<ISnapshotRepository, FlatSnapshotRepository>();
         if (aggregations != null)
             services.AddScoped(aggregations);
@@ -231,6 +256,25 @@ public class ScrapeBackgroundServiceTests
             _started.SetResult();
             await Task.Delay(Timeout.Infinite, ct);
             yield break;
+        }
+    }
+
+    /// <summary>Cancels the running job when the first save (the history row) starts, so that save is canceled.</summary>
+    private sealed class CancelJobOnFirstSaveInterceptor(ScrapeJobService jobService) : SaveChangesInterceptor
+    {
+        private bool _canceled;
+
+        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
+            DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            if (!_canceled)
+            {
+                _canceled = true;
+                jobService.CancelCurrentJob();
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
+            return ValueTask.FromResult(result);
         }
     }
 
