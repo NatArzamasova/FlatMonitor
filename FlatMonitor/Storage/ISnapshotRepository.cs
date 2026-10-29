@@ -5,7 +5,7 @@ using FlatMonitor.Models;
 /// <summary>
 /// SQLite-specific repository for persisting apartments (Flat) to the database (FlatsSnapshots table).
 /// This is the CANONICAL SOURCE OF TRUTH for all flats and their data.
-/// It is distinct from the JSONL snapshot files (SnapshotWriter/SnapshotLoader), which are debugging backups only.
+/// It is distinct from the JSONL snapshot files (SnapshotWriter), which are debugging backups only.
 /// The database is queried for reports and aggregations; snapshots are never replayed back into it.
 /// </summary>
 public interface ISnapshotRepository

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project: Wohnung Monitor
 
-A .NET 10 console application that scrapes apartment flats from multiple German sources (ohne-makler.net, immobilienscout24.de, etc.) and tracks market changes over time (new flats, price changes, removals, aggregate statistics).
+A .NET 10 application (ASP.NET Core web API with an Angular frontend, plus a CLI) that scrapes apartment flats from multiple German sources (ohne-makler.net, immobilienscout24.de, etc.) and tracks market changes over time (new flats, price changes, removals, aggregate statistics).
 
 See `WohnungMonitor.md` for full architecture, data model, and API details.
 
@@ -20,10 +20,11 @@ dotnet build
 dotnet run -- scrape
 ```
 
-### Generate report (statistics comparing today vs yesterday)
+### Run the web server (default; API for the Angular frontend)
 ```bash
-dotnet run -- report
+dotnet run
 ```
+There is no `report` command: statistics are served by the web API (see [BUILD_AND_RUN.md](BUILD_AND_RUN.md)).
 
 ## Architecture
 
@@ -36,9 +37,10 @@ dotnet run -- report
 1. **SQLite database** (`FlatMonitor/data/listings.db`, set in `FlatMonitor/appsettings.json`) — **canonical source of truth**. Persists all flats with source attribution. Used for all reads, aggregations, and statistics. Git-ignored.
 2. **Snapshot files** (`data/snapshots/{source}/{utc-timestamp}.jsonl`) — optional backups for debugging only. JSON Lines format (one flat per line). Do NOT use snapshots as source for database rebuilds; snapshots may contain stale or unfiltered data.
 
-**Two run modes:**
+**Run modes:**
 - `scrape` — fetches current flats from all active sources, enriches with detail pages, yields unfiltered flats to `ScraperCoordinator`. `ScraperCoordinator` filters by allowed districts (normalizing names), batch-saves filtered flats to SQLite (every 20 flats to avoid memory bloat)
-- `report` — queries SQLite database directly for aggregations across sources, reports statistics (new/removed/price-changed counts, aggregate €/m², days-on-market, rolling trends, per-source breakdowns)
+- web server (no command, the default) — REST API read by the Angular frontend: current offers, aggregations by district and rooms and their history, filter presets; `POST /api/scrape` queues a scrape job that runs the same pipeline as `scrape`
+- `explore-is24` — opens ImmobilienScout24 in the browser and saves the listings page HTML for analysis
 
 ## Key Design Notes
 
@@ -126,5 +128,6 @@ dotnet test
      - Each saved batch is appended to the source's snapshot file (debugging only)
      - Result: a `ScrapeSummary` (flats saved per source, errors of failed sources)
    
-2. **Report**: 
-   - Query SQLite FlatsSnapshots table directly (canonical source) → Aggregation queries per source → Cross-source comparison → Report output
+2. **Aggregate**: after the sources are scraped, the aggregations (€/m² by district and rooms) are computed and stored in `FlatAggregations`
+
+3. **API**: the web API reads `FlatsSnapshots` and `FlatAggregations` (canonical source) and serves the Angular frontend

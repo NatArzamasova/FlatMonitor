@@ -567,7 +567,17 @@ unless a debug flag is set.
 
 ---
 
-## 4. Smaller cleanups
+## 4. Smaller cleanups ✅ Done
+> **Done:** `SnapshotLoader` moved to the test project (`FlatMonitor.Tests/Scraping/Debug/`). `OnModelCreating` only
+> applies one `IEntityTypeConfiguration<T>` per entity from `Storage/Configurations/` (same calls as before; the
+> UTC converter is `UtcDateTimeConverter`); the duplicated using, the alias and the OhneMaklerSnapshots comment were
+> already gone. `JsonOptions` no longer points to the missing `ohneMaklerMonitor.md`. The `FlatScraper` typo and second
+> entry point went in 2.3, the no-op `SaveChangesAsync` in 2.2. Docs: `CLAUDE.md` (and `AGENTS.md`, which had drifted
+> to the old callback pipeline and now matches it again, keeping its own Workflow Preferences) describe the web server and
+> `explore-is24` instead of a `report` command; `WohnungMonitor.md` calls the database canonical and the JSONL files
+> debugging backups, and marks the planned schema, the report and its step 9 as not implemented.
+> Tests: `FlatsDbContextModelTests.Model_MatchesTheLastMigration` (`HasPendingModelChanges()`, guards the configuration
+> split: a renamed column makes it fail; a max length does not, SQLite has no length).
 
 - `Scraping/Debug/SnapshotLoader.cs` is used only by its tests. Move it to the test project or delete it.
 - `FlatsDbContext.cs` has a duplicated `using FlatMonitor.Models;` and a no-op alias

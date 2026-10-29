@@ -1,4 +1,4 @@
-namespace FlatMonitor.Scraping.Debug;
+namespace FlatMonitor.Tests.Scraping.Debug;
 
 using System.Text.Json;
 using FlatMonitor.Json;
@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 /// <summary>
 /// Loads flats from JSONL snapshot files for debugging/analysis purposes.
-/// NOT used in normal application flow. The SQLite database (FlatsSnapshots table) is the canonical source.
+/// Test-only helper (it lives in the test project): the SQLite database (FlatsSnapshots table) is the canonical source.
 /// Snapshots are optional backups only and may contain stale data.
 /// </summary>
 public sealed class SnapshotLoader

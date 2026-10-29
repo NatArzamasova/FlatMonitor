@@ -32,21 +32,19 @@ by implementing the `IScraper` interface.
   - Manual scrape trigger endpoint (`POST /api/scrape`)
   
 - **CLI Scrape (legacy)** — `dotnet run -- scrape`
-  - Fetches current flats from all active sources and appends to snapshot files
+  - Fetches current flats from all active sources and saves them to the SQLite database
   - Maintains backward compatibility for scheduled CI/CD pipelines
   - Executes immediately and exits
 
 ### Storage layers
 
-1. **Snapshot files (canonical, git-committed)** — each `scrape` run writes
-   one JSON Lines file per source to `data/snapshots/{source}/{utc-timestamp}.jsonl`, 
-   one line per flat seen. Append-only, plain text, diffs cleanly, never
-   rewritten — safe for a scheduled CI job to commit back to the repo
-   without merge conflicts.
-2. **SQLite cache (derived, gitignored)** — `data/flats.db`, rebuilt on
-   demand by replaying all snapshot files in order. Used only by `report`
-   for fast queries/aggregates. Never a source of truth — if it's deleted,
-   it's just rebuilt from the snapshot history.
+1. **SQLite database (canonical, gitignored)** — `FlatMonitor/data/listings.db` (set in
+   `FlatMonitor/appsettings.json`). Every scrape replaces the flats of the previous one
+   (`FlatsSnapshots`), records the run (`ScrapingHistories`) and stores the day's
+   aggregations (`FlatAggregations`). The web API reads only from here.
+2. **Snapshot files (debugging backup, gitignored)** — each scrape appends the saved
+   flats to `FlatMonitor/data/snapshots/{source}/{utc-timestamp}.jsonl`, one line per
+   flat. Never used to rebuild or validate the database.
 
 ### Web Application & Dashboard
 
@@ -123,7 +121,7 @@ parsing logic and quirks. The framework provides:
 
 ## Data model
 
-### JSONL Snapshot format (canonical, git-committed)
+### JSONL Snapshot format (debugging backup)
 
 Each `data/snapshots/{source}/{utc-timestamp}.jsonl` contains one JSON object per line,
 one per flat seen in that scrape run. The `Source` field identifies which data source
@@ -165,7 +163,11 @@ the flat came from:
 `data/snapshots/OhneMakler/2026-10-09T14-30-00Z.jsonl` and 
 `data/snapshots/ImmobilienScout24/2026-10-09T14-30-00Z.jsonl`.
 
-### SQLite schema (derived, gitignored, rebuilt from snapshots)
+### SQLite schema (planned, not implemented)
+
+> The tables below are the original plan. The implemented tables are `FlatsSnapshots`,
+> `ScrapingHistories`, `FlatAggregations` and `FilterPresets`; their configuration is in
+> `FlatMonitor/Storage/Configurations/`, the schema history in `FlatMonitor/Migrations/`.
 
 **`Snapshots` table** — one row per scrape run per source:
 - `SnapshotId` (PK, auto-increment)
@@ -202,9 +204,12 @@ the flat came from:
 - `AvgDaysOnMarketRemoved` (DECIMAL) — for flats removed that day
 - Unique constraint: (Source, SnapshotDateUtc)
 
-## Report content
+## Report content (planned, not implemented)
 
-Each `report` run shows aggregated metrics across all sources (or per-source if requested):
+> There is no `report` command. Today the web API (`/api/flats/...`) and the Angular dashboard
+> show the current offers, the aggregations by district and rooms, and their history.
+
+Each `report` run would show aggregated metrics across all sources (or per-source if requested):
 
 - **New flats**: flats in today's snapshot not in yesterday's, grouped by source.
 - **Price changes**: flats where CurrentPriceEur differs from OriginalPriceEur (€ and % delta), grouped by source.
@@ -224,8 +229,9 @@ Each `report` run shows aggregated metrics across all sources (or per-source if 
 Origin is GitLab (`code.andrena.de`), so scheduling uses **GitLab CI
 scheduled pipelines**, not GitHub Actions:
 
-- A scheduled pipeline runs `dotnet run -- scrape`, then commits + pushes
-  the new `data/snapshots/*.jsonl` file back to the repo.
+- A scheduled pipeline runs `dotnet run -- scrape`. (The original plan also committed the
+  `*.jsonl` snapshots back to the repo; they are gitignored debugging backups now, and the
+  database is the canonical store.)
 - Requires a push-capable token (project access token or deploy token)
   configured in GitLab project settings — a manual one-time setup step.
 
@@ -324,7 +330,7 @@ Create directory `Scraping/ImmobilienScout24/` with:
 - `IS24Selectors`
 - Test fixtures in `workInProgress.Tests/Fixtures/ImmobilienScout24/`
 
-### 9. Update report generation
+### 9. Update report generation (not done: there is no `report` command)
 Modify reporting logic to:
 - Group statistics by source
 - Show per-source trends
