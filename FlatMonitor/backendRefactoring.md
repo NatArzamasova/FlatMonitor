@@ -442,7 +442,11 @@ insert-only.
 
 ## 3. Source-specific cleanups
 
-### 3.1 Shared: remove unused repository dependency from scrapers
+### 3.1 Shared: remove unused repository dependency from scrapers ✅ Done
+> **Done (in 2.1):** the scrapers take `StorageOptions` (and, since 2.6, an `ILogger<T>`) instead of the repository;
+> `_repository` and the `?? new FlatSnapshotRepository()` default are gone. Nothing in `Scraping/` except
+> `ScraperCoordinator` references a repository.
+
 `OhneMaklerScraper(HttpClient, ISnapshotRepository? = null)` and
 `ImmobilienScout24Scraper(ISnapshotRepository? = null)` store `_repository` and never use it.
 The `?? new FlatSnapshotRepository()` default also opens a second DB context per scraper. Remove the

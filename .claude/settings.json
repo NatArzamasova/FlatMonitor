@@ -16,6 +16,21 @@
             "type": "command",
             "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/check_git_commit.py\"",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_db_writes.py\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_db_writes.py\"",
+            "timeout": 10
           }
         ]
       }
