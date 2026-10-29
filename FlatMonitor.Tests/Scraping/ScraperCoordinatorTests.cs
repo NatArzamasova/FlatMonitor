@@ -466,7 +466,7 @@ public class ScraperCoordinatorTests
         // Assert
         _logger.Messages.Should().Contain("ImmobilienScout24: skipped 2 listings outside the tracked districts")
             .And.Contain("ImmobilienScout24: skipped 1 of 10 listings without a district");
-        _logger.Entries.Should().NotContain(e => e.Level == LogLevel.Warning);
+        _logger.Entries.Should().NotContain(e => e.Level == LogLevel.Warning && e.Message.Contains("district"));
     }
 
     [Test]
@@ -480,9 +480,60 @@ public class ScraperCoordinatorTests
         await CreateCoordinator(new StubScraper("ImmobilienScout24", [.. flats])).ScrapeAllSourcesAsync();
 
         // Assert
-        _logger.Entries.Should().ContainSingle(e => e.Level == LogLevel.Warning)
+        _logger.Entries.Should().ContainSingle(e => e.Level == LogLevel.Warning && e.Message.Contains("district"))
             .Which.Message.Should().Be("ImmobilienScout24: skipped 2 of 10 listings without a district");
         _logger.Messages.Should().NotContain(m => m.Contains("outside the tracked districts"));
+    }
+
+    [Test]
+    public async Task ScrapeAllSourcesAsync_LogsParseHealthPerSource()
+    {
+        // Arrange: of 5 saved flats, 1 without price (20 %: not yet a warning); the flat outside is not counted
+        var flats = Enumerable.Range(1, 5)
+            .Select(i => CreateFlat(i.ToString()) with { PriceEur = 300000, LivingAreaSqm = 75, RoomsCount = 3 })
+            .ToList();
+        flats[0] = flats[0] with { PriceEur = null };
+        flats.Add(CreateFlat("outside", "Bad Schönborn"));
+
+        // Act
+        await CreateCoordinator(new StubScraper("OhneMakler", [.. flats])).ScrapeAllSourcesAsync();
+
+        // Assert
+        var entry = _logger.Entries.Should().ContainSingle(e => e.Message.Contains("parse health")).Subject;
+        entry.Level.Should().Be(LogLevel.Information);
+        entry.Message.Should().Be("OhneMakler: parse health: of 5 saved flats, 1 without price, 0 without area, 0 without rooms");
+    }
+
+    [TestCase(nameof(Flat.PriceEur))]
+    [TestCase(nameof(Flat.LivingAreaSqm))]
+    [TestCase(nameof(Flat.RoomsCount))]
+    public async Task ScrapeAllSourcesAsync_WhenManyFlatsLackAValue_WarnsAboutParseHealth(string missing)
+    {
+        // Arrange: 2 of 5 flats lack the value, as when the markup changed
+        var flats = Enumerable.Range(1, 5)
+            .Select(i => CreateFlat(i.ToString()) with { PriceEur = 300000, LivingAreaSqm = 75, RoomsCount = 3 })
+            .Select((f, i) => i >= 2 ? f : missing switch
+            {
+                nameof(Flat.PriceEur) => f with { PriceEur = null },
+                nameof(Flat.LivingAreaSqm) => f with { LivingAreaSqm = null },
+                _ => f with { RoomsCount = null },
+            })
+            .ToArray();
+
+        // Act
+        await CreateCoordinator(new StubScraper("OhneMakler", flats)).ScrapeAllSourcesAsync();
+
+        // Assert
+        _logger.Entries.Should().ContainSingle(e => e.Message.Contains("parse health"))
+            .Which.Level.Should().Be(LogLevel.Warning);
+    }
+
+    [Test]
+    public async Task ScrapeAllSourcesAsync_ASourceWithoutSavedFlats_LogsNoParseHealth()
+    {
+        await CreateCoordinator(new StubScraper("OhneMakler", CreateFlat("outside", "Bad Schönborn"))).ScrapeAllSourcesAsync();
+
+        _logger.Messages.Should().NotContain(m => m.Contains("parse health"));
     }
 
     [Test]

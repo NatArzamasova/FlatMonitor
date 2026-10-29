@@ -211,7 +211,17 @@ then only dequeues, starts the job and calls it. The CLI calls the same service 
 `Console.CancelKeyPress`. Moving the history writes into the repository also removes the
 `ChangeTracker.Clear()` workaround from the background service (the repository can use `ExecuteUpdateAsync`).
 
-### 2.3 One error-handling policy in the scrapers
+### 2.3 One error-handling policy in the scrapers ✅ Done
+
+**Status:** Done. Error-hiding catches left: per card (`OhneMaklerFlatCardParser`, `ImmobilienScout24CardParser`)
+and per flat enrichment (`FlatScraper`). Removed: the XPath helpers, the parser methods (incl. OhneMakler's
+per-value `TryExtract`), the second per-card and the per-page catch in `ImmobilienScout24Scraper`, and the detail
+fetch catches (`ImmobilienScout24DetailScraper` now throws, `OhneMaklerScraper` no longer catches). Kept on
+purpose: the coordinator's per-source catch, the IS24 browser launch cleanup and the two "wait for content,
+read the page anyway" timeouts (IS24 first page, expose attributes). The detail parsers lost their unused logger.
+The OhneMakler card now carries `OriginalPriceEur = PriceEur` itself (the removed catch used to set it).
+The coordinator logs a "parse health" line per source, a warning when more than 20 % of the saved flats lack
+price, area or rooms.
 
 **Severity:** Medium · **Impact:** markup changes become visible; less code
 **Files:** see list below

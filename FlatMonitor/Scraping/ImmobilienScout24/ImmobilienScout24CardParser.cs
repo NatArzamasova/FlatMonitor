@@ -77,17 +77,8 @@ public partial class ImmobilienScout24CardParser
         return id.All(char.IsDigit) ? new Uri(baseUri, $"/expose/{id}").AbsoluteUri : null;
     }
 
-    private static string? ExtractText(HtmlNode node, string xpath)
-    {
-        try
-        {
-            return node.SelectSingleNode(xpath)?.InnerText?.Trim();
-        }
-        catch
-        {
-            return null;
-        }
-    }
+    private static string? ExtractText(HtmlNode node, string xpath) =>
+        node.SelectSingleNode(xpath)?.InnerText?.Trim();
 
     [GeneratedRegex(@"\d+")]
     private static partial Regex Digits();

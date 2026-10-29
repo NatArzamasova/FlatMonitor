@@ -63,6 +63,8 @@ public sealed partial class OhneMaklerFlatCardParser
                     PostalCode = PostalCode,
                     District = District,
                     PriceEur = priceEur,
+                    // The site shows no struck-out price, so the original price is the price
+                    OriginalPriceEur = priceEur,
                     RoomsCount = rooms,
                     LivingAreaSqm = area,
                     ScrapedAtUtc = DateTime.UtcNow,

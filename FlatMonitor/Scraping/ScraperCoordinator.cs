@@ -17,6 +17,9 @@ public sealed class ScraperCoordinator
     /// <summary>Above this share of a source's flats without a district, the parser is likely broken, not the market odd.</summary>
     private const double MissingDistrictWarningShare = 0.1;
 
+    /// <summary>Above this share of saved flats without price, area or rooms, the source's markup has likely changed.</summary>
+    private const double MissingValueWarningShare = 0.2;
+
     private readonly IEnumerable<IScraper> _scrapers;
     private readonly ISnapshotRepository _repository;
     private readonly SnapshotWriter _snapshotWriter;
@@ -120,6 +123,7 @@ public sealed class ScraperCoordinator
         var scraped = 0;
         var withoutDistrict = 0;
         var saved = 0;
+        var health = new ParseHealth();
         SnapshotFile? snapshot = null;
 
         try
@@ -134,6 +138,7 @@ public sealed class ScraperCoordinator
 
                 await _repository.AddToRunAsync(filtered, ct);
                 saved += filtered.Count;
+                health.Count(filtered);
                 countSaved(filtered.Count);
                 _logger.LogInformation("{Source}: saved {Count} flats ({Total} so far)", scraper.Source, filtered.Count, saved);
                 if (onBatchSaved != null)
@@ -154,6 +159,38 @@ public sealed class ScraperCoordinator
         }
 
         LogSkipped(scraper.Source, scraped, withoutDistrict, outsideTrackedDistricts: scraped - saved - withoutDistrict);
+        LogParseHealth(scraper.Source, saved, health);
+    }
+
+    /// <summary>
+    /// One line per source on how many saved flats lack the values the aggregations need. The parsers return
+    /// <c>null</c> for anything they cannot find, so a markup change shows up here rather than as an error.
+    /// </summary>
+    private void LogParseHealth(string source, int saved, ParseHealth health)
+    {
+        if (saved == 0)
+            return;
+
+        var limit = saved * MissingValueWarningShare;
+        var level = health.WithoutPrice > limit || health.WithoutArea > limit || health.WithoutRooms > limit
+            ? LogLevel.Warning
+            : LogLevel.Information;
+        _logger.Log(level, "{Source}: parse health: of {Saved} saved flats, {WithoutPrice} without price, {WithoutArea} without area, {WithoutRooms} without rooms",
+            source, saved, health.WithoutPrice, health.WithoutArea, health.WithoutRooms);
+    }
+
+    private sealed class ParseHealth
+    {
+        public int WithoutPrice { get; private set; }
+        public int WithoutArea { get; private set; }
+        public int WithoutRooms { get; private set; }
+
+        public void Count(IReadOnlyCollection<Flat> flats)
+        {
+            WithoutPrice += flats.Count(f => f.PriceEur is null);
+            WithoutArea += flats.Count(f => f.LivingAreaSqm is null);
+            WithoutRooms += flats.Count(f => f.RoomsCount is null);
+        }
     }
 
     /// <summary>

@@ -77,15 +77,16 @@ public class ImmobilienScout24DetailScraperTests
     }
 
     [Test]
-    public async Task FetchDetailHtmlAsync_WhenThePageCannotBeOpened_ReturnsNullAndLogsAWarning()
+    public async Task FetchDetailHtmlAsync_WhenThePageCannotBeOpened_Throws()
     {
+        // FlatScraper logs it once and keeps the card's data
         _page.Setup(p => p.GotoAsync(Url, It.IsAny<PageGotoOptions>()))
             .ThrowsAsync(new PlaywrightException("net::ERR_CONNECTION_RESET"));
 
-        var html = await _scraper.FetchDetailHtmlAsync(Url, "123");
+        var act = () => _scraper.FetchDetailHtmlAsync(Url, "123");
 
-        html.Should().BeNull();
+        await act.Should().ThrowAsync<PlaywrightException>();
         Directory.Exists(_snapshots.Directory).Should().BeFalse();
-        _logger.Entries.Should().ContainSingle(e => e.Level == LogLevel.Warning && e.Exception is PlaywrightException);
+        _logger.Entries.Should().NotContain(e => e.Level == LogLevel.Warning);
     }
 }

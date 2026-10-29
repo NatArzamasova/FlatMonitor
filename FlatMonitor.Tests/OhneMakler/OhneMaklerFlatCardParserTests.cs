@@ -58,6 +58,18 @@ public class OhneMaklerFlatCardParserTests
     }
 
     [Test]
+    public void ParsePage_SetsTheOriginalPriceToThePrice()
+    {
+        // A card whose detail page fails is saved as it is, so it carries its original price itself
+        var html = File.ReadAllText(GetFixturePath("listings-page-sample.html"));
+
+        var flats = _parser.ParsePage(html).Select(c => c.Flat).ToList();
+
+        flats.Should().NotBeEmpty().And.OnlyContain(f => f.OriginalPriceEur == f.PriceEur);
+        flats.Should().Contain(f => f.PriceEur != null);
+    }
+
+    [Test]
     public void ParsePage_WithMissingRoomCount_ReturnsNullForRooms()
     {
         // Arrange

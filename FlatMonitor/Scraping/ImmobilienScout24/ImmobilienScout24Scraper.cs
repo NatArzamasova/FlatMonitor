@@ -35,7 +35,7 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
         _cardParser = new ImmobilienScout24CardParser(logger);
         _selectors = new ImmobilienScout24Selectors();
         _htmlSnapshots = HtmlSnapshotStore.ForSource(storage, SourceName, logger);
-        _detailParser = new ImmobilienScout24DetailParser(logger);
+        _detailParser = new ImmobilienScout24DetailParser();
     }
 
     protected override async Task InitializeAsync(CancellationToken ct)
@@ -109,13 +109,6 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
 
         Logger.LogDebug("ImmobilienScout24: listing {ListingId}: opening detail page", baseListing.ListingId);
         var html = await _detailScraper.FetchDetailHtmlAsync(baseListing.Url, baseListing.ListingId, ct);
-
-        if (html == null)
-        {
-            Logger.LogWarning("ImmobilienScout24: listing {ListingId}: failed to fetch detail page", baseListing.ListingId);
-            return baseListing;
-        }
-
         var detailPage = _detailParser.Parse(html);
         Logger.LogDebug("ImmobilienScout24: listing {ListingId}: parsed details: PropertyType={PropertyType}, BuildYear={BuildYear}, Heating={Heating}",
             baseListing.ListingId, detailPage.Details?.PropertyType, detailPage.Details?.BuildYear, detailPage.Details?.Heating);
@@ -133,57 +126,42 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
     }
 
     /// <summary>
-    /// Parse all listing cards from a listings page HTML.
+    /// Parse all listing cards from a listings page HTML. A card that cannot be read is skipped by the card parser.
     /// </summary>
     private List<Flat> ParseListingsPage(string html)
     {
         var results = new List<Flat>();
 
-        try
+        var doc = new HtmlDocument();
+        doc.LoadHtml(html);
+
+        // Select all listing card containers
+        var listingCards = doc.DocumentNode.SelectNodes(_selectors.ListingCardXPath);
+        Logger.LogDebug("ImmobilienScout24: page HTML {Bytes} bytes, XPath {XPath} matched {Count} cards",
+            html.Length, _selectors.ListingCardXPath, listingCards?.Count ?? 0);
+
+        if (listingCards == null || listingCards.Count == 0)
         {
-            var doc = new HtmlDocument();
-            doc.LoadHtml(html);
-
-            // Select all listing card containers
-            var listingCards = doc.DocumentNode.SelectNodes(_selectors.ListingCardXPath);
-            Logger.LogDebug("ImmobilienScout24: page HTML {Bytes} bytes, XPath {XPath} matched {Count} cards",
-                html.Length, _selectors.ListingCardXPath, listingCards?.Count ?? 0);
-
-            if (listingCards == null || listingCards.Count == 0)
-            {
-                Logger.LogWarning("ImmobilienScout24: no listing cards found on page (XPath {XPath})", _selectors.ListingCardXPath);
-                return results;
-            }
-
-            foreach (var card in listingCards)
-            {
-                try
-                {
-                    Logger.LogTrace("ImmobilienScout24: card outerHTML (first 200 chars): {Html}", card.OuterHtml[..Math.Min(200, card.OuterHtml.Length)]);
-                    var flat = _cardParser.Parse(card);
-                    if (flat != null)
-                    {
-                        Logger.LogDebug("ImmobilienScout24: parsed card {ListingId}", flat.ListingId);
-                        results.Add(flat);
-                    }
-                    else
-                    {
-                        Logger.LogDebug("ImmobilienScout24: card has no listing ID, skipped");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogWarning(ex, "ImmobilienScout24: failed to parse a listing card");
-                }
-            }
-
-            Logger.LogDebug("ImmobilienScout24: parsed {Count} listings from page", results.Count);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "ImmobilienScout24: error parsing listings page");
+            Logger.LogWarning("ImmobilienScout24: no listing cards found on page (XPath {XPath})", _selectors.ListingCardXPath);
+            return results;
         }
 
+        foreach (var card in listingCards)
+        {
+            Logger.LogTrace("ImmobilienScout24: card outerHTML (first 200 chars): {Html}", card.OuterHtml[..Math.Min(200, card.OuterHtml.Length)]);
+            var flat = _cardParser.Parse(card);
+            if (flat != null)
+            {
+                Logger.LogDebug("ImmobilienScout24: parsed card {ListingId}", flat.ListingId);
+                results.Add(flat);
+            }
+            else
+            {
+                Logger.LogDebug("ImmobilienScout24: card has no listing ID or cannot be read, skipped");
+            }
+        }
+
+        Logger.LogDebug("ImmobilienScout24: parsed {Count} listings from page", results.Count);
         return results;
     }
 }

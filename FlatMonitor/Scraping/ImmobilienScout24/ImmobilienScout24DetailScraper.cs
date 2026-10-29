@@ -28,27 +28,20 @@ public class ImmobilienScout24DetailScraper
     }
 
     /// <summary>
-    /// Opens the expose URL and returns the page's HTML, or <c>null</c> if the page could not be loaded.
+    /// Opens the expose URL and returns the page's HTML. Throws if the page cannot be loaded;
+    /// <see cref="Common.FlatScraper"/> then keeps the card's data.
     /// </summary>
-    public async Task<string?> FetchDetailHtmlAsync(string url, string listingId, CancellationToken ct = default)
+    public async Task<string> FetchDetailHtmlAsync(string url, string listingId, CancellationToken ct = default)
     {
-        try
-        {
-            _logger.LogDebug("ImmobilienScout24: fetching detail page {Url}", url);
-            await _page.GotoAsync(url, new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded, Timeout = 30000 });
-            await WaitForExposeContentAsync(listingId);
+        _logger.LogDebug("ImmobilienScout24: fetching detail page {Url}", url);
+        await _page.GotoAsync(url, new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded, Timeout = 30000 });
+        await WaitForExposeContentAsync(listingId);
 
-            var html = await _page.ContentAsync();
-            _logger.LogDebug("ImmobilienScout24: detail page fetched ({Bytes} bytes)", html.Length);
+        var html = await _page.ContentAsync();
+        _logger.LogDebug("ImmobilienScout24: detail page fetched ({Bytes} bytes)", html.Length);
 
-            await _htmlSnapshots.SaveAsync(listingId, html, ct);
-            return html;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogWarning(ex, "ImmobilienScout24: error fetching detail page {Url}", url);
-            return null;
-        }
+        await _htmlSnapshots.SaveAsync(listingId, html, ct);
+        return html;
     }
 
     /// <summary>Gives the page time to render; a page without the expected content is still returned.</summary>

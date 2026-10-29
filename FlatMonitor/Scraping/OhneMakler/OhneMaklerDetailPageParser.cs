@@ -4,8 +4,6 @@ using System.Text.RegularExpressions;
 using FlatMonitor.Models;
 using FlatMonitor.Scraping.Common;
 using HtmlAgilityPack;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 
 /// <summary>Everything the scraper takes from an ohne-makler.net detail page; <c>null</c> where the page has no value.</summary>
 public sealed record OhneMaklerDetailPage(
@@ -22,28 +20,19 @@ public sealed record OhneMaklerDetailPage(
 /// </summary>
 public sealed partial class OhneMaklerDetailPageParser
 {
-
-    private readonly OhneMaklerDetailSelectors _selectors;
-    private readonly ILogger _logger;
-
-    public OhneMaklerDetailPageParser(ILogger? logger = null)
-    {
-        _selectors = new OhneMaklerDetailSelectors();
-        _logger = logger ?? NullLogger.Instance;
-    }
+    private readonly OhneMaklerDetailSelectors _selectors = new();
 
     public OhneMaklerDetailPage Parse(string html)
     {
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
 
-        // Each value on its own: one that cannot be read must not cost the others
         return new OhneMaklerDetailPage(
-            Title: TryExtract(ExtractTitle, doc),
-            Address: TryExtract(ExtractAddress, doc),
-            Rooms: TryExtract(ExtractRooms, doc),
-            Area: TryExtract(ExtractArea, doc),
-            Price: TryExtract(d => GermanNumberParser.ParseInteger(DetailExtractors.ExtractText(d, _selectors.PriceXPath)), doc),
+            Title: ExtractTitle(doc),
+            Address: ExtractAddress(doc),
+            Rooms: ExtractRooms(doc),
+            Area: ExtractArea(doc),
+            Price: GermanNumberParser.ParseInteger(DetailExtractors.ExtractText(doc, _selectors.PriceXPath)),
             Details: ParseDetailFields(doc));
     }
 
@@ -51,52 +40,31 @@ public sealed partial class OhneMaklerDetailPageParser
 
     private FlatDetails? ParseDetailFields(HtmlDocument doc)
     {
-        try
-        {
-            if (!DetailExtractors.HasValidStructure(doc, _selectors.ValidStructurePatterns))
-                return null;
-
-            var details = new FlatDetails
-            {
-                PropertyType = DetailExtractors.ExtractText(doc, _selectors.PropertyTypeXPath),
-                BuildYear = GermanNumberParser.ParseInteger(DetailExtractors.ExtractText(doc, _selectors.BuildYearXPath)),
-                Floor = DetailExtractors.ExtractText(doc, _selectors.FloorXPath)
-                    ?? DetailExtractors.ExtractText(doc, _selectors.FloorAlternate1XPath)
-                    ?? DetailExtractors.ExtractText(doc, _selectors.FloorAlternate2XPath),
-                Condition = DetailExtractors.ExtractText(doc, _selectors.ConditionXPath),
-                Heating = DetailExtractors.ExtractText(doc, _selectors.HeatingXPath),
-                ServiceChargeEur = GermanNumberParser.ParseInteger(DetailExtractors.ExtractText(doc, _selectors.ServiceChargeHausgeldXPath))
-                    ?? GermanNumberParser.ParseInteger(DetailExtractors.ExtractText(doc, _selectors.ServiceChargeNebenkostenXPath)),
-                EnergyCertificateType = DetailExtractors.ExtractText(doc, _selectors.EnergyCertificateTypeXPath),
-                PrimaryEnergySource = DetailExtractors.ExtractText(doc, _selectors.PrimaryEnergySourceXPath),
-                EnergyEfficiencyClass = DetailExtractors.ExtractText(doc, _selectors.EnergyEfficiencyClassXPath),
-                EnergyConsumption = DetailExtractors.ExtractText(doc, _selectors.EnergyConsumptionXPath),
-                ListingStatus = ExtractListingStatus(doc),
-                CurrentUse = ExtractCurrentUse(doc),
-                Availability = DetailExtractors.ExtractText(doc, _selectors.AvailabilityXPath)
-                    ?? DetailExtractors.ExtractText(doc, _selectors.AvailabilityAlternateXPath),
-            };
-
-            return details;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "OhneMakler: failed to parse detail page");
+        if (!DetailExtractors.HasValidStructure(doc, _selectors.ValidStructurePatterns))
             return null;
-        }
-    }
 
-    private T? TryExtract<T>(Func<HtmlDocument, T?> extract, HtmlDocument doc)
-    {
-        try
+        var details = new FlatDetails
         {
-            return extract(doc);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "OhneMakler: could not extract a value from a detail page");
-            return default;
-        }
+            PropertyType = DetailExtractors.ExtractText(doc, _selectors.PropertyTypeXPath),
+            BuildYear = GermanNumberParser.ParseInteger(DetailExtractors.ExtractText(doc, _selectors.BuildYearXPath)),
+            Floor = DetailExtractors.ExtractText(doc, _selectors.FloorXPath)
+                ?? DetailExtractors.ExtractText(doc, _selectors.FloorAlternate1XPath)
+                ?? DetailExtractors.ExtractText(doc, _selectors.FloorAlternate2XPath),
+            Condition = DetailExtractors.ExtractText(doc, _selectors.ConditionXPath),
+            Heating = DetailExtractors.ExtractText(doc, _selectors.HeatingXPath),
+            ServiceChargeEur = GermanNumberParser.ParseInteger(DetailExtractors.ExtractText(doc, _selectors.ServiceChargeHausgeldXPath))
+                ?? GermanNumberParser.ParseInteger(DetailExtractors.ExtractText(doc, _selectors.ServiceChargeNebenkostenXPath)),
+            EnergyCertificateType = DetailExtractors.ExtractText(doc, _selectors.EnergyCertificateTypeXPath),
+            PrimaryEnergySource = DetailExtractors.ExtractText(doc, _selectors.PrimaryEnergySourceXPath),
+            EnergyEfficiencyClass = DetailExtractors.ExtractText(doc, _selectors.EnergyEfficiencyClassXPath),
+            EnergyConsumption = DetailExtractors.ExtractText(doc, _selectors.EnergyConsumptionXPath),
+            ListingStatus = ExtractListingStatus(doc),
+            CurrentUse = ExtractCurrentUse(doc),
+            Availability = DetailExtractors.ExtractText(doc, _selectors.AvailabilityXPath)
+                ?? DetailExtractors.ExtractText(doc, _selectors.AvailabilityAlternateXPath),
+        };
+
+        return details;
     }
 
     /// <summary>The <c>h1</c> heading: the listing's title.</summary>

@@ -30,7 +30,7 @@ public sealed class OhneMaklerScraper : FlatScraper
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _htmlSnapshots = HtmlSnapshotStore.ForSource(storage, SourceName, logger);
         _cardParser = new OhneMaklerFlatCardParser(logger);
-        _detailParser = new OhneMaklerDetailPageParser(logger);
+        _detailParser = new OhneMaklerDetailPageParser();
     }
 
     protected override Task InitializeAsync(CancellationToken ct)
@@ -75,32 +75,23 @@ public sealed class OhneMaklerScraper : FlatScraper
             return baseListing;
         }
 
-        try
-        {
-            // The detail page is the source of truth; card data fills the gaps.
-            var html = await FetchDetailPageAsync(baseListing.DetailPageUrl, baseListing.ListingId, ct);
-            var page = _detailParser.Parse(html);
+        // The detail page is the source of truth; card data fills the gaps.
+        // A failing page throws: FlatScraper logs it and keeps the card's data.
+        var html = await FetchDetailPageAsync(baseListing.DetailPageUrl, baseListing.ListingId, ct);
+        var page = _detailParser.Parse(html);
 
-            return baseListing with
-            {
-                Title = page.Title ?? baseListing.Title,
-                Address = page.Address,
-                PriceEur = page.Price ?? baseListing.PriceEur,
-                OriginalPriceEur = page.Price ?? baseListing.PriceEur,
-                RoomsCount = page.Rooms ?? baseListing.RoomsCount,
-                LivingAreaSqm = page.Area ?? baseListing.LivingAreaSqm,
-                Details = page.Details,
-                // ohne-makler.net lists flats without an estate agent, so there is no commission
-                CommissionPercent = 0,
-            };
-        }
-        catch (Exception ex) when (!ct.IsCancellationRequested)
+        return baseListing with
         {
-            // Per confirmed behavior: log warning, still include listing with partial data.
-            Logger.LogWarning(ex, "OhneMakler: failed to fetch/parse detail page for listing {ListingId} ({Url})",
-                baseListing.ListingId, baseListing.DetailPageUrl);
-            return baseListing with { OriginalPriceEur = baseListing.PriceEur };
-        }
+            Title = page.Title ?? baseListing.Title,
+            Address = page.Address,
+            PriceEur = page.Price ?? baseListing.PriceEur,
+            OriginalPriceEur = page.Price ?? baseListing.PriceEur,
+            RoomsCount = page.Rooms ?? baseListing.RoomsCount,
+            LivingAreaSqm = page.Area ?? baseListing.LivingAreaSqm,
+            Details = page.Details,
+            // ohne-makler.net lists flats without an estate agent, so there is no commission
+            CommissionPercent = 0,
+        };
     }
 
     protected override async Task CleanupAsync()

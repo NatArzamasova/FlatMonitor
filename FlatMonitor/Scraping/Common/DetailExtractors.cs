@@ -5,6 +5,7 @@ using HtmlAgilityPack;
 /// <summary>
 /// Shared extraction helpers for detail parsers across all sources.
 /// Provides common patterns for extracting text and multi-pattern fallbacks; numbers are read by <see cref="GermanNumberParser"/>.
+/// A missing node gives <c>null</c>; an invalid XPath throws, as it is a programming error the parser tests catch.
 /// </summary>
 public static class DetailExtractors
 {
@@ -12,29 +13,12 @@ public static class DetailExtractors
         => node?.InnerText?.Trim() is { Length: > 0 } text ? text : null;
 
     public static string? ExtractText(HtmlDocument doc, string xpath)
-    {
-        try
-        {
-            var text = doc.DocumentNode.SelectSingleNode(xpath)?.InnerText?.Trim();
-            return string.IsNullOrWhiteSpace(text) ? null : text;
-        }
-        catch
-        {
-            return null;
-        }
-    }
+        => ExtractText(doc.DocumentNode.SelectSingleNode(xpath));
 
     public static string? ExtractAttribute(HtmlDocument doc, string xpath, string attributeName)
     {
-        try
-        {
-            var value = doc.DocumentNode.SelectSingleNode(xpath)?.GetAttributeValue(attributeName, null)?.Trim();
-            return string.IsNullOrWhiteSpace(value) ? null : value;
-        }
-        catch
-        {
-            return null;
-        }
+        var value = doc.DocumentNode.SelectSingleNode(xpath)?.GetAttributeValue(attributeName, null)?.Trim();
+        return string.IsNullOrWhiteSpace(value) ? null : value;
     }
 
     public static string? ExtractFieldByMultiplePatterns(HtmlDocument doc, string label, params string[] xpaths)
