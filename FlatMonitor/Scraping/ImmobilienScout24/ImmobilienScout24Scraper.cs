@@ -136,12 +136,9 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
         var metadata = _detailParser.ExtractExposeMetadata(html);
         var originalPrice = _detailParser.ExtractOriginalPrice(html);
 
-        // Create enriched listing with details and expose metadata
-        var enrichedListing = new Flat
+        // Expose metadata replaces the card's values, even where the detail page has none
+        return baseListing with
         {
-            Source = baseListing.Source,
-            ListingId = baseListing.ListingId,
-            Url = baseListing.Url,
             Title = details?.Title ?? baseListing.Title,
             Address = metadata?.Address,
             PostalCode = metadata?.PostalCode,
@@ -152,10 +149,7 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
             LivingAreaSqm = metadata?.LivingAreaSqm,
             CommissionPercent = metadata?.CommissionPercent,
             Details = details,
-            ScrapedAtUtc = baseListing.ScrapedAtUtc,
         };
-
-        return enrichedListing;
     }
 
     protected override async Task CleanupAsync()

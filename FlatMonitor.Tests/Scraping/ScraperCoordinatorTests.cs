@@ -261,6 +261,37 @@ public class ScraperCoordinatorTests
         Saved.Should().ContainSingle().Which.District.Should().Be(expected);
     }
 
+    [Test]
+    public async Task ScrapeAllSourcesAsync_NormalizingTheDistrict_KeepsEveryOtherField()
+    {
+        // Arrange
+        var flat = new Flat
+        {
+            ListingId = "1",
+            Url = "https://example.org/1",
+            Title = "Title",
+            Address = "Address",
+            PostalCode = "76199",
+            District = "KA-Rüppurr",
+            PriceEur = 300000,
+            OriginalPriceEur = 320000,
+            PricePerMeter = 4000,
+            RoomsCount = 3.5,
+            LivingAreaSqm = 75,
+            CommissionPercent = 3.57,
+            Details = new FlatDetails { Heating = "Gas" },
+            ScrapedAtUtc = "2026-10-29T08:00:00Z",
+            Source = "ImmobilienScout24",
+            DetailPageUrl = "https://example.org/1/details",
+        };
+
+        // Act
+        await CreateCoordinator(new StubScraper("ImmobilienScout24", flat)).ScrapeAllSourcesAsync();
+
+        // Assert
+        Saved.Should().ContainSingle().Which.Should().Be(flat with { District = "Rüppurr" });
+    }
+
     [TestCase("Bad Schönborn", TestName = "District_NoMatch_FiltersOut")]
     [TestCase(null, TestName = "District_Null_FiltersOut")]
     [TestCase("", TestName = "District_Empty_FiltersOut")]

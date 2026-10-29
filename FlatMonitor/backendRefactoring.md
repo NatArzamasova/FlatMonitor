@@ -245,7 +245,15 @@ Benefits:
 `FlatScraper` can remain as a template base class (`InitializeAsync` → pages → enrich →
 `CleanupAsync`), but it should only `yield return` enriched flats.
 
-### 2.4 Extract district normalization into one place
+### 2.4 Extract district normalization into one place ✅ Done
+> **Done:** `KarlsruheDistricts.Match` (exact via `ToCanonical`, then contained district; the longest wins, so
+> "KA-Nordweststadt" no longer depends on the set's iteration order to beat "Weststadt") replaces the coordinator's
+> `NormalizeDistrict`. `Flat` is a `record`; `CreateFlatWithAdjustedDistrict` and the manual copies in both scrapers' `EnrichListingWithDetailsAsync`
+> are `with` expressions (same output: the card fields they used to drop are never set by the card parsers). OhneMakler computes the
+> absolute URL once, and its enrichment `catch` no longer swallows `OperationCanceledException`. FILTERING.md updated.
+> Tests: `KarlsruheDistrictsTests.Match_*`, `ScraperCoordinatorTests.ScrapeAllSourcesAsync_NormalizingTheDistrict_KeepsEveryOtherField`,
+> `OhneMaklerScraperEnrichmentTests` (whole scraper against the fixtures via a fake HTTP handler, incl. a failing detail page).
+
 **Severity:** Medium · **Files:** `Scraping/ScraperCoordinator.cs:140-181`, `Models/KarlsruheDistricts.cs`
 
 - `NormalizeDistrict` (exact, then substring match) lives in the coordinator. `ToCanonical`

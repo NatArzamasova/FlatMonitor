@@ -18,11 +18,15 @@ Located in `Models/KarlsruheDistricts.cs` (used by `ScraperCoordinator.cs`):
 
 ## Normalization Strategy
 
-`NormalizeDistrict(string? district)` handles district name variations:
+`KarlsruheDistricts.Match(string? scrapedName)` handles district name variations:
 
-1. **Exact match (case-insensitive)**: `"Oberreut"` → `"Oberreut"`
-2. **Substring match (case-insensitive)**: `"KA-Oberreut"` contains `"Oberreut"` → `"Oberreut"`
+1. **Exact match (case-insensitive, trimmed)**: `"Oberreut"` → `"Oberreut"`
+2. **Substring match (case-insensitive)**: `"KA-Oberreut"` contains `"Oberreut"` → `"Oberreut"`.
+   If several districts are contained, the **longest** wins: `"KA-Nordweststadt"` contains both
+   `"Nordweststadt"` and `"Weststadt"` → `"Nordweststadt"`
 3. **No match**: Returns `null` → flat is filtered out
+
+User input (filter presets) uses `KarlsruheDistricts.ToCanonical`, which only does the exact match.
 
 ### Examples
 
@@ -32,27 +36,19 @@ Located in `Models/KarlsruheDistricts.cs` (used by `ScraperCoordinator.cs`):
 | `"oberreut"` | `"Oberreut"` | Case-insensitive match |
 | `"KA-Oberreut"` | `"Oberreut"` | Substring: "Oberreut" is in "KA-Oberreut" |
 | `"ka-innenstadt-west"` | `"Innenstadt-West"` | Case-insensitive substring |
+| `"KA-Nordweststadt"` | `"Nordweststadt"` | Longest contained district (not "Weststadt") |
 | `"Bad Schönborn"` | `null` (filtered) | Not in KarlsruheDistricts |
 | `null` | `null` (filtered) | Empty/null district |
 
 ## Filtering Flow
 
-### Production Scrapers (FlatScraper)
+Scrapers yield unfiltered flats one by one (`IScraper.ScrapeAsync` returns `IAsyncEnumerable<Flat>`). `ScraperCoordinator`:
 
-1. **During scraping**: `ScraperCoordinator.SetupBatchSaveCallback()` configures a callback
-2. **Every 20 flats**: `FlatScraper` calls the callback with a batch
-3. **In callback**: `FilterAndNormalizeBatch()` filters and normalizes, then saves to database
+1. Takes them in batches of 20
+2. Keeps flats whose district `KarlsruheDistricts.Match` recognizes, as `flat with { District = <canonical name> }`
+3. Saves the filtered batch to the database, then asks the scraper for the next flats
 
-**Benefit**: Flats filtered **before** database insertion. Memory efficient (batches of 20).
-
-### Fallback (Test Mocks / Non-FlatScraper)
-
-If scraper doesn't use batch callback:
-
-1. **After scraping**: `ScrapeSourceAsync()` calls `FilterAndNormalizeBatch()` on all listings
-2. **Fallback save**: Filtered flats saved to database
-
-**Note**: Mocks and tests use this path. Less memory efficient but correct.
+**Benefit**: Flats are filtered **before** database insertion, and no source is held in memory as a whole.
 
 ## Database Guarantee
 
@@ -63,11 +59,7 @@ If scraper doesn't use batch callback:
 
 ## Testing
 
-See `ScraperCoordinatorTests.cs` for 9 district filtering tests:
-- Exact match (case-sensitive and insensitive)
-- Substring match ("KA-" prefix handling)
-- No match filtering
-- Null/empty district filtering
-- Mixed valid/invalid in one batch
+- `KarlsruheDistrictsTests.cs`: `Match` rules (exact, substring, longest match, untracked/blank names)
+- `ScraperCoordinatorTests.cs`: filtering during a scrape (normalized district, every other field kept, filtered-out flats, mixed batches)
 
-Run: `dotnet test --filter "ScrapeAllSourcesAsync_FilterByDistrict"`
+Run: `dotnet test --filter "FullyQualifiedName~KarlsruheDistrictsTests|FullyQualifiedName~District"`

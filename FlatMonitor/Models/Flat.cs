@@ -1,6 +1,7 @@
 namespace FlatMonitor.Models;
 
-public sealed class Flat
+/// <summary>A scraped flat. A record, so copies with changes use <c>flat with { ... }</c>.</summary>
+public sealed record Flat
 {
     public required string ListingId { get; init; }
     public string? Url { get; init; }

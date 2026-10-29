@@ -111,6 +111,10 @@ public sealed class OhneMaklerScraper : FlatScraper
             return baseListing;
         }
 
+        var absoluteUrl = baseListing.Url?.StartsWith("http") ?? false
+            ? baseListing.Url
+            : new Uri(new Uri(OhneMaklerSelectors.ListingsBaseUrl), baseListing.Url ?? "").AbsoluteUri;
+
         try
         {
             // Fetch and parse the detail page.
@@ -124,59 +128,32 @@ public sealed class OhneMaklerScraper : FlatScraper
             double? area = ExtractAreaFromDetailPage(detailHtml);
             int? priceFromDetail = _detailParser.ExtractPrice(detailHtml);
 
-            // Update the listing with detail-page data.
-            var absoluteUrl = baseListing.Url?.StartsWith("http") ?? false
-                ? baseListing.Url
-                : new Uri(new Uri(OhneMaklerSelectors.ListingsBaseUrl), baseListing.Url ?? "").AbsoluteUri;
-
-            var enrichedFlat = new Flat
+            // Update the listing with detail-page data; card data fills the gaps.
+            return baseListing with
             {
-                ListingId = baseListing.ListingId,
                 Url = absoluteUrl,
                 Title = title ?? baseListing.Title,
                 Address = address,
-                PostalCode = baseListing.PostalCode,
-                District = baseListing.District,
                 PriceEur = priceFromDetail ?? baseListing.PriceEur,
                 OriginalPriceEur = priceFromDetail ?? baseListing.PriceEur,
                 RoomsCount = rooms ?? baseListing.RoomsCount,
                 LivingAreaSqm = area ?? baseListing.LivingAreaSqm,
                 Details = details,
-                ScrapedAtUtc = baseListing.ScrapedAtUtc,
                 Source = SourceName,
-                DetailPageUrl = baseListing.DetailPageUrl,
             };
-
-            return enrichedFlat;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Per confirmed behavior: log warning, still include listing with partial data.
-            var absoluteUrl = baseListing.Url?.StartsWith("http") ?? false
-                ? baseListing.Url
-                : new Uri(new Uri(OhneMaklerSelectors.ListingsBaseUrl), baseListing.Url ?? "").AbsoluteUri;
-
-            var partialFlat = new Flat
-            {
-                ListingId = baseListing.ListingId,
-                Url = absoluteUrl,
-                Title = baseListing.Title,
-                Address = null,
-                PostalCode = baseListing.PostalCode,
-                District = baseListing.District,
-                PriceEur = baseListing.PriceEur,
-                OriginalPriceEur = baseListing.PriceEur,
-                RoomsCount = baseListing.RoomsCount,
-                LivingAreaSqm = baseListing.LivingAreaSqm,
-                Details = baseListing.Details,
-                ScrapedAtUtc = baseListing.ScrapedAtUtc,
-                Source = SourceName,
-                DetailPageUrl = baseListing.DetailPageUrl,
-            };
-
             Console.WriteLine(
                 $"Warning: Failed to fetch/parse detail page for listing {baseListing.ListingId} ({absoluteUrl}): {ex.Message}");
-            return partialFlat;
+            return baseListing with
+            {
+                Url = absoluteUrl,
+                Address = null,
+                OriginalPriceEur = baseListing.PriceEur,
+                Source = SourceName,
+            };
         }
     }
 

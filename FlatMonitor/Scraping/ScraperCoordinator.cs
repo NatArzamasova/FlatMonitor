@@ -106,14 +106,11 @@ public sealed class ScraperCoordinator
             Console.WriteLine($"Skipped {scraped - saved} listings without allowed districts");
     }
 
-    private List<Flat> FilterAndNormalizeBatch(IEnumerable<Flat> batch)
+    /// <summary>Keeps flats in a tracked district, with the district name in its canonical spelling.</summary>
+    private static List<Flat> FilterAndNormalizeBatch(IEnumerable<Flat> batch)
     {
         return batch
-            .Select(flat =>
-            {
-                var normalizedDistrict = NormalizeDistrict(flat.District);
-                return normalizedDistrict != null ? CreateFlatWithAdjustedDistrict(flat, normalizedDistrict) : null;
-            })
+            .Select(flat => KarlsruheDistricts.Match(flat.District) is { } district ? flat with { District = district } : null)
             .OfType<Flat>()
             .ToList();
     }
@@ -124,48 +121,5 @@ public sealed class ScraperCoordinator
         if (Environment.GetEnvironmentVariable("DEBUG") == "1")
             Console.Error.WriteLine(ex.StackTrace);
         return $"{scraper.Source}: {ex.Message}";
-    }
-
-    private static Flat CreateFlatWithAdjustedDistrict(Flat flat, string normalizedDistrict)
-    {
-        return new Flat
-        {
-            ListingId = flat.ListingId,
-            Url = flat.Url,
-            Title = flat.Title,
-            Address = flat.Address,
-            PostalCode = flat.PostalCode,
-            District = normalizedDistrict,
-            PriceEur = flat.PriceEur,
-            OriginalPriceEur = flat.OriginalPriceEur,
-            PricePerMeter = flat.PricePerMeter,
-            RoomsCount = flat.RoomsCount,
-            LivingAreaSqm = flat.LivingAreaSqm,
-            CommissionPercent = flat.CommissionPercent,
-            Details = flat.Details,
-            ScrapedAtUtc = flat.ScrapedAtUtc,
-            Source = flat.Source,
-            DetailPageUrl = flat.DetailPageUrl,
-        };
-    }
-
-
-    private string? NormalizeDistrict(string? district)
-    {
-        if (string.IsNullOrWhiteSpace(district))
-            return null;
-
-        // Try exact match first (case-insensitive)
-        var match = KarlsruheDistricts.All.FirstOrDefault(d => d.Equals(district, StringComparison.OrdinalIgnoreCase));
-        if (match != null)
-            return match;
-
-        // Try substring match (case-insensitive) — handles "KA-Oberreut" containing "Oberreut"
-        match = KarlsruheDistricts.All.FirstOrDefault(d => district.Contains(d, StringComparison.OrdinalIgnoreCase));
-        if (match != null)
-            return match;
-
-        // No match found, filter this flat out
-        return null;
     }
 }

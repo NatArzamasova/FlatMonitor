@@ -39,7 +39,7 @@ public static class KarlsruheDistricts
 
     /// <summary>
     /// Returns the canonical spelling of <paramref name="name"/> on an exact, case-insensitive match;
-    /// otherwise <c>null</c>. Unlike scrape-time normalization, no substring matching is done.
+    /// otherwise <c>null</c>. Used for user input; see <see cref="Match"/> for scraped names.
     /// </summary>
     public static string? ToCanonical(string? name)
     {
@@ -47,5 +47,20 @@ public static class KarlsruheDistricts
             return null;
 
         return All.FirstOrDefault(d => d.Equals(name.Trim(), StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Maps a scraped district name to its canonical spelling, or <c>null</c> if it is not a tracked district.
+    /// Tries an exact match first, then a district contained in the name ("KA-Oberreut" → "Oberreut").
+    /// If several districts are contained, the longest wins ("KA-Nordweststadt" → "Nordweststadt", not "Weststadt").
+    /// </summary>
+    public static string? Match(string? scrapedName)
+    {
+        if (string.IsNullOrWhiteSpace(scrapedName))
+            return null;
+
+        return ToCanonical(scrapedName)
+            ?? All.Where(d => scrapedName.Contains(d, StringComparison.OrdinalIgnoreCase))
+                .MaxBy(d => d.Length);
     }
 }
