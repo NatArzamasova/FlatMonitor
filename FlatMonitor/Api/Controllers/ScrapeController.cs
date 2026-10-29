@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 
 [ApiController]
 [Route("api/[controller]")]
-public class ScrapeController : ControllerBase
+public class ScrapeController : ApiControllerBase
 {
     private readonly ScrapeJobService _jobService;
     private readonly IScrapingHistoryRepository _historyRepository;
@@ -20,67 +20,50 @@ public class ScrapeController : ControllerBase
 
     /// <summary>Queues a scrape; 409 Conflict while another one is queued or running.</summary>
     [HttpPost]
-    public ActionResult<ScrapeResponse> TriggerScrapeAsync()
+    public ActionResult<ApiResponse<ScrapeQueuedResponse>> TriggerScrape()
     {
         if (!_jobService.TryQueueJob(out var job))
-        {
-            return Conflict(new ScrapeResponse
-            {
-                Success = false,
-                Message = "A scrape is already queued or running",
-                ScrapedAtUtc = DateTime.UtcNow,
-            });
-        }
+            return Conflict(Failure<ScrapeQueuedResponse>("A scrape is already queued or running"));
 
-        return Accepted($"api/scrape/status/{job.JobId}", new ScrapeResponse
-        {
-            Success = true,
-            Message = "Scrape job queued",
-            ScrapedAtUtc = job.CreatedAtUtc,
-            FlatsCount = 0
-        });
+        var queued = new ScrapeQueuedResponse { JobId = job.JobId, QueuedAtUtc = job.CreatedAtUtc };
+        return Accepted($"api/scrape/status/{job.JobId}", Success(queued, "Scrape job queued"));
     }
 
     [HttpGet("status")]
-    public async Task<ActionResult<ScrapingStatusResponse>> GetScrapingStatus()
+    public async Task<ActionResult<ApiResponse<ScrapingStatusResponse>>> GetScrapingStatus(CancellationToken ct = default)
     {
-        var isScrapingInProgress = _jobService.IsScrapingInProgress();
+        var histories = await _historyRepository.GetLatestAsync(ct);
 
-        var histories = await _historyRepository.GetLatestAsync();
-
-        var response = new ScrapingStatusResponse
+        var status = new ScrapingStatusResponse
         {
-            IsScrapingInProgress = isScrapingInProgress,
+            IsScrapingInProgress = _jobService.IsScrapingInProgress(),
             LastScrapingHistory = histories.Latest,
             LastSuccessfulScrapingHistory = histories.LatestSuccessful
         };
 
-        return Ok(response);
+        return Ok(Success(status, "Scraping status fetched successfully"));
     }
 
     [HttpGet("status/{jobId}")]
-    public ActionResult<ScrapeJobStatusResponse> GetJobStatus(Guid jobId)
+    public ActionResult<ApiResponse<ScrapeJobStatusResponse>> GetJobStatus(Guid jobId)
     {
         var job = _jobService.GetJobStatus(jobId);
         if (job == null)
-        {
-            return NotFound(new { message = $"Job {jobId} not found" });
-        }
+            return NotFound(Failure<ScrapeJobStatusResponse>($"Job {jobId} not found"));
 
-        return Ok(new ScrapeJobStatusResponse
+        return Ok(Success(new ScrapeJobStatusResponse
         {
             JobId = job.JobId,
             Status = job.Status.ToString(),
             CreatedAtUtc = job.CreatedAtUtc
-        });
+        }, "Job status fetched successfully"));
     }
 
+    /// <summary>Cancels the queued or running scrape; <c>data</c> says whether there was one.</summary>
     [HttpPost("cancel")]
-    public ActionResult CancelScrape()
+    public ActionResult<ApiResponse<bool>> CancelScrape()
     {
-        var message = _jobService.CancelCurrentJob()
-            ? "Scrape cancellation requested"
-            : "No scrape is queued or running";
-        return Ok(new { message });
+        var canceled = _jobService.CancelCurrentJob();
+        return Ok(Success(canceled, canceled ? "Scrape cancellation requested" : "No scrape is queued or running"));
     }
 }

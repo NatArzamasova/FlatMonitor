@@ -55,8 +55,7 @@ describe('ScrapingStatusComponent', () => {
   const queued: ScrapeResponse = {
     success: true,
     message: 'Scraping started',
-    scrapedAtUtc: '2024-01-15T10:30:00Z',
-    flatsCount: 0
+    data: { jobId: '6f9619ff-8b86-d011-b42d-00cf4fc964ff', queuedAtUtc: '2024-01-15T10:30:00Z' }
   };
 
   beforeEach(async () => {
@@ -228,7 +227,7 @@ describe('ScrapingStatusComponent', () => {
 
   describe('cancelScrape', () => {
     it('cancels the current scrape job', () => {
-      scrapeStatus.cancelScrape.and.returnValue(of({ message: 'Scrape cancellation requested' }));
+      scrapeStatus.cancelScrape.and.returnValue(of({ success: true, data: true, message: 'Scrape cancellation requested' }));
 
       component.cancelScrape();
 

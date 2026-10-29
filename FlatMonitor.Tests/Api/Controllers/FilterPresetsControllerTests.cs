@@ -56,16 +56,15 @@ public class FilterPresetsControllerTests
     }
 
     [Test]
-    public async Task GetAllAsync_ReturnsInternalServerErrorWhenRepositoryFails()
+    public async Task GetAllAsync_LetsTheExceptionPropagateWhenRepositoryFails()
     {
         _repository.Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("query failed"));
 
-        var result = await _controller.GetAllAsync();
+        var act = () => _controller.GetAllAsync();
 
-        var response = GetResponse(result, 500);
-        response.Success.Should().BeFalse();
-        response.Message.Should().Be("Error fetching filter presets: query failed");
+        // ApiExceptionHandler turns it into a 500 with a generic message
+        await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
     // ==================== CREATE ====================
@@ -140,25 +139,27 @@ public class FilterPresetsControllerTests
     }
 
     [Test]
-    public async Task CreateAsync_ReturnsInternalServerErrorForOtherDbUpdateException()
+    public async Task CreateAsync_LetsTheExceptionPropagateForOtherDbUpdateException()
     {
         _repository.Setup(r => r.CreateAsync("East", It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new DbUpdateException("disk full"));
 
-        var result = await _controller.CreateAsync(Request("East"));
+        var act = () => _controller.CreateAsync(Request("East"));
 
-        GetResponse(result, 500).Message.Should().Be("Error creating filter preset: disk full");
+        // ApiExceptionHandler turns it into a 500 with a generic message
+        await act.Should().ThrowAsync<DbUpdateException>();
     }
 
     [Test]
-    public async Task CreateAsync_ReturnsInternalServerErrorWhenRepositoryFails()
+    public async Task CreateAsync_LetsTheExceptionPropagateWhenRepositoryFails()
     {
         _repository.Setup(r => r.NameExistsAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("db locked"));
 
-        var result = await _controller.CreateAsync(Request("East"));
+        var act = () => _controller.CreateAsync(Request("East"));
 
-        GetResponse(result, 500).Message.Should().Be("Error creating filter preset: db locked");
+        // ApiExceptionHandler turns it into a 500 with a generic message
+        await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
     // ==================== UPDATE ====================
@@ -244,14 +245,15 @@ public class FilterPresetsControllerTests
     }
 
     [Test]
-    public async Task UpdateAsync_ReturnsInternalServerErrorWhenRepositoryFails()
+    public async Task UpdateAsync_LetsTheExceptionPropagateWhenRepositoryFails()
     {
         _repository.Setup(r => r.UpdateAsync(3, "East", It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("db locked"));
 
-        var result = await _controller.UpdateAsync(3, Request("East"));
+        var act = () => _controller.UpdateAsync(3, Request("East"));
 
-        GetResponse(result, 500).Message.Should().Be("Error updating filter preset: db locked");
+        // ApiExceptionHandler turns it into a 500 with a generic message
+        await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
     // ==================== DELETE ====================
@@ -281,14 +283,15 @@ public class FilterPresetsControllerTests
     }
 
     [Test]
-    public async Task DeleteAsync_ReturnsInternalServerErrorWhenRepositoryFails()
+    public async Task DeleteAsync_LetsTheExceptionPropagateWhenRepositoryFails()
     {
         _repository.Setup(r => r.DeleteAsync(1, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("db locked"));
 
-        var result = await _controller.DeleteAsync(1);
+        var act = () => _controller.DeleteAsync(1);
 
-        GetResponse(result, 500).Message.Should().Be("Error deleting filter preset: db locked");
+        // ApiExceptionHandler turns it into a 500 with a generic message
+        await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
     // ==================== DEFAULT ====================
@@ -318,14 +321,15 @@ public class FilterPresetsControllerTests
     }
 
     [Test]
-    public async Task SetDefaultAsync_ReturnsInternalServerErrorWhenRepositoryFails()
+    public async Task SetDefaultAsync_LetsTheExceptionPropagateWhenRepositoryFails()
     {
         _repository.Setup(r => r.SetDefaultAsync(1, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("db locked"));
 
-        var result = await _controller.SetDefaultAsync(1);
+        var act = () => _controller.SetDefaultAsync(1);
 
-        GetResponse(result, 500).Message.Should().Be("Error setting default filter preset: db locked");
+        // ApiExceptionHandler turns it into a 500 with a generic message
+        await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
     [Test]
@@ -343,14 +347,15 @@ public class FilterPresetsControllerTests
     }
 
     [Test]
-    public async Task ClearDefaultAsync_ReturnsInternalServerErrorWhenRepositoryFails()
+    public async Task ClearDefaultAsync_LetsTheExceptionPropagateWhenRepositoryFails()
     {
         _repository.Setup(r => r.ClearDefaultAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("db locked"));
 
-        var result = await _controller.ClearDefaultAsync();
+        var act = () => _controller.ClearDefaultAsync();
 
-        GetResponse(result, 500).Message.Should().Be("Error clearing default filter preset: db locked");
+        // ApiExceptionHandler turns it into a 500 with a generic message
+        await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
     private static FilterPreset Preset(int id, string name, bool isDefault = false, params string[] districts) => new()

@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 
 [ApiController]
 [Route("api/[controller]")]
-public class FlatsController : ControllerBase
+public class FlatsController : ApiControllerBase
 {
     private readonly ISnapshotRepository _snapshotRepository;
     private readonly IFlatAggregationRepository _aggregationRepository;
@@ -19,74 +19,23 @@ public class FlatsController : ControllerBase
     }
 
     [HttpGet("history")]
-    public async Task<ActionResult<ApiResponse<List<FlatHistory>>>> GetHistoryAsync()
+    public async Task<ActionResult<ApiResponse<List<FlatHistory>>>> GetHistoryAsync(CancellationToken ct = default)
     {
-        try
-        {
-            var history = await _aggregationRepository.GetHistoryAsync();
-
-            return Ok(new ApiResponse<List<FlatHistory>>
-            {
-                Success = true,
-                Data = history,
-                Message = "History fetched successfully"
-            });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new ApiResponse<List<FlatHistory>>
-            {
-                Success = false,
-                Message = $"Error fetching history: {ex.Message}"
-            });
-        }
+        var history = await _aggregationRepository.GetHistoryAsync(ct);
+        return Ok(Success(history, "History fetched successfully"));
     }
 
     [HttpGet("current-offers")]
-    public async Task<ActionResult<ApiResponse<List<FlatOffer>>>> GetCurrentOffersAsync()
+    public async Task<ActionResult<ApiResponse<List<FlatOffer>>>> GetCurrentOffersAsync(CancellationToken ct = default)
     {
-        try
-        {
-            var offers = await _snapshotRepository.GetCurrentOffersAsync();
-
-            return Ok(new ApiResponse<List<FlatOffer>>
-            {
-                Success = true,
-                Data = offers,
-                Message = "Current offers fetched successfully"
-            });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new ApiResponse<List<FlatOffer>>
-            {
-                Success = false,
-                Message = $"Error fetching offers: {ex.Message}"
-            });
-        }
+        var offers = await _snapshotRepository.GetCurrentOffersAsync(ct);
+        return Ok(Success(offers, "Current offers fetched successfully"));
     }
 
     [HttpGet("aggregated")]
-    public async Task<ActionResult<ApiResponse<List<FlatAggregation>>>> GetAggregatedAsync()
+    public async Task<ActionResult<ApiResponse<List<FlatAggregation>>>> GetAggregatedAsync(CancellationToken ct = default)
     {
-        try
-        {
-            var aggregated = await _aggregationRepository.GetLatestAsync();
-
-            return Ok(new ApiResponse<List<FlatAggregation>>
-            {
-                Success = true,
-                Data = aggregated,
-                Message = "Aggregated successfully"
-            });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new ApiResponse<List<FlatAggregation>>
-            {
-                Success = false,
-                Message = $"Error aggregating data: {ex.Message}"
-            });
-        }
+        var aggregated = await _aggregationRepository.GetLatestAsync(ct);
+        return Ok(Success(aggregated, "Aggregated successfully"));
     }
 }

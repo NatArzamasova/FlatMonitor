@@ -26,27 +26,37 @@ public class ScrapeControllerTests
         _controller = new ScrapeController(_jobService, _mockHistoryRepository.Object);
     }
 
-    [Test]
-    public void TriggerScrapeAsync_QueuesJobAndReturnsAccepted()
+    private static ApiResponse<T> Body<T>(ActionResult<ApiResponse<T>> result, Type resultType)
     {
-        var result = _controller.TriggerScrapeAsync();
-
-        var accepted = result.Result.Should().BeOfType<AcceptedResult>().Subject;
-        accepted.Value.Should().BeOfType<ScrapeResponse>().Which.Success.Should().BeTrue();
-        _jobService.IsScrapingInProgress().Should().BeTrue();
+        result.Result.Should().BeOfType(resultType);
+        return ((ObjectResult)result.Result!).Value.Should().BeOfType<ApiResponse<T>>().Subject;
     }
 
     [Test]
-    public void TriggerScrapeAsync_WhileAJobIsQueuedOrRunning_ReturnsConflictWithoutQueueing()
+    public void TriggerScrape_QueuesJobAndReturnsAcceptedWithTheJob()
     {
-        _controller.TriggerScrapeAsync();
+        var result = _controller.TriggerScrape();
 
-        var result = _controller.TriggerScrapeAsync();
+        var response = Body(result, typeof(AcceptedResult));
+        response.Success.Should().BeTrue();
+        response.Message.Should().Be("Scrape job queued");
+        var job = _jobService.GetJobStatus(response.Data!.JobId);
+        job.Should().NotBeNull();
+        response.Data.QueuedAtUtc.Should().Be(job!.CreatedAtUtc);
+        result.Result.As<AcceptedResult>().Location.Should().Be($"api/scrape/status/{job.JobId}");
+    }
 
-        var conflict = result.Result.Should().BeOfType<ConflictObjectResult>().Subject;
-        var response = conflict.Value.Should().BeOfType<ScrapeResponse>().Subject;
+    [Test]
+    public void TriggerScrape_WhileAJobIsQueuedOrRunning_ReturnsConflictWithoutQueueing()
+    {
+        _controller.TriggerScrape();
+
+        var result = _controller.TriggerScrape();
+
+        var response = Body(result, typeof(ConflictObjectResult));
         response.Success.Should().BeFalse();
         response.Message.Should().Be("A scrape is already queued or running");
+        response.Data.Should().BeNull();
     }
 
     [Test]
@@ -56,16 +66,21 @@ public class ScrapeControllerTests
 
         var result = _controller.GetJobStatus(job!.JobId);
 
-        var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
-        ok.Value.Should().BeOfType<ScrapeJobStatusResponse>().Which.Status.Should().Be("Queued");
+        var response = Body(result, typeof(OkObjectResult));
+        response.Success.Should().BeTrue();
+        response.Data!.Status.Should().Be("Queued");
     }
 
     [Test]
     public void GetJobStatus_WithInvalidJobId_ReturnsNotFound()
     {
-        var result = _controller.GetJobStatus(Guid.NewGuid());
+        var jobId = Guid.NewGuid();
 
-        result.Result.Should().BeOfType<NotFoundObjectResult>();
+        var result = _controller.GetJobStatus(jobId);
+
+        var response = Body(result, typeof(NotFoundObjectResult));
+        response.Success.Should().BeFalse();
+        response.Message.Should().Be($"Job {jobId} not found");
     }
 
     [Test]
@@ -75,16 +90,21 @@ public class ScrapeControllerTests
 
         var result = _controller.CancelScrape();
 
-        result.Should().BeOfType<OkObjectResult>();
+        var response = Body(result, typeof(OkObjectResult));
+        response.Data.Should().BeTrue();
+        response.Message.Should().Be("Scrape cancellation requested");
         _jobService.GetJobStatus(job!.JobId)!.Status.Should().Be(ScrapeJobService.ScrapeJobStatus.Canceled);
     }
 
     [Test]
-    public void CancelScrape_WithoutJob_ReturnsOk()
+    public void CancelScrape_WithoutJob_ReturnsOkWithFalse()
     {
         var result = _controller.CancelScrape();
 
-        result.Should().BeOfType<OkObjectResult>();
+        var response = Body(result, typeof(OkObjectResult));
+        response.Success.Should().BeTrue();
+        response.Data.Should().BeFalse();
+        response.Message.Should().Be("No scrape is queued or running");
     }
 
     [Test]
@@ -104,17 +124,18 @@ public class ScrapeControllerTests
             Status = "Successful",
             FlatsScrapedCount = 5
         };
+        using var cts = new CancellationTokenSource();
         _jobService.TryQueueJob(out _);
         _mockHistoryRepository.Setup(r => r.GetLatestAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ScrapingStatusHistory(latest, latestSuccessful));
 
-        var action = await _controller.GetScrapingStatus();
-        var response = action.Value ?? (action.Result as OkObjectResult)?.Value as ScrapingStatusResponse;
+        var result = await _controller.GetScrapingStatus(cts.Token);
 
-        response.Should().NotBeNull();
-        response!.IsScrapingInProgress.Should().BeTrue();
-        response.LastScrapingHistory.Should().BeSameAs(latest);
-        response.LastSuccessfulScrapingHistory.Should().BeSameAs(latestSuccessful);
-        _mockHistoryRepository.Verify(r => r.GetLatestAsync(It.IsAny<CancellationToken>()), Times.Once);
+        var response = Body(result, typeof(OkObjectResult));
+        response.Success.Should().BeTrue();
+        response.Data!.IsScrapingInProgress.Should().BeTrue();
+        response.Data.LastScrapingHistory.Should().BeSameAs(latest);
+        response.Data.LastSuccessfulScrapingHistory.Should().BeSameAs(latestSuccessful);
+        _mockHistoryRepository.Verify(r => r.GetLatestAsync(cts.Token), Times.Once);
     }
 }

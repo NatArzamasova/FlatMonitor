@@ -141,7 +141,11 @@ describe('ScrapeStatusService', () => {
   });
 
   describe('triggerScrape', () => {
-    const queued: ScrapeResponse = { success: true, message: 'Scrape job queued', scrapedAtUtc: '2024-01-15T10:30:00Z', flatsCount: 0 };
+    const queued: ScrapeResponse = {
+      success: true,
+      message: 'Scrape job queued',
+      data: { jobId: '6f9619ff-8b86-d011-b42d-00cf4fc964ff', queuedAtUtc: '2024-01-15T10:30:00Z' }
+    };
 
     it('starts a scrape and refreshes the status on success', fakeAsync(() => {
       flatsService.getScrapeStatus.and.returnValue(of(notRunning));
@@ -176,7 +180,7 @@ describe('ScrapeStatusService', () => {
 
   describe('cancelScrape', () => {
     it('cancels the running scrape', () => {
-      flatsService.cancelScrape.and.returnValue(of({ message: 'Scrape cancellation requested' }));
+      flatsService.cancelScrape.and.returnValue(of({ success: true, data: true, message: 'Scrape cancellation requested' }));
 
       service.cancelScrape().subscribe();
 

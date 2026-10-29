@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 [ApiController]
 [Route("api/filter-presets")]
-public class FilterPresetsController : ControllerBase
+public class FilterPresetsController : ApiControllerBase
 {
     private readonly IFilterPresetRepository _repository;
 
@@ -18,124 +18,88 @@ public class FilterPresetsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<ApiResponse<List<FilterPresetDto>>>> GetAllAsync()
+    public async Task<ActionResult<ApiResponse<List<FilterPresetDto>>>> GetAllAsync(CancellationToken ct = default)
     {
-        try
-        {
-            return Ok(Success(await GetAllDtosAsync(), "Filter presets fetched successfully"));
-        }
-        catch (Exception ex)
-        {
-            return ServerError<List<FilterPresetDto>>($"Error fetching filter presets: {ex.Message}");
-        }
+        return Ok(Success(await GetAllDtosAsync(ct), "Filter presets fetched successfully"));
     }
 
     [HttpPost]
-    public async Task<ActionResult<ApiResponse<FilterPresetDto>>> CreateAsync([FromBody] SaveFilterPresetRequest? request)
+    public async Task<ActionResult<ApiResponse<FilterPresetDto>>> CreateAsync([FromBody] SaveFilterPresetRequest? request, CancellationToken ct = default)
     {
         if (!FilterPresetRequestNormalizer.TryNormalize(request, out var preset, out var error))
             return BadRequest(Failure<FilterPresetDto>(error));
 
         try
         {
-            if (await _repository.NameExistsAsync(preset.Name))
+            if (await _repository.NameExistsAsync(preset.Name, cancellationToken: ct))
                 return NameTaken(preset.Name);
 
-            var created = await _repository.CreateAsync(preset.Name, preset.Districts);
+            var created = await _repository.CreateAsync(preset.Name, preset.Districts, ct);
             return StatusCode(StatusCodes.Status201Created, Success(FilterPresetDto.From(created), "Filter preset created"));
         }
-        catch (DbUpdateException ex)
+        catch (DbUpdateException)
         {
             // A concurrent request may have taken the name between the check and the insert.
-            return await _repository.NameExistsAsync(preset.Name)
-                ? NameTaken(preset.Name)
-                : ServerError<FilterPresetDto>($"Error creating filter preset: {ex.Message}");
-        }
-        catch (Exception ex)
-        {
-            return ServerError<FilterPresetDto>($"Error creating filter preset: {ex.Message}");
+            if (await _repository.NameExistsAsync(preset.Name, cancellationToken: ct))
+                return NameTaken(preset.Name);
+            throw;
         }
     }
 
     [HttpPut("{id:int}")]
-    public async Task<ActionResult<ApiResponse<FilterPresetDto>>> UpdateAsync(int id, [FromBody] SaveFilterPresetRequest? request)
+    public async Task<ActionResult<ApiResponse<FilterPresetDto>>> UpdateAsync(int id, [FromBody] SaveFilterPresetRequest? request, CancellationToken ct = default)
     {
         if (!FilterPresetRequestNormalizer.TryNormalize(request, out var preset, out var error))
             return BadRequest(Failure<FilterPresetDto>(error));
 
         try
         {
-            if (await _repository.NameExistsAsync(preset.Name, excludingId: id))
+            if (await _repository.NameExistsAsync(preset.Name, excludingId: id, cancellationToken: ct))
                 return NameTaken(preset.Name);
 
-            var updated = await _repository.UpdateAsync(id, preset.Name, preset.Districts);
+            var updated = await _repository.UpdateAsync(id, preset.Name, preset.Districts, ct);
             return updated == null
                 ? PresetNotFound<FilterPresetDto>(id)
                 : Ok(Success(FilterPresetDto.From(updated), "Filter preset updated"));
         }
-        catch (DbUpdateException ex)
+        catch (DbUpdateException)
         {
-            return await _repository.NameExistsAsync(preset.Name, excludingId: id)
-                ? NameTaken(preset.Name)
-                : ServerError<FilterPresetDto>($"Error updating filter preset: {ex.Message}");
-        }
-        catch (Exception ex)
-        {
-            return ServerError<FilterPresetDto>($"Error updating filter preset: {ex.Message}");
+            if (await _repository.NameExistsAsync(preset.Name, excludingId: id, cancellationToken: ct))
+                return NameTaken(preset.Name);
+            throw;
         }
     }
 
     /// <summary>Deletes the preset and returns the remaining presets.</summary>
     [HttpDelete("{id:int}")]
-    public async Task<ActionResult<ApiResponse<List<FilterPresetDto>>>> DeleteAsync(int id)
+    public async Task<ActionResult<ApiResponse<List<FilterPresetDto>>>> DeleteAsync(int id, CancellationToken ct = default)
     {
-        try
-        {
-            if (!await _repository.DeleteAsync(id))
-                return PresetNotFound<List<FilterPresetDto>>(id);
+        if (!await _repository.DeleteAsync(id, ct))
+            return PresetNotFound<List<FilterPresetDto>>(id);
 
-            return Ok(Success(await GetAllDtosAsync(), "Filter preset deleted"));
-        }
-        catch (Exception ex)
-        {
-            return ServerError<List<FilterPresetDto>>($"Error deleting filter preset: {ex.Message}");
-        }
+        return Ok(Success(await GetAllDtosAsync(ct), "Filter preset deleted"));
     }
 
     [HttpPut("{id:int}/default")]
-    public async Task<ActionResult<ApiResponse<FilterPresetDto>>> SetDefaultAsync(int id)
+    public async Task<ActionResult<ApiResponse<FilterPresetDto>>> SetDefaultAsync(int id, CancellationToken ct = default)
     {
-        try
-        {
-            var preset = await _repository.SetDefaultAsync(id);
-            return preset == null
-                ? PresetNotFound<FilterPresetDto>(id)
-                : Ok(Success(FilterPresetDto.From(preset), "Default filter preset set"));
-        }
-        catch (Exception ex)
-        {
-            return ServerError<FilterPresetDto>($"Error setting default filter preset: {ex.Message}");
-        }
+        var preset = await _repository.SetDefaultAsync(id, ct);
+        return preset == null
+            ? PresetNotFound<FilterPresetDto>(id)
+            : Ok(Success(FilterPresetDto.From(preset), "Default filter preset set"));
     }
 
     /// <summary>Leaves no preset as default and returns all presets.</summary>
     [HttpDelete("default")]
-    public async Task<ActionResult<ApiResponse<List<FilterPresetDto>>>> ClearDefaultAsync()
+    public async Task<ActionResult<ApiResponse<List<FilterPresetDto>>>> ClearDefaultAsync(CancellationToken ct = default)
     {
-        try
-        {
-            await _repository.ClearDefaultAsync();
-            return Ok(Success(await GetAllDtosAsync(), "Default filter preset cleared"));
-        }
-        catch (Exception ex)
-        {
-            return ServerError<List<FilterPresetDto>>($"Error clearing default filter preset: {ex.Message}");
-        }
+        await _repository.ClearDefaultAsync(ct);
+        return Ok(Success(await GetAllDtosAsync(ct), "Default filter preset cleared"));
     }
 
-    private async Task<List<FilterPresetDto>> GetAllDtosAsync()
+    private async Task<List<FilterPresetDto>> GetAllDtosAsync(CancellationToken ct = default)
     {
-        var presets = await _repository.GetAllAsync();
+        var presets = await _repository.GetAllAsync(ct);
         return presets.Select(FilterPresetDto.From).ToList();
     }
 
@@ -144,13 +108,4 @@ public class FilterPresetsController : ControllerBase
 
     private ObjectResult PresetNotFound<T>(int id) =>
         NotFound(Failure<T>($"Filter preset {id} not found"));
-
-    private ObjectResult ServerError<T>(string message) =>
-        StatusCode(StatusCodes.Status500InternalServerError, Failure<T>(message));
-
-    private static ApiResponse<T> Success<T>(T data, string message) =>
-        new() { Success = true, Data = data, Message = message };
-
-    private static ApiResponse<T> Failure<T>(string message) =>
-        new() { Success = false, Message = message };
 }

@@ -70,18 +70,32 @@ public class FlatsControllerTests
     }
 
     [Test]
-    public async Task GetAggregatedAsync_ReturnsInternalServerErrorWhenRepositoryFails()
+    public async Task GetAggregatedAsync_LetsTheExceptionPropagateWhenRepositoryFails()
     {
         _aggregationRepository.Setup(r => r.GetLatestAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("query failed"));
 
-        var result = await _controller.GetAggregatedAsync();
+        var act = () => _controller.GetAggregatedAsync();
 
-        result.Result.Should().BeOfType<ObjectResult>()
-            .Which.StatusCode.Should().Be(500);
-        var response = ((ObjectResult)result.Result!).Value.Should().BeOfType<ApiResponse<List<FlatAggregation>>>().Subject;
-        response.Success.Should().BeFalse();
-        response.Message.Should().Contain("query failed");
+        // ApiExceptionHandler turns it into a 500 with a generic message
+        await act.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task Actions_PassTheRequestCancellationTokenToTheRepositories()
+    {
+        using var cts = new CancellationTokenSource();
+        _aggregationRepository.Setup(r => r.GetHistoryAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        _aggregationRepository.Setup(r => r.GetLatestAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        _snapshotRepository.Setup(r => r.GetCurrentOffersAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
+
+        await _controller.GetHistoryAsync(cts.Token);
+        await _controller.GetAggregatedAsync(cts.Token);
+        await _controller.GetCurrentOffersAsync(cts.Token);
+
+        _aggregationRepository.Verify(r => r.GetHistoryAsync(cts.Token), Times.Once);
+        _aggregationRepository.Verify(r => r.GetLatestAsync(cts.Token), Times.Once);
+        _snapshotRepository.Verify(r => r.GetCurrentOffersAsync(cts.Token), Times.Once);
     }
 
     private static TResponse GetResponseValue<TResponse>(ActionResult<TResponse> result)

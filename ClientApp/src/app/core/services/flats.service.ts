@@ -37,7 +37,8 @@ export class FlatsService {
   }
 
   getScrapeStatus(): Observable<ScrapingStatusResponse> {
-    return this.http.get<ScrapingStatusResponse>(`${this.apiUrl}/scrape/status`);
+    return this.http.get<ApiResponse<ScrapingStatusResponse>>(`${this.apiUrl}/scrape/status`)
+      .pipe(unwrapApiResponse());
   }
 
   cancelScrape(): Observable<CancelScrapeResponse> {

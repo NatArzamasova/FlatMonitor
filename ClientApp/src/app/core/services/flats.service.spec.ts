@@ -147,15 +147,14 @@ describe('FlatsService', () => {
     it('should trigger a scrape job', () => {
       const mockResponse: ScrapeResponse = {
         success: true,
-        message: 'Scraping started',
-        scrapedAtUtc: '2024-01-15T10:30:00Z',
-        flatsCount: 42
+        message: 'Scrape job queued',
+        data: { jobId: '6f9619ff-8b86-d011-b42d-00cf4fc964ff', queuedAtUtc: '2024-01-15T10:30:00Z' }
       };
 
       service.triggerScrape().subscribe(result => {
         expect(result).toEqual(mockResponse);
         expect(result.success).toBe(true);
-        expect(result.flatsCount).toBe(42);
+        expect(result.data?.jobId).toBe('6f9619ff-8b86-d011-b42d-00cf4fc964ff');
       });
 
       const req = httpMock.expectOne('/api/scrape');
@@ -167,9 +166,7 @@ describe('FlatsService', () => {
     it('should handle scrape failure', () => {
       const mockResponse: ScrapeResponse = {
         success: false,
-        message: 'Scraping failed',
-        scrapedAtUtc: '2024-01-15T10:30:00Z',
-        flatsCount: 0
+        message: 'Scraping failed'
       };
 
       service.triggerScrape().subscribe(result => {
@@ -214,7 +211,7 @@ describe('FlatsService', () => {
 
       const req = httpMock.expectOne('/api/scrape/status');
       expect(req.request.method).toBe('GET');
-      req.flush(mockStatus);
+      req.flush({ success: true, data: mockStatus, message: 'Scraping status fetched successfully' });
     });
 
     it('should fetch scraping status when scraping is complete', () => {
@@ -236,7 +233,7 @@ describe('FlatsService', () => {
       });
 
       const req = httpMock.expectOne('/api/scrape/status');
-      req.flush(mockStatus);
+      req.flush({ success: true, data: mockStatus, message: 'Scraping status fetched successfully' });
     });
 
     it('should handle status without history', () => {
@@ -250,7 +247,17 @@ describe('FlatsService', () => {
       });
 
       const req = httpMock.expectOne('/api/scrape/status');
-      req.flush(mockStatus);
+      req.flush({ success: true, data: mockStatus, message: 'Scraping status fetched successfully' });
+    });
+  
+    it('should report an API failure as ApiResponseError', () => {
+      let error: unknown;
+      service.getScrapeStatus().subscribe({ error: err => error = err });
+
+      httpMock.expectOne('/api/scrape/status').flush({ success: false, message: 'Status unavailable' });
+
+      expect(error).toEqual(jasmine.any(ApiResponseError));
+      expect((error as Error).message).toBe('Status unavailable');
     });
   });
 
@@ -263,7 +270,7 @@ describe('FlatsService', () => {
       const req = httpMock.expectOne('/api/scrape/cancel');
       expect(req.request.method).toBe('POST');
       expect(req.request.body).toEqual({});
-      req.flush({});
+      req.flush({ success: true, data: true, message: 'Scrape cancellation requested' });
     });
 
     it('should handle cancel errors', () => {

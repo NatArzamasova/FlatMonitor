@@ -137,13 +137,13 @@ async Task<int> RunWebServerAsync(string[] args)
 
         builder.Services.AddFlatMonitorCore(builder.Configuration, builder.Environment.ContentRootPath);
 
-        builder.Services.AddSingleton<ScrapeJobService>();
-        builder.Services.AddHostedService<ScrapeBackgroundService>();
-
-        builder.Services.AddControllers();
+        builder.Services.AddFlatMonitorApi();
         builder.Services.AddSwaggerGen();
 
         var app = builder.Build();
+
+        // First, so it also covers exceptions from later middleware; writes an ApiResponse 500 (ApiExceptionHandler)
+        app.UseExceptionHandler();
 
         await using (var scope = app.Services.CreateAsyncScope())
         {

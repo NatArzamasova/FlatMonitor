@@ -1,5 +1,6 @@
 namespace FlatMonitor;
 
+using FlatMonitor.Api;
 using FlatMonitor.Api.Services;
 using FlatMonitor.Scraping;
 using FlatMonitor.Scraping.ImmobilienScout24;
@@ -52,6 +53,23 @@ public static class ServiceRegistrationExtensions
             sp.GetRequiredService<ILogger<ScraperCoordinator>>()));
         services.AddScoped<ScrapeExecutionService>();
 
+        return services;
+    }
+
+    /// <summary>
+    /// Web server only, on top of <see cref="AddFlatMonitorCore"/>: the scrape job queue and its runner, the controllers,
+    /// and <see cref="ApiExceptionHandler"/> (used by <c>app.UseExceptionHandler()</c>).
+    /// </summary>
+    public static IServiceCollection AddFlatMonitorApi(this IServiceCollection services)
+    {
+        services.AddSingleton<ScrapeJobService>();
+        services.AddHostedService<ScrapeBackgroundService>();
+
+        services.AddExceptionHandler<ApiExceptionHandler>();
+        // Fallback for anything the handler does not write; UseExceptionHandler() also requires it to be configured
+        services.AddProblemDetails();
+
+        services.AddControllers();
         return services;
     }
 }

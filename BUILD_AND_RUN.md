@@ -79,8 +79,14 @@ ClientApp/                # Angular Frontend
 
 ## API Endpoints
 
+Every response body is an `ApiResponse` envelope: `{ "success": bool, "data": ..., "message": string }`.
+Unexpected errors return `500` with `success: false` and the generic message "An unexpected error occurred";
+the details are only in the server log.
+
 - `GET /api/flats/aggregated` — Returns aggregated flat statistics
-- `POST /api/scrape` — Triggers manual scrape
+- `POST /api/scrape` — Queues a manual scrape (`202`, `data` = job id and queue time); `409` while one is queued or running
+- `GET /api/scrape/status` — Whether a scrape is in progress, plus the last and last successful run
+- `POST /api/scrape/cancel` — Cancels the queued or running scrape (`data` = whether there was one)
 - `GET /swagger` — Swagger UI (development only)
 
 ## CI Pipelines

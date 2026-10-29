@@ -349,7 +349,20 @@ the scrapers, coordinator, and repositories, and use levels (`Debug` for per-car
 
 Keep `Console` only for the CLI's final user-facing summary.
 
-### 2.7 API: centralize error handling and the response envelope
+### 2.7 API: centralize error handling and the response envelope ✅ Done
+> **Done:** `ApiExceptionHandler` (`IExceptionHandler`, `app.UseExceptionHandler()`) writes a 500 `ApiResponse` with the
+> generic message "An unexpected error occurred" and logs the exception; an aborted request gets 499 and a Debug log.
+> An `ApiResponse` body rather than ProblemDetails, because the frontend reads `error.message`. All controllers derive from
+> `ApiControllerBase` (`Success`/`Failure`) and have no try/catch, except `FilterPresetsController`'s
+> `DbUpdateException` → 409 name-race check, which now rethrows otherwise. Every action takes a `CancellationToken`
+> (the request's) and passes it to the repositories. `ScrapeController` returns `ApiResponse` everywhere:
+> `TriggerScrape` (renamed) → `ApiResponse<ScrapeQueuedResponse>` (job id, queue time; `ScrapeResponse` deleted),
+> `status` → `ApiResponse<ScrapingStatusResponse>` (the Angular `FlatsService` now unwraps it), `status/{id}` and `cancel`
+> (`data` = whether a job was canceled). Web-only registrations moved to `AddFlatMonitorApi()`.
+> **Not done:** splitting `FlatsController` by resource (changes the frontend routes; optional).
+> Tests: `ApiExceptionHandlerTests`, `ApiExceptionHandlingPipelineTests` (real Kestrel host: 500 without internals,
+> envelope on success, 409), controller tests (exceptions propagate, request token passed), frontend specs for the new shapes.
+
 **Severity:** Low–Medium · **Files:** `Api/Controllers/FlatsController.cs`, `FilterPresetsController.cs`
 
 Every action repeats `try { ... } catch (Exception ex) { return StatusCode(500, new ApiResponse { Message = ex.Message }) }`.
