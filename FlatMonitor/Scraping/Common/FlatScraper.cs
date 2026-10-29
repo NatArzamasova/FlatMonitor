@@ -3,22 +3,29 @@ namespace FlatMonitor.Scraping.Common;
 using System.Runtime.CompilerServices;
 using FlatMonitor.Models;
 using FlatMonitor.Scraping;
+using FlatMonitor.Storage;
 using Microsoft.Extensions.Logging;
 
 /// <summary>
 /// Base class for scrapers that fetch all pages first, then enrich each flat with its details.
-/// Flow: initialize → fetch all pages (on the flats index) → enrich and yield each flat (navigate to detail pages) → cleanup.
+/// Flow: clear the HTML snapshots → start a session → fetch all pages (on the flats index) → enrich and yield each
+/// flat (navigate to detail pages) → dispose the session.
 /// Collecting all cards first avoids losing pagination context when navigating to detail pages.
-/// Derived classes implement how to initialize, fetch pages, enrich flats, and clean up.
+/// Derived classes only start a session; everything a run needs (browser, fetchers) lives in that session.
 /// </summary>
 public abstract class FlatScraper : IScraper
 {
-    protected FlatScraper(ILogger logger)
+    protected FlatScraper(string source, HtmlSnapshotStore htmlSnapshots, ILogger logger)
     {
+        Source = source ?? throw new ArgumentNullException(nameof(source));
+        HtmlSnapshots = htmlSnapshots ?? throw new ArgumentNullException(nameof(htmlSnapshots));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public abstract string Source { get; }
+    public string Source { get; }
+
+    /// <summary>The detail pages of the current run, for debugging; emptied when a run starts.</summary>
+    protected HtmlSnapshotStore HtmlSnapshots { get; }
 
     /// <summary>The derived scraper's logger; also handed to the helpers it creates.</summary>
     protected ILogger Logger { get; }
@@ -26,50 +33,41 @@ public abstract class FlatScraper : IScraper
     public async IAsyncEnumerable<Flat> ScrapeAsync([EnumeratorCancellation] CancellationToken ct = default)
     {
         // No catch: failures and cancellation must reach ScraperCoordinator, which records them as source errors.
-        try
+        await HtmlSnapshots.ClearAsync(ct);
+
+        // A session that fails to start cleans up after itself; once started, it is disposed however the run ends
+        await using var session = await StartAsync(ct);
+
+        // First, fetch and parse all pages to collect all flats
+        // This must happen while on the flats index (before detail navigation)
+        var cards = new List<Flat>();
+        int pageCount = 0;
+        await foreach (var pageListings in session.FetchCardsAsync(ct))
         {
-            // Initialize scraper (handles browser launch, authentication, etc.)
-            await InitializeAsync(ct);
-
-            // Clear previous HTML snapshots from last run
-            await ClearPreviousSnapshotsAsync(ct);
-
-            // First, fetch and parse all pages to collect all flats
-            // This must happen while on the flats index (before detail navigation)
-            var cards = new List<Flat>();
-            int pageCount = 0;
-            await foreach (var pageListings in FetchAndParseAllPagesAsync(ct))
-            {
-                pageCount++;
-                Logger.LogInformation("{Source}: collected {Count} flats from page {Page}", Source, pageListings.Count, pageCount);
-                cards.AddRange(pageListings);
-            }
-
-            Logger.LogInformation("{Source}: all pages fetched: {Pages} pages, {Count} flats collected", Source, pageCount, cards.Count);
-
-            // Then, enrich and yield one by one
-            Logger.LogInformation("{Source}: enriching {Count} flats with details", Source, cards.Count);
-            for (int i = 0; i < cards.Count; i++)
-            {
-                ct.ThrowIfCancellationRequested();
-                yield return await EnrichOrKeepAsync(cards[i], i + 1, cards.Count, ct);
-            }
-
-            Logger.LogInformation("{Source}: scraping complete, {Count} flats processed", Source, cards.Count);
+            pageCount++;
+            Logger.LogInformation("{Source}: collected {Count} flats from page {Page}", Source, pageListings.Count, pageCount);
+            cards.AddRange(pageListings);
         }
-        finally
+
+        Logger.LogInformation("{Source}: all pages fetched: {Pages} pages, {Count} flats collected", Source, pageCount, cards.Count);
+
+        // Then, enrich and yield one by one
+        Logger.LogInformation("{Source}: enriching {Count} flats with details", Source, cards.Count);
+        for (int i = 0; i < cards.Count; i++)
         {
-            // Cleanup (close browser, dispose resources, etc.)
-            await CleanupAsync();
+            ct.ThrowIfCancellationRequested();
+            yield return await EnrichOrKeepAsync(session, cards[i], i + 1, cards.Count, ct);
         }
+
+        Logger.LogInformation("{Source}: scraping complete, {Count} flats processed", Source, cards.Count);
     }
 
     /// <summary>Enriches the flat; if its detail page fails, keeps the card data and continues.</summary>
-    private async Task<Flat> EnrichOrKeepAsync(Flat flat, int position, int total, CancellationToken ct)
+    private async Task<Flat> EnrichOrKeepAsync(IScrapeSession session, Flat flat, int position, int total, CancellationToken ct)
     {
         try
         {
-            var enrichedFlat = await EnrichListingWithDetailsAsync(flat, ct);
+            var enrichedFlat = await session.EnrichAsync(flat, ct);
             Logger.LogDebug(
                 "{Source}: ({Position}/{Total}) {ListingId} - Address={Address}, Price={PriceEur}, OriginalPrice={OriginalPriceEur}, " +
                 "Area={LivingAreaSqm}, Rooms={RoomsCount}, Commission={CommissionPercent}",
@@ -87,35 +85,20 @@ public abstract class FlatScraper : IScraper
     }
 
     /// <summary>
-    /// Initialize the scraper (launch browser, authenticate, setup HTTP client, etc.).
-    /// Called once at the start of scraping.
+    /// Starts a run: launches the browser, creates the fetchers, and so on. Throws if that fails, leaving nothing open.
     /// </summary>
-    protected abstract Task InitializeAsync(CancellationToken ct);
+    protected abstract Task<IScrapeSession> StartAsync(CancellationToken ct);
 
-    /// <summary>
-    /// Clear previous HTML snapshots from the last scrape run.
-    /// Called after initialization but before fetching pages.
-    /// </summary>
-    protected virtual Task ClearPreviousSnapshotsAsync(CancellationToken ct)
+    /// <summary>One run of a scraper. Disposing it releases what the run opened (e.g. closes the browser).</summary>
+    protected interface IScrapeSession : IAsyncDisposable
     {
-        return Task.CompletedTask;
+        /// <summary>
+        /// Fetches all pages and yields each page's parsed listing cards: basic info (ID, URL, title, ...), not yet
+        /// the details.
+        /// </summary>
+        IAsyncEnumerable<List<Flat>> FetchCardsAsync(CancellationToken ct);
+
+        /// <summary>The card with its detail page's data. Throws if the detail page cannot be loaded.</summary>
+        Task<Flat> EnrichAsync(Flat card, CancellationToken ct);
     }
-
-    /// <summary>
-    /// Fetch all pages and yield parsed listing cards.
-    /// Listing cards should have basic info (ID, URL, title, etc.) but may not have full details yet.
-    /// </summary>
-    protected abstract IAsyncEnumerable<List<Flat>> FetchAndParseAllPagesAsync(CancellationToken ct);
-
-    /// <summary>
-    /// Enrich a single listing by fetching and parsing its detail page.
-    /// Returns a new Flat object with all available data filled in.
-    /// </summary>
-    protected abstract Task<Flat> EnrichListingWithDetailsAsync(Flat baseListing, CancellationToken ct);
-
-    /// <summary>
-    /// Cleanup resources (close browser, dispose HTTP client, etc.).
-    /// Called once at the end of scraping.
-    /// </summary>
-    protected abstract Task CleanupAsync();
 }

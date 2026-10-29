@@ -1,6 +1,10 @@
 using NUnit.Framework;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using FlatMonitor.Models;
+using FlatMonitor.Scraping.Common;
+using FlatMonitor.Storage;
 
 namespace FlatMonitor.Tests.Scraping.Common;
 
@@ -10,17 +14,63 @@ using static FakeFlatScraper;
 public class FlatScraperTests
 {
     [Test]
-    public async Task ScrapeAsync_WhenInitializationFails_ThrowsAndCleansUp()
+    public async Task ScrapeAsync_WhenTheSessionFailsToStart_Throws()
     {
-        // Arrange
-        var scraper = new FakeFlatScraper { InitializeException = new InvalidOperationException("Login failed") };
+        // Arrange: a session that fails to start cleans up itself, so there is nothing to dispose
+        var scraper = new FakeFlatScraper { StartException = new InvalidOperationException("Login failed") };
 
         // Act
         var act = async () => await scraper.ScrapeAsync().ToListAsync();
 
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("Login failed");
-        scraper.CleanupCalled.Should().BeTrue();
+        scraper.SessionStarted.Should().BeFalse();
+    }
+
+    [Test]
+    public async Task ScrapeAsync_EmptiesTheHtmlSnapshotsBeforeStartingTheSession()
+    {
+        // Arrange: a page saved by the previous run
+        var dir = Path.Combine(Path.GetTempPath(), $"FlatScraperTests_{Guid.NewGuid()}");
+        var snapshots = new HtmlSnapshotStore(dir, NullLogger.Instance);
+        await snapshots.SaveAsync("old", "<html></html>");
+        var scraper = new SnapshotCheckingScraper(snapshots);
+
+        try
+        {
+            // Act
+            await scraper.ScrapeAsync().ToListAsync();
+
+            // Assert
+            scraper.SnapshotsWhenStarted.Should().BeEmpty();
+        }
+        finally
+        {
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    /// <summary>Records which HTML snapshots exist when its session starts; yields nothing.</summary>
+    private sealed class SnapshotCheckingScraper(HtmlSnapshotStore snapshots)
+        : FlatScraper("Checking", snapshots, NullLogger.Instance)
+    {
+        public string[] SnapshotsWhenStarted { get; private set; } = [];
+
+        protected override Task<IScrapeSession> StartAsync(CancellationToken ct)
+        {
+            SnapshotsWhenStarted = Directory.Exists(HtmlSnapshots.Directory) ? Directory.GetFiles(HtmlSnapshots.Directory) : [];
+            return Task.FromResult<IScrapeSession>(new EmptySession());
+        }
+
+        private sealed class EmptySession : IScrapeSession
+        {
+            public IAsyncEnumerable<List<Flat>> FetchCardsAsync(CancellationToken ct) => AsyncEnumerable.Empty<List<Flat>>();
+
+            public Task<Flat> EnrichAsync(Flat card, CancellationToken ct) => Task.FromResult(card);
+
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        }
     }
 
     [Test]
@@ -34,7 +84,7 @@ public class FlatScraperTests
 
         // Assert
         await act.Should().ThrowAsync<HttpRequestException>();
-        scraper.CleanupCalled.Should().BeTrue();
+        scraper.SessionDisposed.Should().BeTrue();
     }
 
     [Test]
@@ -57,7 +107,7 @@ public class FlatScraperTests
 
         // Assert
         await act.Should().ThrowAsync<OperationCanceledException>();
-        scraper.CleanupCalled.Should().BeTrue();
+        scraper.SessionDisposed.Should().BeTrue();
     }
 
     [Test]
@@ -147,7 +197,7 @@ public class FlatScraperTests
 
         // Assert
         enrichedWhenYielded.Should().Equal(1, 2, 3);
-        scraper.CleanupCalled.Should().BeTrue();
+        scraper.SessionDisposed.Should().BeTrue();
     }
 
     [Test]
@@ -167,6 +217,6 @@ public class FlatScraperTests
 
         // Assert
         enriched.Should().Equal("1");
-        scraper.CleanupCalled.Should().BeTrue();
+        scraper.SessionDisposed.Should().BeTrue();
     }
 }

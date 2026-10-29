@@ -99,7 +99,7 @@ public class ScrapeBackgroundServiceTests
         // Act
         var job = await RunJobAsync(
             new FakeFlatScraper("OhneMakler") { Flats = [FakeFlatScraper.CreateFlat("1")] },
-            new FakeFlatScraper("ImmobilienScout24") { InitializeException = new InvalidOperationException("Login failed") });
+            new FakeFlatScraper("ImmobilienScout24") { StartException = new InvalidOperationException("Login failed") });
 
         // Assert
         job.Status.Should().Be(ScrapeJobStatus.Completed);
@@ -151,7 +151,7 @@ public class ScrapeBackgroundServiceTests
     public async Task ProcessJob_WhenASourceFails_ItKeepsItsPreviousFlatsAndTheOtherSourceIsReplaced()
     {
         // Arrange: OhneMakler has "existing" from an earlier run
-        var failing = new FakeFlatScraper("OhneMakler") { InitializeException = new HttpRequestException("Site down") };
+        var failing = new FakeFlatScraper("OhneMakler") { StartException = new HttpRequestException("Site down") };
         var working = new FakeFlatScraper("ImmobilienScout24")
         {
             Flats = [FakeFlatScraper.CreateFlat("2") with { Source = "ImmobilienScout24" }],

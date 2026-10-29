@@ -9,159 +9,148 @@ using Microsoft.Extensions.Logging;
 
 /// <summary>
 /// Scraper for immobilienscout24.de apartment flats.
-/// Uses Playwright for browser automation (Google OAuth, robot guard), then parses each listing card with the ImmobilienScout24CardParser.
-/// Processes each flat's details immediately as pages are fetched.
-/// Saves flats to database in batches to avoid memory bloat on large datasets.
+/// Uses Playwright for browser automation (the site shows a robot guard to plain HTTP clients), then parses each
+/// listing card with the ImmobilienScout24CardParser and each expose page with the ImmobilienScout24DetailParser.
 /// </summary>
 public sealed class ImmobilienScout24Scraper : FlatScraper
 {
     public const string SourceName = "ImmobilienScout24";
 
-    private readonly ImmobilienScout24CardParser _cardParser;
-    private readonly ImmobilienScout24Selectors _selectors;
-    private readonly HtmlSnapshotStore _htmlSnapshots;
     private readonly ImmobilienScout24Options _options;
-    private readonly ImmobilienScout24DetailParser _detailParser;
-    private ImmobilienScout24BrowserSession? _session;
-    private ImmobilienScout24DetailScraper? _detailScraper;
-    private ImmobilienScout24FlatsPageFetcher? _pageFetcher;
-
-    public override string Source => SourceName;
 
     public ImmobilienScout24Scraper(StorageOptions storage, ImmobilienScout24Options options, ILogger<ImmobilienScout24Scraper> logger)
-        : base(logger)
+        : base(SourceName, HtmlSnapshotStore.ForSource(storage, SourceName, logger), logger)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
-        _cardParser = new ImmobilienScout24CardParser(logger);
-        _selectors = new ImmobilienScout24Selectors();
-        _htmlSnapshots = HtmlSnapshotStore.ForSource(storage, SourceName, logger);
-        _detailParser = new ImmobilienScout24DetailParser();
     }
 
-    protected override async Task InitializeAsync(CancellationToken ct)
+    protected override async Task<IScrapeSession> StartAsync(CancellationToken ct)
     {
-        _session = await new ImmobilienScout24BrowserScraper(_options, Logger).LaunchAndAuthenticateAsync();
-        _detailScraper = new ImmobilienScout24DetailScraper(_session.Page, _htmlSnapshots, Logger);
-        _pageFetcher = new ImmobilienScout24FlatsPageFetcher(_session.Page, Logger);
+        var browser = await new ImmobilienScout24BrowserScraper(_options, Logger).LaunchAndAuthenticateAsync();
+        return new Session(browser, _options, HtmlSnapshots, Logger);
     }
 
-    protected override Task ClearPreviousSnapshotsAsync(CancellationToken ct) => _htmlSnapshots.ClearAsync(ct);
-
-    protected override async IAsyncEnumerable<List<Flat>> FetchAndParseAllPagesAsync([EnumeratorCancellation] CancellationToken ct)
+    /// <summary>One run in one browser, which is on the first listings page when the session starts.</summary>
+    private sealed class Session : IScrapeSession
     {
-        if (_session == null || _pageFetcher == null)
+        private readonly ImmobilienScout24BrowserSession _browser;
+        private readonly ImmobilienScout24Options _options;
+        private readonly ILogger _logger;
+        private readonly ImmobilienScout24FlatsPageFetcher _pageFetcher;
+        private readonly ImmobilienScout24DetailScraper _detailScraper;
+        private readonly ImmobilienScout24CardParser _cardParser;
+        private readonly ImmobilienScout24DetailParser _detailParser = new();
+        private readonly ImmobilienScout24Selectors _selectors = new();
+
+        public Session(ImmobilienScout24BrowserSession browser, ImmobilienScout24Options options, HtmlSnapshotStore htmlSnapshots, ILogger logger)
         {
-            yield break;
+            _browser = browser;
+            _options = options;
+            _logger = logger;
+            _pageFetcher = new ImmobilienScout24FlatsPageFetcher(browser.Page, logger);
+            _detailScraper = new ImmobilienScout24DetailScraper(browser.Page, htmlSnapshots, logger);
+            _cardParser = new ImmobilienScout24CardParser(logger);
         }
 
-        // Fetch and parse first page
-        Logger.LogDebug("ImmobilienScout24: processing first page");
-        var firstPageHtml = await _session.Page.ContentAsync();
-
-        // A suspiciously small page is usually the robot guard, not the listings
-        if (firstPageHtml.Length < 10000)
+        public async IAsyncEnumerable<List<Flat>> FetchCardsAsync([EnumeratorCancellation] CancellationToken ct)
         {
-            await WarnAboutSmallFirstPageAsync(firstPageHtml, ct);
+            // Fetch and parse first page
+            _logger.LogDebug("ImmobilienScout24: processing first page");
+            var firstPageHtml = await _browser.Page.ContentAsync();
+
+            // A suspiciously small page is usually the robot guard, not the listings
+            if (firstPageHtml.Length < 10000)
+            {
+                await WarnAboutSmallFirstPageAsync(firstPageHtml, ct);
+            }
+
+            var firstPageListings = ParseListingsPage(firstPageHtml);
+            if (firstPageListings.Count == 0)
+            {
+                throw new InvalidOperationException("No listings on the first page (robot guard?)");
+            }
+
+            yield return firstPageListings;
+
+            // Fetch and parse remaining pages
+            await foreach (var pageHtml in _pageFetcher.FetchAllPagesHtmlAsync(ct))
+            {
+                var listings = ParseListingsPage(pageHtml);
+                yield return listings;
+            }
         }
 
-        var firstPageListings = ParseListingsPage(firstPageHtml);
-        if (firstPageListings.Count == 0)
+        public async Task<Flat> EnrichAsync(Flat card, CancellationToken ct)
         {
-            throw new InvalidOperationException("No listings on the first page (robot guard?)");
+            if (string.IsNullOrEmpty(card.Url))
+            {
+                _logger.LogWarning("ImmobilienScout24: listing {ListingId} has no URL, skipping details", card.ListingId);
+                return card;
+            }
+
+            _logger.LogDebug("ImmobilienScout24: listing {ListingId}: opening detail page", card.ListingId);
+            var html = await _detailScraper.FetchDetailHtmlAsync(card.Url, card.ListingId, ct);
+            var detailPage = _detailParser.Parse(html);
+            _logger.LogDebug("ImmobilienScout24: listing {ListingId}: parsed details: PropertyType={PropertyType}, BuildYear={BuildYear}, Heating={Heating}",
+                card.ListingId, detailPage.Details?.PropertyType, detailPage.Details?.BuildYear, detailPage.Details?.Heating);
+
+            return detailPage.ApplyTo(card);
         }
 
-        yield return firstPageListings;
+        public ValueTask DisposeAsync() => _browser.DisposeAsync();
 
-        // Fetch and parse remaining pages
-        await foreach (var pageHtml in _pageFetcher.FetchAllPagesHtmlAsync(ct))
+        private async Task WarnAboutSmallFirstPageAsync(string html, CancellationToken ct)
         {
-            var listings = ParseListingsPage(pageHtml);
-            yield return listings;
-        }
-    }
+            if (!_options.SaveDebugPages)
+            {
+                _logger.LogWarning("ImmobilienScout24: first page HTML is only {Bytes} bytes (set {Section}:SaveDebugPages to true to save it)",
+                    html.Length, ImmobilienScout24Options.SectionName);
+                return;
+            }
 
-    private async Task WarnAboutSmallFirstPageAsync(string html, CancellationToken ct)
-    {
-        if (!_options.SaveDebugPages)
-        {
-            Logger.LogWarning("ImmobilienScout24: first page HTML is only {Bytes} bytes (set {Section}:SaveDebugPages to true to save it)",
-                html.Length, ImmobilienScout24Options.SectionName);
-            return;
+            var debugPath = Path.Combine(Path.GetTempPath(), $"immobilienscout24_debug_{DateTime.Now:yyyyMMdd_HHmmss}.html");
+            await File.WriteAllTextAsync(debugPath, html, ct);
+            _logger.LogWarning("ImmobilienScout24: first page HTML is only {Bytes} bytes, saved to {Path}", html.Length, debugPath);
         }
 
-        var debugPath = Path.Combine(Path.GetTempPath(), $"immobilienscout24_debug_{DateTime.Now:yyyyMMdd_HHmmss}.html");
-        await File.WriteAllTextAsync(debugPath, html, ct);
-        Logger.LogWarning("ImmobilienScout24: first page HTML is only {Bytes} bytes, saved to {Path}", html.Length, debugPath);
-    }
-
-    protected override async Task<Flat> EnrichListingWithDetailsAsync(Flat baseListing, CancellationToken ct)
-    {
-        if (_detailScraper == null)
+        /// <summary>
+        /// Parse all listing cards from a listings page HTML. A card that cannot be read is skipped by the card parser.
+        /// </summary>
+        private List<Flat> ParseListingsPage(string html)
         {
-            return baseListing;
-        }
+            var results = new List<Flat>();
 
-        if (string.IsNullOrEmpty(baseListing.Url))
-        {
-            Logger.LogWarning("ImmobilienScout24: listing {ListingId} has no URL, skipping details", baseListing.ListingId);
-            return baseListing;
-        }
+            var doc = new HtmlDocument();
+            doc.LoadHtml(html);
 
-        Logger.LogDebug("ImmobilienScout24: listing {ListingId}: opening detail page", baseListing.ListingId);
-        var html = await _detailScraper.FetchDetailHtmlAsync(baseListing.Url, baseListing.ListingId, ct);
-        var detailPage = _detailParser.Parse(html);
-        Logger.LogDebug("ImmobilienScout24: listing {ListingId}: parsed details: PropertyType={PropertyType}, BuildYear={BuildYear}, Heating={Heating}",
-            baseListing.ListingId, detailPage.Details?.PropertyType, detailPage.Details?.BuildYear, detailPage.Details?.Heating);
+            // Select all listing card containers
+            var listingCards = doc.DocumentNode.SelectNodes(_selectors.ListingCardXPath);
+            _logger.LogDebug("ImmobilienScout24: page HTML {Bytes} bytes, XPath {XPath} matched {Count} cards",
+                html.Length, _selectors.ListingCardXPath, listingCards?.Count ?? 0);
 
-        return detailPage.ApplyTo(baseListing);
-    }
+            if (listingCards == null || listingCards.Count == 0)
+            {
+                _logger.LogWarning("ImmobilienScout24: no listing cards found on page (XPath {XPath})", _selectors.ListingCardXPath);
+                return results;
+            }
 
-    protected override async Task CleanupAsync()
-    {
-        if (_session != null)
-        {
-            await _session.DisposeAsync();
-            _session = null;
-        }
-    }
+            foreach (var card in listingCards)
+            {
+                _logger.LogTrace("ImmobilienScout24: card outerHTML (first 200 chars): {Html}", card.OuterHtml[..Math.Min(200, card.OuterHtml.Length)]);
+                var flat = _cardParser.Parse(card);
+                if (flat != null)
+                {
+                    _logger.LogDebug("ImmobilienScout24: parsed card {ListingId}", flat.ListingId);
+                    results.Add(flat);
+                }
+                else
+                {
+                    _logger.LogDebug("ImmobilienScout24: card has no listing ID or cannot be read, skipped");
+                }
+            }
 
-    /// <summary>
-    /// Parse all listing cards from a listings page HTML. A card that cannot be read is skipped by the card parser.
-    /// </summary>
-    private List<Flat> ParseListingsPage(string html)
-    {
-        var results = new List<Flat>();
-
-        var doc = new HtmlDocument();
-        doc.LoadHtml(html);
-
-        // Select all listing card containers
-        var listingCards = doc.DocumentNode.SelectNodes(_selectors.ListingCardXPath);
-        Logger.LogDebug("ImmobilienScout24: page HTML {Bytes} bytes, XPath {XPath} matched {Count} cards",
-            html.Length, _selectors.ListingCardXPath, listingCards?.Count ?? 0);
-
-        if (listingCards == null || listingCards.Count == 0)
-        {
-            Logger.LogWarning("ImmobilienScout24: no listing cards found on page (XPath {XPath})", _selectors.ListingCardXPath);
+            _logger.LogDebug("ImmobilienScout24: parsed {Count} listings from page", results.Count);
             return results;
         }
-
-        foreach (var card in listingCards)
-        {
-            Logger.LogTrace("ImmobilienScout24: card outerHTML (first 200 chars): {Html}", card.OuterHtml[..Math.Min(200, card.OuterHtml.Length)]);
-            var flat = _cardParser.Parse(card);
-            if (flat != null)
-            {
-                Logger.LogDebug("ImmobilienScout24: parsed card {ListingId}", flat.ListingId);
-                results.Add(flat);
-            }
-            else
-            {
-                Logger.LogDebug("ImmobilienScout24: card has no listing ID or cannot be read, skipped");
-            }
-        }
-
-        Logger.LogDebug("ImmobilienScout24: parsed {Count} listings from page", results.Count);
-        return results;
     }
 }

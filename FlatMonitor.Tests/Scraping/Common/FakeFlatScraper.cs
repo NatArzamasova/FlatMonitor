@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using FlatMonitor.Models;
 using FlatMonitor.Scraping.Common;
+using FlatMonitor.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -8,16 +9,20 @@ namespace FlatMonitor.Tests.Scraping.Common;
 
 /// <summary>
 /// In-memory <see cref="FlatScraper"/>: returns <see cref="Flats"/> as a single page and can be told to fail at each stage.
+/// Its HTML snapshot directory is never created (nothing is saved), so clearing it does nothing.
 /// </summary>
-internal sealed class FakeFlatScraper(string source = "Fake", ILogger? logger = null) : FlatScraper(logger ?? NullLogger.Instance)
+internal sealed class FakeFlatScraper(string source = "Fake", ILogger? logger = null)
+    : FlatScraper(
+        source,
+        new HtmlSnapshotStore(Path.Combine(Path.GetTempPath(), $"FakeFlatScraper_{Guid.NewGuid()}"), NullLogger.Instance),
+        logger ?? NullLogger.Instance)
 {
-    public override string Source => source;
-
     public List<Flat> Flats { get; init; } = [];
-    public Exception? InitializeException { get; init; }
+    public Exception? StartException { get; init; }
     public Exception? PageFetchException { get; init; }
     public Action<Flat, CancellationToken>? OnEnrich { get; init; }
-    public bool CleanupCalled { get; private set; }
+    public bool SessionStarted { get; private set; }
+    public bool SessionDisposed { get; private set; }
 
     public static Flat CreateFlat(string id, string district = "Oberreut") => new()
     {
@@ -27,26 +32,35 @@ internal sealed class FakeFlatScraper(string source = "Fake", ILogger? logger = 
         ScrapedAtUtc = DateTime.UtcNow,
     };
 
-    protected override Task InitializeAsync(CancellationToken ct) =>
-        InitializeException != null ? Task.FromException(InitializeException) : Task.CompletedTask;
-
-    protected override async IAsyncEnumerable<List<Flat>> FetchAndParseAllPagesAsync([EnumeratorCancellation] CancellationToken ct)
+    protected override Task<IScrapeSession> StartAsync(CancellationToken ct)
     {
-        await Task.Yield();
-        if (PageFetchException != null)
-            throw PageFetchException;
-        yield return Flats;
+        if (StartException != null)
+            return Task.FromException<IScrapeSession>(StartException);
+
+        SessionStarted = true;
+        return Task.FromResult<IScrapeSession>(new Session(this));
     }
 
-    protected override Task<Flat> EnrichListingWithDetailsAsync(Flat baseListing, CancellationToken ct)
+    private sealed class Session(FakeFlatScraper scraper) : IScrapeSession
     {
-        OnEnrich?.Invoke(baseListing, ct);
-        return Task.FromResult(baseListing);
-    }
+        public async IAsyncEnumerable<List<Flat>> FetchCardsAsync([EnumeratorCancellation] CancellationToken ct)
+        {
+            await Task.Yield();
+            if (scraper.PageFetchException != null)
+                throw scraper.PageFetchException;
+            yield return scraper.Flats;
+        }
 
-    protected override Task CleanupAsync()
-    {
-        CleanupCalled = true;
-        return Task.CompletedTask;
+        public Task<Flat> EnrichAsync(Flat card, CancellationToken ct)
+        {
+            scraper.OnEnrich?.Invoke(card, ct);
+            return Task.FromResult(card);
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            scraper.SessionDisposed = true;
+            return ValueTask.CompletedTask;
+        }
     }
 }

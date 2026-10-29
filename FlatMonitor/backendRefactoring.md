@@ -246,7 +246,13 @@ and `FlatScraper` logs it once.
 To make markup changes visible rather than quiet, have the coordinator log per source how many saved flats
 lack price, area or rooms (a "parse health" line), and warn above a threshold.
 
-### 2.4 `FlatScraper`: per-run state instead of nullable fields
+### 2.4 `FlatScraper`: per-run state instead of nullable fields ✅ Done
+
+**Status:** Done as sketched. `FlatScraper` takes the source name and its `HtmlSnapshotStore`, empties the store,
+starts a session (`StartAsync` → `IScrapeSession`) and disposes it with `await using`. Both scrapers are now a
+constructor plus `StartAsync`; their run state (page fetcher, browser, detail scraper, parsers) lives in a private
+`Session`. `InitializeAsync`, `ClearPreviousSnapshotsAsync`, `CleanupAsync`, the nullable fields and their
+guards are gone.
 
 **Severity:** Low · **Files:** `Scraping/Common/FlatScraper.cs`, both scrapers
 

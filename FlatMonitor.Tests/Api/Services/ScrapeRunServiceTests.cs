@@ -68,7 +68,7 @@ public class ScrapeRunServiceTests
     public async Task RunAsync_WhenASourceFails_RecordsPartialFailedWithTheErrors()
     {
         // Arrange
-        var failing = new FakeFlatScraper("ImmobilienScout24") { InitializeException = new InvalidOperationException("Login failed") };
+        var failing = new FakeFlatScraper("ImmobilienScout24") { StartException = new InvalidOperationException("Login failed") };
         var working = new FakeFlatScraper("OhneMakler") { Flats = [FakeFlatScraper.CreateFlat("1")] };
 
         // Act
@@ -150,7 +150,7 @@ public class ScrapeRunServiceTests
         // Assert
         result.Status.Should().Be(ScrapingStatus.Canceled);
         _history.Verify(h => h.CompleteAsync(It.IsAny<int>(), It.IsAny<ScrapingStatus>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
-        scraper.CleanupCalled.Should().BeFalse("the scrape never started");
+        scraper.SessionStarted.Should().BeFalse("the scrape never started");
     }
 
     private ScrapeRunService CreateService(params IScraper[] scrapers)

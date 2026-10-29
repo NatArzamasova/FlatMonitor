@@ -153,7 +153,7 @@ public class ScrapeExecutionServiceExecuteTests
     public async Task ExecuteAsync_WhenASourceFails_PublishesOnlyTheOthersAndStillRefreshes()
     {
         // Arrange
-        var failing = new FakeFlatScraper("ImmobilienScout24") { InitializeException = new InvalidOperationException("Login failed") };
+        var failing = new FakeFlatScraper("ImmobilienScout24") { StartException = new InvalidOperationException("Login failed") };
         var working = new FakeFlatScraper("OhneMakler") { Flats = [FakeFlatScraper.CreateFlat("1")] };
         var service = CreateService(failing, working);
 
