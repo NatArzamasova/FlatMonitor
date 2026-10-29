@@ -662,6 +662,65 @@ public class FlatSnapshotRepositoryTests
         createdAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(1));
     }
 
+    [Test]
+    public async Task UpsertListingsAsync_AfterSaving_NoLongerTracksSnapshots()
+    {
+        // Arrange
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatSnapshotRepository(repoContext);
+        await repo.UpsertListingsAsync([CreateFlat("1"), CreateFlat("2")]);
+
+        // Act
+        await repo.UpsertListingsAsync([CreateFlat("1") with { Title = "Updated" }, CreateFlat("3")]);
+
+        // Assert
+        repoContext.ChangeTracker.Entries().Should().BeEmpty();
+        await using var dbContext = new FlatsDbContext(options);
+        (await dbContext.FlatsSnapshots.CountAsync()).Should().Be(3);
+        (await dbContext.FlatsSnapshots.SingleAsync(s => s.ListingId == "1")).Title.Should().Be("Updated");
+    }
+
+    [Test]
+    public async Task UpsertListingsAsync_KeepsOtherEntitiesOfTheSharedContextTracked()
+    {
+        // Arrange: the background service tracks its history row on the same scoped context
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var history = new ScrapingHistory { StartTimeUtc = DateTime.UtcNow, Status = ScrapingStatus.Running };
+        repoContext.ScrapingHistories.Add(history);
+        await repoContext.SaveChangesAsync();
+
+        // Act
+        await new FlatSnapshotRepository(repoContext).UpsertListingsAsync([CreateFlat("1")]);
+
+        // Assert
+        repoContext.Entry(history).State.Should().Be(EntityState.Unchanged);
+    }
+
+    [Test]
+    public async Task UpsertListingsAsync_LeavesRowsOutsideTheBatchUnchanged()
+    {
+        // Arrange
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatSnapshotRepository(repoContext);
+        await repo.UpsertListingsAsync([CreateFlat("1"), CreateFlat("2"), CreateFlat("1", source: "ImmobilienScout24")]);
+
+        // Act
+        await repo.UpsertListingsAsync([
+            CreateFlat("1") with { Title = "OM updated" },
+            CreateFlat("1", source: "ImmobilienScout24") with { Title = "IS24 updated" }]);
+
+        // Assert
+        await using var dbContext = new FlatsDbContext(options);
+        var rows = await dbContext.FlatsSnapshots.ToDictionaryAsync(s => (s.Source, s.ListingId), s => s.Title);
+        rows.Should().HaveCount(3);
+        rows[("OhneMakler", "1")].Should().Be("OM updated");
+        rows[("OhneMakler", "2")].Should().Be("Listing 2");
+        rows[("ImmobilienScout24", "1")].Should().Be("IS24 updated");
+    }
+
     private static Flat CreateFlat(string listingId, string source = "OhneMakler") => new()
     {
         ListingId = listingId,

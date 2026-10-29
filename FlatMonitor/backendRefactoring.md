@@ -423,7 +423,13 @@ This also leaks exception messages (paths, SQL) to the client.
   `WohnungMonitor.md`) stop clearing the table, upsert for real, and track `FirstSeenUtc` /
   `LastSeenUtc` / `IsActive`. The second option would also make the backup/restore table unnecessary.
 
-### 2.9 Upsert performance
+### 2.9 Upsert performance ✅ Done
+> **Done:** `UpsertListingsAsync` loads only the batch's keys (per source: `Source == src && ids.Contains(ListingId)`).
+> After saving, it detaches the `FlatSnapshot` entries (and their owned `Details`) instead of `ChangeTracker.Clear()`:
+> the context is shared with the background service's tracked `ScrapingHistory` row, which must stay tracked.
+> Tests: `FlatSnapshotRepositoryTests.UpsertListingsAsync_AfterSaving_NoLongerTracksSnapshots`,
+> `*_KeepsOtherEntitiesOfTheSharedContextTracked`, `*_LeavesRowsOutsideTheBatchUnchanged`.
+
 **Severity:** Low (currently) · **File:** `Storage/FlatSnapshotRepository.cs:107-113`
 
 Each batch of 20 loads **all** existing rows for the source into the change tracker, and the tracker keeps them across

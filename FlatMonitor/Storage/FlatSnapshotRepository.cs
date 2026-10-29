@@ -29,13 +29,18 @@ public sealed class FlatSnapshotRepository : ISnapshotRepository
     {
         var now = DateTime.UtcNow;
 
-        var incomingSources = listings.Select(l => l.Source).Distinct().ToList();
-        var existingSnapshots = await _dbContext.FlatsSnapshots
-            .Where(s => incomingSources.Contains(s.Source))
-            .ToListAsync(ct);
-
-        // Build map of existing by (Source, ListingId) key
-        var existingMap = existingSnapshots.ToDictionary(s => (s.Source, s.ListingId));
+        // Load only the rows of this batch, not every row of the source
+        var existingMap = new Dictionary<(string Source, string ListingId), FlatSnapshot>();
+        foreach (var bySource in listings.GroupBy(l => l.Source))
+        {
+            var source = bySource.Key;
+            var ids = bySource.Select(l => l.ListingId).Distinct().ToList();
+            var existing = await _dbContext.FlatsSnapshots
+                .Where(s => s.Source == source && ids.Contains(s.ListingId))
+                .ToListAsync(ct);
+            foreach (var snapshot in existing)
+                existingMap[(snapshot.Source, snapshot.ListingId)] = snapshot;
+        }
 
         foreach (var listing in listings)
         {
@@ -57,6 +62,21 @@ public sealed class FlatSnapshotRepository : ISnapshotRepository
         }
 
         await _dbContext.SaveChangesAsync(ct);
+        DetachSnapshots();
+    }
+
+    /// <summary>
+    /// Stops tracking the saved snapshots so the tracker does not grow with every batch. Only snapshots
+    /// (and their owned details) are detached: the context is shared, e.g. with the scrape history row.
+    /// </summary>
+    private void DetachSnapshots()
+    {
+        var snapshotEntries = _dbContext.ChangeTracker.Entries()
+            .Where(e => e.Entity is FlatSnapshot
+                || e.Metadata.FindOwnership()?.PrincipalEntityType.ClrType == typeof(FlatSnapshot))
+            .ToList();
+        foreach (var entry in snapshotEntries)
+            entry.State = EntityState.Detached;
     }
 
     public async Task<List<FlatOffer>> GetCurrentOffersAsync(CancellationToken ct = default)
