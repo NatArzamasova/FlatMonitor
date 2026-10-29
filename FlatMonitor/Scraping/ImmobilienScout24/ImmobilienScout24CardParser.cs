@@ -61,23 +61,20 @@ public partial class ImmobilienScout24CardParser
         return match.Success ? match.Value : idText;
     }
 
+    /// <summary>
+    /// The expose link's <c>href</c> as an absolute URL without query or fragment (tracking parameters, "#/"),
+    /// so the same listing always gets the same URL. Without a link, the URL is built from a numeric ID.
+    /// </summary>
     private string? ExtractDetailUrl(HtmlNode cardNode, string id)
     {
-        var url = ExtractText(cardNode, _selectors.DetailUrlXPath);
-        if (string.IsNullOrWhiteSpace(url))
-        {
-            // No link on the card: build the expose URL from a numeric ID
-            if (id.All(char.IsDigit))
-                url = $"/expose/{id}";
-            else
-                return null;
-        }
+        var baseUri = new Uri(_selectors.BaseUrl);
+        var href = HtmlEntity.DeEntitize(
+            cardNode.SelectSingleNode(_selectors.DetailLinkXPath)?.GetAttributeValue("href", null)?.Trim() ?? "");
 
-        // Convert relative URLs to absolute
-        if (url.StartsWith('/'))
-            url = _selectors.BaseUrl.TrimEnd('/') + url;
+        if (!string.IsNullOrEmpty(href) && Uri.TryCreate(baseUri, href, out var linkUri))
+            return linkUri.GetLeftPart(UriPartial.Path);
 
-        return url;
+        return id.All(char.IsDigit) ? new Uri(baseUri, $"/expose/{id}").AbsoluteUri : null;
     }
 
     private static string? ExtractText(HtmlNode node, string xpath)

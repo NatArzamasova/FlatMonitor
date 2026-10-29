@@ -43,13 +43,25 @@ public class ImmobilienScout24CardParserTests
     }
 
     [Test]
-    public void Parse_ExposeLinkWithText_TakesTheLinkTextAsUrl()
+    public void Parse_ExposeLinkWithText_TakesTheHrefNotTheText()
     {
-        // Known quirk, kept as it is: HtmlAgilityPack selects the <a> element for ".../@href", so the URL is the
-        // link's text. On the live site the URL ends up built from the listing ID (every stored IS24 URL is /expose/{id}).
-        var flat = _parser.Parse(Card("""<div class="listing-card" data-obid="160123456"><a href="/expose/160123456">Zum Exposé</a></div>"""));
+        // Live cards wrap price, rooms and area in the expose link; that text once became the URL
+        var flat = _parser.Parse(Card("""
+            <div class="listing-card" data-obid="160123456">
+              <a href="/expose/160123456"><span>399.000&nbsp;€</span><span>2 Zi. · 62 m²</span></a>
+            </div>
+            """));
 
-        flat!.Url.Should().Be("Zum Exposé");
+        flat!.Url.Should().Be("https://www.immobilienscout24.de/expose/160123456");
+    }
+
+    [TestCase("/expose/160123456?referrer=RESULT_LIST_LISTING&amp;searchId=1#/")]
+    [TestCase("https://www.immobilienscout24.de/expose/160123456#/")]
+    public void Parse_ExposeLink_DropsQueryAndFragment(string href)
+    {
+        var flat = _parser.Parse(Card($"""<div class="listing-card" data-obid="160123456"><a href="{href}"></a></div>"""));
+
+        flat!.Url.Should().Be("https://www.immobilienscout24.de/expose/160123456");
     }
 
     [Test]

@@ -546,10 +546,12 @@ unless a debug flag is set.
 > the OhneMakler card reads "74,5 m²" as 74.5 (was 5) and the IS24 card keeps the area's decimals (was truncated);
 > integers come from the first number in the text instead of all its digits ("250,90 €" → 250, was 25090);
 > a commission without decimals ("3%") is read (was `null`).
-> **Found, not changed:** HtmlAgilityPack selects the element for an attribute XPath (`.../@href`, `.//img/@alt`), so
-> the IS24 card's URL/title would be the element's text. Live, the URL is built from the listing ID (all 551 stored IS24
-> URLs are `/expose/{id}`); reading the real `href` could add query strings to stored URLs, so it is a separate decision.
-> A test pins the current behaviour.
+> **Fixed on the way (found in a live scrape):** HtmlAgilityPack selects the element for an attribute XPath (`.../@href`),
+> so the IS24 card's URL was the expose link's text ("399.000&nbsp;€2 Zi. · 62 m²"); every detail page failed with
+> "Cannot navigate to invalid URL" and flats kept only their card data. The card parser now reads the link's `href`
+> (`DetailLinkXPath`) and drops query and fragment, so URLs stay `https://www.immobilienscout24.de/expose/{id}`.
+> **Not changed:** `TitleXPath`'s `.//img/@alt` has the same quirk (an `img` has no text); the detail page's title replaces
+> the card title anyway.
 > Tests: `GermanNumberParserTests` ("1.250.000 €", "84,5 m²", "3,5 Zimmer", ...), `ImmobilienScout24CardParserTests`,
 > half rooms/decimal area in `OhneMaklerFlatCardParserTests` and `OhneMaklerDetailPageParserTests`.
 

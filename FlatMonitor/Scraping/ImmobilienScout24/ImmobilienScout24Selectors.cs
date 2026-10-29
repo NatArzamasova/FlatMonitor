@@ -27,8 +27,8 @@ public class ImmobilienScout24Selectors
     /// <summary>Extract number of rooms from attributes (e.g., "2 Zimmer").</summary>
     public string RoomsXPath => ".//text()[contains(., 'Zimmer')] | .//*[@data-testid='attributes']//text()";
 
-    /// <summary>Extract detail page URL from the expose link.</summary>
-    public string DetailUrlXPath => ".//a[contains(@href, '/expose/')]/@href";
+    /// <summary>The expose link; its <c>href</c> is the detail page URL. (Not ".../@href": HtmlAgilityPack would select the element.)</summary>
+    public string DetailLinkXPath => ".//a[contains(@href, '/expose/')]";
 
     /// <summary>Base URL for relative detail links.</summary>
     public string BaseUrl => "https://www.immobilienscout24.de";
