@@ -32,24 +32,4 @@ public static class OhneMaklerSelectors
         "76228", // Hohenwettersbach, Stupferich, Wolfartsweier, Grünwettersbach
         "76229", // Kleinsteinbach, Palmbach
     };
-
-    internal static readonly Dictionary<string, string> LabelToDetailsField = new()
-    {
-        { "Objektart", nameof(FlatDetails.PropertyType) },
-        { "Baujahr", nameof(FlatDetails.BuildYear) },
-        { "Etage", nameof(FlatDetails.Floor) },
-        { "Geschoss", nameof(FlatDetails.Floor) },
-        { "Zustand", nameof(FlatDetails.Condition) },
-        { "Heizung", nameof(FlatDetails.Heating) },
-        { "Nebenkosten", nameof(FlatDetails.ServiceChargeEur) },
-        { "Energieausweistyp", nameof(FlatDetails.EnergyCertificateType) },
-        { "Wesentlicher Energieträger", nameof(FlatDetails.PrimaryEnergySource) },
-        { "Energieeffizienzklasse", nameof(FlatDetails.EnergyEfficiencyClass) },
-        { "Endenergieverbrauch", nameof(FlatDetails.EnergyConsumption) },
-        { "Privatangebot", nameof(FlatDetails.ListingStatus) },
-        { "Gewerbliches Angebot", nameof(FlatDetails.ListingStatus) },
-        { "Vermietet", nameof(FlatDetails.CurrentUse) },
-        { "Eigennutzung", nameof(FlatDetails.CurrentUse) },
-        { "Verfügbarkeit", nameof(FlatDetails.Availability) },
-    };
 }

@@ -38,11 +38,11 @@ public class ScraperCoordinatorTests
         _mockRepository.Setup(r => r.DiscardRunAsync(It.IsAny<CancellationToken>()))
             .Callback(() => _runCalls.Add("discard")).Returns(Task.CompletedTask);
 
-        _backupWriter = new JsonlBackupWriter();
         _logger = new ListLogger<ScraperCoordinator>();
 
         _testDir = Path.Combine(Path.GetTempPath(), $"ScraperCoordinatorTests_{Guid.NewGuid()}");
         Directory.CreateDirectory(_testDir);
+        _backupWriter = new JsonlBackupWriter(new StorageOptions(_testDir, "Data Source=:memory:"));
     }
 
     [TearDown]
@@ -57,7 +57,7 @@ public class ScraperCoordinatorTests
     private ListLogger<ScraperCoordinator> _logger = null!;
 
     private ScraperCoordinator CreateCoordinator(params IScraper[] scrapers) =>
-        new(scrapers, _mockRepository.Object, _backupWriter, _testDir, _logger);
+        new(scrapers, _mockRepository.Object, _backupWriter, _logger);
 
     private string[] SnapshotFiles(string source)
     {
@@ -551,28 +551,28 @@ public class ScraperCoordinatorTests
     public void Constructor_WithNullScrapers_ThrowsArgumentNullException()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            new ScraperCoordinator(null!, _mockRepository.Object, _backupWriter, _testDir, NullLogger<ScraperCoordinator>.Instance));
+            new ScraperCoordinator(null!, _mockRepository.Object, _backupWriter, NullLogger<ScraperCoordinator>.Instance));
     }
 
     [Test]
     public void Constructor_WithNullRepository_ThrowsArgumentNullException()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            new ScraperCoordinator([new StubScraper("OhneMakler")], null!, _backupWriter, _testDir, NullLogger<ScraperCoordinator>.Instance));
+            new ScraperCoordinator([new StubScraper("OhneMakler")], null!, _backupWriter, NullLogger<ScraperCoordinator>.Instance));
     }
 
     [Test]
     public void Constructor_WithNullBackupWriter_ThrowsArgumentNullException()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            new ScraperCoordinator([new StubScraper("OhneMakler")], _mockRepository.Object, null!, _testDir, NullLogger<ScraperCoordinator>.Instance));
+            new ScraperCoordinator([new StubScraper("OhneMakler")], _mockRepository.Object, null!, NullLogger<ScraperCoordinator>.Instance));
     }
 
     [Test]
     public void Constructor_WithNullLogger_ThrowsArgumentNullException()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            new ScraperCoordinator([new StubScraper("OhneMakler")], _mockRepository.Object, _backupWriter, _testDir, null!));
+            new ScraperCoordinator([new StubScraper("OhneMakler")], _mockRepository.Object, _backupWriter, null!));
     }
 
     [Test]

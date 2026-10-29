@@ -410,7 +410,22 @@ interface stays as it is). `IFilterPresetRepository.GetByIdAsync` and its two te
 
 ---
 
-## 5. Small cleanups
+## 5. Small cleanups ✅ Done
+
+**Status:** Done.
+- Dead code removed: `OhneMaklerSelectors.LabelToDetailsField`, `OhneMaklerDetailSelectors.TitleXPath`,
+  `JsonlBackupWriter.WriteSnapshotAsync` (its tests now write through `Create` + `AppendAsync`, the production path;
+  the unused "default" source is gone), the public `ParseDetailFields(string)` of both detail parsers (tests use
+  `Parse(html).Details`). `ExtractFieldByMultiplePatterns` went with 3.2.
+- Stale comments: fixed along the way (2.1–4.2); the usage text names the default URL and how to change it.
+- `explore-is24` and `scrape` share one `BuildCliHost()`; explore resolves the IS24 options and logger from DI.
+- `JsonlBackupWriter` takes `StorageOptions`; the coordinator lost its `dataDirectory` and is a plain `AddScoped`.
+- `KarlsruheDistricts.ToCanonical` uses `HashSet.TryGetValue`.
+- Packages: the `System.Security.Cryptography.Xml`/`.Pkcs` and `Microsoft.Extensions.DependencyInjection`
+  references are gone. With `CentralPackageTransitivePinningEnabled`, `Directory.Packages.props` pins
+  `SQLitePCLRaw.lib.e_sqlite3` 2.1.14 and `System.Security.Cryptography.Pkcs`/`.Xml` 10.0.14 (the latter two come in
+  through `Microsoft.EntityFrameworkCore.Design`). `dotnet list package --vulnerable --include-transitive`: none in
+  either project; the build has no NuGet warnings.
 
 - **Dead code:** `OhneMaklerSelectors.LabelToDetailsField`, `OhneMaklerDetailSelectors.TitleXPath`,
   `SnapshotWriter.WriteSnapshotAsync` (tests only), public `ParseDetailFields(string)` in both detail parsers

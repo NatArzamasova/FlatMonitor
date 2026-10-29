@@ -46,12 +46,7 @@ public static class ServiceRegistrationExtensions
         services.AddScoped<IScraper>(sp => sp.GetRequiredService<OhneMaklerScraper>());
         services.AddScoped<IScraper>(sp => sp.GetRequiredService<ImmobilienScout24Scraper>());
 
-        services.AddScoped(sp => new ScraperCoordinator(
-            sp.GetServices<IScraper>(),
-            sp.GetRequiredService<IFlatRepository>(),
-            sp.GetRequiredService<JsonlBackupWriter>(),
-            storage.DataDirectory,
-            sp.GetRequiredService<ILogger<ScraperCoordinator>>()));
+        services.AddScoped<ScraperCoordinator>();
         services.AddScoped<ScrapeExecutionService>();
         services.AddScoped<ScrapeRunService>();
 

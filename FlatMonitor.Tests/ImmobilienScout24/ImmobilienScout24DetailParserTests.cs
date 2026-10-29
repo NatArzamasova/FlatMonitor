@@ -27,7 +27,7 @@ public class ImmobilienScout24DetailParserTests
         var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -40,7 +40,7 @@ public class ImmobilienScout24DetailParserTests
         var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -54,7 +54,7 @@ public class ImmobilienScout24DetailParserTests
         var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -68,7 +68,7 @@ public class ImmobilienScout24DetailParserTests
         var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -82,7 +82,7 @@ public class ImmobilienScout24DetailParserTests
         var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -96,7 +96,7 @@ public class ImmobilienScout24DetailParserTests
         var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -124,7 +124,7 @@ public class ImmobilienScout24DetailParserTests
                 </html>";
 
             // Act
-            var result = _parser.ParseDetailFields(html);
+            var result = _parser.Parse(html).Details;
 
             // Assert
             result.Should().NotBeNull();
@@ -147,7 +147,7 @@ public class ImmobilienScout24DetailParserTests
             </html>";
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -169,7 +169,7 @@ public class ImmobilienScout24DetailParserTests
             </html>";
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -186,7 +186,7 @@ public class ImmobilienScout24DetailParserTests
         var html = "<html><body>invalid structure without required classes</body></html>";
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -579,7 +579,7 @@ public class ImmobilienScout24DetailParserTests
             </html>";
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -601,7 +601,7 @@ public class ImmobilienScout24DetailParserTests
             </html>";
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -623,7 +623,7 @@ public class ImmobilienScout24DetailParserTests
             </html>";
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -637,7 +637,7 @@ public class ImmobilienScout24DetailParserTests
         var html = File.ReadAllText(GetFixturePath("detail-page-rented.html"));
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -657,7 +657,7 @@ public class ImmobilienScout24DetailParserTests
             """;
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -672,7 +672,7 @@ public class ImmobilienScout24DetailParserTests
     public void ParseDetailFields_WithRentedAvailabilityAndNoTag_SetsCurrentUseToVermietet(string availability)
     {
         // Act
-        var result = _parser.ParseDetailFields(AvailabilityHtml(availability));
+        var result = _parser.Parse(AvailabilityHtml(availability)).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -689,7 +689,7 @@ public class ImmobilienScout24DetailParserTests
     public void ParseDetailFields_WithoutTheRentedTagOrRentedAvailability_LeavesCurrentUseEmpty(string availability)
     {
         // Act
-        var result = _parser.ParseDetailFields(AvailabilityHtml(availability));
+        var result = _parser.Parse(AvailabilityHtml(availability)).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -712,7 +712,7 @@ public class ImmobilienScout24DetailParserTests
             </html>";
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -739,7 +739,7 @@ public class ImmobilienScout24DetailParserTests
             </html>";
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();

@@ -4,8 +4,6 @@ using System.Text.Json;
 using FlatMonitor.Json;
 using FlatMonitor.Models;
 
-
-
 /// <summary>
 /// Writes scraped flats to JSONL backup files (under <c>data/snapshots</c>) for debugging purposes only.
 /// The backups are NOT used to rebuild the database; they exist for troubleshooting.
@@ -13,32 +11,28 @@ using FlatMonitor.Models;
 /// </summary>
 public sealed class JsonlBackupWriter
 {
-    private const string SnapshotsDir = "snapshots";
+    private const string BackupsDir = "snapshots";
 
-    public async Task<string> WriteSnapshotAsync(
-        List<Flat> listings,
-        string baseDirectory,
-        string? source = null,
-        CancellationToken ct = default)
+    private readonly string _dataDirectory;
+
+    public JsonlBackupWriter(StorageOptions storage)
     {
-        await using var file = Create(baseDirectory, source);
-        await file.AppendAsync(listings, ct);
-        return file.Path;
+        _dataDirectory = (storage ?? throw new ArgumentNullException(nameof(storage))).DataDirectory;
     }
 
-    /// <summary>Creates a new, empty backup file; append flats to it batch by batch while scraping.</summary>
-    public JsonlBackupFile Create(string baseDirectory, string? source = null)
+    /// <summary>
+    /// Creates a new, empty backup file <c>{DataDirectory}/snapshots/{source}/{utc-timestamp}.jsonl</c>;
+    /// append flats to it batch by batch while scraping.
+    /// </summary>
+    public JsonlBackupFile Create(string source)
     {
-        source ??= "default";
-
-        // Ensure data/snapshots/{source} directory exists
-        var snapshotsPath = Path.Combine(baseDirectory, SnapshotsDir, source);
-        Directory.CreateDirectory(snapshotsPath);
+        var backupsPath = Path.Combine(_dataDirectory, BackupsDir, source);
+        Directory.CreateDirectory(backupsPath);
 
         // Generate timestamped filename: {utc-timestamp}.jsonl
         string timestamp = DateTime.UtcNow.ToString("O").Replace(":", "-").Split('.')[0];
         string filename = $"{timestamp}.jsonl";
-        return new JsonlBackupFile(Path.Combine(snapshotsPath, filename));
+        return new JsonlBackupFile(Path.Combine(backupsPath, filename));
     }
 }
 

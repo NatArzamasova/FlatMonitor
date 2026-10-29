@@ -28,7 +28,7 @@ public class OhneMaklerDetailPageParserTests
         var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -41,7 +41,7 @@ public class OhneMaklerDetailPageParserTests
         var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -55,7 +55,7 @@ public class OhneMaklerDetailPageParserTests
         var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -69,7 +69,7 @@ public class OhneMaklerDetailPageParserTests
         var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -83,7 +83,7 @@ public class OhneMaklerDetailPageParserTests
         var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -97,7 +97,7 @@ public class OhneMaklerDetailPageParserTests
         var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -121,7 +121,7 @@ public class OhneMaklerDetailPageParserTests
             </html>";
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -149,7 +149,7 @@ public class OhneMaklerDetailPageParserTests
             </html>";
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -173,7 +173,7 @@ public class OhneMaklerDetailPageParserTests
             </html>";
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -187,7 +187,7 @@ public class OhneMaklerDetailPageParserTests
         var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -201,7 +201,7 @@ public class OhneMaklerDetailPageParserTests
         var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -215,7 +215,7 @@ public class OhneMaklerDetailPageParserTests
         var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -229,7 +229,7 @@ public class OhneMaklerDetailPageParserTests
         var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -243,7 +243,7 @@ public class OhneMaklerDetailPageParserTests
         var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -267,7 +267,7 @@ public class OhneMaklerDetailPageParserTests
             </html>";
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -283,7 +283,7 @@ public class OhneMaklerDetailPageParserTests
         var html = "<html><body>invalid structure</body></html>";
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().BeNull();
@@ -305,7 +305,7 @@ public class OhneMaklerDetailPageParserTests
             </html>";
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -328,7 +328,7 @@ public class OhneMaklerDetailPageParserTests
             </html>";
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -352,7 +352,7 @@ public class OhneMaklerDetailPageParserTests
             </html>";
 
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.Parse(html).Details;
 
         // Assert
         result.Should().NotBeNull();
@@ -424,14 +424,6 @@ public class OhneMaklerDetailPageParserTests
         page.Rooms.Should().BeNull();
     }
 
-    [Test]
-    public void ParseDetailFields_ReturnsTheDetailsOfParse()
-    {
-        var html = File.ReadAllText(GetFixturePath("detail-page-live-layout.html"));
-
-        _parser.ParseDetailFields(html).Should().BeEquivalentTo(_parser.Parse(html).Details);
-    }
-
     // The address follows the h1 title; ohne-makler.net appends the state after a dash
     [TestCase("Sophienstr. 57b, 76133 Karlsruhe (Innenstadt-West) &ndash; Baden-Württemberg", TestName = "Address_HtmlEntityStateSuffix_IsRemoved")]
     [TestCase("Sophienstr. 57b, 76133 Karlsruhe (Innenstadt-West) – Baden-Württemberg", TestName = "Address_Utf8StateSuffix_IsRemoved")]
@@ -457,7 +449,7 @@ public class OhneMaklerDetailPageParserTests
     [TestCase("<table><tr><td><div>Heizung</div></td><td><div>Gas</div></td></tr></table>", null, TestName = "CurrentUse_Missing_IsNull")]
     public void ParseDetailFields_ReadsCurrentUseFromItsLabel(string body, string? expected)
     {
-        var details = _parser.ParseDetailFields($"<html><body>{body}</body></html>");
+        var details = _parser.Parse($"<html><body>{body}</body></html>").Details;
 
         details!.CurrentUse.Should().Be(expected);
     }

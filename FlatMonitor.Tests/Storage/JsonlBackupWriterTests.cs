@@ -15,9 +15,9 @@ public class JsonlBackupWriterTests
     [SetUp]
     public void Setup()
     {
-        _writer = new JsonlBackupWriter();
-        _testDir = Path.Combine(Path.GetTempPath(), $"OhneMaklerTests_{Guid.NewGuid()}");
+        _testDir = Path.Combine(Path.GetTempPath(), $"JsonlBackupWriterTests_{Guid.NewGuid()}");
         Directory.CreateDirectory(_testDir);
+        _writer = new JsonlBackupWriter(new StorageOptions(_testDir, "Data Source=:memory:"));
     }
 
     [TearDown]
@@ -28,7 +28,7 @@ public class JsonlBackupWriterTests
     }
 
     [Test]
-    public async Task WriteSnapshotAsync_CreatesDataSnapshotsDirectory()
+    public async Task Backup_CreatesDataSnapshotsDirectory()
     {
         // Arrange
         var listings = new List<Flat>
@@ -44,7 +44,7 @@ public class JsonlBackupWriterTests
         };
 
         // Act
-        var path = await _writer.WriteSnapshotAsync(listings, _testDir, "OhneMakler");
+        var path = await WriteAsync(listings, "OhneMakler");
 
         // Assert
         var snapshotsDir = Path.Combine(_testDir, "snapshots", "OhneMakler");
@@ -52,7 +52,7 @@ public class JsonlBackupWriterTests
     }
 
     [Test]
-    public async Task WriteSnapshotAsync_CreatesFileWithUtcTimestampInName()
+    public async Task Backup_CreatesFileWithUtcTimestampInName()
     {
         // Arrange
         var listings = new List<Flat>
@@ -68,7 +68,7 @@ public class JsonlBackupWriterTests
         };
 
         // Act
-        var path = await _writer.WriteSnapshotAsync(listings, _testDir, "OhneMakler");
+        var path = await WriteAsync(listings, "OhneMakler");
 
         // Assert
         File.Exists(path).Should().BeTrue();
@@ -81,7 +81,7 @@ public class JsonlBackupWriterTests
     }
 
     [Test]
-    public async Task WriteSnapshotAsync_WritesOneJsonObjectPerLine()
+    public async Task Backup_WritesOneJsonObjectPerLine()
     {
         // Arrange
         var listings = new List<Flat>
@@ -105,7 +105,7 @@ public class JsonlBackupWriterTests
         };
 
         // Act
-        var path = await _writer.WriteSnapshotAsync(listings, _testDir, "OhneMakler");
+        var path = await WriteAsync(listings, "OhneMakler");
 
         // Assert
         var lines = File.ReadAllLines(path);
@@ -120,7 +120,7 @@ public class JsonlBackupWriterTests
     }
 
     [Test]
-    public async Task WriteSnapshotAsync_SerializesWithPascalCase()
+    public async Task Backup_SerializesWithPascalCase()
     {
         // Arrange
         var listings = new List<Flat>
@@ -138,7 +138,7 @@ public class JsonlBackupWriterTests
         };
 
         // Act
-        var path = await _writer.WriteSnapshotAsync(listings, _testDir, "OhneMakler");
+        var path = await WriteAsync(listings, "OhneMakler");
 
         // Assert
         var content = File.ReadAllText(path);
@@ -150,7 +150,7 @@ public class JsonlBackupWriterTests
     }
 
     [Test]
-    public async Task WriteSnapshotAsync_SerializesNullAsJsonNull()
+    public async Task Backup_SerializesNullAsJsonNull()
     {
         // Arrange
         var listings = new List<Flat>
@@ -169,7 +169,7 @@ public class JsonlBackupWriterTests
         };
 
         // Act
-        var path = await _writer.WriteSnapshotAsync(listings, _testDir, "OhneMakler");
+        var path = await WriteAsync(listings, "OhneMakler");
 
         // Assert
         var content = File.ReadAllText(path);
@@ -180,7 +180,7 @@ public class JsonlBackupWriterTests
     }
 
     [Test]
-    public async Task WriteSnapshotAsync_WithDetailsObject_IncludesAllDetailsFields()
+    public async Task Backup_WithDetailsObject_IncludesAllDetailsFields()
     {
         // Arrange
         var listings = new List<Flat>
@@ -203,7 +203,7 @@ public class JsonlBackupWriterTests
         };
 
         // Act
-        var path = await _writer.WriteSnapshotAsync(listings, _testDir, "OhneMakler");
+        var path = await WriteAsync(listings, "OhneMakler");
 
         // Assert
         var content = File.ReadAllText(path);
@@ -214,7 +214,7 @@ public class JsonlBackupWriterTests
     }
 
     [Test]
-    public async Task WriteSnapshotAsync_CreatesNewFileEachTime()
+    public async Task Backup_CreatesNewFileEachTime()
     {
         // Arrange
         var listings = new List<Flat>
@@ -230,9 +230,9 @@ public class JsonlBackupWriterTests
         };
 
         // Act
-        var path1 = await _writer.WriteSnapshotAsync(listings, _testDir, "OhneMakler");
+        var path1 = await WriteAsync(listings, "OhneMakler");
         await Task.Delay(1100); // Ensure different timestamp
-        var path2 = await _writer.WriteSnapshotAsync(listings, _testDir, "OhneMakler");
+        var path2 = await WriteAsync(listings, "OhneMakler");
 
         // Assert
         path1.Should().NotBe(path2);
@@ -241,13 +241,13 @@ public class JsonlBackupWriterTests
     }
 
     [Test]
-    public async Task WriteSnapshotAsync_WithEmptyList_CreatesEmptyFile()
+    public async Task Backup_WithEmptyList_CreatesEmptyFile()
     {
         // Arrange
         var listings = new List<Flat>();
 
         // Act
-        var path = await _writer.WriteSnapshotAsync(listings, _testDir, "OhneMakler");
+        var path = await WriteAsync(listings, "OhneMakler");
 
         // Assert
         File.Exists(path).Should().BeTrue();
@@ -256,7 +256,7 @@ public class JsonlBackupWriterTests
     }
 
     [Test]
-    public async Task WriteSnapshotAsync_WithDifferentSources_OrganizesIntoSeparateDirectories()
+    public async Task Backup_WithDifferentSources_OrganizesIntoSeparateDirectories()
     {
         // Arrange
         var listings = new List<Flat>
@@ -272,8 +272,8 @@ public class JsonlBackupWriterTests
         };
 
         // Act
-        var path1 = await _writer.WriteSnapshotAsync(listings, _testDir, "OhneMakler");
-        var path2 = await _writer.WriteSnapshotAsync(listings, _testDir, "ImmobilienScout24");
+        var path1 = await WriteAsync(listings, "OhneMakler");
+        var path2 = await WriteAsync(listings, "ImmobilienScout24");
 
         // Assert
         path1.Should().Contain("snapshots" + Path.DirectorySeparatorChar + "OhneMakler");
@@ -282,27 +282,11 @@ public class JsonlBackupWriterTests
         File.Exists(path2).Should().BeTrue();
     }
 
-    [Test]
-    public async Task WriteSnapshotAsync_WithNullSource_UsesDefaultSource()
+    /// <summary>Writes the flats as one backup file, the way the coordinator does (create, append, dispose).</summary>
+    private async Task<string> WriteAsync(List<Flat> flats, string source)
     {
-        // Arrange
-        var listings = new List<Flat>
-        {
-            new()
-            {
-                Source = "OhneMakler",
-                ListingId = "1",
-                Url = "/immobilie/1/",
-                Title = "Test",
-                ScrapedAtUtc = DateTime.UtcNow,
-            }
-        };
-
-        // Act
-        var path = await _writer.WriteSnapshotAsync(listings, _testDir, source: null);
-
-        // Assert
-        path.Should().Contain("snapshots" + Path.DirectorySeparatorChar + "default");
-        File.Exists(path).Should().BeTrue();
+        await using var file = _writer.Create(source);
+        await file.AppendAsync(flats);
+        return file.Path;
     }
 }

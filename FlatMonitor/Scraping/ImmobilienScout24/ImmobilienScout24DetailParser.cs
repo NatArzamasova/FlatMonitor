@@ -68,8 +68,6 @@ public partial class ImmobilienScout24DetailParser
             Details: ParseDetailFields(doc));
     }
 
-    public FlatDetails? ParseDetailFields(string html) => Parse(html).Details;
-
     private FlatDetails? ParseDetailFields(HtmlDocument doc)
     {
         var propertyType = DetailExtractors.ExtractText(doc, ImmobilienScout24DetailSelectors.PropertyTypeXPath);

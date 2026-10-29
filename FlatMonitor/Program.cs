@@ -45,11 +45,7 @@ async Task<int> RunScrapeAsync()
 {
     Console.WriteLine("Starting scraper...");
 
-    // No args: "scrape" is a command, not configuration
-    var builder = Host.CreateApplicationBuilder();
-    builder.Logging.AddFlatMonitorLogging();
-    builder.Services.AddFlatMonitorCore(builder.Configuration, builder.Environment.ContentRootPath);
-    using var host = builder.Build();
+    using var host = BuildCliHost();
     await using var scope = host.Services.CreateAsyncScope();
 
     try
@@ -113,9 +109,10 @@ async Task<int> ExploreImmobilienScout24Async()
     Console.WriteLine("ImmobilienScout24 Explorer with Playwright");
     Console.WriteLine("==========================================\n");
 
-    using var loggerFactory = LoggerFactory.Create(logging => logging.AddFlatMonitorLogging());
-    var options = ImmobilienScout24Options.FromConfiguration(Host.CreateApplicationBuilder().Configuration);
-    var browser = new ImmobilienScout24Browser(options, loggerFactory.CreateLogger("FlatMonitor.ExploreImmobilienScout24"));
+    using var host = BuildCliHost();
+    var browser = new ImmobilienScout24Browser(
+        host.Services.GetRequiredService<ImmobilienScout24Options>(),
+        host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("FlatMonitor.ExploreImmobilienScout24"));
 
     try
     {
@@ -142,6 +139,16 @@ async Task<int> ExploreImmobilienScout24Async()
         Console.Error.WriteLine($"Error: {ex.Message}");
         return 1;
     }
+}
+
+// The services of the CLI commands: configuration, logging and AddFlatMonitorCore, as the web server has them.
+// No args: the command name is not configuration.
+IHost BuildCliHost()
+{
+    var builder = Host.CreateApplicationBuilder();
+    builder.Logging.AddFlatMonitorLogging();
+    builder.Services.AddFlatMonitorCore(builder.Configuration, builder.Environment.ContentRootPath);
+    return builder.Build();
 }
 
 async Task<int> RunWebServerAsync(string[] args)
@@ -199,9 +206,9 @@ async Task MigrateDatabaseAsync(IServiceProvider services)
 void PrintUsage()
 {
     Console.Error.WriteLine("Usage: dotnet run [-- <command>]");
-    Console.Error.WriteLine("Default: Starts the web server on http://localhost:5000");
+    Console.Error.WriteLine("Default: Starts the web server (http://localhost:5000 unless --urls or ASPNETCORE_URLS set another)");
     Console.Error.WriteLine("Commands:");
     Console.Error.WriteLine("  scrape        Fetch current listings into the database (CLI mode, then exit)");
-    Console.Error.WriteLine("  explore-is24  Login and fetch ImmobilienScout24 listings page for analysis");
+    Console.Error.WriteLine("  explore-is24  Open the ImmobilienScout24 listings page and save its HTML for analysis");
     Console.Error.WriteLine("  --help        Show this message");
 }

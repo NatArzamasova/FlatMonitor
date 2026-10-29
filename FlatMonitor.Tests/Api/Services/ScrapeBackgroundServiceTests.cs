@@ -244,7 +244,7 @@ public class ScrapeBackgroundServiceTests
         else
             services.AddScoped<IFlatAggregationRepository, FlatAggregationRepository>();
         services.AddScoped(sp => new ScraperCoordinator(
-            scrapers, sp.GetRequiredService<IFlatRepository>(), new JsonlBackupWriter(), _dataDir,
+            scrapers, sp.GetRequiredService<IFlatRepository>(), new JsonlBackupWriter(new StorageOptions(_dataDir, "Data Source=:memory:")),
             NullLogger<ScraperCoordinator>.Instance));
         services.AddScoped<ScrapeExecutionService>();
         services.AddScoped<ScrapeRunService>();

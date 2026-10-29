@@ -23,20 +23,17 @@ public sealed class ScraperCoordinator
     private readonly IEnumerable<IScraper> _scrapers;
     private readonly IFlatRepository _repository;
     private readonly JsonlBackupWriter _backupWriter;
-    private readonly string _dataDirectory;
     private readonly ILogger<ScraperCoordinator> _logger;
 
     public ScraperCoordinator(
         IEnumerable<IScraper> scrapers,
         IFlatRepository repository,
         JsonlBackupWriter backupWriter,
-        string dataDirectory,
         ILogger<ScraperCoordinator> logger)
     {
         _scrapers = scrapers ?? throw new ArgumentNullException(nameof(scrapers));
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _backupWriter = backupWriter ?? throw new ArgumentNullException(nameof(backupWriter));
-        _dataDirectory = dataDirectory ?? throw new ArgumentNullException(nameof(dataDirectory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -145,7 +142,7 @@ public sealed class ScraperCoordinator
                     await onBatchSaved(filtered.Count);
 
                 // Debugging backup only; written as the flats are staged, so a failed source's file keeps what it scraped
-                backup ??= _backupWriter.Create(_dataDirectory, scraper.Source);
+                backup ??= _backupWriter.Create(scraper.Source);
                 await backup.AppendAsync(filtered, ct);
             }
         }

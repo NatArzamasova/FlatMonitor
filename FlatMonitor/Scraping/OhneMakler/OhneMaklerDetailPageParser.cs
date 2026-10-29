@@ -35,8 +35,6 @@ public sealed partial class OhneMaklerDetailPageParser
             Details: ParseDetailFields(doc));
     }
 
-    public FlatDetails? ParseDetailFields(string html) => Parse(html).Details;
-
     private FlatDetails? ParseDetailFields(HtmlDocument doc)
     {
         if (!DetailExtractors.HasValidStructure(doc, OhneMaklerDetailSelectors.ValidStructurePatterns))

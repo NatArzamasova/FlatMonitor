@@ -48,15 +48,6 @@ public class ImmobilienScout24DetailPageTests
     }
 
     [Test]
-    public void ParseDetailFields_ReturnsTheDetailsOfParse()
-    {
-        var parser = new ImmobilienScout24DetailParser();
-        var html = FixtureHtml();
-
-        parser.ParseDetailFields(html).Should().BeEquivalentTo(parser.Parse(html).Details);
-    }
-
-    [Test]
     public void ApplyTo_SampleFixture_TakesTheValuesFromThePageAndKeepsTheCardsIdentity()
     {
         var card = Card();

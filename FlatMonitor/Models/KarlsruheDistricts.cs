@@ -6,7 +6,8 @@ namespace FlatMonitor.Models;
 /// </summary>
 public static class KarlsruheDistricts
 {
-    public static IReadOnlySet<string> All { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    // A HashSet internally, so ToCanonical can look a name up and get its stored spelling back
+    private static readonly HashSet<string> Districts = new(StringComparer.OrdinalIgnoreCase)
     {
         "Beiertheim-Bulach",
         "Daxlanden",
@@ -37,6 +38,8 @@ public static class KarlsruheDistricts
         "Wolfartsweier"
     };
 
+    public static IReadOnlySet<string> All => Districts;
+
     /// <summary>
     /// Returns the canonical spelling of <paramref name="name"/> on an exact, case-insensitive match;
     /// otherwise <c>null</c>. Used for user input; see <see cref="Match"/> for scraped names.
@@ -46,7 +49,7 @@ public static class KarlsruheDistricts
         if (string.IsNullOrWhiteSpace(name))
             return null;
 
-        return All.FirstOrDefault(d => d.Equals(name.Trim(), StringComparison.OrdinalIgnoreCase));
+        return Districts.TryGetValue(name.Trim(), out var canonical) ? canonical : null;
     }
 
     /// <summary>

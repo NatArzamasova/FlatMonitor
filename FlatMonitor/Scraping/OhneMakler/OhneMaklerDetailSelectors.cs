@@ -11,7 +11,6 @@ public static class OhneMaklerDetailSelectors
 {
     private static string BuildXPathPatterns(string label) => $"//tr[td/div[normalize-space()='{label}']]/td[2]/div|//span[normalize-space()='{label}']/preceding-sibling::span[@class]|//div[normalize-space()='{label}']/following-sibling::div";
 
-    public const string TitleXPath = "//title/text()";
     public static readonly string PropertyTypeXPath = BuildXPathPatterns("Objektart");
     public static readonly string BuildYearXPath = BuildXPathPatterns("Baujahr");
     public static readonly string FloorXPath = BuildXPathPatterns("Etage");
