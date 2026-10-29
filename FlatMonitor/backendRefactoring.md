@@ -280,7 +280,13 @@ No nullable fields, no guards, `await using` instead of `try/finally CleanupAsyn
 
 ## 3. Source-specific cleanups
 
-### 3.1 Shared
+### 3.1 Shared ✅ Done
+
+**Status:** Done. Both page fetchers only pass the HTML on; each session parses a page once and stops at the
+first page without cards (OhneMakler: an empty first page is the error from 1.1, now raised by the session).
+The OhneMakler fetcher fetches a page only when the session asks for it. `ImmobilienScout24Selectors`,
+`ImmobilienScout24DetailSelectors` and `OhneMaklerDetailSelectors` are static (`const`, or `static readonly`
+where built by `BuildXPathPatterns`); the `_selectors` fields are gone.
 
 - **Pages are parsed twice.** Both page fetchers load the HTML into an `HtmlDocument` only to count cards
   (`OhneMaklerFlatsPageFetcher.cs:52-61`, `ImmobilienScout24FlatsPageFetcher.cs:94-102`), then the scraper

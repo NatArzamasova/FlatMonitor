@@ -20,7 +20,6 @@ public sealed record OhneMaklerDetailPage(
 /// </summary>
 public sealed partial class OhneMaklerDetailPageParser
 {
-    private readonly OhneMaklerDetailSelectors _selectors = new();
 
     public OhneMaklerDetailPage Parse(string html)
     {
@@ -32,7 +31,7 @@ public sealed partial class OhneMaklerDetailPageParser
             Address: ExtractAddress(doc),
             Rooms: ExtractRooms(doc),
             Area: ExtractArea(doc),
-            Price: GermanNumberParser.ParseInteger(DetailExtractors.ExtractText(doc, _selectors.PriceXPath)),
+            Price: GermanNumberParser.ParseInteger(DetailExtractors.ExtractText(doc, OhneMaklerDetailSelectors.PriceXPath)),
             Details: ParseDetailFields(doc));
     }
 
@@ -40,28 +39,28 @@ public sealed partial class OhneMaklerDetailPageParser
 
     private FlatDetails? ParseDetailFields(HtmlDocument doc)
     {
-        if (!DetailExtractors.HasValidStructure(doc, _selectors.ValidStructurePatterns))
+        if (!DetailExtractors.HasValidStructure(doc, OhneMaklerDetailSelectors.ValidStructurePatterns))
             return null;
 
         var details = new FlatDetails
         {
-            PropertyType = DetailExtractors.ExtractText(doc, _selectors.PropertyTypeXPath),
-            BuildYear = GermanNumberParser.ParseInteger(DetailExtractors.ExtractText(doc, _selectors.BuildYearXPath)),
-            Floor = DetailExtractors.ExtractText(doc, _selectors.FloorXPath)
-                ?? DetailExtractors.ExtractText(doc, _selectors.FloorAlternate1XPath)
-                ?? DetailExtractors.ExtractText(doc, _selectors.FloorAlternate2XPath),
-            Condition = DetailExtractors.ExtractText(doc, _selectors.ConditionXPath),
-            Heating = DetailExtractors.ExtractText(doc, _selectors.HeatingXPath),
-            ServiceChargeEur = GermanNumberParser.ParseInteger(DetailExtractors.ExtractText(doc, _selectors.ServiceChargeHausgeldXPath))
-                ?? GermanNumberParser.ParseInteger(DetailExtractors.ExtractText(doc, _selectors.ServiceChargeNebenkostenXPath)),
-            EnergyCertificateType = DetailExtractors.ExtractText(doc, _selectors.EnergyCertificateTypeXPath),
-            PrimaryEnergySource = DetailExtractors.ExtractText(doc, _selectors.PrimaryEnergySourceXPath),
-            EnergyEfficiencyClass = DetailExtractors.ExtractText(doc, _selectors.EnergyEfficiencyClassXPath),
-            EnergyConsumption = DetailExtractors.ExtractText(doc, _selectors.EnergyConsumptionXPath),
+            PropertyType = DetailExtractors.ExtractText(doc, OhneMaklerDetailSelectors.PropertyTypeXPath),
+            BuildYear = GermanNumberParser.ParseInteger(DetailExtractors.ExtractText(doc, OhneMaklerDetailSelectors.BuildYearXPath)),
+            Floor = DetailExtractors.ExtractText(doc, OhneMaklerDetailSelectors.FloorXPath)
+                ?? DetailExtractors.ExtractText(doc, OhneMaklerDetailSelectors.FloorAlternate1XPath)
+                ?? DetailExtractors.ExtractText(doc, OhneMaklerDetailSelectors.FloorAlternate2XPath),
+            Condition = DetailExtractors.ExtractText(doc, OhneMaklerDetailSelectors.ConditionXPath),
+            Heating = DetailExtractors.ExtractText(doc, OhneMaklerDetailSelectors.HeatingXPath),
+            ServiceChargeEur = GermanNumberParser.ParseInteger(DetailExtractors.ExtractText(doc, OhneMaklerDetailSelectors.ServiceChargeHausgeldXPath))
+                ?? GermanNumberParser.ParseInteger(DetailExtractors.ExtractText(doc, OhneMaklerDetailSelectors.ServiceChargeNebenkostenXPath)),
+            EnergyCertificateType = DetailExtractors.ExtractText(doc, OhneMaklerDetailSelectors.EnergyCertificateTypeXPath),
+            PrimaryEnergySource = DetailExtractors.ExtractText(doc, OhneMaklerDetailSelectors.PrimaryEnergySourceXPath),
+            EnergyEfficiencyClass = DetailExtractors.ExtractText(doc, OhneMaklerDetailSelectors.EnergyEfficiencyClassXPath),
+            EnergyConsumption = DetailExtractors.ExtractText(doc, OhneMaklerDetailSelectors.EnergyConsumptionXPath),
             ListingStatus = ExtractListingStatus(doc),
             CurrentUse = ExtractCurrentUse(doc),
-            Availability = DetailExtractors.ExtractText(doc, _selectors.AvailabilityXPath)
-                ?? DetailExtractors.ExtractText(doc, _selectors.AvailabilityAlternateXPath),
+            Availability = DetailExtractors.ExtractText(doc, OhneMaklerDetailSelectors.AvailabilityXPath)
+                ?? DetailExtractors.ExtractText(doc, OhneMaklerDetailSelectors.AvailabilityAlternateXPath),
         };
 
         return details;

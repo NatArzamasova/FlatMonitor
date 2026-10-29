@@ -13,7 +13,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 /// </summary>
 public partial class ImmobilienScout24CardParser
 {
-    private readonly ImmobilienScout24Selectors _selectors = new();
     private readonly ILogger _logger;
 
     public ImmobilienScout24CardParser(ILogger? logger = null)
@@ -35,11 +34,11 @@ public partial class ImmobilienScout24CardParser
                 Source = ImmobilienScout24Scraper.SourceName,
                 ListingId = id,
                 Url = ExtractDetailUrl(cardNode, id),
-                Title = ExtractText(cardNode, _selectors.TitleXPath) ?? "Unknown",
-                Address = ExtractText(cardNode, _selectors.AddressXPath) ?? "",
-                PriceEur = GermanNumberParser.ParseInteger(ExtractText(cardNode, _selectors.PriceXPath)),
-                LivingAreaSqm = GermanNumberParser.ParseDecimal(ExtractText(cardNode, _selectors.SizeXPath)),
-                RoomsCount = GermanNumberParser.ParseDecimal(ExtractText(cardNode, _selectors.RoomsXPath)),
+                Title = ExtractText(cardNode, ImmobilienScout24Selectors.TitleXPath) ?? "Unknown",
+                Address = ExtractText(cardNode, ImmobilienScout24Selectors.AddressXPath) ?? "",
+                PriceEur = GermanNumberParser.ParseInteger(ExtractText(cardNode, ImmobilienScout24Selectors.PriceXPath)),
+                LivingAreaSqm = GermanNumberParser.ParseDecimal(ExtractText(cardNode, ImmobilienScout24Selectors.SizeXPath)),
+                RoomsCount = GermanNumberParser.ParseDecimal(ExtractText(cardNode, ImmobilienScout24Selectors.RoomsXPath)),
                 ScrapedAtUtc = DateTime.UtcNow,
             };
         }
@@ -52,7 +51,7 @@ public partial class ImmobilienScout24CardParser
 
     private string? ExtractId(HtmlNode cardNode)
     {
-        var idText = cardNode.GetAttributeValue(_selectors.IdAttribute, null);
+        var idText = cardNode.GetAttributeValue(ImmobilienScout24Selectors.IdAttribute, null);
         if (string.IsNullOrWhiteSpace(idText))
             return null;
 
@@ -67,9 +66,9 @@ public partial class ImmobilienScout24CardParser
     /// </summary>
     private string? ExtractDetailUrl(HtmlNode cardNode, string id)
     {
-        var baseUri = new Uri(_selectors.BaseUrl);
+        var baseUri = new Uri(ImmobilienScout24Selectors.BaseUrl);
         var href = HtmlEntity.DeEntitize(
-            cardNode.SelectSingleNode(_selectors.DetailLinkXPath)?.GetAttributeValue("href", null)?.Trim() ?? "");
+            cardNode.SelectSingleNode(ImmobilienScout24Selectors.DetailLinkXPath)?.GetAttributeValue("href", null)?.Trim() ?? "");
 
         if (!string.IsNullOrEmpty(href) && Uri.TryCreate(baseUri, href, out var linkUri))
             return linkUri.GetLeftPart(UriPartial.Path);

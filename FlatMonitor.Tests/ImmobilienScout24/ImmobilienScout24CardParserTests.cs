@@ -14,7 +14,7 @@ public class ImmobilienScout24CardParserTests
     {
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
-        return doc.DocumentNode.SelectSingleNode(new ImmobilienScout24Selectors().ListingCardXPath);
+        return doc.DocumentNode.SelectSingleNode(ImmobilienScout24Selectors.ListingCardXPath);
     }
 
     [Test]

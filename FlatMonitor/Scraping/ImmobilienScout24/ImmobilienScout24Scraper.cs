@@ -40,7 +40,6 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
         private readonly ImmobilienScout24DetailScraper _detailScraper;
         private readonly ImmobilienScout24CardParser _cardParser;
         private readonly ImmobilienScout24DetailParser _detailParser = new();
-        private readonly ImmobilienScout24Selectors _selectors = new();
 
         public Session(ImmobilienScout24BrowserSession browser, ImmobilienScout24Options options, HtmlSnapshotStore htmlSnapshots, ILogger logger)
         {
@@ -72,10 +71,16 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
 
             yield return firstPageListings;
 
-            // Fetch and parse remaining pages
+            // Fetch and parse remaining pages; each page is parsed once, and the first one without cards ends it
             await foreach (var pageHtml in _pageFetcher.FetchAllPagesHtmlAsync(ct))
             {
                 var listings = ParseListingsPage(pageHtml);
+                if (listings.Count == 0)
+                {
+                    _logger.LogInformation("ImmobilienScout24: a page without listings, pagination complete");
+                    yield break;
+                }
+
                 yield return listings;
             }
         }
@@ -124,13 +129,13 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
             doc.LoadHtml(html);
 
             // Select all listing card containers
-            var listingCards = doc.DocumentNode.SelectNodes(_selectors.ListingCardXPath);
+            var listingCards = doc.DocumentNode.SelectNodes(ImmobilienScout24Selectors.ListingCardXPath);
             _logger.LogDebug("ImmobilienScout24: page HTML {Bytes} bytes, XPath {XPath} matched {Count} cards",
-                html.Length, _selectors.ListingCardXPath, listingCards?.Count ?? 0);
+                html.Length, ImmobilienScout24Selectors.ListingCardXPath, listingCards?.Count ?? 0);
 
             if (listingCards == null || listingCards.Count == 0)
             {
-                _logger.LogWarning("ImmobilienScout24: no listing cards found on page (XPath {XPath})", _selectors.ListingCardXPath);
+                _logger.LogWarning("ImmobilienScout24: no listing cards found on page (XPath {XPath})", ImmobilienScout24Selectors.ListingCardXPath);
                 return results;
             }
 

@@ -40,7 +40,6 @@ public sealed record ImmobilienScout24DetailPage(
 /// </summary>
 public partial class ImmobilienScout24DetailParser
 {
-    private readonly ImmobilienScout24DetailSelectors _selectors = new();
 
     public ImmobilienScout24DetailPage Parse(string html)
     {
@@ -48,7 +47,7 @@ public partial class ImmobilienScout24DetailParser
         doc.LoadHtml(html);
 
         return new ImmobilienScout24DetailPage(
-            Title: DetailExtractors.ExtractText(doc, _selectors.TitleXPath),
+            Title: DetailExtractors.ExtractText(doc, ImmobilienScout24DetailSelectors.TitleXPath),
             Metadata: ExtractExposeMetadata(doc),
             OriginalPrice: ExtractOriginalPrice(doc),
             Details: ParseDetailFields(doc));
@@ -58,20 +57,20 @@ public partial class ImmobilienScout24DetailParser
 
     private FlatDetails? ParseDetailFields(HtmlDocument doc)
     {
-        var propertyType = DetailExtractors.ExtractText(doc, _selectors.PropertyTypeXPath);
-        var buildYear = GermanNumberParser.ParseInteger(DetailExtractors.ExtractText(doc, _selectors.BuildYearXPath));
-        var floor = DetailExtractors.ExtractText(doc, _selectors.FloorXPath);
-        var heating = DetailExtractors.ExtractText(doc, _selectors.HeatingXPath);
-        var energyCertType = DetailExtractors.ExtractText(doc, _selectors.EnergyCertificateTypeXPath);
-        var energyConsumption = DetailExtractors.ExtractText(doc, _selectors.EnergyConsumptionXPath);
-        var energyEffClass = DetailExtractors.ExtractAttribute(doc, _selectors.EnergyEfficiencyClassXPath, _selectors.EnergyEfficiencyClassAttributeName);
-        var primaryEnergy = DetailExtractors.ExtractText(doc, _selectors.PrimaryEnergySourceXPath);
-        var serviceCharge = GermanNumberParser.ParseInteger(DetailExtractors.ExtractText(doc, _selectors.ServiceChargeXPath));
-        var availability = DetailExtractors.ExtractText(doc, _selectors.AvailabilityXPath);
+        var propertyType = DetailExtractors.ExtractText(doc, ImmobilienScout24DetailSelectors.PropertyTypeXPath);
+        var buildYear = GermanNumberParser.ParseInteger(DetailExtractors.ExtractText(doc, ImmobilienScout24DetailSelectors.BuildYearXPath));
+        var floor = DetailExtractors.ExtractText(doc, ImmobilienScout24DetailSelectors.FloorXPath);
+        var heating = DetailExtractors.ExtractText(doc, ImmobilienScout24DetailSelectors.HeatingXPath);
+        var energyCertType = DetailExtractors.ExtractText(doc, ImmobilienScout24DetailSelectors.EnergyCertificateTypeXPath);
+        var energyConsumption = DetailExtractors.ExtractText(doc, ImmobilienScout24DetailSelectors.EnergyConsumptionXPath);
+        var energyEffClass = DetailExtractors.ExtractAttribute(doc, ImmobilienScout24DetailSelectors.EnergyEfficiencyClassXPath, ImmobilienScout24DetailSelectors.EnergyEfficiencyClassAttributeName);
+        var primaryEnergy = DetailExtractors.ExtractText(doc, ImmobilienScout24DetailSelectors.PrimaryEnergySourceXPath);
+        var serviceCharge = GermanNumberParser.ParseInteger(DetailExtractors.ExtractText(doc, ImmobilienScout24DetailSelectors.ServiceChargeXPath));
+        var availability = DetailExtractors.ExtractText(doc, ImmobilienScout24DetailSelectors.AvailabilityXPath);
 
         // The page only says when a flat is rented (the "Vermietet" tag, or "vermietet" as availability);
         // without either, whether it is rented is unknown, so CurrentUse stays empty
-        var isRented = doc.DocumentNode.SelectSingleNode(_selectors.RentedLabelXPath) != null
+        var isRented = doc.DocumentNode.SelectSingleNode(ImmobilienScout24DetailSelectors.RentedLabelXPath) != null
             || (availability != null && Rented().IsMatch(availability));
         string? currentUse = isRented ? "Vermietet" : null;
 

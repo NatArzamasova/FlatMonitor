@@ -1,7 +1,6 @@
 namespace FlatMonitor.Scraping.OhneMakler;
 
 using System.Runtime.CompilerServices;
-using HtmlAgilityPack;
 using Microsoft.Extensions.Logging;
 
 internal sealed class OhneMaklerFlatsPageFetcher
@@ -16,9 +15,9 @@ internal sealed class OhneMaklerFlatsPageFetcher
         _logger = logger;
     }
 
-    // Yields raw HTML for each results page, starting at page 1, stopping
-    // as soon as a fetched page contains zero listing-card links or a hard safety cap is hit.
-    // A failing request throws on any page: stopping early would look like a successful scrape with fewer flats.
+    // Yields raw HTML for each results page, starting at page 1, until the caller stops reading (the session stops
+    // at the first page without listings) or a hard safety cap is hit. A page is only fetched when the caller asks
+    // for it. A failing request throws on any page: stopping early would look like a successful scrape with fewer flats.
     public async IAsyncEnumerable<string> FetchAllPagesHtmlAsync(
         [EnumeratorCancellation] CancellationToken ct = default)
     {
@@ -31,26 +30,7 @@ internal sealed class OhneMaklerFlatsPageFetcher
 
             var response = await _httpClient.GetAsync(url, ct);
             response.EnsureSuccessStatusCode();
-            string html = await response.Content.ReadAsStringAsync(ct);
-
-            // Parse the HTML to count flat-card links; stop if this page has zero.
-            var doc = new HtmlDocument();
-            doc.LoadHtml(html);
-            var listingLinks = doc.DocumentNode.SelectNodes(OhneMaklerSelectors.ListingLinkXPath);
-            int listingCount = listingLinks?.Count ?? 0;
-
-            if (listingCount == 0)
-            {
-                // The first page always has listings; none means changed markup or a blocked request
-                if (pageNumber == 1)
-                    throw new InvalidOperationException($"No listings on the first page ({url})");
-
-                _logger.LogInformation("OhneMakler: page {Page} has no listings, pagination complete", pageNumber);
-                yield break;
-            }
-
-            _logger.LogInformation("OhneMakler: page {Page}: {Count} listings found", pageNumber, listingCount);
-            yield return html;
+            yield return await response.Content.ReadAsStringAsync(ct);
             pageNumber++;
         }
 

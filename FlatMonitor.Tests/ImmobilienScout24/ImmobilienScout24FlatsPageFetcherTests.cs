@@ -60,9 +60,9 @@ public class ImmobilienScout24FlatsPageFetcherTests
     }
 
     [Test]
-    public async Task FetchAllPagesHtmlAsync_StopsAtAPageWithoutListings()
+    public async Task FetchAllPagesHtmlAsync_PassesEachPageOnWithoutParsingIt()
     {
-        // Arrange
+        // Arrange: the caller (the scraper session) parses each page once and decides where pagination ends
         AddNextButtons(2);
         _page.SetupSequence(p => p.ContentAsync()).ReturnsAsync(PageWithListings).ReturnsAsync(PageWithoutListings);
 
@@ -70,7 +70,7 @@ public class ImmobilienScout24FlatsPageFetcherTests
         var pages = await CreateFetcher().FetchAllPagesHtmlAsync().ToListAsync();
 
         // Assert
-        pages.Should().Equal(PageWithListings);
+        pages.Should().Equal(PageWithListings, PageWithoutListings);
     }
 
     [Test]

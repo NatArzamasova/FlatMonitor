@@ -18,16 +18,28 @@ public class OhneMaklerFlatsPageFetcherTests
     private static HttpResponseMessage Html(string html) => new(HttpStatusCode.OK) { Content = new StringContent(html) };
 
     [Test]
-    public async Task FetchAllPagesHtmlAsync_StopsAtTheFirstPageWithoutListings()
+    public async Task FetchAllPagesHtmlAsync_FetchesAPageOnlyWhenTheCallerAsksForIt()
     {
-        // Arrange
-        var fetcher = CreateFetcher(page => Html(page == 1 ? PageWithListings : PageWithoutListings));
+        // Arrange: the caller (the scraper session) decides where pagination ends
+        var requested = new List<int>();
+        var fetcher = CreateFetcher(page =>
+        {
+            requested.Add(page);
+            return Html(page == 1 ? PageWithListings : PageWithoutListings);
+        });
 
-        // Act
-        var pages = await fetcher.FetchAllPagesHtmlAsync().ToListAsync();
+        // Act: read two pages, then stop
+        var pages = new List<string>();
+        await foreach (var page in fetcher.FetchAllPagesHtmlAsync())
+        {
+            pages.Add(page);
+            if (pages.Count == 2)
+                break;
+        }
 
-        // Assert
-        pages.Should().Equal(PageWithListings);
+        // Assert: the HTML is passed on as it is, whether it has listings or not
+        pages.Should().Equal(PageWithListings, PageWithoutListings);
+        requested.Should().Equal(1, 2);
     }
 
     [Test]
@@ -73,19 +85,6 @@ public class OhneMaklerFlatsPageFetcherTests
         // Assert
         await act.Should().ThrowAsync<HttpRequestException>();
         pages.Should().Equal(PageWithListings);
-    }
-
-    [Test]
-    public async Task FetchAllPagesHtmlAsync_WhenTheFirstPageHasNoListings_Throws()
-    {
-        // Arrange
-        var fetcher = CreateFetcher(_ => Html(PageWithoutListings));
-
-        // Act
-        var act = () => fetcher.FetchAllPagesHtmlAsync().ToListAsync().AsTask();
-
-        // Assert
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("No listings on the first page*");
     }
 
     [Test]

@@ -48,11 +48,21 @@ public sealed class OhneMaklerScraper : FlatScraper
         {
             int pageNumber = 0;
 
-            // Iterate through all results pages.
+            // Iterate through the results pages; each page is parsed once, and the first one without cards ends it
             await foreach (var pageHtml in _pageFetcher.FetchAllPagesHtmlAsync(ct))
             {
                 pageNumber++;
-                var cards = _cardParser.ParsePage(pageHtml).Select(c => c.Flat);
+                var cards = _cardParser.ParsePage(pageHtml).Select(c => c.Flat).ToList();
+                if (cards.Count == 0)
+                {
+                    // The first page always has listings; none means changed markup or a blocked request
+                    if (pageNumber == 1)
+                        throw new InvalidOperationException($"No listings on the first page ({OhneMaklerSelectors.PageUrl(1)})");
+
+                    _logger.LogInformation("OhneMakler: page {Page} has no listings, pagination complete", pageNumber);
+                    yield break;
+                }
+
                 var pageListings = OhneMaklerKarlsruheResults.TakeUntilOutsideKarlsruhe(cards, out var firstOutside);
                 yield return pageListings;
 

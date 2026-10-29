@@ -1,7 +1,6 @@
 namespace FlatMonitor.Scraping.ImmobilienScout24;
 
 using System.Runtime.CompilerServices;
-using HtmlAgilityPack;
 using Microsoft.Extensions.Logging;
 using Microsoft.Playwright;
 
@@ -35,7 +34,8 @@ internal sealed class ImmobilienScout24FlatsPageFetcher
     /// <summary>
     /// Yields raw HTML for all pages, starting from page 2 onwards.
     /// Assumes the browser is already on page 1; fetches pages 2, 3, etc.
-    /// Stops when the next-page button is disabled, a page has no listings, or after reaching the safety limit.
+    /// Stops when the next-page button is disabled, when the caller stops reading (the session stops at a page
+    /// without cards), or after reaching the safety limit.
     /// Any other failure throws: stopping early would look like a successful scrape with fewer flats.
     /// </summary>
     public async IAsyncEnumerable<string> FetchAllPagesHtmlAsync(
@@ -90,19 +90,6 @@ internal sealed class ImmobilienScout24FlatsPageFetcher
         // Extract current page HTML (now on the new page)
         var html = await _page.ContentAsync();
         _logger.LogDebug("ImmobilienScout24: page {Page}: HTML extracted ({Bytes} bytes)", pageNumber, html.Length);
-
-        // Count listing cards on this page
-        var doc = new HtmlDocument();
-        doc.LoadHtml(html);
-        var listingCards = doc.DocumentNode.SelectNodes("//div[contains(@class, 'listing-card') and @data-obid]");
-        int listingCount = listingCards?.Count ?? 0;
-        if (listingCount == 0)
-        {
-            _logger.LogInformation("ImmobilienScout24: page {Page} has no listings, pagination complete", pageNumber);
-            return null;
-        }
-
-        _logger.LogInformation("ImmobilienScout24: page {Page}: {Count} listings found", pageNumber, listingCount);
         return html;
     }
 }
