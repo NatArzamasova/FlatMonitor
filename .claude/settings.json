@@ -10,12 +10,12 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash",
+        "matcher": "Bash|PowerShell",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "This is a git commit command. Have you explicitly reviewed and approved the changes to be committed? Answer 'yes' to proceed or 'no' to block.",
-            "if": "Bash(git commit*)"
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/check_git_commit.py\"",
+            "timeout": 10
           }
         ]
       }
