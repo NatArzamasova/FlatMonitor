@@ -6,6 +6,7 @@ using FluentAssertions;
 using FlatMonitor.Models;
 using FlatMonitor.Scraping.OhneMakler;
 using FlatMonitor.Storage;
+using Microsoft.Extensions.Logging.Abstractions;
 
 /// <summary>
 /// Runs <see cref="OhneMaklerScraper"/> end to end against the saved fixtures, served by a fake HTTP handler:
@@ -30,7 +31,8 @@ public class OhneMaklerScraperEnrichmentTests
         _cards = new OhneMaklerFlatCardParser().ParsePage(listingsHtml).Select(c => c.Flat).ToList();
 
         using var httpClient = new HttpClient(new FixtureHandler(listingsHtml, detailHtml));
-        var scraper = new OhneMaklerScraper(httpClient, new StorageOptions(_dataDir, "Data Source=:memory:"));
+        var scraper = new OhneMaklerScraper(
+            httpClient, new StorageOptions(_dataDir, "Data Source=:memory:"), NullLogger<OhneMaklerScraper>.Instance);
         _scraped = (await scraper.ScrapeAsync().ToListAsync()).ToDictionary(f => f.ListingId);
     }
 

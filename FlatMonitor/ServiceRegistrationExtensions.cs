@@ -8,6 +8,7 @@ using FlatMonitor.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 public static class ServiceRegistrationExtensions
 {
@@ -47,7 +48,8 @@ public static class ServiceRegistrationExtensions
             sp.GetServices<IScraper>(),
             sp.GetRequiredService<ISnapshotRepository>(),
             sp.GetRequiredService<SnapshotWriter>(),
-            storage.DataDirectory));
+            storage.DataDirectory,
+            sp.GetRequiredService<ILogger<ScraperCoordinator>>()));
         services.AddScoped<ScrapeExecutionService>();
 
         return services;

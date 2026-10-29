@@ -1,6 +1,7 @@
 namespace FlatMonitor.Scraping.ImmobilienScout24;
 
 using FlatMonitor.Models;
+using Microsoft.Extensions.Logging;
 using Microsoft.Playwright;
 
 /// <summary>
@@ -12,11 +13,13 @@ public class ImmobilienScout24DetailScraper
 {
     private readonly IPage _page;
     private readonly string _htmlSnapshotsDir;
+    private readonly ILogger _logger;
 
-    public ImmobilienScout24DetailScraper(IPage page, string htmlSnapshotsDir)
+    public ImmobilienScout24DetailScraper(IPage page, string htmlSnapshotsDir, ILogger logger)
     {
         _page = page ?? throw new ArgumentNullException(nameof(page));
         _htmlSnapshotsDir = htmlSnapshotsDir ?? throw new ArgumentNullException(nameof(htmlSnapshotsDir));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         Directory.CreateDirectory(_htmlSnapshotsDir);
     }
 
@@ -28,12 +31,12 @@ public class ImmobilienScout24DetailScraper
     {
         try
         {
-            Console.WriteLine($"Fetching detail page: {url}");
+            _logger.LogDebug("ImmobilienScout24: fetching detail page {Url}", url);
             await _page.GotoAsync(url, new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded, Timeout = 30000 });
             await Task.Delay(1000); // Allow time for content to render
 
             var html = await _page.ContentAsync();
-            Console.WriteLine($"Detail page fetched ({html.Length} bytes)");
+            _logger.LogDebug("ImmobilienScout24: detail page fetched ({Bytes} bytes)", html.Length);
 
             // Extract listing ID from URL for filename
             var listingId = ExtractListingIdFromUrl(url);
@@ -42,22 +45,23 @@ public class ImmobilienScout24DetailScraper
             var filePath = Path.Combine(_htmlSnapshotsDir, fileName);
 
             await File.WriteAllTextAsync(filePath, html);
-            Console.WriteLine($"Detail page saved to: {filePath}");
+            _logger.LogDebug("ImmobilienScout24: detail page saved to {Path}", filePath);
 
             // Parse detail fields
-            var parser = new ImmobilienScout24DetailParser();
+            var parser = new ImmobilienScout24DetailParser(_logger);
             var details = parser.ParseDetailFields(html);
 
             if (details != null)
             {
-                Console.WriteLine($"Parsed details: PropertyType={details.PropertyType}, BuildYear={details.BuildYear}, Heating={details.Heating}");
+                _logger.LogDebug("ImmobilienScout24: parsed details: PropertyType={PropertyType}, BuildYear={BuildYear}, Heating={Heating}",
+                    details.PropertyType, details.BuildYear, details.Heating);
             }
 
             return details;
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error fetching detail page: {ex.Message}");
+            _logger.LogWarning(ex, "ImmobilienScout24: error fetching detail page {Url}", url);
             return null;
         }
     }
@@ -84,12 +88,12 @@ public class ImmobilienScout24DetailScraper
         try
         {
             var html = await _page.ContentAsync();
-            var parser = new ImmobilienScout24DetailParser();
+            var parser = new ImmobilienScout24DetailParser(_logger);
             return parser.ExtractAddress(html);
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error extracting address: {ex.Message}");
+            _logger.LogWarning(ex, "ImmobilienScout24: error extracting address");
             return null;
         }
     }

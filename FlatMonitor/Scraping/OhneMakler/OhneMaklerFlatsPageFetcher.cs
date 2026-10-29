@@ -2,15 +2,18 @@ namespace FlatMonitor.Scraping.OhneMakler;
 
 using System.Runtime.CompilerServices;
 using HtmlAgilityPack;
+using Microsoft.Extensions.Logging;
 
 internal sealed class OhneMaklerFlatsPageFetcher
 {
     private readonly HttpClient _httpClient;
+    private readonly ILogger _logger;
     private const int MaxPagesLimit = 50;
 
-    public OhneMaklerFlatsPageFetcher(HttpClient httpClient)
+    public OhneMaklerFlatsPageFetcher(HttpClient httpClient, ILogger logger)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        _logger = logger;
     }
 
     // Yields raw HTML for each results page, starting at page 1, stopping
@@ -23,7 +26,7 @@ internal sealed class OhneMaklerFlatsPageFetcher
         while (pageNumber <= MaxPagesLimit)
         {
             string url = OhneMaklerSelectors.PageUrl(pageNumber);
-            Console.WriteLine($"Fetching page {pageNumber}...");
+            _logger.LogDebug("OhneMakler: fetching page {Page}", pageNumber);
 
             string html;
             try
@@ -41,8 +44,7 @@ internal sealed class OhneMaklerFlatsPageFetcher
             catch (Exception ex)
             {
                 // Later pages: log warning and stop pagination.
-                Console.WriteLine(
-                    $"Warning: Failed to fetch page {pageNumber} (will stop pagination): {ex.Message}");
+                _logger.LogWarning(ex, "OhneMakler: failed to fetch page {Page}, stopping pagination", pageNumber);
                 yield break;
             }
 
@@ -54,16 +56,16 @@ internal sealed class OhneMaklerFlatsPageFetcher
 
             if (listingCount == 0)
             {
-                Console.WriteLine($"Page {pageNumber} returned zero listings. Pagination complete.");
+                _logger.LogInformation("OhneMakler: page {Page} has no listings, pagination complete", pageNumber);
                 yield break;
             }
 
-            Console.WriteLine($"Page {pageNumber}: {listingCount} listings found.");
+            _logger.LogInformation("OhneMakler: page {Page}: {Count} listings found", pageNumber, listingCount);
             yield return html;
             pageNumber++;
         }
 
         // Hard cap reached.
-        Console.WriteLine($"Warning: Pagination reached safety cap of {MaxPagesLimit} pages. Stopping.");
+        _logger.LogWarning("OhneMakler: pagination reached the safety cap of {MaxPages} pages, stopping", MaxPagesLimit);
     }
 }

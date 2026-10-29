@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using FluentAssertions;
+using Microsoft.Extensions.Logging;
 
 namespace FlatMonitor.Tests.Scraping.Common;
 
@@ -78,6 +79,33 @@ public class FlatScraperTests
 
         // Assert
         result.Select(f => f.ListingId).Should().Equal("1", "2");
+    }
+
+    [Test]
+    public async Task ScrapeAsync_LogsEnrichedFlatsAtDebugAndFailuresAtWarningWithTheException()
+    {
+        // Arrange
+        var error = new InvalidOperationException("Detail page broken");
+        var logger = new ListLogger<FlatScraperTests>();
+        var scraper = new FakeFlatScraper("OhneMakler", logger)
+        {
+            Flats = [CreateFlat("1"), CreateFlat("2")],
+            OnEnrich = (flat, _) =>
+            {
+                if (flat.ListingId == "1")
+                    throw error;
+            },
+        };
+
+        // Act
+        await scraper.ScrapeAsync().ToListAsync();
+
+        // Assert
+        var warning = logger.Entries.Should().ContainSingle(e => e.Level == LogLevel.Warning).Subject;
+        warning.Message.Should().Be("OhneMakler: (1/2) 1 - error enriching details, keeping card data");
+        warning.Exception.Should().BeSameAs(error);
+        logger.Entries.Should().ContainSingle(e => e.Level == LogLevel.Debug)
+            .Which.Message.Should().StartWith("OhneMakler: (2/2) 2 - ");
     }
 
     [Test]

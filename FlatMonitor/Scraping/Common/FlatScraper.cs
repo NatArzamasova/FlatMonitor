@@ -3,6 +3,7 @@ namespace FlatMonitor.Scraping.Common;
 using System.Runtime.CompilerServices;
 using FlatMonitor.Models;
 using FlatMonitor.Scraping;
+using Microsoft.Extensions.Logging;
 
 /// <summary>
 /// Base class for scrapers that fetch all pages first, then enrich each flat with its details.
@@ -12,7 +13,15 @@ using FlatMonitor.Scraping;
 /// </summary>
 public abstract class FlatScraper : IScraper
 {
+    protected FlatScraper(ILogger logger)
+    {
+        Logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
+
     public abstract string Source { get; }
+
+    /// <summary>The derived scraper's logger; also handed to the helpers it creates.</summary>
+    protected ILogger Logger { get; }
 
     public async IAsyncEnumerable<Flat> ScrapeAsync([EnumeratorCancellation] CancellationToken ct = default)
     {
@@ -32,21 +41,21 @@ public abstract class FlatScraper : IScraper
             await foreach (var pageListings in FetchAndParseAllPagesAsync(ct))
             {
                 pageCount++;
-                Console.WriteLine($"--- Collected {pageListings.Count} flats from page {pageCount} ---");
+                Logger.LogInformation("{Source}: collected {Count} flats from page {Page}", Source, pageListings.Count, pageCount);
                 cards.AddRange(pageListings);
             }
 
-            Console.WriteLine($"\n=== {Source}: All pages fetched: {pageCount} total pages, {cards.Count} flats collected ===\n");
+            Logger.LogInformation("{Source}: all pages fetched: {Pages} pages, {Count} flats collected", Source, pageCount, cards.Count);
 
             // Then, enrich and yield one by one
-            Console.WriteLine($"=== {Source}: Enriching {cards.Count} flats with details ===");
+            Logger.LogInformation("{Source}: enriching {Count} flats with details", Source, cards.Count);
             for (int i = 0; i < cards.Count; i++)
             {
                 ct.ThrowIfCancellationRequested();
                 yield return await EnrichOrKeepAsync(cards[i], i + 1, cards.Count, ct);
             }
 
-            Console.WriteLine($"\n=== {Source}: Scraping complete: {cards.Count} listings processed ===\n");
+            Logger.LogInformation("{Source}: scraping complete, {Count} flats processed", Source, cards.Count);
         }
         finally
         {
@@ -61,12 +70,17 @@ public abstract class FlatScraper : IScraper
         try
         {
             var enrichedFlat = await EnrichListingWithDetailsAsync(flat, ct);
-            FlatScraperLogger.LogEnrichedFlat(Source, enrichedFlat, position, total);
+            Logger.LogDebug(
+                "{Source}: ({Position}/{Total}) {ListingId} - Address={Address}, Price={PriceEur}, OriginalPrice={OriginalPriceEur}, " +
+                "Area={LivingAreaSqm}, Rooms={RoomsCount}, Commission={CommissionPercent}",
+                Source, position, total, enrichedFlat.ListingId, enrichedFlat.Address, enrichedFlat.PriceEur, enrichedFlat.OriginalPriceEur,
+                enrichedFlat.LivingAreaSqm, enrichedFlat.RoomsCount, enrichedFlat.Details?.CommissionPercent);
             return enrichedFlat;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            FlatScraperLogger.LogEnrichmentFailed(Source, flat.ListingId, ex.Message, position, total);
+            Logger.LogWarning(ex, "{Source}: ({Position}/{Total}) {ListingId} - error enriching details, keeping card data",
+                Source, position, total, flat.ListingId);
             return flat;
         }
     }

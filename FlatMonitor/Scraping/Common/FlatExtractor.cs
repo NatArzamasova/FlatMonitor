@@ -3,6 +3,8 @@ namespace FlatMonitor.Scraping.Common;
 using System.Linq;
 using FlatMonitor.Models;
 using HtmlAgilityPack;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 /// <summary>
 /// Generic flat extractor that works with any site via IFlatSelectors.
@@ -10,6 +12,13 @@ using HtmlAgilityPack;
 /// </summary>
 public class FlatExtractor
 {
+    private readonly ILogger _logger;
+
+    public FlatExtractor(ILogger? logger = null)
+    {
+        _logger = logger ?? NullLogger.Instance;
+    }
+
     public Flat? ExtractFlat(HtmlNode cardNode, IFlatSelectors selectors, string source)
     {
         try
@@ -43,7 +52,7 @@ public class FlatExtractor
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error extracting flat: {ex.Message}");
+            _logger.LogWarning(ex, "{Source}: error extracting a flat from its listing card", source);
             return null;
         }
     }

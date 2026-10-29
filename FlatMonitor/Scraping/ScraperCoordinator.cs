@@ -2,6 +2,7 @@ namespace FlatMonitor.Scraping;
 
 using FlatMonitor.Models;
 using FlatMonitor.Storage;
+using Microsoft.Extensions.Logging;
 
 /// <summary>
 /// Runs every scraper in turn and owns everything after scraping: district filtering, saving in batches,
@@ -15,17 +16,20 @@ public sealed class ScraperCoordinator
     private readonly ISnapshotRepository _repository;
     private readonly SnapshotWriter _snapshotWriter;
     private readonly string _dataDirectory;
+    private readonly ILogger<ScraperCoordinator> _logger;
 
     public ScraperCoordinator(
         IEnumerable<IScraper> scrapers,
         ISnapshotRepository repository,
         SnapshotWriter snapshotWriter,
-        string dataDirectory)
+        string dataDirectory,
+        ILogger<ScraperCoordinator> logger)
     {
         _scrapers = scrapers ?? throw new ArgumentNullException(nameof(scrapers));
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _snapshotWriter = snapshotWriter ?? throw new ArgumentNullException(nameof(snapshotWriter));
         _dataDirectory = dataDirectory ?? throw new ArgumentNullException(nameof(dataDirectory));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     /// <summary>
@@ -52,12 +56,13 @@ public sealed class ScraperCoordinator
             }
             catch (OperationCanceledException)
             {
-                Console.WriteLine($"Scraping canceled for {scraper.Source}");
+                _logger.LogWarning("Scraping canceled for {Source}", scraper.Source);
                 throw;
             }
             catch (Exception ex)
             {
-                errors.Add(HandleScraperError(scraper, ex));
+                _logger.LogError(ex, "Error scraping {Source}", scraper.Source);
+                errors.Add($"{scraper.Source}: {ex.Message}");
             }
         }
 
@@ -66,7 +71,7 @@ public sealed class ScraperCoordinator
 
     private async Task ScrapeSourceAsync(IScraper scraper, Action<int> countSaved, Func<int, Task>? onBatchSaved, CancellationToken ct)
     {
-        Console.WriteLine($"Starting scrape for source: {scraper.Source}");
+        _logger.LogInformation("Starting scrape for source {Source}", scraper.Source);
         var scraped = 0;
         var saved = 0;
         SnapshotFile? snapshot = null;
@@ -83,6 +88,7 @@ public sealed class ScraperCoordinator
                 await _repository.UpsertListingsAsync(filtered, ct);
                 saved += filtered.Count;
                 countSaved(filtered.Count);
+                _logger.LogInformation("{Source}: saved {Count} flats ({Total} so far)", scraper.Source, filtered.Count, saved);
                 if (onBatchSaved != null)
                     await onBatchSaved(filtered.Count);
 
@@ -96,14 +102,14 @@ public sealed class ScraperCoordinator
             if (snapshot != null)
             {
                 await snapshot.DisposeAsync();
-                Console.WriteLine($"Snapshot written for {scraper.Source}: {snapshot.Path}");
+                _logger.LogDebug("Snapshot written for {Source}: {Path}", scraper.Source, snapshot.Path);
             }
         }
 
         if (scraped == 0)
-            Console.WriteLine($"No listings found for source: {scraper.Source}");
+            _logger.LogWarning("No listings found for source {Source}", scraper.Source);
         else if (scraped > saved)
-            Console.WriteLine($"Skipped {scraped - saved} listings without allowed districts");
+            _logger.LogInformation("{Source}: skipped {Count} listings outside the tracked districts", scraper.Source, scraped - saved);
     }
 
     /// <summary>Keeps flats in a tracked district, with the district name in its canonical spelling.</summary>
@@ -113,13 +119,5 @@ public sealed class ScraperCoordinator
             .Select(flat => KarlsruheDistricts.Match(flat.District) is { } district ? flat with { District = district } : null)
             .OfType<Flat>()
             .ToList();
-    }
-
-    private static string HandleScraperError(IScraper scraper, Exception ex)
-    {
-        Console.Error.WriteLine($"Error scraping {scraper.Source}: {ex.Message}");
-        if (Environment.GetEnvironmentVariable("DEBUG") == "1")
-            Console.Error.WriteLine(ex.StackTrace);
-        return $"{scraper.Source}: {ex.Message}";
     }
 }

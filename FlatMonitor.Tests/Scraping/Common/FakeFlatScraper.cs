@@ -1,13 +1,15 @@
 using System.Runtime.CompilerServices;
 using FlatMonitor.Models;
 using FlatMonitor.Scraping.Common;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FlatMonitor.Tests.Scraping.Common;
 
 /// <summary>
 /// In-memory <see cref="FlatScraper"/>: returns <see cref="Flats"/> as a single page and can be told to fail at each stage.
 /// </summary>
-internal sealed class FakeFlatScraper(string source = "Fake") : FlatScraper
+internal sealed class FakeFlatScraper(string source = "Fake", ILogger? logger = null) : FlatScraper(logger ?? NullLogger.Instance)
 {
     public override string Source => source;
 

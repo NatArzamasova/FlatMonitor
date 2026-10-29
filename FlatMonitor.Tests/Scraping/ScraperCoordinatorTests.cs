@@ -6,6 +6,8 @@ using FlatMonitor.Models;
 using FlatMonitor.Scraping;
 using FlatMonitor.Storage;
 using FlatMonitor.Tests.Scraping.Common;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FlatMonitor.Tests.Scraping;
 
@@ -29,6 +31,7 @@ public class ScraperCoordinatorTests
             .Returns(Task.CompletedTask);
 
         _snapshotWriter = new SnapshotWriter();
+        _logger = new ListLogger<ScraperCoordinator>();
 
         _testDir = Path.Combine(Path.GetTempPath(), $"ScraperCoordinatorTests_{Guid.NewGuid()}");
         Directory.CreateDirectory(_testDir);
@@ -43,8 +46,10 @@ public class ScraperCoordinatorTests
 
     private List<Flat> Saved => [.. _savedBatches.SelectMany(b => b)];
 
+    private ListLogger<ScraperCoordinator> _logger = null!;
+
     private ScraperCoordinator CreateCoordinator(params IScraper[] scrapers) =>
-        new(scrapers, _mockRepository.Object, _snapshotWriter, _testDir);
+        new(scrapers, _mockRepository.Object, _snapshotWriter, _testDir, _logger);
 
     private string[] SnapshotFiles(string source)
     {
@@ -320,21 +325,73 @@ public class ScraperCoordinatorTests
     public void Constructor_WithNullScrapers_ThrowsArgumentNullException()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            new ScraperCoordinator(null!, _mockRepository.Object, _snapshotWriter, _testDir));
+            new ScraperCoordinator(null!, _mockRepository.Object, _snapshotWriter, _testDir, NullLogger<ScraperCoordinator>.Instance));
     }
 
     [Test]
     public void Constructor_WithNullRepository_ThrowsArgumentNullException()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            new ScraperCoordinator([new StubScraper("OhneMakler")], null!, _snapshotWriter, _testDir));
+            new ScraperCoordinator([new StubScraper("OhneMakler")], null!, _snapshotWriter, _testDir, NullLogger<ScraperCoordinator>.Instance));
     }
 
     [Test]
     public void Constructor_WithNullSnapshotWriter_ThrowsArgumentNullException()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            new ScraperCoordinator([new StubScraper("OhneMakler")], _mockRepository.Object, null!, _testDir));
+            new ScraperCoordinator([new StubScraper("OhneMakler")], _mockRepository.Object, null!, _testDir, NullLogger<ScraperCoordinator>.Instance));
+    }
+
+    [Test]
+    public void Constructor_WithNullLogger_ThrowsArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            new ScraperCoordinator([new StubScraper("OhneMakler")], _mockRepository.Object, _snapshotWriter, _testDir, null!));
+    }
+
+    [Test]
+    public async Task ScrapeAllSourcesAsync_LogsEachSavedBatchAtInformation()
+    {
+        // Arrange
+        var flats = Enumerable.Range(1, 25).Select(i => CreateFlat(i.ToString())).ToArray();
+
+        // Act
+        await CreateCoordinator(new StubScraper("OhneMakler", flats)).ScrapeAllSourcesAsync();
+
+        // Assert
+        _logger.Entries.Where(e => e.Level == LogLevel.Information && e.Message.Contains("saved"))
+            .Select(e => e.Message)
+            .Should().Equal("OhneMakler: saved 20 flats (20 so far)", "OhneMakler: saved 5 flats (25 so far)");
+    }
+
+    [Test]
+    public async Task ScrapeAllSourcesAsync_WhenASourceFails_LogsErrorWithTheException()
+    {
+        // Arrange
+        var error = new HttpRequestException("Network error");
+
+        // Act
+        await CreateCoordinator(new StubScraper("OhneMakler") { Error = error }).ScrapeAllSourcesAsync();
+
+        // Assert
+        var entry = _logger.Entries.Should().ContainSingle(e => e.Level == LogLevel.Error).Subject;
+        entry.Message.Should().Be("Error scraping OhneMakler");
+        entry.Exception.Should().BeSameAs(error);
+    }
+
+    [Test]
+    public async Task ScrapeAllSourcesAsync_WhenCanceled_LogsWarningNotError()
+    {
+        // Arrange
+        var scraper = new StubScraper("OhneMakler") { Error = new OperationCanceledException() };
+
+        // Act
+        var act = () => CreateCoordinator(scraper).ScrapeAllSourcesAsync();
+
+        // Assert
+        await act.Should().ThrowAsync<OperationCanceledException>();
+        _logger.Entries.Should().NotContain(e => e.Level == LogLevel.Error);
+        _logger.Entries.Should().Contain(e => e.Level == LogLevel.Warning && e.Message == "Scraping canceled for OhneMakler");
     }
 
     /// <summary>Plain <see cref="IScraper"/>: yields the given flats, then throws <see cref="Error"/> if set.</summary>

@@ -3,6 +3,8 @@ namespace FlatMonitor.Scraping.Debug;
 using System.Text.Json;
 using FlatMonitor.Json;
 using FlatMonitor.Models;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 
 
@@ -14,6 +16,13 @@ using FlatMonitor.Models;
 public sealed class SnapshotLoader
 {
     private const string SnapshotsDir = "snapshots";
+
+    private readonly ILogger _logger;
+
+    public SnapshotLoader(ILogger? logger = null)
+    {
+        _logger = logger ?? NullLogger.Instance;
+    }
 
     public List<Flat> LoadAllSnapshots(string baseDirectory)
     {
@@ -40,7 +49,7 @@ public sealed class SnapshotLoader
                 }
                 catch (JsonException ex)
                 {
-                    Console.WriteLine($"Warning: Skipping malformed snapshot line in {Path.GetFileName(file)}: {ex.Message}");
+                    _logger.LogWarning(ex, "Skipping malformed snapshot line in {File}", Path.GetFileName(file));
                     continue;
                 }
 

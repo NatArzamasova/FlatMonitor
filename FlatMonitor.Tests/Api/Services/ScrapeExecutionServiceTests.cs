@@ -2,6 +2,7 @@ using NUnit.Framework;
 using FluentAssertions;
 using Moq;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using FlatMonitor.Api.Services;
 using FlatMonitor.Models;
 using FlatMonitor.Scraping;
@@ -49,7 +50,8 @@ public class ScrapeExecutionServiceTests
             Array.Empty<IScraper>(),
             _mockSnapshotRepository.Object,
             new SnapshotWriter(),
-            Path.GetTempPath());
+            Path.GetTempPath(),
+            NullLogger<ScraperCoordinator>.Instance);
 
         _mockSnapshotRepository
             .Setup(r => r.BackupFlatsSnapshotsAsync(It.IsAny<CancellationToken>()))
@@ -293,23 +295,12 @@ public class ScrapeExecutionServiceExecuteTests
 
     private ScrapeExecutionService CreateService(params IScraper[] scrapers)
     {
-        var coordinator = new ScraperCoordinator(scrapers, _mockSnapshotRepository.Object, new SnapshotWriter(), _dataDir);
+        var coordinator = new ScraperCoordinator(
+            scrapers, _mockSnapshotRepository.Object, new SnapshotWriter(), _dataDir, NullLogger<ScraperCoordinator>.Instance);
         return new ScrapeExecutionService(
             _mockSnapshotRepository.Object,
             _mockAggregationRepository.Object,
             coordinator,
             _logger);
-    }
-
-    private sealed class ListLogger<T> : ILogger<T>
-    {
-        public List<string> Messages { get; } = [];
-
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
-            => Messages.Add(formatter(state, exception));
     }
 }

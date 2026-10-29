@@ -130,6 +130,15 @@ rm FlatMonitor/data/listings.db
 dotnet run
 ```
 
+### More detailed scrape logs
+All output goes through `ILogger`. At the default `Information` level you see pages, saved batches (every 20 flats)
+and per-source summaries; failed detail pages and skipped items are `Warning`, failed sources `Error` (with the stack trace).
+Per-flat and per-card output (and Playwright steps) is `Debug`; the first 200 characters of each IS24 card are `Trace`.
+Raise the level for the scrapers only, for example:
+```bash
+Logging__LogLevel__FlatMonitor.Scraping=Debug dotnet run -- scrape
+```
+
 ### Port already in use
 - Backend (5000): `netstat -ano | findstr :5000` (Windows) or `lsof -i :5000` (Linux/Mac)
 - Frontend (4200): Modify `proxy.conf.json` if needed

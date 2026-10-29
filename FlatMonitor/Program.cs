@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 var commandArgs = Environment.GetCommandLineArgs().Skip(1).ToArray();
 
@@ -37,9 +38,8 @@ try
 }
 catch (Exception ex)
 {
-    Console.Error.WriteLine($"Fatal error: {ex.Message}");
-    if (Environment.GetEnvironmentVariable("DEBUG") == "1")
-        Console.Error.WriteLine(ex.StackTrace);
+    // No host (and so no logger) exists here: print the whole exception
+    Console.Error.WriteLine($"Fatal error: {ex}");
     return 1;
 }
 
@@ -80,7 +80,7 @@ async Task<int> RunScrapeAsync()
     }
     catch (Exception ex)
     {
-        Console.Error.WriteLine($"Scrape failed: {ex.Message}");
+        host.Services.GetRequiredService<ILogger<Program>>().LogError(ex, "Scrape failed");
         return 1;
     }
 }
@@ -90,7 +90,8 @@ async Task<int> ExploreImmobilienScout24Async()
     Console.WriteLine("ImmobilienScout24 Explorer with Playwright");
     Console.WriteLine("==========================================\n");
 
-    var scraper = new ImmobilienScout24BrowserScraper();
+    using var loggerFactory = LoggerFactory.Create(logging => logging.AddFlatMonitorLogging());
+    var scraper = new ImmobilienScout24BrowserScraper(loggerFactory.CreateLogger("FlatMonitor.ExploreImmobilienScout24"));
 
     try
     {
@@ -130,7 +131,6 @@ async Task<int> RunWebServerAsync(string[] args)
 {
     try
     {
-        Console.WriteLine("Starting FlatMonitor Web Server...");
         var builder = WebApplication.CreateBuilder(args);
 
         builder.Logging.AddFlatMonitorLogging();
@@ -160,15 +160,15 @@ async Task<int> RunWebServerAsync(string[] args)
         app.UseAuthorization();
         app.MapControllers();
 
-        Console.WriteLine("🚀 API server started on http://localhost:5000");
+        app.Lifetime.ApplicationStarted.Register(() =>
+            app.Logger.LogInformation("API server started on {Urls}", string.Join(", ", app.Urls)));
         await app.RunAsync();
         return 0;
     }
     catch (Exception ex)
     {
-        Console.Error.WriteLine($"Web server failed: {ex.Message}");
-        if (Environment.GetEnvironmentVariable("DEBUG") == "1")
-            Console.Error.WriteLine(ex.StackTrace);
+        // The host may not exist yet (failed while building): print the whole exception
+        Console.Error.WriteLine($"Web server failed: {ex}");
         return 1;
     }
 }

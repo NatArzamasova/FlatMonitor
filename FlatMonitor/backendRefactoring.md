@@ -325,7 +325,18 @@ public async Task<ScrapeResult> ExecuteAsync(IProgress<int>? progress, Cancellat
   live. Decide explicitly whether a partial failure should restore the failed source's rows (this
   is possible per source once the coordinator works per source).
 
-### 2.6 Replace `Console.WriteLine` with `ILogger<T>`
+### 2.6 Replace `Console.WriteLine` with `ILogger<T>` ✅ Done
+> **Done:** both scrapers and `ScraperCoordinator` take `ILogger<T>` (`FlatScraper` exposes it as `Logger` and hands it to
+> the page fetchers, browser/detail scrapers and parsers it creates; parsers, `FlatExtractor` and `SnapshotLoader` default
+> to `NullLogger`). Levels: `Debug` per card/flat and Playwright steps (`Trace` for the IS24 card HTML), `Information` per
+> page, per saved batch (new, in the coordinator, so the CLI still shows progress) and per source, `Warning` for skipped
+> or failed items, `Error` with the exception for failed sources. `FlatScraperLogger` is deleted; the `DEBUG=1` checks are
+> gone (logged exceptions include the stack trace; the two fatal handlers in `Program.cs`, which run without a host,
+> print the whole exception). `Program.cs` keeps `Console` for the CLI (usage, scrape summary, explore-is24); the web
+> server logs its real listening URLs on start. How to raise the scrape log level: BUILD_AND_RUN.md.
+> Tests: `NoConsoleOutputTests` (no `Console.` outside `Program.cs`), `FlatScraperTests` and `ScraperCoordinatorTests`
+> (levels and exceptions), shared `ListLogger<T>`.
+
 **Severity:** Medium · **Impact:** Configurable verbosity, structured logs, testable output
 
 There are about 110 `Console.Write*` calls, mostly in `Program.cs` (33), the IS24 scraper files (45), and

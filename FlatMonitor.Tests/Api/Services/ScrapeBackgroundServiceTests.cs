@@ -166,7 +166,8 @@ public class ScrapeBackgroundServiceTests
         else
             services.AddScoped<IFlatAggregationRepository, FlatAggregationRepository>();
         services.AddScoped(sp => new ScraperCoordinator(
-            scrapers, sp.GetRequiredService<ISnapshotRepository>(), new SnapshotWriter(), _dataDir));
+            scrapers, sp.GetRequiredService<ISnapshotRepository>(), new SnapshotWriter(), _dataDir,
+            NullLogger<ScraperCoordinator>.Instance));
         services.AddScoped<ScrapeExecutionService>();
         return services.BuildServiceProvider();
     }

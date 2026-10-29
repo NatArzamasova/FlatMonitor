@@ -4,6 +4,8 @@ using FlatMonitor.Models;
 using FlatMonitor.Scraping;
 using FlatMonitor.Scraping.Common;
 using HtmlAgilityPack;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 /// <summary>
 /// Parses detail fields from ohne-makler.net detail pages.
@@ -12,10 +14,12 @@ using HtmlAgilityPack;
 public sealed class OhneMaklerDetailPageParser : IDetailParser
 {
     private readonly OhneMaklerDetailSelectors _selectors;
+    private readonly ILogger _logger;
 
-    public OhneMaklerDetailPageParser()
+    public OhneMaklerDetailPageParser(ILogger? logger = null)
     {
         _selectors = new OhneMaklerDetailSelectors();
+        _logger = logger ?? NullLogger.Instance;
     }
 
     public FlatDetails? ParseDetailFields(string html)
@@ -56,7 +60,7 @@ public sealed class OhneMaklerDetailPageParser : IDetailParser
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Warning: Failed to parse detail page: {ex.Message}");
+            _logger.LogWarning(ex, "OhneMakler: failed to parse detail page");
             return null;
         }
     }

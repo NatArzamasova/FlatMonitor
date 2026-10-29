@@ -5,6 +5,7 @@ using FluentAssertions;
 using FlatMonitor.Models;
 using FlatMonitor.Scraping.OhneMakler;
 using FlatMonitor.Storage;
+using Microsoft.Extensions.Logging.Abstractions;
 
 [TestFixture]
 public class OhneMaklerScraperTests
@@ -19,7 +20,7 @@ public class OhneMaklerScraperTests
         using var httpClient = new HttpClient();
 
         // Act
-        var scraper = new OhneMaklerScraper(httpClient, TempStorage);
+        var scraper = new OhneMaklerScraper(httpClient, TempStorage, NullLogger<OhneMaklerScraper>.Instance);
 
         // Assert
         scraper.Should().NotBeNull();
@@ -32,7 +33,7 @@ public class OhneMaklerScraperTests
     {
         // Arrange
         using var httpClient = new HttpClient();
-        var scraper = new OhneMaklerScraper(httpClient, TempStorage);
+        var scraper = new OhneMaklerScraper(httpClient, TempStorage, NullLogger<OhneMaklerScraper>.Instance);
 
         // Act & Assert
         // This test verifies the method exists and can be called.

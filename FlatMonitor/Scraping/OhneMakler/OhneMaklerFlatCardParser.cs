@@ -3,6 +3,8 @@ namespace FlatMonitor.Scraping.OhneMakler;
 using System.Text.RegularExpressions;
 using FlatMonitor.Models;
 using HtmlAgilityPack;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 public sealed class OhneMaklerFlatCardParser
 {
@@ -11,6 +13,13 @@ public sealed class OhneMaklerFlatCardParser
     private static readonly Regex RoomsRegex = new(@"(\d+(?:,\d+)?)\s*(?:Zimmer|Zi)", RegexOptions.Compiled);
     private static readonly Regex AreaRegex = new(@"(\d+)\s*m[²2]", RegexOptions.Compiled);
     private static readonly Regex LocationRegex = new(@"(\d{5})\s+(.+?)(?:\s*\((.+?)\))?(?:\s|$)", RegexOptions.Compiled);
+
+    private readonly ILogger _logger;
+
+    public OhneMaklerFlatCardParser(ILogger? logger = null)
+    {
+        _logger = logger ?? NullLogger.Instance;
+    }
 
     public List<(Flat Flat, string DetailPageUrl)> ParsePage(string html)
     {
@@ -67,7 +76,7 @@ public sealed class OhneMaklerFlatCardParser
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Warning: Failed to parse a listing card: {ex.Message}");
+                _logger.LogWarning(ex, "OhneMakler: failed to parse a listing card");
             }
         }
 

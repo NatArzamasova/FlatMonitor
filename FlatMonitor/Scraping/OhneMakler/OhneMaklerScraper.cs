@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using FlatMonitor.Models;
 using FlatMonitor.Scraping.Common;
 using FlatMonitor.Storage;
+using Microsoft.Extensions.Logging;
 
 
 /// <summary>
@@ -24,17 +25,18 @@ public sealed class OhneMaklerScraper : FlatScraper
 
     public override string Source => SourceName;
 
-    public OhneMaklerScraper(HttpClient httpClient, StorageOptions storage)
+    public OhneMaklerScraper(HttpClient httpClient, StorageOptions storage, ILogger<OhneMaklerScraper> logger)
+        : base(logger)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _htmlSnapshotsDir = Path.Combine(storage.DataDirectory, "snapshots", "html", SourceName);
-        _cardParser = new OhneMaklerFlatCardParser();
-        _detailParser = new OhneMaklerDetailPageParser();
+        _cardParser = new OhneMaklerFlatCardParser(logger);
+        _detailParser = new OhneMaklerDetailPageParser(logger);
     }
 
     protected override Task InitializeAsync(CancellationToken ct)
     {
-        _pageFetcher = new OhneMaklerFlatsPageFetcher(_httpClient);
+        _pageFetcher = new OhneMaklerFlatsPageFetcher(_httpClient, Logger);
         return Task.CompletedTask;
     }
 
@@ -51,12 +53,12 @@ public sealed class OhneMaklerScraper : FlatScraper
                 {
                     File.Delete(file);
                 }
-                Console.WriteLine($"Cleared {files.Length} previous HTML snapshots from {htmlDir}");
+                Logger.LogDebug("Cleared {Count} previous HTML snapshots from {Directory}", files.Length, htmlDir);
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Warning: Could not clear previous HTML snapshots: {ex.Message}");
+            Logger.LogWarning(ex, "Could not clear previous HTML snapshots");
         }
 
         return Task.CompletedTask;
@@ -87,8 +89,9 @@ public sealed class OhneMaklerScraper : FlatScraper
                 if (!string.IsNullOrEmpty(listing.PostalCode) &&
                     !OhneMaklerSelectors.KarlsruhePostcodes.Contains(listing.PostalCode))
                 {
-                    Console.WriteLine(
-                        $"Stopping pagination: Found listing outside Karlsruhe postcodes (postcode: {listing.PostalCode}) on page {pageNumber}");
+                    Logger.LogInformation(
+                        "OhneMakler: stopping pagination, listing outside Karlsruhe postcodes ({PostalCode}) on page {Page}",
+                        listing.PostalCode, pageNumber);
                     shouldStop = true;
                     break;
                 }
@@ -145,8 +148,8 @@ public sealed class OhneMaklerScraper : FlatScraper
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Per confirmed behavior: log warning, still include listing with partial data.
-            Console.WriteLine(
-                $"Warning: Failed to fetch/parse detail page for listing {baseListing.ListingId} ({absoluteUrl}): {ex.Message}");
+            Logger.LogWarning(ex, "OhneMakler: failed to fetch/parse detail page for listing {ListingId} ({Url})",
+                baseListing.ListingId, absoluteUrl);
             return baseListing with
             {
                 Url = absoluteUrl,

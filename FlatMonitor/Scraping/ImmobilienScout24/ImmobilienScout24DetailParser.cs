@@ -5,6 +5,8 @@ using FlatMonitor.Models;
 using FlatMonitor.Scraping;
 using FlatMonitor.Scraping.Common;
 using HtmlAgilityPack;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 /// <summary>
 /// Parses detail fields from ImmobilienScout24 expose page HTML.
@@ -13,10 +15,12 @@ using HtmlAgilityPack;
 public class ImmobilienScout24DetailParser : IDetailParser
 {
     private readonly ImmobilienScout24DetailSelectors _selectors;
+    private readonly ILogger _logger;
 
-    public ImmobilienScout24DetailParser()
+    public ImmobilienScout24DetailParser(ILogger? logger = null)
     {
         _selectors = new ImmobilienScout24DetailSelectors();
+        _logger = logger ?? NullLogger.Instance;
     }
 
     public FlatDetails? ParseDetailFields(string html)
@@ -75,7 +79,7 @@ public class ImmobilienScout24DetailParser : IDetailParser
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error parsing detail fields: {ex.Message}");
+            _logger.LogWarning(ex, "ImmobilienScout24: error parsing detail fields");
             return null;
         }
     }
@@ -120,7 +124,7 @@ public class ImmobilienScout24DetailParser : IDetailParser
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error extracting original price: {ex.Message}");
+            _logger.LogWarning(ex, "ImmobilienScout24: error extracting original price");
             return null;
         }
     }
@@ -135,7 +139,7 @@ public class ImmobilienScout24DetailParser : IDetailParser
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error extracting address: {ex.Message}");
+            _logger.LogWarning(ex, "ImmobilienScout24: error extracting address");
             return null;
         }
     }
@@ -192,7 +196,7 @@ public class ImmobilienScout24DetailParser : IDetailParser
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error extracting expose metadata: {ex.Message}");
+            _logger.LogWarning(ex, "ImmobilienScout24: error extracting expose metadata");
             return null;
         }
     }
