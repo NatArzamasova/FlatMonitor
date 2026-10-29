@@ -58,10 +58,9 @@ public class ScrapeStartupRecoveryTests
         (await FlatIdsAsync()).Should().Equal("before");
     }
 
-    [TestCase(ScrapingStatus.PartialFailed)]
     [TestCase(ScrapingStatus.Failed)]
     [TestCase(ScrapingStatus.Canceled)]
-    public async Task LastRunNotSuccessful_RestoresTheBackup(ScrapingStatus status)
+    public async Task LastRunFailedOrCanceled_RestoresTheBackup(ScrapingStatus status)
     {
         await AddRunAsync(status);
 
@@ -73,14 +72,38 @@ public class ScrapeStartupRecoveryTests
     }
 
     [Test]
+    public async Task LastRunPartiallyFailed_KeepsTheTableAsTheRunningServiceDid()
+    {
+        // ScrapeExecutionService keeps a partial run's flats (and computes the aggregation from them);
+        // restoring the backup at startup would undo that only after a restart
+        await AddRunAsync(ScrapingStatus.PartialFailed);
+
+        await RunRecoveryAsync();
+
+        (await FlatIdsAsync()).Should().Equal("partial");
+        _logger.Entries.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task LastRunSuccessful_KeepsTheTable()
     {
-        await AddRunAsync(ScrapingStatus.PartialFailed, hoursAgo: 2);
+        await AddRunAsync(ScrapingStatus.Failed, hoursAgo: 2);
         await AddRunAsync(ScrapingStatus.Successful, hoursAgo: 1);
 
         await RunRecoveryAsync();
 
         (await FlatIdsAsync()).Should().Equal("partial");
+    }
+
+    [Test]
+    public async Task LastRunFailedAfterAPartiallyFailedRun_RestoresTheBackup()
+    {
+        await AddRunAsync(ScrapingStatus.PartialFailed, hoursAgo: 2);
+        await AddRunAsync(ScrapingStatus.Failed, hoursAgo: 1);
+
+        await RunRecoveryAsync();
+
+        (await FlatIdsAsync()).Should().Equal("before");
     }
 
     [Test]

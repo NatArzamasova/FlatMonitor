@@ -9,9 +9,11 @@ using Microsoft.Extensions.Logging;
 /// <list type="number">
 /// <item>Jobs exist only in memory, so a run still "Running" at startup was started by an earlier instance that was
 /// stopped without finishing it (e.g. the process was killed). It is marked as canceled.</item>
-/// <item>If the last run was not successful, its data is not kept: FlatsSnapshots is restored from the backup that
+/// <item>If the last run failed or was canceled, its data is not kept: FlatsSnapshots is restored from the backup that
 /// run made before it started (if there is one), as a canceled or failed run does itself when it can.</item>
 /// </list>
+/// A partially failed run is kept, as the running service keeps it: its aggregation was computed from that data,
+/// so restoring the backup would make flats and aggregations disagree.
 /// </summary>
 public sealed class ScrapeStartupRecovery
 {
@@ -38,7 +40,7 @@ public sealed class ScrapeStartupRecovery
             _logger.LogWarning("Marked {Count} scrape run(s) left running by a previous instance as canceled", canceled);
 
         var lastRun = (await _history.GetLatestAsync(ct)).Latest;
-        if (lastRun is null || lastRun.Status == ScrapingStatus.Successful)
+        if (lastRun is null || lastRun.Status is ScrapingStatus.Successful or ScrapingStatus.PartialFailed)
             return;
 
         if (!await _snapshots.HasBackupAsync(ct))

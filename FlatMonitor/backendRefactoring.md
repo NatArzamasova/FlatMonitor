@@ -56,7 +56,10 @@ logs "No listings found".
 - Tests: fetcher with a timeout on page 1 → exception; fetcher failing on page 2 → exception; coordinator
   with an empty scraper → `Success == false`.
 
-### 1.2 A partially failed run is kept until the next restart, then silently undone
+### 1.2 A partially failed run is kept until the next restart, then silently undone ✅ Interim fix done
+
+**Status:** Interim fix done: startup recovery no longer restores the backup after a `PartialFailed` run, so it
+matches what the running service keeps. The per-source fix is still open and comes with 2.1.
 
 **Severity:** Medium · **Files:** `Api/Services/ScrapeExecutionService.cs:48-54`,
 `Api/Services/ScrapeStartupRecovery.cs:40-53`
