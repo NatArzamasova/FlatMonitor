@@ -51,4 +51,33 @@ public class ScrapingHistoryRepositoryTests
         result.Latest.Should().BeNull();
         result.LatestSuccessful.Should().BeNull();
     }
+
+    [Test]
+    public async Task CancelUnfinishedRunsAsync_CancelsOnlyRunningRuns()
+    {
+        // ExecuteUpdate needs a relational provider
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var context = new FlatsDbContext(new DbContextOptionsBuilder<FlatsDbContext>().UseSqlite(connection).Options);
+        await context.Database.EnsureCreatedAsync();
+        var start = new DateTime(2026, 10, 29, 8, 0, 0, DateTimeKind.Utc);
+        context.ScrapingHistories.AddRange(
+            new ScrapingHistory { StartTimeUtc = start, EndTimeUtc = start.AddMinutes(20), Status = ScrapingStatus.Successful, FlatsScrapedCount = 575 },
+            new ScrapingHistory { StartTimeUtc = start.AddHours(1), Status = ScrapingStatus.Running, FlatsScrapedCount = 121 },
+            new ScrapingHistory { StartTimeUtc = start.AddHours(2), EndTimeUtc = start.AddHours(2), Status = ScrapingStatus.Failed, ErrorMessage = "network" },
+            new ScrapingHistory { StartTimeUtc = start.AddHours(3), Status = ScrapingStatus.Running });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var canceled = await new ScrapingHistoryRepository(context).CancelUnfinishedRunsAsync("Interrupted");
+
+        canceled.Should().Be(2);
+        var runs = await context.ScrapingHistories.AsNoTracking().OrderBy(h => h.Id).ToListAsync();
+        runs.Select(h => h.Status).Should().Equal(
+            ScrapingStatus.Successful, ScrapingStatus.Canceled, ScrapingStatus.Failed, ScrapingStatus.Canceled);
+        runs[1].ErrorMessage.Should().Be("Interrupted");
+        runs[1].EndTimeUtc.Should().BeNull("the real end time is unknown");
+        runs[1].FlatsScrapedCount.Should().Be(121);
+        runs[2].ErrorMessage.Should().Be("network");
+    }
 }

@@ -17,10 +17,23 @@ public sealed class FlatSnapshotRepository : ISnapshotRepository
             DROP TABLE IF EXISTS FlatsSnapshots_Backup;
             CREATE TABLE FlatsSnapshots_Backup AS SELECT * FROM FlatsSnapshots;", ct);
 
-    public Task RestoreFlatsSnapshotsAsync(CancellationToken ct = default) =>
-        _dbContext.Database.ExecuteSqlRawAsync(@"
+    public async Task RestoreFlatsSnapshotsAsync(CancellationToken ct = default)
+    {
+        // One transaction: if the copy fails, the delete is rolled back and the table keeps its rows
+        await using var transaction = _dbContext.Database.CurrentTransaction is null
+            ? await _dbContext.Database.BeginTransactionAsync(ct)
+            : null;
+        await _dbContext.Database.ExecuteSqlRawAsync(@"
             DELETE FROM FlatsSnapshots;
             INSERT INTO FlatsSnapshots SELECT * FROM FlatsSnapshots_Backup;", ct);
+        if (transaction != null)
+            await transaction.CommitAsync(ct);
+    }
+
+    public async Task<bool> HasBackupAsync(CancellationToken ct = default) =>
+        await _dbContext.Database
+            .SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM sqlite_master WHERE type = 'table' AND name = 'FlatsSnapshots_Backup'")
+            .SingleAsync(ct) > 0;
 
     public Task DeleteBackupAsync(CancellationToken ct = default) =>
         _dbContext.Database.ExecuteSqlRawAsync("DROP TABLE IF EXISTS FlatsSnapshots_Backup;", ct);

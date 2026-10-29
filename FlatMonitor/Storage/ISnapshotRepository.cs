@@ -16,5 +16,6 @@ public interface ISnapshotRepository
     Task BackupFlatsSnapshotsAsync(CancellationToken ct = default);
     Task RestoreFlatsSnapshotsAsync(CancellationToken ct = default);
     Task DeleteBackupAsync(CancellationToken ct = default);
+    Task<bool> HasBackupAsync(CancellationToken ct = default);
     Task<List<FlatOffer>> GetCurrentOffersAsync(CancellationToken ct = default);
 }

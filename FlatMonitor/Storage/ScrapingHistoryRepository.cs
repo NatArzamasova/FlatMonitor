@@ -24,4 +24,11 @@ public sealed class ScrapingHistoryRepository : IScrapingHistoryRepository
 
         return new ScrapingStatusHistory(latest, latestSuccessful);
     }
+
+    public Task<int> CancelUnfinishedRunsAsync(string reason, CancellationToken cancellationToken = default) =>
+        _dbContext.ScrapingHistories
+            .Where(h => h.Status == ScrapingStatus.Running)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(h => h.Status, ScrapingStatus.Canceled)
+                .SetProperty(h => h.ErrorMessage, reason), cancellationToken);
 }

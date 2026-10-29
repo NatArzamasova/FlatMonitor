@@ -27,6 +27,9 @@ public class ScrapeBackgroundService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        // Before the first job, so a new run cannot be mistaken for a leftover
+        await RecoverFromPreviousInstanceAsync(stoppingToken);
+
         while (!stoppingToken.IsCancellationRequested)
         {
             ScrapeJob job;
@@ -47,6 +50,21 @@ public class ScrapeBackgroundService : BackgroundService
             {
                 _logger.LogError(ex, "Unexpected error in ScrapeBackgroundService");
             }
+        }
+    }
+
+    /// <summary>See <see cref="ScrapeStartupRecovery"/>.</summary>
+    private async Task RecoverFromPreviousInstanceAsync(CancellationToken stoppingToken)
+    {
+        try
+        {
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            await scope.ServiceProvider.GetRequiredService<ScrapeStartupRecovery>().RunAsync(stoppingToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Not worth blocking the job queue for: the next scrape backs up, clears and refills the table anyway
+            _logger.LogError(ex, "Could not clean up after the previous instance of the service");
         }
     }
 

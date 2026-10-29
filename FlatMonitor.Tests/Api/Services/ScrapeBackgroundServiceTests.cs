@@ -47,6 +47,33 @@ public class ScrapeBackgroundServiceTests
     }
 
     [Test]
+    public async Task Startup_MarksRunsLeftRunningAsCanceled_WithoutTouchingTheNewJob()
+    {
+        // Arrange: a run an earlier instance never finished
+        await using (var dbContext = CreateDbContext())
+        {
+            dbContext.ScrapingHistories.Add(new ScrapingHistory
+            {
+                StartTimeUtc = DateTime.UtcNow.AddHours(-1), Status = ScrapingStatus.Running, FlatsScrapedCount = 121,
+            });
+            await dbContext.SaveChangesAsync();
+        }
+
+        // Act: start the service with a new job queued
+        var job = await RunJobAsync(new FakeFlatScraper { Flats = [FakeFlatScraper.CreateFlat("1")] });
+
+        // Assert
+        job.Status.Should().Be(ScrapeJobStatus.Completed);
+        await using var readContext = CreateDbContext();
+        var runs = await readContext.ScrapingHistories.OrderBy(h => h.Id).ToListAsync();
+        runs.Should().HaveCount(2);
+        runs[0].Status.Should().Be(ScrapingStatus.Canceled);
+        runs[0].ErrorMessage.Should().Be(ScrapeStartupRecovery.InterruptedRunMessage);
+        runs[0].EndTimeUtc.Should().BeNull();
+        runs[1].Status.Should().Be(ScrapingStatus.Successful);
+    }
+
+    [Test]
     public async Task ProcessJob_WhenAllSourcesSucceed_SavesSuccessfulHistoryWithFlatCount()
     {
         // Act
@@ -169,6 +196,8 @@ public class ScrapeBackgroundServiceTests
             scrapers, sp.GetRequiredService<ISnapshotRepository>(), new SnapshotWriter(), _dataDir,
             NullLogger<ScraperCoordinator>.Instance));
         services.AddScoped<ScrapeExecutionService>();
+        services.AddScoped<IScrapingHistoryRepository, ScrapingHistoryRepository>();
+        services.AddScoped<ScrapeStartupRecovery>();
         return services.BuildServiceProvider();
     }
 

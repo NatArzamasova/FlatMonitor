@@ -586,19 +586,36 @@ public class FlatSnapshotRepositoryTests
     }
 
     [Test]
-    public async Task RestoreFlatsSnapshotsAsync_WithoutBackup_PropagatesError()
+    public async Task RestoreFlatsSnapshotsAsync_WithoutBackup_PropagatesErrorAndKeepsTheRows()
     {
         // Arrange
         var options = CreateSqliteOptions();
         await using var repoContext = await CreateContextAsync(options);
         var repo = new FlatSnapshotRepository(repoContext);
+        await repo.UpsertListingsAsync([CreateFlat("1")]);
 
         // Act
         var act = () => repo.RestoreFlatsSnapshotsAsync();
 
-        // Assert
+        // Assert: delete and copy run in one transaction, so the failed copy undoes the delete
         await act.Should().ThrowAsync<Microsoft.Data.Sqlite.SqliteException>()
             .WithMessage("*FlatsSnapshots_Backup*");
+        await using var dbContext = new FlatsDbContext(options);
+        (await dbContext.FlatsSnapshots.CountAsync()).Should().Be(1);
+    }
+
+    [Test]
+    public async Task HasBackupAsync_ReflectsWhetherTheBackupTableExists()
+    {
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatSnapshotRepository(repoContext);
+
+        (await repo.HasBackupAsync()).Should().BeFalse();
+        await repo.BackupFlatsSnapshotsAsync();
+        (await repo.HasBackupAsync()).Should().BeTrue();
+        await repo.DeleteBackupAsync();
+        (await repo.HasBackupAsync()).Should().BeFalse();
     }
 
     [Test]

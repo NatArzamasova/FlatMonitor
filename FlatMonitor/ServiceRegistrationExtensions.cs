@@ -63,6 +63,7 @@ public static class ServiceRegistrationExtensions
     public static IServiceCollection AddFlatMonitorApi(this IServiceCollection services)
     {
         services.AddSingleton<ScrapeJobService>();
+        services.AddScoped<ScrapeStartupRecovery>();
         services.AddHostedService<ScrapeBackgroundService>();
 
         services.AddExceptionHandler<ApiExceptionHandler>();
