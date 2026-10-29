@@ -1,6 +1,7 @@
 using dotenv.net;
 using FlatMonitor;
 using FlatMonitor.Api.Services;
+using FlatMonitor.Models;
 using FlatMonitor.Scraping.ImmobilienScout24;
 using FlatMonitor.Storage;
 using Microsoft.AspNetCore.Builder;
@@ -55,25 +56,50 @@ async Task<int> RunScrapeAsync()
     {
         await MigrateDatabaseAsync(scope.ServiceProvider);
 
-        var executionService = scope.ServiceProvider.GetRequiredService<ScrapeExecutionService>();
-
-        // ScrapeExecutionService logs each step when it happens; a source is only published once it has
-        // finished, so a failed run leaves FlatsSnapshots consistent
-        var result = await executionService.ExecuteAsync();
-
-        if (result.Success)
+        // Same run as a job of the web server: recorded in ScrapingHistories, logged step by step; a source is
+        // only published once it has finished, so a failed or canceled run leaves FlatsSnapshots consistent
+        using var cts = new CancellationTokenSource();
+        ConsoleCancelEventHandler cancelOnCtrlC = (_, e) =>
         {
-            Console.WriteLine($"✓ Scraping completed. Total flats scraped: {result.TotalFlats}");
-            return 0;
+            // A second Ctrl+C ends the process at once
+            if (cts.IsCancellationRequested)
+                return;
+            e.Cancel = true;
+            Console.Error.WriteLine("Canceling the scrape... (press Ctrl+C again to quit immediately)");
+            cts.Cancel();
+        };
+        Console.CancelKeyPress += cancelOnCtrlC;
+
+        ScrapeRunResult result;
+        try
+        {
+            result = await scope.ServiceProvider.GetRequiredService<ScrapeRunService>().RunAsync(cts.Token);
+        }
+        finally
+        {
+            Console.CancelKeyPress -= cancelOnCtrlC;
         }
 
-        Console.Error.WriteLine("⚠ Scraping completed with errors:");
-        foreach (var error in result.Errors)
+        switch (result.Status)
         {
-            Console.Error.WriteLine($"  - {error}");
+            case ScrapingStatus.Successful:
+                Console.WriteLine($"✓ Scraping completed. Total flats scraped: {result.Summary!.TotalFlats}");
+                return 0;
+            case ScrapingStatus.PartialFailed:
+                Console.Error.WriteLine("⚠ Scraping completed with errors:");
+                foreach (var error in result.Summary!.Errors)
+                {
+                    Console.Error.WriteLine($"  - {error}");
+                }
+                Console.WriteLine($"✓ Partially scraped: {result.Summary.TotalFlats} flats collected (with errors)");
+                return 1;
+            case ScrapingStatus.Canceled:
+                Console.Error.WriteLine("✗ Scraping canceled");
+                return 1;
+            default:
+                Console.Error.WriteLine($"✗ Scraping failed: {result.ErrorMessage}");
+                return 1;
         }
-        Console.WriteLine($"✓ Partially scraped: {result.TotalFlats} flats collected (with errors)");
-        return 1;
     }
     catch (Exception ex)
     {

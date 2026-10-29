@@ -53,6 +53,7 @@ public static class ServiceRegistrationExtensions
             storage.DataDirectory,
             sp.GetRequiredService<ILogger<ScraperCoordinator>>()));
         services.AddScoped<ScrapeExecutionService>();
+        services.AddScoped<ScrapeRunService>();
 
         return services;
     }

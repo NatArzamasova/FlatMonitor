@@ -82,6 +82,17 @@ public class ServiceRegistrationExtensionsTests
     }
 
     [Test]
+    public async Task AddFlatMonitorCore_ResolvesScrapeRunService()
+    {
+        // Program's scrape command and ScrapeBackgroundService both resolve it from AddFlatMonitorCore
+        await using var scope = _provider.CreateAsyncScope();
+
+        var act = () => scope.ServiceProvider.GetRequiredService<ScrapeRunService>();
+
+        act.Should().NotThrow();
+    }
+
+    [Test]
     public async Task AddFlatMonitorCore_RepositoriesUseTheScopedDbContext()
     {
         // Arrange

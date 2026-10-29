@@ -1,14 +1,13 @@
 namespace FlatMonitor.Api.Services;
 
 using FlatMonitor.Models;
-using FlatMonitor.Storage;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using static FlatMonitor.Api.Services.ScrapeJobService;
 
-/// <summary>Runs queued scrape jobs one at a time and records each run in ScrapingHistories.</summary>
+/// <summary>Runs queued scrape jobs one at a time; each job is one <see cref="ScrapeRunService"/> run.</summary>
 public class ScrapeBackgroundService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
@@ -79,78 +78,19 @@ public class ScrapeBackgroundService : BackgroundService
         var finalStatus = ScrapeJobStatus.Failed;
         try
         {
-            await using var scope = _scopeFactory.CreateAsyncScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<FlatsDbContext>();
-            var executionService = scope.ServiceProvider.GetRequiredService<ScrapeExecutionService>();
-
             _logger.LogInformation("Starting scrape job {JobId}", job.JobId);
-            var history = new ScrapingHistory { StartTimeUtc = DateTime.UtcNow, Status = ScrapingStatus.Running };
-            dbContext.ScrapingHistories.Add(history);
-            await dbContext.SaveChangesAsync(jobCt);
-
-            try
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var result = await scope.ServiceProvider.GetRequiredService<ScrapeRunService>().RunAsync(jobCt);
+            finalStatus = result.Status switch
             {
-                // A failed or canceled run leaves FlatsSnapshots consistent: it only replaces sources that finished
-                var result = await executionService.ExecuteAsync(async batchCount =>
-                {
-                    history.FlatsScrapedCount += batchCount;
-                    dbContext.ScrapingHistories.Update(history);
-                    await dbContext.SaveChangesAsync(jobCt);
-                    _logger.LogInformation("Job {JobId}: Batch saved: +{BatchCount} flats. Total: {Total}",
-                        job.JobId, batchCount, history.FlatsScrapedCount);
-                }, jobCt);
-
-                if (result.Success)
-                {
-                    _logger.LogInformation("Scrape job {JobId} completed successfully with {FlatsCount} flats",
-                        job.JobId, result.TotalFlats);
-                    await CompleteHistoryAsync(dbContext, history, ScrapingStatus.Successful);
-                }
-                else
-                {
-                    var errorSummary = string.Join("; ", result.Errors);
-                    _logger.LogWarning("Scrape job {JobId} completed with errors: {Errors}", job.JobId, errorSummary);
-                    await CompleteHistoryAsync(dbContext, history, ScrapingStatus.PartialFailed, errorSummary);
-                }
-
-                finalStatus = ScrapeJobStatus.Completed;
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.LogWarning("Scrape job {JobId} was canceled", job.JobId);
-                await CompleteHistoryAsync(dbContext, history, ScrapingStatus.Canceled);
-                finalStatus = ScrapeJobStatus.Canceled;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Scrape job {JobId} failed", job.JobId);
-                await CompleteHistoryAsync(dbContext, history, ScrapingStatus.Failed, ex.Message);
-            }
-        }
-        catch (OperationCanceledException) when (jobCt.IsCancellationRequested)
-        {
-            // Canceled before the history row was saved: nothing was scraped, so there is no run to record
-            _logger.LogWarning("Scrape job {JobId} was canceled before it started scraping", job.JobId);
-            finalStatus = ScrapeJobStatus.Canceled;
+                ScrapingStatus.Successful or ScrapingStatus.PartialFailed => ScrapeJobStatus.Completed,
+                ScrapingStatus.Canceled => ScrapeJobStatus.Canceled,
+                _ => ScrapeJobStatus.Failed,
+            };
         }
         finally
         {
             _jobService.FinishJob(job.JobId, finalStatus);
         }
-    }
-
-    /// <summary>
-    /// Saves the history row's end state, even if the job was canceled. The repositories share this scoped
-    /// context, so flats or aggregations from an interrupted write may still be tracked: drop them first,
-    /// then Update re-attaches the history entity.
-    /// </summary>
-    private static async Task CompleteHistoryAsync(FlatsDbContext dbContext, ScrapingHistory history, ScrapingStatus status, string? errorMessage = null)
-    {
-        dbContext.ChangeTracker.Clear();
-        history.EndTimeUtc = DateTime.UtcNow;
-        history.Status = status;
-        history.ErrorMessage = errorMessage;
-        dbContext.ScrapingHistories.Update(history);
-        await dbContext.SaveChangesAsync(CancellationToken.None);
     }
 }

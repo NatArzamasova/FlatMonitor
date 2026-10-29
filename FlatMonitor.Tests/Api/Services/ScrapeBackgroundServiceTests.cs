@@ -246,6 +246,7 @@ public class ScrapeBackgroundServiceTests
             scrapers, sp.GetRequiredService<ISnapshotRepository>(), new SnapshotWriter(), _dataDir,
             NullLogger<ScraperCoordinator>.Instance));
         services.AddScoped<ScrapeExecutionService>();
+        services.AddScoped<ScrapeRunService>();
         services.AddScoped<IScrapingHistoryRepository, ScrapingHistoryRepository>();
         services.AddScoped<ScrapeStartupRecovery>();
         return services.BuildServiceProvider();

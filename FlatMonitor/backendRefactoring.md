@@ -183,7 +183,15 @@ Related open product decision from round 1 (2.8): the table is still "latest scr
 place to add it later: compare staging with live before replacing (new keys, changed prices, missing keys)
 and write those events to a history table.
 
-### 2.2 One scrape run service for the API and the CLI
+### 2.2 One scrape run service for the API and the CLI ✅ Done
+
+**Status:** Done. `ScrapeRunService` (scoped) records start, progress and end state through
+`IScrapingHistoryRepository` (`StartAsync`, `AddProgressAsync`, `CompleteAsync`, the last two via
+`ExecuteUpdateAsync`; they did not exist yet) and returns a `ScrapeRunResult` instead of throwing.
+`ScrapeBackgroundService` only dequeues, starts the job and maps the result; the `ChangeTracker.Clear()`
+workaround is gone. The `scrape` command uses the same service; Ctrl+C cancels the run gracefully, a second
+Ctrl+C quits at once. Found on the way: `ScrapingHistories` dates have no UTC converter (they read back as
+`Unspecified` and serialize without "Z"), unlike the flat tables.
 
 **Severity:** Medium · **Files:** `Api/Services/ScrapeBackgroundService.cs:71-149`, `Program.cs:46-86`
 

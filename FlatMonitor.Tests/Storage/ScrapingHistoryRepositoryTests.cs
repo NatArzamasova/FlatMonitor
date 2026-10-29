@@ -80,4 +80,75 @@ public class ScrapingHistoryRepositoryTests
         runs[1].FlatsScrapedCount.Should().Be(121);
         runs[2].ErrorMessage.Should().Be("network");
     }
+
+    [Test]
+    public async Task StartProgressComplete_RecordTheWholeRun()
+    {
+        // Arrange
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var context = await CreateSqliteContextAsync(connection);
+        var repository = new ScrapingHistoryRepository(context);
+
+        // Act
+        var runId = await repository.StartAsync();
+        var running = await context.ScrapingHistories.AsNoTracking().SingleAsync();
+        await repository.AddProgressAsync(runId, 20);
+        await repository.AddProgressAsync(runId, 5);
+        await repository.CompleteAsync(runId, ScrapingStatus.PartialFailed, "ImmobilienScout24: Login failed");
+
+        // Assert
+        running.Status.Should().Be(ScrapingStatus.Running);
+        running.StartTimeUtc.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(1));
+        running.EndTimeUtc.Should().BeNull();
+        var run = await context.ScrapingHistories.AsNoTracking().SingleAsync();
+        run.Id.Should().Be(runId);
+        run.FlatsScrapedCount.Should().Be(25);
+        run.Status.Should().Be(ScrapingStatus.PartialFailed);
+        run.ErrorMessage.Should().Be("ImmobilienScout24: Login failed");
+        run.EndTimeUtc.Should().NotBeNull().And.BeOnOrAfter(run.StartTimeUtc);
+    }
+
+    [Test]
+    public async Task ProgressAndComplete_DoNotSaveOtherPendingChangesOfTheSharedContext()
+    {
+        // Arrange: a failed batch left an unsaved aggregation row in the shared context
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var context = await CreateSqliteContextAsync(connection);
+        var repository = new ScrapingHistoryRepository(context);
+        var runId = await repository.StartAsync();
+        context.FlatAggregations.Add(new FlatAggregationSnapshot
+        {
+            ScrapingDate = DateOnly.FromDateTime(DateTime.UtcNow), District = "Oststadt", RoomsCount = 2, Count = 1, AvgPricePerMeter = 5000m,
+        });
+
+        // Act
+        await repository.AddProgressAsync(runId, 1);
+        await repository.CompleteAsync(runId, ScrapingStatus.Failed, "Disk full");
+
+        // Assert
+        (await context.FlatAggregations.AsNoTracking().CountAsync()).Should().Be(0);
+        (await context.ScrapingHistories.AsNoTracking().SingleAsync()).Status.Should().Be(ScrapingStatus.Failed);
+    }
+
+    [Test]
+    public async Task StartAsync_DoesNotKeepTheRunTracked()
+    {
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var context = await CreateSqliteContextAsync(connection);
+
+        await new ScrapingHistoryRepository(context).StartAsync();
+
+        context.ChangeTracker.Entries().Should().BeEmpty();
+    }
+
+    // ExecuteUpdate needs a relational provider
+    private static async Task<FlatsDbContext> CreateSqliteContextAsync(Microsoft.Data.Sqlite.SqliteConnection connection)
+    {
+        var context = new FlatsDbContext(new DbContextOptionsBuilder<FlatsDbContext>().UseSqlite(connection).Options);
+        await context.Database.EnsureCreatedAsync();
+        return context;
+    }
 }
