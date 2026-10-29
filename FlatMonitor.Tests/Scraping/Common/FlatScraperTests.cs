@@ -61,6 +61,27 @@ public class FlatScraperTests
     }
 
     [Test]
+    public async Task ScrapeAsync_WhenADetailPageTimesOut_KeepsBaseFlatAndContinues()
+    {
+        // Arrange: an HttpClient timeout is a TaskCanceledException although nothing was canceled
+        var scraper = new FakeFlatScraper
+        {
+            Flats = [CreateFlat("1"), CreateFlat("2")],
+            OnEnrich = (flat, _) =>
+            {
+                if (flat.ListingId == "1")
+                    throw new TaskCanceledException("The request timed out", new TimeoutException());
+            },
+        };
+
+        // Act
+        var result = await scraper.ScrapeAsync().ToListAsync();
+
+        // Assert
+        result.Select(f => f.ListingId).Should().Equal("1", "2");
+    }
+
+    [Test]
     public async Task ScrapeAsync_WhenEnrichmentOfOneFlatFails_KeepsBaseFlatAndContinues()
     {
         // Arrange

@@ -33,8 +33,8 @@ public sealed class ScraperCoordinator
     }
 
     /// <summary>
-    /// Scrapes all sources. A failing source is recorded in the summary and the next source still runs;
-    /// cancellation stops the whole run.
+    /// Scrapes all sources. A failing source, or one that saved no flats, is recorded in the summary and the next
+    /// source still runs; cancellation through <paramref name="ct"/> stops the whole run.
     /// </summary>
     /// <param name="onBatchSaved">
     /// Awaited after each saved batch with the number of flats saved (after district filtering).
@@ -53,8 +53,16 @@ public sealed class ScraperCoordinator
             try
             {
                 await ScrapeSourceAsync(scraper, saved => flatsPerSource[scraper.Source] += saved, onBatchSaved, ct);
+
+                // An empty source is a failure (blocked, changed markup), not an empty market
+                if (flatsPerSource[scraper.Source] == 0)
+                {
+                    _logger.LogError("No flats found for source {Source}", scraper.Source);
+                    errors.Add($"{scraper.Source}: no flats found");
+                }
             }
-            catch (OperationCanceledException)
+            // Only the caller's token cancels the run; an HttpClient timeout is a TaskCanceledException too
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
                 _logger.LogWarning("Scraping canceled for {Source}", scraper.Source);
                 throw;
@@ -106,9 +114,7 @@ public sealed class ScraperCoordinator
             }
         }
 
-        if (scraped == 0)
-            _logger.LogWarning("No listings found for source {Source}", scraper.Source);
-        else if (scraped > saved)
+        if (scraped > saved)
             _logger.LogInformation("{Source}: skipped {Count} listings outside the tracked districts", scraper.Source, scraped - saved);
     }
 

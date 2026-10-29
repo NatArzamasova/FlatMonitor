@@ -65,6 +65,11 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
         }
 
         var firstPageListings = ParseListingsPage(firstPageHtml);
+        if (firstPageListings.Count == 0)
+        {
+            throw new InvalidOperationException("No listings on the first page (robot guard?)");
+        }
+
         yield return firstPageListings;
 
         // Fetch and parse remaining pages

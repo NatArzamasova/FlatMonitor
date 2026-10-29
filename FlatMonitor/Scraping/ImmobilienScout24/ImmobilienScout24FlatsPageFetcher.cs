@@ -35,7 +35,8 @@ internal sealed class ImmobilienScout24FlatsPageFetcher
     /// <summary>
     /// Yields raw HTML for all pages, starting from page 2 onwards.
     /// Assumes the browser is already on page 1; fetches pages 2, 3, etc.
-    /// Stops when the next-page button is disabled or after reaching the safety limit.
+    /// Stops when the next-page button is disabled, a page has no listings, or after reaching the safety limit.
+    /// Any other failure throws: stopping early would look like a successful scrape with fewer flats.
     /// </summary>
     public async IAsyncEnumerable<string> FetchAllPagesHtmlAsync(
         [EnumeratorCancellation] CancellationToken ct = default)
@@ -63,51 +64,45 @@ internal sealed class ImmobilienScout24FlatsPageFetcher
 
     private async Task<string?> FetchPageInternalAsync(int pageNumber, CancellationToken ct)
     {
-        try
+        ct.ThrowIfCancellationRequested();
+
+        // Click next page button to navigate to the target page
+        _logger.LogDebug("ImmobilienScout24: page {Page}: clicking next page button", pageNumber);
+        var nextButton = await _page.QuerySelectorAsync("button[data-testid='pagination-button-next']:not([disabled])");
+        if (nextButton == null)
         {
-            // Click next page button to navigate to the target page
-            _logger.LogDebug("ImmobilienScout24: page {Page}: clicking next page button", pageNumber);
-            var nextButton = await _page.QuerySelectorAsync("button[data-testid='pagination-button-next']:not([disabled])");
-            if (nextButton == null)
-            {
-                _logger.LogInformation("ImmobilienScout24: next page button not found or disabled, pagination complete");
-                return null;
-            }
-
-            var previousFirstCard = await _page.QuerySelectorAsync(ListingCardSelector);
-            var previousFirstId = previousFirstCard == null ? null : await previousFirstCard.GetAttributeAsync("data-obid");
-
-            await nextButton.ClickAsync();
-
-            // Wait until the next page's listings have rendered
-            _logger.LogDebug("ImmobilienScout24: page {Page}: waiting for page load", pageNumber);
-            await _page.WaitForLoadStateAsync(LoadState.DOMContentLoaded, new() { Timeout = 60000 });
-            await _page.WaitForFunctionAsync(FirstCardChangedScript, new object?[] { ListingCardSelector, previousFirstId },
-                new PageWaitForFunctionOptions { Timeout = 60000 });
-            _logger.LogDebug("ImmobilienScout24: page {Page}: loaded, extracting HTML", pageNumber);
-
-            // Extract current page HTML (now on the new page)
-            var html = await _page.ContentAsync();
-            _logger.LogDebug("ImmobilienScout24: page {Page}: HTML extracted ({Bytes} bytes)", pageNumber, html.Length);
-
-            // Count listing cards on this page
-            var doc = new HtmlDocument();
-            doc.LoadHtml(html);
-            var listingCards = doc.DocumentNode.SelectNodes("//div[contains(@class, 'listing-card') and @data-obid]");
-            int listingCount = listingCards?.Count ?? 0;
-            if (listingCount == 0)
-            {
-                _logger.LogInformation("ImmobilienScout24: page {Page} has no listings, pagination complete", pageNumber);
-                return null;
-            }
-
-            _logger.LogInformation("ImmobilienScout24: page {Page}: {Count} listings found", pageNumber, listingCount);
-            return html;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "ImmobilienScout24: failed to fetch page {Page}, stopping pagination", pageNumber);
+            _logger.LogInformation("ImmobilienScout24: next page button not found or disabled, pagination complete");
             return null;
         }
+
+        var previousFirstCard = await _page.QuerySelectorAsync(ListingCardSelector);
+        var previousFirstId = previousFirstCard == null ? null : await previousFirstCard.GetAttributeAsync("data-obid");
+
+        await nextButton.ClickAsync();
+
+        // Wait until the next page's listings have rendered
+        _logger.LogDebug("ImmobilienScout24: page {Page}: waiting for page load", pageNumber);
+        await _page.WaitForLoadStateAsync(LoadState.DOMContentLoaded, new() { Timeout = 60000 });
+        await _page.WaitForFunctionAsync(FirstCardChangedScript, new object?[] { ListingCardSelector, previousFirstId },
+            new PageWaitForFunctionOptions { Timeout = 60000 });
+        _logger.LogDebug("ImmobilienScout24: page {Page}: loaded, extracting HTML", pageNumber);
+
+        // Extract current page HTML (now on the new page)
+        var html = await _page.ContentAsync();
+        _logger.LogDebug("ImmobilienScout24: page {Page}: HTML extracted ({Bytes} bytes)", pageNumber, html.Length);
+
+        // Count listing cards on this page
+        var doc = new HtmlDocument();
+        doc.LoadHtml(html);
+        var listingCards = doc.DocumentNode.SelectNodes("//div[contains(@class, 'listing-card') and @data-obid]");
+        int listingCount = listingCards?.Count ?? 0;
+        if (listingCount == 0)
+        {
+            _logger.LogInformation("ImmobilienScout24: page {Page} has no listings, pagination complete", pageNumber);
+            return null;
+        }
+
+        _logger.LogInformation("ImmobilienScout24: page {Page}: {Count} listings found", pageNumber, listingCount);
+        return html;
     }
 }

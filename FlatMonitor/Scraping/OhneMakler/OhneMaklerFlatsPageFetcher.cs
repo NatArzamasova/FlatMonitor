@@ -18,6 +18,7 @@ internal sealed class OhneMaklerFlatsPageFetcher
 
     // Yields raw HTML for each results page, starting at page 1, stopping
     // as soon as a fetched page contains zero listing-card links or a hard safety cap is hit.
+    // A failing request throws on any page: stopping early would look like a successful scrape with fewer flats.
     public async IAsyncEnumerable<string> FetchAllPagesHtmlAsync(
         [EnumeratorCancellation] CancellationToken ct = default)
     {
@@ -28,25 +29,9 @@ internal sealed class OhneMaklerFlatsPageFetcher
             string url = OhneMaklerSelectors.PageUrl(pageNumber);
             _logger.LogDebug("OhneMakler: fetching page {Page}", pageNumber);
 
-            string html;
-            try
-            {
-                var response = await _httpClient.GetAsync(url, ct);
-                response.EnsureSuccessStatusCode();
-                html = await response.Content.ReadAsStringAsync(ct);
-            }
-            catch (HttpRequestException ex) when (pageNumber == 1)
-            {
-                // Page 1 is fatal — no flat index, can't proceed.
-                throw new InvalidOperationException(
-                    $"Failed to fetch the first page from {url}. Scrape cannot continue.", ex);
-            }
-            catch (Exception ex)
-            {
-                // Later pages: log warning and stop pagination.
-                _logger.LogWarning(ex, "OhneMakler: failed to fetch page {Page}, stopping pagination", pageNumber);
-                yield break;
-            }
+            var response = await _httpClient.GetAsync(url, ct);
+            response.EnsureSuccessStatusCode();
+            string html = await response.Content.ReadAsStringAsync(ct);
 
             // Parse the HTML to count flat-card links; stop if this page has zero.
             var doc = new HtmlDocument();
@@ -56,6 +41,10 @@ internal sealed class OhneMaklerFlatsPageFetcher
 
             if (listingCount == 0)
             {
+                // The first page always has listings; none means changed markup or a blocked request
+                if (pageNumber == 1)
+                    throw new InvalidOperationException($"No listings on the first page ({url})");
+
                 _logger.LogInformation("OhneMakler: page {Page} has no listings, pagination complete", pageNumber);
                 yield break;
             }

@@ -77,7 +77,8 @@ public abstract class FlatScraper : IScraper
                 enrichedFlat.LivingAreaSqm, enrichedFlat.RoomsCount, enrichedFlat.CommissionPercent);
             return enrichedFlat;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        // Not on cancellation; an HttpClient timeout (TaskCanceledException) is just a failed detail page
+        catch (Exception ex) when (!ct.IsCancellationRequested)
         {
             Logger.LogWarning(ex, "{Source}: ({Position}/{Total}) {ListingId} - error enriching details, keeping card data",
                 Source, position, total, flat.ListingId);

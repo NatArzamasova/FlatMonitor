@@ -21,7 +21,11 @@ Line references are to the files as of commit `4ac6af7`.
 
 ## 1. Bugs
 
-### 1.1 A source that finds nothing, or stops paginating early, counts as success
+### 1.1 A source that finds nothing, or stops paginating early, counts as success ✅ Done
+
+**Status:** Done, except the optional "large drop compared with the previous run" check. Also fixed: an
+`HttpClient` timeout (`TaskCanceledException`) no longer counts as cancellation in the coordinator and in the
+per-flat enrichment catches; only the caller's token cancels.
 
 **Severity:** High · **Files:** `Scraping/OhneMakler/OhneMaklerFlatsPageFetcher.cs:38-49`,
 `Scraping/ImmobilienScout24/ImmobilienScout24FlatsPageFetcher.cs:107-111`,

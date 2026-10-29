@@ -166,18 +166,47 @@ public class ScraperCoordinatorTests
     }
 
     [Test]
-    public async Task ScrapeAllSourcesAsync_SkipsEmptyResults()
+    public async Task ScrapeAllSourcesAsync_WhenASourceFindsNoFlats_RecordsAnError()
+    {
+        // Arrange
+        var empty = new StubScraper("OhneMakler");
+        var working = new StubScraper("ImmobilienScout24", CreateFlat("2", "Durlach"));
+
+        // Act
+        var summary = await CreateCoordinator(empty, working).ScrapeAllSourcesAsync();
+
+        // Assert
+        summary.Success.Should().BeFalse();
+        summary.Errors.Should().Equal("OhneMakler: no flats found");
+        summary.FlatsPerSource.Should().Equal(new Dictionary<string, int> { ["OhneMakler"] = 0, ["ImmobilienScout24"] = 1 });
+        SnapshotFiles("OhneMakler").Should().BeEmpty();
+        _logger.Entries.Should().Contain(e => e.Level == LogLevel.Error && e.Message == "No flats found for source OhneMakler");
+    }
+
+    [Test]
+    public async Task ScrapeAllSourcesAsync_WhenEveryFlatOfASourceIsOutsideTheTrackedDistricts_RecordsAnError()
     {
         // Act
-        var summary = await CreateCoordinator(new StubScraper("OhneMakler"), new StubScraper("ImmobilienScout24"))
+        var summary = await CreateCoordinator(new StubScraper("OhneMakler", CreateFlat("1", "Bad Schönborn")))
             .ScrapeAllSourcesAsync();
 
         // Assert
-        _savedBatches.Should().BeEmpty();
-        SnapshotFiles("OhneMakler").Should().BeEmpty();
-        SnapshotFiles("ImmobilienScout24").Should().BeEmpty();
-        summary.TotalFlats.Should().Be(0);
-        summary.Success.Should().BeTrue();
+        summary.Errors.Should().Equal("OhneMakler: no flats found");
+    }
+
+    [Test]
+    public async Task ScrapeAllSourcesAsync_WhenASourceTimesOut_RecordsAnErrorAndScrapesOtherSources()
+    {
+        // Arrange: an HttpClient timeout is a TaskCanceledException although nothing was canceled
+        var timingOut = new StubScraper("OhneMakler") { Error = new TaskCanceledException("The request timed out", new TimeoutException()) };
+        var working = new StubScraper("ImmobilienScout24", CreateFlat("2", "Durlach"));
+
+        // Act
+        var summary = await CreateCoordinator(timingOut, working).ScrapeAllSourcesAsync();
+
+        // Assert
+        summary.Errors.Should().Equal("OhneMakler: The request timed out");
+        working.Calls.Should().Be(1);
     }
 
     [Test]
@@ -382,10 +411,19 @@ public class ScraperCoordinatorTests
     public async Task ScrapeAllSourcesAsync_WhenCanceled_LogsWarningNotError()
     {
         // Arrange
-        var scraper = new StubScraper("OhneMakler") { Error = new OperationCanceledException() };
+        using var cts = new CancellationTokenSource();
+        var scraper = new FakeFlatScraper("OhneMakler")
+        {
+            Flats = [CreateFlat("1")],
+            OnEnrich = (_, ct) =>
+            {
+                cts.Cancel();
+                ct.ThrowIfCancellationRequested();
+            },
+        };
 
         // Act
-        var act = () => CreateCoordinator(scraper).ScrapeAllSourcesAsync();
+        var act = () => CreateCoordinator(scraper).ScrapeAllSourcesAsync(ct: cts.Token);
 
         // Assert
         await act.Should().ThrowAsync<OperationCanceledException>();

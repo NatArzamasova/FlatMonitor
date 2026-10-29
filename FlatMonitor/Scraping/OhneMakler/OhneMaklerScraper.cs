@@ -94,7 +94,7 @@ public sealed class OhneMaklerScraper : FlatScraper
                 CommissionPercent = 0,
             };
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (!ct.IsCancellationRequested)
         {
             // Per confirmed behavior: log warning, still include listing with partial data.
             Logger.LogWarning(ex, "OhneMakler: failed to fetch/parse detail page for listing {ListingId} ({Url})",

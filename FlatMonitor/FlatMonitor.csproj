@@ -23,5 +23,8 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="FlatMonitor.Tests" />
+  </ItemGroup>
 
 </Project>
