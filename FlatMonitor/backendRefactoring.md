@@ -99,7 +99,11 @@ whether it is rented now.
 **Fix:** match "vermietet", store "Vermietet", and fix the tests (use a real fixture value). Consider leaving
 `CurrentUse` empty for IS24 unless the page has a field for it, instead of inferring it from availability.
 
-### 1.4 An IS24 flat whose detail page fails is dropped, and reported as "outside the tracked districts"
+### 1.4 An IS24 flat whose detail page fails is dropped, and reported as "outside the tracked districts" ✅ Done
+
+**Status:** Done. `ApplyTo` falls back to the card's values. The coordinator logs flats without a district
+apart from flats in an untracked district, as a warning above 10 % of the source's flats. A flat whose detail
+page fails is still dropped (the card has no district), but now visibly.
 
 **Severity:** Medium · **Files:** `Scraping/ImmobilienScout24/ImmobilienScout24DetailParser.cs:18-30`,
 `Scraping/ImmobilienScout24/ImmobilienScout24CardParser.cs:33-44`, `Scraping/ScraperCoordinator.cs:111-112`

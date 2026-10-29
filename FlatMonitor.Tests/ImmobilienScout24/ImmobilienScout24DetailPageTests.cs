@@ -80,21 +80,30 @@ public class ImmobilienScout24DetailPageTests
     }
 
     [Test]
-    public void ApplyTo_WithoutExposeMetadata_ClearsTheCardsValuesButKeepsItsTitle()
+    public void ApplyTo_WithoutExposeMetadata_KeepsTheCardsValues()
     {
+        // No metadata script: robot guard or changed markup; the card's values must not be cleared
         var page = new ImmobilienScout24DetailPage(Title: null, Metadata: null, OriginalPrice: null, Details: null);
+        var card = Card() with { CommissionPercent = 3.57 };
 
-        var flat = page.ApplyTo(Card());
+        var flat = page.ApplyTo(card);
 
-        flat.Title.Should().Be("Card title");
-        flat.Address.Should().BeNull();
-        flat.PostalCode.Should().BeNull();
-        flat.District.Should().BeNull();
-        flat.PriceEur.Should().BeNull();
-        flat.OriginalPriceEur.Should().BeNull();
-        flat.RoomsCount.Should().BeNull();
-        flat.LivingAreaSqm.Should().BeNull();
-        flat.CommissionPercent.Should().BeNull();
+        flat.Should().Be(card with { OriginalPriceEur = card.PriceEur });
+    }
+
+    [Test]
+    public void ApplyTo_WithPartialExposeMetadata_TakesThePagesValuesAndKeepsTheCardsForTheRest()
+    {
+        var page = new ImmobilienScout24DetailPage(
+            Title: null,
+            Metadata: new ImmobilienScout24DetailParser.ExposeMetadata { District = "Daxlanden", PriceEur = 299000 },
+            OriginalPrice: null,
+            Details: null);
+        var card = Card();
+
+        var flat = page.ApplyTo(card);
+
+        flat.Should().Be(card with { District = "Daxlanden", PriceEur = 299000, OriginalPriceEur = 299000 });
     }
 
     [Test]

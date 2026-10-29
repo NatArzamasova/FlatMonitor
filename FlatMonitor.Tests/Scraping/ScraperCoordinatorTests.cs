@@ -338,6 +338,38 @@ public class ScraperCoordinatorTests
     }
 
     [Test]
+    public async Task ScrapeAllSourcesAsync_CountsFlatsWithoutADistrictApartFromFlatsOutsideTheTrackedDistricts()
+    {
+        // Arrange: 7 saved, 2 outside the tracked districts, 1 without a district (10 %: not yet a warning)
+        var flats = Enumerable.Range(1, 7).Select(i => CreateFlat(i.ToString())).ToList();
+        flats.AddRange([CreateFlat("outside1", "Bad Schönborn"), CreateFlat("outside2", "Ettlingen"), CreateFlat("none", null!)]);
+
+        // Act
+        await CreateCoordinator(new StubScraper("ImmobilienScout24", [.. flats])).ScrapeAllSourcesAsync();
+
+        // Assert
+        _logger.Messages.Should().Contain("ImmobilienScout24: skipped 2 listings outside the tracked districts")
+            .And.Contain("ImmobilienScout24: skipped 1 of 10 listings without a district");
+        _logger.Entries.Should().NotContain(e => e.Level == LogLevel.Warning);
+    }
+
+    [Test]
+    public async Task ScrapeAllSourcesAsync_WhenManyFlatsHaveNoDistrict_Warns()
+    {
+        // Arrange: 2 of 10 without a district, e.g. their detail pages failed
+        var flats = Enumerable.Range(1, 8).Select(i => CreateFlat(i.ToString())).ToList();
+        flats.AddRange([CreateFlat("none1", null!), CreateFlat("none2", "")]);
+
+        // Act
+        await CreateCoordinator(new StubScraper("ImmobilienScout24", [.. flats])).ScrapeAllSourcesAsync();
+
+        // Assert
+        _logger.Entries.Should().ContainSingle(e => e.Level == LogLevel.Warning)
+            .Which.Message.Should().Be("ImmobilienScout24: skipped 2 of 10 listings without a district");
+        _logger.Messages.Should().NotContain(m => m.Contains("outside the tracked districts"));
+    }
+
+    [Test]
     public async Task ScrapeAllSourcesAsync_FilterByDistrict_MixedValidAndInvalid()
     {
         // Act

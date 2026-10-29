@@ -12,6 +12,9 @@ public sealed class ScraperCoordinator
 {
     private const int BatchSize = 20;
 
+    /// <summary>Above this share of a source's flats without a district, the parser is likely broken, not the market odd.</summary>
+    private const double MissingDistrictWarningShare = 0.1;
+
     private readonly IEnumerable<IScraper> _scrapers;
     private readonly ISnapshotRepository _repository;
     private readonly SnapshotWriter _snapshotWriter;
@@ -81,6 +84,7 @@ public sealed class ScraperCoordinator
     {
         _logger.LogInformation("Starting scrape for source {Source}", scraper.Source);
         var scraped = 0;
+        var withoutDistrict = 0;
         var saved = 0;
         SnapshotFile? snapshot = null;
 
@@ -89,6 +93,7 @@ public sealed class ScraperCoordinator
             await foreach (var batch in scraper.ScrapeAsync(ct).Chunk(BatchSize))
             {
                 scraped += batch.Length;
+                withoutDistrict += batch.Count(flat => string.IsNullOrWhiteSpace(flat.District));
                 var filtered = FilterAndNormalizeBatch(batch);
                 if (filtered.Count == 0)
                     continue;
@@ -114,8 +119,23 @@ public sealed class ScraperCoordinator
             }
         }
 
-        if (scraped > saved)
-            _logger.LogInformation("{Source}: skipped {Count} listings outside the tracked districts", scraper.Source, scraped - saved);
+        LogSkipped(scraper.Source, scraped, withoutDistrict, outsideTrackedDistricts: scraped - saved - withoutDistrict);
+    }
+
+    /// <summary>
+    /// Flats without a district are counted apart from flats in an untracked district: they usually mean a detail page
+    /// failed or its markup changed, which would otherwise look like a quiet market.
+    /// </summary>
+    private void LogSkipped(string source, int scraped, int withoutDistrict, int outsideTrackedDistricts)
+    {
+        if (outsideTrackedDistricts > 0)
+            _logger.LogInformation("{Source}: skipped {Count} listings outside the tracked districts", source, outsideTrackedDistricts);
+
+        if (withoutDistrict == 0)
+            return;
+
+        var level = withoutDistrict > scraped * MissingDistrictWarningShare ? LogLevel.Warning : LogLevel.Information;
+        _logger.Log(level, "{Source}: skipped {Count} of {Scraped} listings without a district", source, withoutDistrict, scraped);
     }
 
     /// <summary>Keeps flats in a tracked district, with the district name in its canonical spelling.</summary>

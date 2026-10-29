@@ -14,20 +14,27 @@ public sealed record ImmobilienScout24DetailPage(
     int? OriginalPrice,
     FlatDetails? Details)
 {
-    /// <summary>The card enriched with this page. Expose metadata replaces the card's values, even where the page has none.</summary>
-    public Flat ApplyTo(Flat card) => card with
+    /// <summary>
+    /// The card enriched with this page. Expose metadata replaces the card's values; where the page has none
+    /// (no metadata script: robot guard, changed markup), the card's values are kept.
+    /// </summary>
+    public Flat ApplyTo(Flat card)
     {
-        Title = Title ?? card.Title,
-        Address = Metadata?.Address,
-        PostalCode = Metadata?.PostalCode,
-        District = Metadata?.District,
-        PriceEur = Metadata?.PriceEur,
-        OriginalPriceEur = OriginalPrice ?? Metadata?.OriginalPriceEur ?? Metadata?.PriceEur,
-        RoomsCount = Metadata?.RoomsCount,
-        LivingAreaSqm = Metadata?.LivingAreaSqm,
-        CommissionPercent = Metadata?.CommissionPercent,
-        Details = Details,
-    };
+        var priceEur = Metadata?.PriceEur ?? card.PriceEur;
+        return card with
+        {
+            Title = Title ?? card.Title,
+            Address = Metadata?.Address ?? card.Address,
+            PostalCode = Metadata?.PostalCode ?? card.PostalCode,
+            District = Metadata?.District ?? card.District,
+            PriceEur = priceEur,
+            OriginalPriceEur = OriginalPrice ?? Metadata?.OriginalPriceEur ?? priceEur,
+            RoomsCount = Metadata?.RoomsCount ?? card.RoomsCount,
+            LivingAreaSqm = Metadata?.LivingAreaSqm ?? card.LivingAreaSqm,
+            CommissionPercent = Metadata?.CommissionPercent ?? card.CommissionPercent,
+            Details = Details,
+        };
+    }
 }
 
 /// <summary>
