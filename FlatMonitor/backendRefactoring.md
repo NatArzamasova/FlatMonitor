@@ -77,7 +77,12 @@ successful sources get their new rows. Then a partial run needs no backup, the a
 source, and recovery only has to deal with interrupted runs. Until 2.1 is done, at minimum make recovery
 skip `PartialFailed` (so it matches what the running service does) and add a test for it.
 
-### 1.3 IS24 `CurrentUse` is never "vermietet" (typo)
+### 1.3 IS24 `CurrentUse` is never "vermietet" (typo) ✅ Done
+
+**Status:** Done. Expose pages do have a field for it: the "Vermietet" tag `data-qa="is24qa-rented-label"`
+(171 of 561 saved pages). `CurrentUse` is "Vermietet" when that tag is present or "Bezugsfrei ab" says
+"vermietet", and empty otherwise; the "Sofort" → "Nicht vermietet" guess is gone. Tests use the real markup
+(`Fixtures/ImmobilienScout24/detail-page-rented.html`) and real availability values.
 
 **Severity:** Medium · **File:** `Scraping/ImmobilienScout24/ImmobilienScout24DetailParser.cs:80-81`
 

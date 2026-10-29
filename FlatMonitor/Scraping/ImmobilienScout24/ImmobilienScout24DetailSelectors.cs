@@ -18,4 +18,5 @@ public class ImmobilienScout24DetailSelectors
     public string PrimaryEnergySourceXPath => ".//dd[@class='is24qa-wesentliche-energietraeger grid-item three-fifths']//text()";
     public string ServiceChargeXPath => ".//dd[@class='is24qa-hausgeld grid-item three-fifths']//text()";
     public string AvailabilityXPath => ".//dd[contains(@class, 'is24qa-bezugsfrei-ab')]//text()";
+    public string RentedLabelXPath => "//*[@data-qa='is24qa-rented-label']";
 }

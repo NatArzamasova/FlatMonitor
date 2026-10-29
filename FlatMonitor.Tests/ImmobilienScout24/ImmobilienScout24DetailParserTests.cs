@@ -631,117 +631,70 @@ public class ImmobilienScout24DetailParserTests
     }
 
     [Test]
-    public void ParseDetailFields_MapsAvailabilityVermitetToCurrentUse()
+    public void ParseDetailFields_WithTheRentedTag_SetsCurrentUseToVermietet()
     {
         // Arrange
-        var html = @"
-            <html>
-                <body>
-                    <dl class='grid' role='presentation'>
-                        <dd class='is24qa-bezugsfrei-ab grid-item three-fifths'>Vermitet</dd>
-                    </dl>
-                </body>
-            </html>";
+        var html = File.ReadAllText(GetFixturePath("detail-page-rented.html"));
 
         // Act
         var result = _parser.ParseDetailFields(html);
 
         // Assert
         result.Should().NotBeNull();
-        result!.Availability.Should().Be("Vermitet");
-        result!.CurrentUse.Should().Be("Vermitet");
+        result!.Availability.Should().Be("vermietet");
+        result!.CurrentUse.Should().Be("Vermietet");
     }
 
     [Test]
-    public void ParseDetailFields_MapsAvailabilitySofortToCurrentUse()
+    public void ParseDetailFields_WithTheRentedTagButOtherAvailability_SetsCurrentUseToVermietet()
     {
-        // Arrange
-        var html = @"
-            <html>
-                <body>
-                    <dl class='grid' role='presentation'>
-                        <dd class='is24qa-bezugsfrei-ab grid-item three-fifths'>Sofort</dd>
-                    </dl>
-                </body>
-            </html>";
+        // Arrange: the tag alone is enough; on real pages the availability then often says "nach Vereinbarung"
+        var html = """
+            <html><body>
+                <span data-qa="is24qa-rented-label"><div data-testid="indicator-container"><span><span>Vermietet</span></span></div></span>
+                <dd class="is24qa-bezugsfrei-ab grid-item three-fifths">nach Vereinbarung</dd>
+            </body></html>
+            """;
 
         // Act
         var result = _parser.ParseDetailFields(html);
 
         // Assert
         result.Should().NotBeNull();
-        result!.Availability.Should().Be("Sofort");
-        result!.CurrentUse.Should().Be("Nicht vermietet");
+        result!.Availability.Should().Be("nach Vereinbarung");
+        result!.CurrentUse.Should().Be("Vermietet");
     }
 
-    [Test]
-    public void ParseDetailFields_WithAvailabilityVermitetCasInsensitive_MapsToCurrentUse()
+    // Real "Bezugsfrei ab" values from saved expose pages
+    [TestCase("vermietet")]
+    [TestCase("Vermietet")]
+    [TestCase("vermietet / nach Vereinbarung; bestehendes Mietverhältnis")]
+    public void ParseDetailFields_WithRentedAvailabilityAndNoTag_SetsCurrentUseToVermietet(string availability)
     {
-        // Arrange - test case insensitivity
-        var testCases = new[] { "vermitet", "VERMITET", "Vermitet", "VerMitet" };
-
-        foreach (var availability in testCases)
-        {
-            var html = $@"
-                <html>
-                    <body>
-                        <dd class='is24qa-bezugsfrei-ab'>{availability}</dd>
-                    </body>
-                </html>";
-
-            // Act
-            var result = _parser.ParseDetailFields(html);
-
-            // Assert
-            result.Should().NotBeNull();
-            result!.CurrentUse.Should().Be("Vermitet", $"for availability '{availability}'");
-        }
-    }
-
-    [Test]
-    public void ParseDetailFields_WithAvailabilitySofortCaseInsensitive_MapsToCurrentUse()
-    {
-        // Arrange - test case insensitivity for "Sofort"
-        var testCases = new[] { "sofort", "SOFORT", "Sofort", "SoFoRt" };
-
-        foreach (var availability in testCases)
-        {
-            var html = $@"
-                <html>
-                    <body>
-                        <dd class='is24qa-bezugsfrei-ab'>{availability}</dd>
-                    </body>
-                </html>";
-
-            // Act
-            var result = _parser.ParseDetailFields(html);
-
-            // Assert
-            result.Should().NotBeNull();
-            result!.CurrentUse.Should().Be("Nicht vermietet", $"for availability '{availability}'");
-        }
-    }
-
-    [Test]
-    public void ParseDetailFields_WithUnmappedAvailability_ReturnsNullForCurrentUse()
-    {
-        // Arrange
-        var html = @"
-            <html>
-                <body>
-                    <dl class='grid' role='presentation'>
-                        <dd class='is24qa-bezugsfrei-ab grid-item three-fifths'>nach Absprache</dd>
-                    </dl>
-                </body>
-            </html>";
-
         // Act
-        var result = _parser.ParseDetailFields(html);
+        var result = _parser.ParseDetailFields(AvailabilityHtml(availability));
 
         // Assert
         result.Should().NotBeNull();
-        result!.Availability.Should().Be("nach Absprache");
-        result!.CurrentUse.Should().BeNull("unmapped availability should not set CurrentUse");
+        result!.Availability.Should().Be(availability);
+        result!.CurrentUse.Should().Be("Vermietet");
+    }
+
+    [TestCase("sofort", TestName = "Availability_Sofort_SaysWhenNotWhetherRented")]
+    [TestCase("ab sofort")]
+    [TestCase("nach Absprache")]
+    [TestCase("1.11.2026")]
+    [TestCase("unvermietet")]
+    [TestCase("nicht vermietet")]
+    public void ParseDetailFields_WithoutTheRentedTagOrRentedAvailability_LeavesCurrentUseEmpty(string availability)
+    {
+        // Act
+        var result = _parser.ParseDetailFields(AvailabilityHtml(availability));
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.Availability.Should().Be(availability);
+        result!.CurrentUse.Should().BeNull();
     }
 
     [Test]
@@ -780,7 +733,7 @@ public class ImmobilienScout24DetailParserTests
                     </dl>
                     <dl class='grid' role='presentation'>
                         <dt class='is24qa-bezugsfrei-ab-label'>Bezugsfrei ab</dt>
-                        <dd class='is24qa-bezugsfrei-ab'>Vermitet</dd>
+                        <dd class='is24qa-bezugsfrei-ab'>vermietet</dd>
                     </dl>
                 </body>
             </html>";
@@ -791,7 +744,16 @@ public class ImmobilienScout24DetailParserTests
         // Assert
         result.Should().NotBeNull();
         result!.Floor.Should().Be("3 von 5");
-        result!.Availability.Should().Be("Vermitet");
-        result!.CurrentUse.Should().Be("Vermitet");
+        result!.Availability.Should().Be("vermietet");
+        result!.CurrentUse.Should().Be("Vermietet");
     }
+
+    private static string AvailabilityHtml(string availability) => $"""
+        <html><body>
+            <dl class="grid" role="presentation">
+                <dt class="is24qa-bezugsfrei-ab-label grid-item two-fifths">Bezugsfrei ab</dt>
+                <dd class="is24qa-bezugsfrei-ab grid-item three-fifths">{availability}</dd>
+            </dl>
+        </body></html>
+        """;
 }

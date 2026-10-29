@@ -73,15 +73,11 @@ public partial class ImmobilienScout24DetailParser
             var serviceCharge = GermanNumberParser.ParseInteger(DetailExtractors.ExtractText(doc, _selectors.ServiceChargeXPath));
             var availability = DetailExtractors.ExtractText(doc, _selectors.AvailabilityXPath);
 
-            // Map Availability to CurrentUse
-            string? currentUse = null;
-            if (!string.IsNullOrWhiteSpace(availability))
-            {
-                if (availability.Contains("Vermitet", StringComparison.OrdinalIgnoreCase))
-                    currentUse = "Vermitet";
-                else if (availability.Contains("Sofort", StringComparison.OrdinalIgnoreCase))
-                    currentUse = "Nicht vermietet";
-            }
+            // The page only says when a flat is rented (the "Vermietet" tag, or "vermietet" as availability);
+            // without either, whether it is rented is unknown, so CurrentUse stays empty
+            var isRented = doc.DocumentNode.SelectSingleNode(_selectors.RentedLabelXPath) != null
+                || (availability != null && Rented().IsMatch(availability));
+            string? currentUse = isRented ? "Vermietet" : null;
 
             var details = new FlatDetails
             {
@@ -204,6 +200,10 @@ public partial class ImmobilienScout24DetailParser
             properties.TryAdd(match.Groups["key"].Value, match.Groups["value"].Value);
         return properties;
     }
+
+    // "vermietet / nach Vereinbarung", but not "unvermietet" or "nicht vermietet"
+    [GeneratedRegex(@"(?<!nicht\s+)\bvermietet\b", RegexOptions.IgnoreCase)]
+    private static partial Regex Rented();
 
     [GeneratedRegex(@"courtage\s*:\s*['""]([^""]*)['""]")]
     private static partial Regex Courtage();
