@@ -17,13 +17,13 @@ public sealed partial class OhneMaklerFlatCardParser
         _logger = logger ?? NullLogger.Instance;
     }
 
-    public List<(Flat Flat, string DetailPageUrl)> ParsePage(string html)
+    public List<Flat> ParsePage(string html)
     {
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
 
         var listingLinks = doc.DocumentNode.SelectNodes(OhneMaklerSelectors.ListingLinkXPath);
-        var results = new List<(Flat, string)>();
+        var results = new List<Flat>();
 
         if (listingLinks == null || listingLinks.Count == 0)
             return results;
@@ -69,10 +69,9 @@ public sealed partial class OhneMaklerFlatCardParser
                     LivingAreaSqm = area,
                     ScrapedAtUtc = DateTime.UtcNow,
                     Source = OhneMaklerScraper.SourceName,
-                    DetailPageUrl = url,
                 };
 
-                results.Add((flat, url));
+                results.Add(flat);
             }
             catch (Exception ex)
             {

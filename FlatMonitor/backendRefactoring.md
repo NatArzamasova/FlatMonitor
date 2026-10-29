@@ -295,7 +295,13 @@ where built by `BuildXPathPatterns`); the `_selectors` fields are gone.
   `OhneMaklerDetailSelectors` are instantiated classes whose properties return constants; `OhneMaklerSelectors`
   is static. Make all four `static` with `const`/`static readonly` fields, and drop the `_selectors` fields.
 
-### 3.2 OhneMakler
+### 3.2 OhneMakler ✅ Done
+
+**Status:** Done. `Flat.DetailPageUrl` and the tuple are gone (`ParsePage` returns `List<Flat>`, enrichment uses
+`Url`; old JSONL files with the field still load). `ExtractCurrentUse` reads `CurrentUseXPath` / `UsageXPath`
+with `ExtractText`; `ExtractFieldByMultiplePatterns` is deleted. `OhneMaklerAddressHelper` is a private
+`SanitizeAddress` in the detail parser, using `HtmlEntity.DeEntitize` (also decodes `&amp;` etc.).
+`InitializeAsync` and `CleanupAsync` were already gone with 2.4.
 
 - **`Flat.DetailPageUrl` duplicates `Url`.** The card parser sets both to the same value and also returns it
   as a tuple element (`OhneMaklerFlatCardParser.cs:20, 70-73`). Remove `DetailPageUrl` from `Flat` and the tuple;

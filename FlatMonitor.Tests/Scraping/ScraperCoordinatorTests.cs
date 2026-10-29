@@ -431,7 +431,6 @@ public class ScraperCoordinatorTests
             Details = new FlatDetails { Heating = "Gas" },
             ScrapedAtUtc = new DateTime(2026, 10, 29, 8, 0, 0, DateTimeKind.Utc),
             Source = "ImmobilienScout24",
-            DetailPageUrl = "https://example.org/1/details",
         };
 
         // Act

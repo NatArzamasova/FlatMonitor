@@ -89,13 +89,13 @@ public sealed partial class OhneMaklerDetailPageParser
             {
                 var text = node.InnerText?.Trim();
                 if (!string.IsNullOrEmpty(text) && text.Length > 5) // Likely address, not just whitespace
-                    return OhneMaklerAddressHelper.SanitizeAddress(NormalizeWhitespace(text));
+                    return SanitizeAddress(text);
             }
             else if (node.Name == "a" || node.Name == "div" || node.Name == "p")
             {
                 var text = node.InnerText?.Trim();
                 if (!string.IsNullOrEmpty(text) && text.Length > 5 && text.Contains(' '))
-                    return OhneMaklerAddressHelper.SanitizeAddress(NormalizeWhitespace(text));
+                    return SanitizeAddress(text);
             }
 
             node = node.NextSibling;
@@ -137,6 +137,13 @@ public sealed partial class OhneMaklerDetailPageParser
 
     private static string NormalizeWhitespace(string text) => Whitespace().Replace(text, " ").Trim();
 
+    /// <summary>Decodes entities, collapses whitespace and drops the state ("... – Baden-Württemberg").</summary>
+    private static string SanitizeAddress(string text) =>
+        StateSuffix().Replace(NormalizeWhitespace(HtmlEntity.DeEntitize(text)), "");
+
+    [GeneratedRegex(@"\s*–\s*Baden-Württemberg$")]
+    private static partial Regex StateSuffix();
+
     [GeneratedRegex(@"(\d+(?:,\d+)?)\s*(?:Zimmer|Zi)(?:\s|$)")]
     private static partial Regex Rooms();
 
@@ -156,13 +163,7 @@ public sealed partial class OhneMaklerDetailPageParser
         return null;
     }
 
-    private string? ExtractCurrentUse(HtmlDocument doc)
-        => DetailExtractors.ExtractFieldByMultiplePatterns(doc, "Aktuelle Nutzung",
-            $"//tr[td/div[normalize-space()='Aktuelle Nutzung']]/td[2]/div",
-            $"//span[normalize-space()='Aktuelle Nutzung']/preceding-sibling::span[@class]",
-            $"//div[normalize-space()='Aktuelle Nutzung']/following-sibling::div")
-        ?? DetailExtractors.ExtractFieldByMultiplePatterns(doc, "Nutzung",
-            $"//tr[td/div[normalize-space()='Nutzung']]/td[2]/div",
-            $"//span[normalize-space()='Nutzung']/preceding-sibling::span[@class]",
-            $"//div[normalize-space()='Nutzung']/following-sibling::div");
+    private static string? ExtractCurrentUse(HtmlDocument doc)
+        => DetailExtractors.ExtractText(doc, OhneMaklerDetailSelectors.CurrentUseXPath)
+        ?? DetailExtractors.ExtractText(doc, OhneMaklerDetailSelectors.UsageXPath);
 }

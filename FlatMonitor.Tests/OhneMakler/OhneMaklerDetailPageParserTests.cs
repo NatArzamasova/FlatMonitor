@@ -431,4 +431,34 @@ public class OhneMaklerDetailPageParserTests
 
         _parser.ParseDetailFields(html).Should().BeEquivalentTo(_parser.Parse(html).Details);
     }
+
+    // The address follows the h1 title; ohne-makler.net appends the state after a dash
+    [TestCase("Sophienstr. 57b, 76133 Karlsruhe (Innenstadt-West) &ndash; Baden-Württemberg", TestName = "Address_HtmlEntityStateSuffix_IsRemoved")]
+    [TestCase("Sophienstr. 57b, 76133 Karlsruhe (Innenstadt-West) – Baden-Württemberg", TestName = "Address_Utf8StateSuffix_IsRemoved")]
+    [TestCase("Sophienstr. 57b, 76133 Karlsruhe (Innenstadt-West)", TestName = "Address_WithoutSuffix_IsUnchanged")]
+    [TestCase("  Sophienstr. 57b,\n   76133 Karlsruhe (Innenstadt-West)   &ndash; Baden-Württemberg   ", TestName = "Address_ExtraWhitespace_IsCollapsed")]
+    public void Parse_Address_DropsTheStateSuffix(string addressText)
+    {
+        var html = $"<html><body><h1>Wohnung</h1>{addressText}<h2>Details</h2></body></html>";
+
+        _parser.Parse(html).Address.Should().Be("Sophienstr. 57b, 76133 Karlsruhe (Innenstadt-West)");
+    }
+
+    [Test]
+    public void Parse_Address_DecodesOtherEntities()
+    {
+        var html = "<html><body><h1>Wohnung</h1><a>Fuchs &amp; Hase Weg 1, 76133 Karlsruhe</a><h2>Details</h2></body></html>";
+
+        _parser.Parse(html).Address.Should().Be("Fuchs & Hase Weg 1, 76133 Karlsruhe");
+    }
+
+    [TestCase("<table><tr><td><div>Aktuelle Nutzung</div></td><td><div>Eigennutzung</div></td></tr></table>", "Eigennutzung", TestName = "CurrentUse_AktuelleNutzungRow")]
+    [TestCase("<table><tr><td><div>Nutzung</div></td><td><div>Vermietet</div></td></tr></table>", "Vermietet", TestName = "CurrentUse_NutzungFallback")]
+    [TestCase("<table><tr><td><div>Heizung</div></td><td><div>Gas</div></td></tr></table>", null, TestName = "CurrentUse_Missing_IsNull")]
+    public void ParseDetailFields_ReadsCurrentUseFromItsLabel(string body, string? expected)
+    {
+        var details = _parser.ParseDetailFields($"<html><body>{body}</body></html>");
+
+        details!.CurrentUse.Should().Be(expected);
+    }
 }

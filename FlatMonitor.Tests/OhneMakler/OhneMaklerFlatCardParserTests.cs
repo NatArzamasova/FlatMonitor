@@ -45,10 +45,9 @@ public class OhneMaklerFlatCardParserTests
         var result = _parser.ParsePage(html);
 
         // Assert
-        var firstFlat = result[0].Flat;
+        var firstFlat = result[0];
         firstFlat.ListingId.Should().Be("502814");
         firstFlat.Url.Should().Be("https://www.ohne-makler.net/immobilie/502814/");
-        firstFlat.DetailPageUrl.Should().Be(firstFlat.Url);
         firstFlat.Title.Should().Contain("Altbauperle");
         firstFlat.PostalCode.Should().Be("76135");
         firstFlat.District.Should().Contain("Weststadt");
@@ -63,7 +62,7 @@ public class OhneMaklerFlatCardParserTests
         // A card whose detail page fails is saved as it is, so it carries its original price itself
         var html = File.ReadAllText(GetFixturePath("listings-page-sample.html"));
 
-        var flats = _parser.ParsePage(html).Select(c => c.Flat).ToList();
+        var flats = _parser.ParsePage(html);
 
         flats.Should().NotBeEmpty().And.OnlyContain(f => f.OriginalPriceEur == f.PriceEur);
         flats.Should().Contain(f => f.PriceEur != null);
@@ -79,14 +78,14 @@ public class OhneMaklerFlatCardParserTests
         var result = _parser.ParsePage(html);
 
         // Assert
-        var thirdFlat = result[2].Flat;
+        var thirdFlat = result[2];
         thirdFlat.ListingId.Should().Be("502816");
         thirdFlat.RoomsCount.Should().BeNull();
         thirdFlat.LivingAreaSqm.Should().Be(78);
     }
 
     [Test]
-    public void ParsePage_WithValidListings_ExtractsDetailPageUrls()
+    public void ParsePage_WithValidListings_ExtractsAbsoluteDetailUrls()
     {
         // Arrange
         var html = File.ReadAllText(GetFixturePath("listings-page-sample.html"));
@@ -97,8 +96,7 @@ public class OhneMaklerFlatCardParserTests
         // Assert
         result.Should().AllSatisfy(item =>
         {
-            item.DetailPageUrl.Should().NotBeNullOrEmpty();
-            item.DetailPageUrl.Should().Contain("/immobilie/");
+            item.Url.Should().StartWith("https://www.ohne-makler.net/immobilie/");
         });
     }
 
@@ -114,8 +112,8 @@ public class OhneMaklerFlatCardParserTests
         // Assert
         result.Should().AllSatisfy(item =>
         {
-            item.Flat.ScrapedAtUtc.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(1));
-            item.Flat.ScrapedAtUtc.Kind.Should().Be(DateTimeKind.Utc);
+            item.ScrapedAtUtc.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(1));
+            item.ScrapedAtUtc.Kind.Should().Be(DateTimeKind.Utc);
         });
     }
 
@@ -165,7 +163,7 @@ public class OhneMaklerFlatCardParserTests
             </div>
             """;
 
-        var flat = _parser.ParsePage(html).Should().ContainSingle().Subject.Flat;
+        var flat = _parser.ParsePage(html).Should().ContainSingle().Subject;
 
         flat.PriceEur.Should().Be(389000);
         flat.RoomsCount.Should().Be(2.5);

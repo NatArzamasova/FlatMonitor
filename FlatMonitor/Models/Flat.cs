@@ -17,10 +17,6 @@ public sealed record Flat
     public FlatDetails? Details { get; init; }
     public required DateTime ScrapedAtUtc { get; init; }
     public required string Source { get; init; }
-    /// <summary>
-    /// Optional detail page URL used by some scrapers (e.g., OhneMakler) where detail URL differs from listing URL.
-    /// </summary>
-    public string? DetailPageUrl { get; init; }
 
     /// <summary>Price per m² in whole euros; <c>null</c> without a price or a positive living area.</summary>
     public int? PricePerMeter =>

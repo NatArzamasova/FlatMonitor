@@ -28,7 +28,7 @@ public class OhneMaklerScraperEnrichmentTests
         var listingsHtml = await File.ReadAllTextAsync(FixturePath("listings-page-sample.html"));
         var detailHtml = await File.ReadAllTextAsync(FixturePath("detail-page-sample.html"));
 
-        _cards = new OhneMaklerFlatCardParser().ParsePage(listingsHtml).Select(c => c.Flat).ToList();
+        _cards = new OhneMaklerFlatCardParser().ParsePage(listingsHtml);
 
         using var httpClient = new HttpClient(new FixtureHandler(listingsHtml, detailHtml));
         var scraper = new OhneMaklerScraper(
@@ -77,7 +77,6 @@ public class OhneMaklerScraperEnrichmentTests
             // Card fields that the detail page does not replace
             flat.PostalCode.Should().Be(card.PostalCode);
             flat.District.Should().Be(card.District);
-            flat.DetailPageUrl.Should().Be(card.DetailPageUrl);
         }
     }
 

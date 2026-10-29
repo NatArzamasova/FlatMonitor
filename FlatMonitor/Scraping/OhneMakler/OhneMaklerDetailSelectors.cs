@@ -28,6 +28,8 @@ public static class OhneMaklerDetailSelectors
     public static readonly string AvailabilityXPath = BuildXPathPatterns("Verfügbarkeit");
     public static readonly string AvailabilityAlternateXPath = BuildXPathPatterns("Übernahme ab");
     public static readonly string PriceXPath = BuildXPathPatterns("Kaufpreis");
+    public static readonly string CurrentUseXPath = BuildXPathPatterns("Aktuelle Nutzung");
+    public static readonly string UsageXPath = BuildXPathPatterns("Nutzung");
 
     // Structure validation XPaths
     public static readonly string[] ValidStructurePatterns =

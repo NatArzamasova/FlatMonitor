@@ -52,7 +52,7 @@ public sealed class OhneMaklerScraper : FlatScraper
             await foreach (var pageHtml in _pageFetcher.FetchAllPagesHtmlAsync(ct))
             {
                 pageNumber++;
-                var cards = _cardParser.ParsePage(pageHtml).Select(c => c.Flat).ToList();
+                var cards = _cardParser.ParsePage(pageHtml);
                 if (cards.Count == 0)
                 {
                     // The first page always has listings; none means changed markup or a blocked request
@@ -78,14 +78,14 @@ public sealed class OhneMaklerScraper : FlatScraper
 
         public async Task<Flat> EnrichAsync(Flat card, CancellationToken ct)
         {
-            if (string.IsNullOrEmpty(card.DetailPageUrl))
+            if (string.IsNullOrEmpty(card.Url))
             {
                 return card;
             }
 
             // The detail page is the source of truth; card data fills the gaps.
             // A failing page throws: FlatScraper logs it and keeps the card's data.
-            var html = await FetchDetailPageAsync(card.DetailPageUrl, card.ListingId, ct);
+            var html = await FetchDetailPageAsync(card.Url, card.ListingId, ct);
             var page = _detailParser.Parse(html);
 
             return card with

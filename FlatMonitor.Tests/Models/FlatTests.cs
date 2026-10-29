@@ -25,7 +25,6 @@ public class FlatTests
         CommissionPercent = 3.57,
         Details = new FlatDetails { Heating = "Gas" },
         ScrapedAtUtc = new DateTime(2026, 10, 29, 8, 0, 0, DateTimeKind.Utc),
-        DetailPageUrl = "https://example.org/1/details",
     };
 
     [TestCase(300000, 75.0, 4000)]
