@@ -90,7 +90,7 @@ public class ServiceRegistrationExtensionsTests
         var dbContext = scope.ServiceProvider.GetRequiredService<FlatsDbContext>();
         await dbContext.Database.EnsureCreatedAsync();
         var repository = scope.ServiceProvider.GetRequiredService<ISnapshotRepository>();
-        await repository.UpsertListingsAsync([new Flat
+        await repository.AddToRunAsync([new Flat
         {
             ListingId = "1",
             Url = "/immobilie/1/",
@@ -103,11 +103,11 @@ public class ServiceRegistrationExtensionsTests
         // Act: a transaction on the scoped context only covers the repository if both use that context
         await using (var transaction = await dbContext.Database.BeginTransactionAsync())
         {
-            await repository.ClearAsync();
+            await repository.DiscardRunAsync();
             await transaction.RollbackAsync();
         }
 
         // Assert
-        (await dbContext.FlatsSnapshots.CountAsync()).Should().Be(1);
+        (await dbContext.FlatsSnapshotsStaging.CountAsync()).Should().Be(1);
     }
 }

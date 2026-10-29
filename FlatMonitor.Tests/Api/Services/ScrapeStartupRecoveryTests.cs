@@ -5,14 +5,13 @@ using FlatMonitor.Tests.Scraping.Common;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using NUnit.Framework;
 
 namespace FlatMonitor.Tests.Api.Services;
 
 /// <summary>
-/// The real repositories on in-memory SQLite. Unless a test says otherwise, FlatsSnapshots holds the "partial" flat of
-/// the last run and the backup holds the "before" flat from before that run.
+/// The real repositories on in-memory SQLite. FlatsSnapshots holds the "published" flat of an earlier run; the
+/// staging table holds the "staged" flat an interrupted run left behind.
 /// </summary>
 [TestFixture]
 public class ScrapeStartupRecoveryTests
@@ -32,11 +31,10 @@ public class ScrapeStartupRecoveryTests
         _snapshots = new FlatSnapshotRepository(_dbContext);
         _logger = new ListLogger<ScrapeStartupRecovery>();
 
-        await _snapshots.UpsertListingsAsync([FakeFlatScraper.CreateFlat("before")]);
-        await _snapshots.BackupFlatsSnapshotsAsync();
-        await _snapshots.ClearAsync();
-        await _snapshots.UpsertListingsAsync([FakeFlatScraper.CreateFlat("partial")]);
-        _dbContext.ChangeTracker.Clear();
+        await _snapshots.AddToRunAsync([FakeFlatScraper.CreateFlat("published")]);
+        await _snapshots.PublishSourceAsync("OhneMakler");
+        await _snapshots.BeginRunAsync();
+        await _snapshots.AddToRunAsync([FakeFlatScraper.CreateFlat("staged")]);
     }
 
     [TearDown]
@@ -47,7 +45,7 @@ public class ScrapeStartupRecoveryTests
     }
 
     [Test]
-    public async Task RunLeftRunning_IsCanceledAndTheBackupRestored()
+    public async Task RunLeftRunning_IsCanceledAndItsStagedFlatsDropped()
     {
         await AddRunAsync(ScrapingStatus.Running);
 
@@ -55,85 +53,43 @@ public class ScrapeStartupRecoveryTests
 
         (await LastRunAsync()).Status.Should().Be(ScrapingStatus.Canceled);
         (await LastRunAsync()).ErrorMessage.Should().Be(ScrapeStartupRecovery.InterruptedRunMessage);
-        (await FlatIdsAsync()).Should().Equal("before");
+        (await StagedIdsAsync()).Should().BeEmpty();
+        (await FlatIdsAsync()).Should().Equal("published");
+        _logger.Messages.Should().ContainSingle().Which.Should().StartWith("Marked 1 scrape run(s) left running");
     }
 
+    [TestCase(ScrapingStatus.Successful)]
+    [TestCase(ScrapingStatus.PartialFailed)]
     [TestCase(ScrapingStatus.Failed)]
     [TestCase(ScrapingStatus.Canceled)]
-    public async Task LastRunFailedOrCanceled_RestoresTheBackup(ScrapingStatus status)
+    public async Task FinishedLastRun_KeepsThePublishedFlatsAndItsStatus(ScrapingStatus status)
     {
+        // A finished run only ever replaced whole sources, so there is nothing to restore
         await AddRunAsync(status);
 
         await RunRecoveryAsync();
 
-        (await FlatIdsAsync()).Should().Equal("before");
-        (await LastRunAsync()).Status.Should().Be(status, "only runs left Running change their status");
-        _logger.Messages.Should().Contain(m => m.StartsWith("Restored FlatsSnapshots from the backup"));
-    }
-
-    [Test]
-    public async Task LastRunPartiallyFailed_KeepsTheTableAsTheRunningServiceDid()
-    {
-        // ScrapeExecutionService keeps a partial run's flats (and computes the aggregation from them);
-        // restoring the backup at startup would undo that only after a restart
-        await AddRunAsync(ScrapingStatus.PartialFailed);
-
-        await RunRecoveryAsync();
-
-        (await FlatIdsAsync()).Should().Equal("partial");
+        (await FlatIdsAsync()).Should().Equal("published");
+        (await LastRunAsync()).Status.Should().Be(status);
         _logger.Entries.Should().BeEmpty();
     }
 
     [Test]
-    public async Task LastRunSuccessful_KeepsTheTable()
-    {
-        await AddRunAsync(ScrapingStatus.Failed, hoursAgo: 2);
-        await AddRunAsync(ScrapingStatus.Successful, hoursAgo: 1);
-
-        await RunRecoveryAsync();
-
-        (await FlatIdsAsync()).Should().Equal("partial");
-    }
-
-    [Test]
-    public async Task LastRunFailedAfterAPartiallyFailedRun_RestoresTheBackup()
-    {
-        await AddRunAsync(ScrapingStatus.PartialFailed, hoursAgo: 2);
-        await AddRunAsync(ScrapingStatus.Failed, hoursAgo: 1);
-
-        await RunRecoveryAsync();
-
-        (await FlatIdsAsync()).Should().Equal("before");
-    }
-
-    [Test]
-    public async Task LastRunNotSuccessfulWithoutBackup_KeepsTheTableAndWarns()
-    {
-        await _snapshots.DeleteBackupAsync();
-        await AddRunAsync(ScrapingStatus.Failed);
-
-        await RunRecoveryAsync();
-
-        (await FlatIdsAsync()).Should().Equal("partial");
-        _logger.Entries.Should().ContainSingle(e => e.Level == LogLevel.Warning)
-            .Which.Message.Should().Contain("no backup to restore");
-    }
-
-    [Test]
-    public async Task NoRunsYet_DoesNothing()
+    public async Task NoRunsYet_OnlyEmptiesTheStagingTable()
     {
         await RunRecoveryAsync();
 
-        (await FlatIdsAsync()).Should().Equal("partial");
+        (await StagedIdsAsync()).Should().BeEmpty();
+        (await FlatIdsAsync()).Should().Equal("published");
         _logger.Entries.Should().BeEmpty();
     }
 
     private Task RunRecoveryAsync() =>
         new ScrapeStartupRecovery(new ScrapingHistoryRepository(_dbContext), _snapshots, _logger).RunAsync();
 
-    private async Task AddRunAsync(ScrapingStatus status, int hoursAgo = 1)
+    private async Task AddRunAsync(ScrapingStatus status)
     {
-        _dbContext.ScrapingHistories.Add(new ScrapingHistory { StartTimeUtc = DateTime.UtcNow.AddHours(-hoursAgo), Status = status });
+        _dbContext.ScrapingHistories.Add(new ScrapingHistory { StartTimeUtc = DateTime.UtcNow.AddHours(-1), Status = status });
         await _dbContext.SaveChangesAsync();
         _dbContext.ChangeTracker.Clear();
     }
@@ -148,6 +104,12 @@ public class ScrapeStartupRecoveryTests
     {
         await using var dbContext = CreateReadContext();
         return await dbContext.FlatsSnapshots.Select(s => s.ListingId).OrderBy(id => id).ToListAsync();
+    }
+
+    private async Task<List<string>> StagedIdsAsync()
+    {
+        await using var dbContext = CreateReadContext();
+        return await dbContext.FlatsSnapshotsStaging.Select(s => s.ListingId).ToListAsync();
     }
 
     private FlatsDbContext CreateReadContext() =>

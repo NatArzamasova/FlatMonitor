@@ -56,10 +56,10 @@ logs "No listings found".
 - Tests: fetcher with a timeout on page 1 → exception; fetcher failing on page 2 → exception; coordinator
   with an empty scraper → `Success == false`.
 
-### 1.2 A partially failed run is kept until the next restart, then silently undone ✅ Interim fix done
+### 1.2 A partially failed run is kept until the next restart, then silently undone ✅ Done
 
-**Status:** Interim fix done: startup recovery no longer restores the backup after a `PartialFailed` run, so it
-matches what the running service keeps. The per-source fix is still open and comes with 2.1.
+**Status:** Done with 2.1: a failed source keeps its previous rows, the others are replaced, and nothing is
+restored at startup any more.
 
 **Severity:** Medium · **Files:** `Api/Services/ScrapeExecutionService.cs:48-54`,
 `Api/Services/ScrapeStartupRecovery.cs:40-53`
@@ -136,7 +136,15 @@ Unknown CLI commands print the usage and return 1; options such as `--urls` stil
 
 ## 2. Structural refactorings
 
-### 2.1 Build-then-swap instead of backup → clear → restore
+### 2.1 Build-then-swap instead of backup → clear → restore ✅ Done
+
+**Status:** Done. A run writes into `FlatsSnapshots_Staging` (EF entity `StagedFlatSnapshot`, same columns via a
+shared `FlatRecordConfiguration<T>`; migration `AddFlatsSnapshotsStaging`, which also drops the old backup table).
+`PublishSourceAsync` replaces a source's rows in one `SaveChanges` (update / add / delete, so a flat still offered
+keeps its `CreatedAtUtc` = first seen). The coordinator begins the run, publishes each source that finished with
+flats, and empties staging at the end; it also stamps every flat with its scraper's source. A cancel still
+refreshes the aggregations for the sources published before it. Recovery only marks `Running` runs as canceled
+and empties staging. The history table from the last paragraph is not done.
 
 **Severity:** High · **Impact:** correctness (1.2), simplicity, what users see during a scrape
 **Files:** `Api/Services/ScrapeExecutionService.cs`, `Api/Services/ScrapeStartupRecovery.cs`,

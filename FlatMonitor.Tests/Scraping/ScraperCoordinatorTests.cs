@@ -18,6 +18,7 @@ public class ScraperCoordinatorTests
 {
     private Mock<ISnapshotRepository> _mockRepository = null!;
     private List<List<Flat>> _savedBatches = null!;
+    private List<string> _runCalls = null!;
     private SnapshotWriter _snapshotWriter = null!;
     private string _testDir = null!;
 
@@ -25,10 +26,17 @@ public class ScraperCoordinatorTests
     public void Setup()
     {
         _savedBatches = [];
+        _runCalls = [];
         _mockRepository = new Mock<ISnapshotRepository>();
-        _mockRepository.Setup(r => r.UpsertListingsAsync(It.IsAny<List<Flat>>(), It.IsAny<CancellationToken>()))
+        _mockRepository.Setup(r => r.AddToRunAsync(It.IsAny<List<Flat>>(), It.IsAny<CancellationToken>()))
             .Callback<List<Flat>, CancellationToken>((batch, _) => _savedBatches.Add([.. batch]))
             .Returns(Task.CompletedTask);
+        _mockRepository.Setup(r => r.BeginRunAsync(It.IsAny<CancellationToken>()))
+            .Callback(() => _runCalls.Add("begin")).Returns(Task.CompletedTask);
+        _mockRepository.Setup(r => r.PublishSourceAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, CancellationToken>((source, _) => _runCalls.Add("publish " + source)).ReturnsAsync(1);
+        _mockRepository.Setup(r => r.DiscardRunAsync(It.IsAny<CancellationToken>()))
+            .Callback(() => _runCalls.Add("discard")).Returns(Task.CompletedTask);
 
         _snapshotWriter = new SnapshotWriter();
         _logger = new ListLogger<ScraperCoordinator>();
@@ -180,7 +188,7 @@ public class ScraperCoordinatorTests
         summary.Errors.Should().Equal("OhneMakler: no flats found");
         summary.FlatsPerSource.Should().Equal(new Dictionary<string, int> { ["OhneMakler"] = 0, ["ImmobilienScout24"] = 1 });
         SnapshotFiles("OhneMakler").Should().BeEmpty();
-        _logger.Entries.Should().Contain(e => e.Level == LogLevel.Error && e.Message == "No flats found for source OhneMakler");
+        _logger.Entries.Should().Contain(e => e.Level == LogLevel.Error && e.Message == "No flats found for source OhneMakler, keeping its previous flats");
     }
 
     [Test]
@@ -242,9 +250,9 @@ public class ScraperCoordinatorTests
     }
 
     [Test]
-    public async Task ScrapeAllSourcesAsync_WhenASourceFailsMidway_KeepsAndCountsTheFlatsAlreadySaved()
+    public async Task ScrapeAllSourcesAsync_WhenASourceFailsMidway_CountsTheStagedFlatsButDoesNotPublishThem()
     {
-        // Arrange: 21 flats, so the first batch of 20 is saved before the failure
+        // Arrange: 21 flats, so the first batch of 20 is staged before the failure
         var flats = Enumerable.Range(1, 21).Select(i => CreateFlat(i.ToString())).ToArray();
         var scraper = new StubScraper("OhneMakler", flats) { Error = new HttpRequestException("Detail page timeout") };
 
@@ -256,6 +264,114 @@ public class ScraperCoordinatorTests
         summary.FlatsPerSource["OhneMakler"].Should().Be(20);
         Saved.Should().HaveCount(20);
         (await File.ReadAllLinesAsync(SnapshotFiles("OhneMakler").Single())).Should().HaveCount(20);
+        _runCalls.Should().Equal("begin", "discard");
+    }
+
+    [Test]
+    public async Task ScrapeAllSourcesAsync_PublishesEachSourceThatSucceededRightAfterIt()
+    {
+        // Arrange
+        var publishedBeforeSecondSource = new List<string>();
+        var first = new StubScraper("OhneMakler", CreateFlat("1"));
+        var failing = new StubScraper("Failing", CreateFlat("2")) { Error = new HttpRequestException("Site down") };
+        var empty = new StubScraper("Empty");
+        var last = new FakeFlatScraper("ImmobilienScout24")
+        {
+            Flats = [CreateFlat("3")],
+            OnEnrich = (_, _) => publishedBeforeSecondSource.AddRange(_runCalls),
+        };
+
+        // Act
+        await CreateCoordinator(first, failing, empty, last).ScrapeAllSourcesAsync();
+
+        // Assert
+        _runCalls.Should().Equal("begin", "publish OhneMakler", "publish ImmobilienScout24", "discard");
+        publishedBeforeSecondSource.Should().Equal("begin", "publish OhneMakler");
+    }
+
+    [Test]
+    public async Task ScrapeAllSourcesAsync_StagesEveryFlatUnderItsScrapersSource()
+    {
+        // Arrange: a flat that names another source would be staged under a name that is never published
+        var scraper = new StubScraper("ImmobilienScout24", CreateFlat("1") with { Source = "Other" });
+
+        // Act
+        await CreateCoordinator(scraper).ScrapeAllSourcesAsync();
+
+        // Assert
+        Saved.Should().ContainSingle().Which.Source.Should().Be("ImmobilienScout24");
+        _runCalls.Should().Contain("publish ImmobilienScout24");
+    }
+
+    [Test]
+    public async Task ScrapeAllSourcesAsync_WhenPublishingFails_RecordsASourceErrorAndScrapesOtherSources()
+    {
+        // Arrange
+        _mockRepository.Setup(r => r.PublishSourceAsync("OhneMakler", It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Database locked"));
+        var next = new StubScraper("ImmobilienScout24", CreateFlat("2"));
+
+        // Act
+        var summary = await CreateCoordinator(new StubScraper("OhneMakler", CreateFlat("1")), next).ScrapeAllSourcesAsync();
+
+        // Assert
+        summary.Errors.Should().Equal("OhneMakler: Database locked");
+        _runCalls.Should().Equal("begin", "publish ImmobilienScout24", "discard");
+    }
+
+    [Test]
+    public async Task ScrapeAllSourcesAsync_WhenCanceled_EmptiesTheStagingTableWithAnUncanceledToken()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var scraper = new FakeFlatScraper("OhneMakler")
+        {
+            Flats = [CreateFlat("1")],
+            OnEnrich = (_, ct) =>
+            {
+                cts.Cancel();
+                ct.ThrowIfCancellationRequested();
+            },
+        };
+
+        // Act
+        var act = () => CreateCoordinator(scraper).ScrapeAllSourcesAsync(ct: cts.Token);
+
+        // Assert
+        await act.Should().ThrowAsync<OperationCanceledException>();
+        _runCalls.Should().Equal("begin", "discard");
+        _mockRepository.Verify(r => r.DiscardRunAsync(It.Is<CancellationToken>(ct => !ct.IsCancellationRequested)), Times.Once);
+    }
+
+    [Test]
+    public async Task ScrapeAllSourcesAsync_WhenEmptyingTheStagingTableFails_StillReturnsTheSummary()
+    {
+        // Arrange
+        _mockRepository.Setup(r => r.DiscardRunAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Database locked"));
+
+        // Act
+        var summary = await CreateCoordinator(new StubScraper("OhneMakler", CreateFlat("1"))).ScrapeAllSourcesAsync();
+
+        // Assert
+        summary.Success.Should().BeTrue();
+        _logger.Entries.Should().Contain(e => e.Level == LogLevel.Warning && e.Message == "Could not empty the staging table");
+    }
+
+    [Test]
+    public async Task ScrapeAllSourcesAsync_WhenBeginningTheRunFails_ThrowsWithoutScraping()
+    {
+        // Arrange
+        _mockRepository.Setup(r => r.BeginRunAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Database locked"));
+        var scraper = new StubScraper("OhneMakler", CreateFlat("1"));
+
+        // Act
+        var act = () => CreateCoordinator(scraper).ScrapeAllSourcesAsync();
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("Database locked");
+        scraper.Calls.Should().Be(0);
     }
 
     [Test]
@@ -334,7 +450,7 @@ public class ScraperCoordinatorTests
         await CreateCoordinator(new StubScraper("OhneMakler", CreateFlat("1", scraped!))).ScrapeAllSourcesAsync();
 
         // Assert
-        _mockRepository.Verify(r => r.UpsertListingsAsync(It.IsAny<List<Flat>>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockRepository.Verify(r => r.AddToRunAsync(It.IsAny<List<Flat>>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Test]
@@ -435,7 +551,7 @@ public class ScraperCoordinatorTests
 
         // Assert
         var entry = _logger.Entries.Should().ContainSingle(e => e.Level == LogLevel.Error).Subject;
-        entry.Message.Should().Be("Error scraping OhneMakler");
+        entry.Message.Should().Be("Error scraping OhneMakler, keeping its previous flats");
         entry.Exception.Should().BeSameAs(error);
     }
 

@@ -2,6 +2,7 @@ namespace FlatMonitor.Storage;
 
 using FlatMonitor.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 public sealed class FlatSnapshotRepository : ISnapshotRepository
 {
@@ -9,86 +10,100 @@ public sealed class FlatSnapshotRepository : ISnapshotRepository
 
     public FlatSnapshotRepository(FlatsDbContext dbContext) => _dbContext = dbContext;
 
-    public Task ClearAsync(CancellationToken ct = default) =>
-        _dbContext.FlatsSnapshots.ExecuteDeleteAsync(ct);
+    public Task BeginRunAsync(CancellationToken ct = default) =>
+        _dbContext.FlatsSnapshotsStaging.ExecuteDeleteAsync(ct);
 
-    public Task BackupFlatsSnapshotsAsync(CancellationToken ct = default) =>
-        _dbContext.Database.ExecuteSqlRawAsync(@"
-            DROP TABLE IF EXISTS FlatsSnapshots_Backup;
-            CREATE TABLE FlatsSnapshots_Backup AS SELECT * FROM FlatsSnapshots;", ct);
+    public Task DiscardRunAsync(CancellationToken ct = default) =>
+        _dbContext.FlatsSnapshotsStaging.ExecuteDeleteAsync(ct);
 
-    public async Task RestoreFlatsSnapshotsAsync(CancellationToken ct = default)
-    {
-        // One transaction: if the copy fails, the delete is rolled back and the table keeps its rows
-        await using var transaction = _dbContext.Database.CurrentTransaction is null
-            ? await _dbContext.Database.BeginTransactionAsync(ct)
-            : null;
-        await _dbContext.Database.ExecuteSqlRawAsync(@"
-            DELETE FROM FlatsSnapshots;
-            INSERT INTO FlatsSnapshots SELECT * FROM FlatsSnapshots_Backup;", ct);
-        if (transaction != null)
-            await transaction.CommitAsync(ct);
-    }
-
-    public async Task<bool> HasBackupAsync(CancellationToken ct = default) =>
-        await _dbContext.Database
-            .SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM sqlite_master WHERE type = 'table' AND name = 'FlatsSnapshots_Backup'")
-            .SingleAsync(ct) > 0;
-
-    public Task DeleteBackupAsync(CancellationToken ct = default) =>
-        _dbContext.Database.ExecuteSqlRawAsync("DROP TABLE IF EXISTS FlatsSnapshots_Backup;", ct);
-
-    public async Task UpsertListingsAsync(List<Flat> listings, CancellationToken ct = default)
+    public async Task AddToRunAsync(List<Flat> flats, CancellationToken ct = default)
     {
         var now = DateTime.UtcNow;
 
         // Load only the rows of this batch, not every row of the source
-        var existingMap = new Dictionary<(string Source, string ListingId), FlatSnapshot>();
-        foreach (var bySource in listings.GroupBy(l => l.Source))
+        var existingMap = new Dictionary<(string Source, string ListingId), StagedFlatSnapshot>();
+        foreach (var bySource in flats.GroupBy(l => l.Source))
         {
             var source = bySource.Key;
             var ids = bySource.Select(l => l.ListingId).Distinct().ToList();
-            var existing = await _dbContext.FlatsSnapshots
+            var existing = await _dbContext.FlatsSnapshotsStaging
                 .Where(s => s.Source == source && ids.Contains(s.ListingId))
                 .ToListAsync(ct);
-            foreach (var snapshot in existing)
-                existingMap[(snapshot.Source, snapshot.ListingId)] = snapshot;
+            foreach (var staged in existing)
+                existingMap[(staged.Source, staged.ListingId)] = staged;
         }
 
-        foreach (var listing in listings)
+        foreach (var flat in flats)
         {
-            var key = (listing.Source, listing.ListingId);
+            var key = (flat.Source, flat.ListingId);
 
             if (existingMap.TryGetValue(key, out var existing))
             {
-                existing.UpdateFrom(listing);
+                existing.UpdateFrom(flat);
                 _dbContext.Entry(existing).Property<DateTime>("UpdatedAtUtc").CurrentValue = now;
             }
             else
             {
-                var snapshot = FlatSnapshot.From(listing);
-                var entry = _dbContext.Entry(snapshot);
-                entry.Property<DateTime>("CreatedAtUtc").CurrentValue = now;
-                entry.Property<DateTime>("UpdatedAtUtc").CurrentValue = now;
-                _dbContext.FlatsSnapshots.Add(snapshot);
+                var staged = StagedFlatSnapshot.From(flat);
+                SetAuditDates(_dbContext.Entry(staged), now);
+                _dbContext.FlatsSnapshotsStaging.Add(staged);
+                existingMap[key] = staged;
             }
         }
 
         await _dbContext.SaveChangesAsync(ct);
-        DetachSnapshots();
+        DetachFlatRows();
+    }
+
+    public async Task<int> PublishSourceAsync(string source, CancellationToken ct = default)
+    {
+        var staged = await _dbContext.FlatsSnapshotsStaging.AsNoTracking()
+            .Where(s => s.Source == source)
+            .ToListAsync(ct);
+        var removed = await _dbContext.FlatsSnapshots
+            .Where(s => s.Source == source)
+            .ToDictionaryAsync(s => s.ListingId, ct);
+        var now = DateTime.UtcNow;
+
+        // Update the flats still offered, add the new ones, delete the rest: one SaveChanges, so one transaction
+        foreach (var row in staged)
+        {
+            if (removed.Remove(row.ListingId, out var existing))
+            {
+                existing.UpdateFrom(row);
+                _dbContext.Entry(existing).Property<DateTime>("UpdatedAtUtc").CurrentValue = now;
+            }
+            else
+            {
+                var snapshot = FlatSnapshot.From(row);
+                SetAuditDates(_dbContext.Entry(snapshot), now);
+                _dbContext.FlatsSnapshots.Add(snapshot);
+            }
+        }
+        _dbContext.FlatsSnapshots.RemoveRange(removed.Values);
+
+        await _dbContext.SaveChangesAsync(ct);
+        DetachFlatRows();
+        return staged.Count;
+    }
+
+    private static void SetAuditDates(EntityEntry entry, DateTime now)
+    {
+        entry.Property("CreatedAtUtc").CurrentValue = now;
+        entry.Property("UpdatedAtUtc").CurrentValue = now;
     }
 
     /// <summary>
-    /// Stops tracking the saved snapshots so the tracker does not grow with every batch. Only snapshots
+    /// Stops tracking the saved flat rows so the tracker does not grow with every batch. Only flat rows
     /// (and their owned details) are detached: the context is shared, e.g. with the scrape history row.
     /// </summary>
-    private void DetachSnapshots()
+    private void DetachFlatRows()
     {
-        var snapshotEntries = _dbContext.ChangeTracker.Entries()
-            .Where(e => e.Entity is FlatSnapshot
-                || e.Metadata.FindOwnership()?.PrincipalEntityType.ClrType == typeof(FlatSnapshot))
+        var flatEntries = _dbContext.ChangeTracker.Entries()
+            .Where(e => e.Entity is FlatRecord
+                || e.Metadata.FindOwnership()?.PrincipalEntityType.ClrType.IsAssignableTo(typeof(FlatRecord)) == true)
             .ToList();
-        foreach (var entry in snapshotEntries)
+        foreach (var entry in flatEntries)
             entry.State = EntityState.Detached;
     }
 
@@ -109,5 +124,4 @@ public sealed class FlatSnapshotRepository : ISnapshotRepository
                 })
                 .ToListAsync(ct);
     }
-
 }

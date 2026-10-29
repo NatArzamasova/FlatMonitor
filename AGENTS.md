@@ -123,7 +123,10 @@ dotnet test
 1. **Scrape**: 
    - For each `IScraper` (OhneMakler, ImmobilienScout24, etc.):
      - Fetch all pages → Parse listing cards → Enrich with detail pages → Yield unfiltered flats one by one (`IAsyncEnumerable<Flat>`)
-     - `ScraperCoordinator` takes them in batches of 20, filters by `KarlsruheDistricts.All` and saves each batch to SQLite
+     - `ScraperCoordinator` takes them in batches of 20, filters by `KarlsruheDistricts.All` and saves each batch to the
+       staging table `FlatsSnapshots_Staging`
+     - When a source finishes with flats, its rows in `FlatsSnapshots` are replaced in one transaction; a source that
+       fails or finds nothing keeps its rows of the previous run. `FlatsSnapshots` is never cleared
      - District names normalized during filtering (see [FILTERING.md](FILTERING.md))
      - Each saved batch is appended to the source's snapshot file (debugging only)
      - Result: a `ScrapeSummary` (flats saved per source, errors of failed sources)

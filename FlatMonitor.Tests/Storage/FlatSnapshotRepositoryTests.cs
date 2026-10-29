@@ -24,7 +24,7 @@ public class FlatSnapshotRepositoryTests
     }
 
     [Test]
-    public async Task UpsertListingsAsync_InsertsNewListing()
+    public async Task AddToRunAsync_InsertsNewListing()
     {
         // Arrange
         var options = CreateInMemoryOptions();
@@ -51,11 +51,11 @@ public class FlatSnapshotRepositoryTests
         };
 
         // Act
-        await repo.UpsertListingsAsync(listings);
+        await repo.AddToRunAsync(listings);
 
         // Assert
         await using var dbContext = new FlatsDbContext(options);
-        var stored = await dbContext.FlatsSnapshots.FirstOrDefaultAsync(l => l.ListingId == "1");
+        var stored = await dbContext.FlatsSnapshotsStaging.FirstOrDefaultAsync(l => l.ListingId == "1");
         stored.Should().NotBeNull();
         stored!.Details.Should().NotBeNull();
         stored.Title.Should().Be("Test Listing");
@@ -65,7 +65,7 @@ public class FlatSnapshotRepositoryTests
     }
 
     [Test]
-    public async Task UpsertListingsAsync_WithDetails_PersistsDetailFields()
+    public async Task AddToRunAsync_WithDetails_PersistsDetailFields()
     {
         // Arrange
         var options = CreateInMemoryOptions();
@@ -96,11 +96,11 @@ public class FlatSnapshotRepositoryTests
         };
 
         // Act
-        await repo.UpsertListingsAsync(listings);
+        await repo.AddToRunAsync(listings);
 
         // Assert
         await using var dbContext = new FlatsDbContext(options);
-        var stored = await dbContext.FlatsSnapshots.FirstOrDefaultAsync(l => l.ListingId == "1");
+        var stored = await dbContext.FlatsSnapshotsStaging.FirstOrDefaultAsync(l => l.ListingId == "1");
         stored.Should().NotBeNull();
         stored!.Details.Should().NotBeNull();
         stored.Details!.PropertyType.Should().Be("Wohnung");
@@ -111,7 +111,7 @@ public class FlatSnapshotRepositoryTests
     }
 
     [Test]
-    public async Task UpsertListingsAsync_WithNullDetails_StoresNullsForDetailFields()
+    public async Task AddToRunAsync_WithNullDetails_StoresNullsForDetailFields()
     {
         // Arrange
         var options = CreateInMemoryOptions();
@@ -133,17 +133,17 @@ public class FlatSnapshotRepositoryTests
         };
 
         // Act
-        await repo.UpsertListingsAsync(listings);
+        await repo.AddToRunAsync(listings);
 
         // Assert
         await using var dbContext = new FlatsDbContext(options);
-        var stored = await dbContext.FlatsSnapshots.FirstOrDefaultAsync(l => l.ListingId == "1");
+        var stored = await dbContext.FlatsSnapshotsStaging.FirstOrDefaultAsync(l => l.ListingId == "1");
         stored.Should().NotBeNull();
         stored!.Details.Should().BeNull();
     }
 
     [Test]
-    public async Task UpsertListingsAsync_CalledTwiceWithSameListingId_UpdatesExistingRow()
+    public async Task AddToRunAsync_CalledTwiceWithSameListingId_UpdatesExistingRow()
     {
         // Arrange
         var options = CreateInMemoryOptions();
@@ -165,7 +165,7 @@ public class FlatSnapshotRepositoryTests
             }
         };
 
-        await repo.UpsertListingsAsync(listing1);
+        await repo.AddToRunAsync(listing1);
 
         var listing2 = new List<Flat>
         {
@@ -183,21 +183,21 @@ public class FlatSnapshotRepositoryTests
         };
 
         // Act
-        await repo.UpsertListingsAsync(listing2);
+        await repo.AddToRunAsync(listing2);
 
         // Assert - row count should stay 1
         await using var dbContext = new FlatsDbContext(options);
-        var count = await dbContext.FlatsSnapshots.CountAsync();
+        var count = await dbContext.FlatsSnapshotsStaging.CountAsync();
         count.Should().Be(1);
 
-        var stored = await dbContext.FlatsSnapshots.FirstAsync();
+        var stored = await dbContext.FlatsSnapshotsStaging.FirstAsync();
         stored.Details.Should().NotBeNull();
         stored.Title.Should().Be("Updated Title");
         stored.PriceEur.Should().Be(550000);
     }
 
     [Test]
-    public async Task UpsertListingsAsync_WithMultipleListings_InsertsAllRows()
+    public async Task AddToRunAsync_WithMultipleListings_InsertsAllRows()
     {
         // Arrange
         var options = CreateInMemoryOptions();
@@ -236,16 +236,16 @@ public class FlatSnapshotRepositoryTests
         };
 
         // Act
-        await repo.UpsertListingsAsync(listings);
+        await repo.AddToRunAsync(listings);
 
         // Assert
         await using var dbContext = new FlatsDbContext(options);
-        var count = await dbContext.FlatsSnapshots.CountAsync();
+        var count = await dbContext.FlatsSnapshotsStaging.CountAsync();
         count.Should().Be(3);
     }
 
     [Test]
-    public async Task UpsertListingsAsync_WithMultipleSources_PersistsBothAsSeperateRows()
+    public async Task AddToRunAsync_WithMultipleSources_PersistsBothAsSeperateRows()
     {
         // Arrange
         var options = CreateInMemoryOptions();
@@ -277,19 +277,19 @@ public class FlatSnapshotRepositoryTests
         };
 
         // Act
-        await repo.UpsertListingsAsync(listings);
+        await repo.AddToRunAsync(listings);
 
         // Assert - both rows with same ListingId but different Source should exist
         await using var dbContext = new FlatsDbContext(options);
-        var count = await dbContext.FlatsSnapshots.CountAsync();
+        var count = await dbContext.FlatsSnapshotsStaging.CountAsync();
         count.Should().Be(2);
 
-        var ohmRow = await dbContext.FlatsSnapshots.FirstOrDefaultAsync(l => l.Source == "OhneMakler" && l.ListingId == "123");
+        var ohmRow = await dbContext.FlatsSnapshotsStaging.FirstOrDefaultAsync(l => l.Source == "OhneMakler" && l.ListingId == "123");
         ohmRow.Should().NotBeNull();
         ohmRow!.Details.Should().NotBeNull();
         ohmRow.Title.Should().Be("From OhneMakler");
 
-        var scoutRow = await dbContext.FlatsSnapshots.FirstOrDefaultAsync(l => l.Source == "ImmobilienScout24" && l.ListingId == "123");
+        var scoutRow = await dbContext.FlatsSnapshotsStaging.FirstOrDefaultAsync(l => l.Source == "ImmobilienScout24" && l.ListingId == "123");
         scoutRow.Should().NotBeNull();
         scoutRow!.Details.Should().NotBeNull();
         scoutRow.Title.Should().Be("From ImmobilienScout24");
@@ -338,284 +338,12 @@ public class FlatSnapshotRepositoryTests
         result[0].Source.Should().Be("source");
     }
 
-    // ==================== BACKUP/RESTORE TESTS ====================
-    // Note: Backup/restore uses raw SQL, so must use SQLite, not InMemory
-
     private DbContextOptions<FlatsDbContext> CreateSqliteOptions()
     {
         var dbPath = Path.Combine(Path.GetTempPath(), $"test_{Guid.NewGuid()}.db");
         return new DbContextOptionsBuilder<FlatsDbContext>()
             .UseSqlite($"Data Source={dbPath}")
             .Options;
-    }
-
-    [Test]
-    public async Task BackupFlatsSnapshotsAsync_CreatesBackupTable()
-    {
-        // Arrange
-        var options = CreateSqliteOptions();
-        await using var repoContext = await CreateContextAsync(options);
-        var repo = new FlatSnapshotRepository(repoContext);
-
-        var listings = new List<Flat>
-        {
-            new()
-            {
-                ListingId = "1",
-                Url = "/immobilie/1/",
-                Title = "Original Listing",
-                Address = "Original Address",
-                PriceEur = 500000,
-                ScrapedAtUtc = DateTime.UtcNow,
-                Source = "OhneMakler",
-            }
-        };
-        await repo.UpsertListingsAsync(listings);
-
-        // Act
-        await repo.BackupFlatsSnapshotsAsync();
-
-        // Assert - backup table should exist with same data
-        await using var dbContext = new FlatsDbContext(options);
-        var originalCount = await dbContext.FlatsSnapshots.CountAsync();
-        originalCount.Should().Be(1);
-        (await CountBackupRowsAsync(dbContext)).Should().Be(1);
-    }
-
-    [Test]
-    public async Task RestoreFlatsSnapshotsAsync_RestoresBackupData()
-    {
-        // Arrange
-        var options = CreateSqliteOptions();
-        await using var repoContext = await CreateContextAsync(options);
-        var repo = new FlatSnapshotRepository(repoContext);
-
-        // Insert original data
-        var originalListings = new List<Flat>
-        {
-            new()
-            {
-                ListingId = "1",
-                Url = "/immobilie/1/",
-                Title = "Original Listing",
-                Address = "Original Address",
-                PriceEur = 500000,
-                ScrapedAtUtc = DateTime.UtcNow,
-                Source = "OhneMakler",
-            }
-        };
-        await repo.UpsertListingsAsync(originalListings);
-
-        // Backup
-        await repo.BackupFlatsSnapshotsAsync();
-
-        // Clear the table (simulate failed scrape)
-        await using var dbContext = new FlatsDbContext(options);
-        await dbContext.FlatsSnapshots.ExecuteDeleteAsync();
-        await dbContext.SaveChangesAsync();
-
-        var clearedCount = await dbContext.FlatsSnapshots.CountAsync();
-        clearedCount.Should().Be(0);
-
-        // Act - Restore from backup
-        await repo.RestoreFlatsSnapshotsAsync();
-
-        // Assert - original data should be restored
-        var restoredCount = await dbContext.FlatsSnapshots.CountAsync();
-        restoredCount.Should().Be(1);
-
-        var restored = await dbContext.FlatsSnapshots.FirstAsync();
-        restored.Address.Should().Be("Original Address");
-        restored.PriceEur.Should().Be(500000);
-    }
-
-
-    [Test]
-    public async Task BackupRestoreDelete_FullWorkflow_Success()
-    {
-        // Arrange
-        var options = CreateSqliteOptions();
-        await using var repoContext = await CreateContextAsync(options);
-        var repo = new FlatSnapshotRepository(repoContext);
-
-        var originalListings = new List<Flat>
-        {
-            new()
-            {
-                ListingId = "1",
-                Url = "/immobilie/1/",
-                Title = "Original",
-                Address = "Address 1",
-                PriceEur = 500000,
-                ScrapedAtUtc = DateTime.UtcNow,
-                Source = "OhneMakler",
-            }
-        };
-        await repo.UpsertListingsAsync(originalListings);
-
-        // Act - Full workflow: backup -> modify -> restore -> delete backup
-        await repo.BackupFlatsSnapshotsAsync();
-
-        // Simulate scrape that clears and inserts new data
-        await using var dbContext = new FlatsDbContext(options);
-        await dbContext.FlatsSnapshots.ExecuteDeleteAsync();
-        await dbContext.SaveChangesAsync();
-
-        var newListings = new List<Flat>
-        {
-            new()
-            {
-                ListingId = "2",
-                Url = "/immobilie/2/",
-                Title = "New Listing",
-                Address = "Address 2",
-                PriceEur = 600000,
-                ScrapedAtUtc = DateTime.UtcNow,
-                Source = "OhneMakler",
-            }
-        };
-        await repo.UpsertListingsAsync(newListings);
-
-        // Restore (as if scrape failed)
-        await repo.RestoreFlatsSnapshotsAsync();
-
-        // Assert - should have original data back
-        var restoredCount = await dbContext.FlatsSnapshots.CountAsync();
-        restoredCount.Should().Be(1);
-
-        var restored = await dbContext.FlatsSnapshots.FirstAsync();
-        restored.Address.Should().Be("Address 1");
-
-        // Delete backup
-        await repo.DeleteBackupAsync();
-    }
-
-    [Test]
-    public async Task BackupRestoreDelete_FullWorkflow_Success_Cleanup()
-    {
-        // Arrange
-        var options = CreateSqliteOptions();
-        await using var repoContext = await CreateContextAsync(options);
-        var repo = new FlatSnapshotRepository(repoContext);
-
-        var originalListings = new List<Flat>
-        {
-            new()
-            {
-                ListingId = "1",
-                Url = "/immobilie/1/",
-                Title = "Original",
-                Address = "Address 1",
-                PriceEur = 500000,
-                ScrapedAtUtc = DateTime.UtcNow,
-                Source = "OhneMakler",
-            }
-        };
-        await repo.UpsertListingsAsync(originalListings);
-
-        // Act - Full workflow: backup -> scrape succeeds -> delete backup
-        await repo.BackupFlatsSnapshotsAsync();
-
-        // Simulate successful scrape (clear and insert new data)
-        await using var dbContext = new FlatsDbContext(options);
-        await dbContext.FlatsSnapshots.ExecuteDeleteAsync();
-        await dbContext.SaveChangesAsync();
-
-        var newListings = new List<Flat>
-        {
-            new()
-            {
-                ListingId = "2",
-                Url = "/immobilie/2/",
-                Title = "New Listing",
-                Address = "Address 2",
-                PriceEur = 600000,
-                ScrapedAtUtc = DateTime.UtcNow,
-                Source = "OhneMakler",
-            }
-        };
-        await repo.UpsertListingsAsync(newListings);
-
-        // Success: delete backup (don't restore)
-        await repo.DeleteBackupAsync();
-
-        // Assert - should have new data
-        var count = await dbContext.FlatsSnapshots.CountAsync();
-        count.Should().Be(1);
-
-        var item = await dbContext.FlatsSnapshots.FirstAsync();
-        item.Address.Should().Be("Address 2");
-    }
-
-    [Test]
-    public async Task ClearAsync_DeletesAllRows_AndKeepsBackup()
-    {
-        // Arrange
-        var options = CreateSqliteOptions();
-        await using var repoContext = await CreateContextAsync(options);
-        var repo = new FlatSnapshotRepository(repoContext);
-        await repo.UpsertListingsAsync([CreateFlat("1"), CreateFlat("2", source: "ImmobilienScout24")]);
-        await repo.BackupFlatsSnapshotsAsync();
-
-        // Act
-        await repo.ClearAsync();
-
-        // Assert
-        await using var dbContext = new FlatsDbContext(options);
-        (await dbContext.FlatsSnapshots.CountAsync()).Should().Be(0);
-        (await CountBackupRowsAsync(dbContext)).Should().Be(2);
-    }
-
-    [Test]
-    public async Task DeleteBackupAsync_DropsBackupTable()
-    {
-        // Arrange
-        var options = CreateSqliteOptions();
-        await using var repoContext = await CreateContextAsync(options);
-        var repo = new FlatSnapshotRepository(repoContext);
-        await repo.BackupFlatsSnapshotsAsync();
-
-        // Act
-        await repo.DeleteBackupAsync();
-
-        // Assert
-        var backupTables = await repoContext.Database
-            .SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM sqlite_master WHERE type = 'table' AND name = 'FlatsSnapshots_Backup'")
-            .SingleAsync();
-        backupTables.Should().Be(0);
-    }
-
-    [Test]
-    public async Task RestoreFlatsSnapshotsAsync_WithoutBackup_PropagatesErrorAndKeepsTheRows()
-    {
-        // Arrange
-        var options = CreateSqliteOptions();
-        await using var repoContext = await CreateContextAsync(options);
-        var repo = new FlatSnapshotRepository(repoContext);
-        await repo.UpsertListingsAsync([CreateFlat("1")]);
-
-        // Act
-        var act = () => repo.RestoreFlatsSnapshotsAsync();
-
-        // Assert: delete and copy run in one transaction, so the failed copy undoes the delete
-        await act.Should().ThrowAsync<Microsoft.Data.Sqlite.SqliteException>()
-            .WithMessage("*FlatsSnapshots_Backup*");
-        await using var dbContext = new FlatsDbContext(options);
-        (await dbContext.FlatsSnapshots.CountAsync()).Should().Be(1);
-    }
-
-    [Test]
-    public async Task HasBackupAsync_ReflectsWhetherTheBackupTableExists()
-    {
-        var options = CreateSqliteOptions();
-        await using var repoContext = await CreateContextAsync(options);
-        var repo = new FlatSnapshotRepository(repoContext);
-
-        (await repo.HasBackupAsync()).Should().BeFalse();
-        await repo.BackupFlatsSnapshotsAsync();
-        (await repo.HasBackupAsync()).Should().BeTrue();
-        await repo.DeleteBackupAsync();
-        (await repo.HasBackupAsync()).Should().BeFalse();
     }
 
     [Test]
@@ -635,31 +363,28 @@ public class FlatSnapshotRepositoryTests
         await act.Should().ThrowAsync<OperationCanceledException>();
     }
 
-    private static Task<int> CountBackupRowsAsync(FlatsDbContext dbContext) =>
-        dbContext.Database.SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM FlatsSnapshots_Backup").SingleAsync();
-
     [Test]
-    public async Task UpsertListingsAsync_UpdatingAFlat_StoresEveryField()
+    public async Task AddToRunAsync_UpdatingAFlat_StoresEveryField()
     {
         // Arrange: the old upsert left Title and CommissionPercent unchanged on update
         var options = CreateSqliteOptions();
         await using var repoContext = await CreateContextAsync(options);
         var repo = new FlatSnapshotRepository(repoContext);
-        await repo.UpsertListingsAsync([CreateFlat("1") with { CommissionPercent = 3.57, PriceEur = 300000, LivingAreaSqm = 75 }]);
+        await repo.AddToRunAsync([CreateFlat("1") with { CommissionPercent = 3.57, PriceEur = 300000, LivingAreaSqm = 75 }]);
 
         // Act
-        await repo.UpsertListingsAsync([CreateFlat("1") with { Title = "New title", CommissionPercent = 0, PriceEur = 150000, LivingAreaSqm = 75 }]);
+        await repo.AddToRunAsync([CreateFlat("1") with { Title = "New title", CommissionPercent = 0, PriceEur = 150000, LivingAreaSqm = 75 }]);
 
         // Assert
         await using var dbContext = new FlatsDbContext(options);
-        var stored = await dbContext.FlatsSnapshots.SingleAsync();
+        var stored = await dbContext.FlatsSnapshotsStaging.SingleAsync();
         stored.Title.Should().Be("New title");
         stored.CommissionPercent.Should().Be(0);
         stored.PricePerMeter.Should().Be(2000);
     }
 
     [Test]
-    public async Task UpsertListingsAsync_DatesReadBackAsUtc()
+    public async Task AddToRunAsync_DatesReadBackAsUtc()
     {
         // Arrange
         var options = CreateSqliteOptions();
@@ -667,11 +392,11 @@ public class FlatSnapshotRepositoryTests
         var scrapedAt = new DateTime(2026, 10, 29, 8, 7, 48, DateTimeKind.Utc);
 
         // Act
-        await new FlatSnapshotRepository(repoContext).UpsertListingsAsync([CreateFlat("1") with { ScrapedAtUtc = scrapedAt }]);
+        await new FlatSnapshotRepository(repoContext).AddToRunAsync([CreateFlat("1") with { ScrapedAtUtc = scrapedAt }]);
 
         // Assert
         await using var dbContext = new FlatsDbContext(options);
-        var stored = await dbContext.FlatsSnapshots.SingleAsync();
+        var stored = await dbContext.FlatsSnapshotsStaging.SingleAsync();
         stored.ScrapedAtUtc.Should().Be(scrapedAt);
         stored.ScrapedAtUtc.Kind.Should().Be(DateTimeKind.Utc);
         var createdAt = dbContext.Entry(stored).Property<DateTime>("CreatedAtUtc").CurrentValue;
@@ -680,26 +405,26 @@ public class FlatSnapshotRepositoryTests
     }
 
     [Test]
-    public async Task UpsertListingsAsync_AfterSaving_NoLongerTracksSnapshots()
+    public async Task AddToRunAsync_AfterSaving_NoLongerTracksSnapshots()
     {
         // Arrange
         var options = CreateSqliteOptions();
         await using var repoContext = await CreateContextAsync(options);
         var repo = new FlatSnapshotRepository(repoContext);
-        await repo.UpsertListingsAsync([CreateFlat("1"), CreateFlat("2")]);
+        await repo.AddToRunAsync([CreateFlat("1"), CreateFlat("2")]);
 
         // Act
-        await repo.UpsertListingsAsync([CreateFlat("1") with { Title = "Updated" }, CreateFlat("3")]);
+        await repo.AddToRunAsync([CreateFlat("1") with { Title = "Updated" }, CreateFlat("3")]);
 
         // Assert
         repoContext.ChangeTracker.Entries().Should().BeEmpty();
         await using var dbContext = new FlatsDbContext(options);
-        (await dbContext.FlatsSnapshots.CountAsync()).Should().Be(3);
-        (await dbContext.FlatsSnapshots.SingleAsync(s => s.ListingId == "1")).Title.Should().Be("Updated");
+        (await dbContext.FlatsSnapshotsStaging.CountAsync()).Should().Be(3);
+        (await dbContext.FlatsSnapshotsStaging.SingleAsync(s => s.ListingId == "1")).Title.Should().Be("Updated");
     }
 
     [Test]
-    public async Task UpsertListingsAsync_KeepsOtherEntitiesOfTheSharedContextTracked()
+    public async Task AddToRunAsync_KeepsOtherEntitiesOfTheSharedContextTracked()
     {
         // Arrange: the background service tracks its history row on the same scoped context
         var options = CreateSqliteOptions();
@@ -709,34 +434,200 @@ public class FlatSnapshotRepositoryTests
         await repoContext.SaveChangesAsync();
 
         // Act
-        await new FlatSnapshotRepository(repoContext).UpsertListingsAsync([CreateFlat("1")]);
+        await new FlatSnapshotRepository(repoContext).AddToRunAsync([CreateFlat("1")]);
 
         // Assert
         repoContext.Entry(history).State.Should().Be(EntityState.Unchanged);
     }
 
     [Test]
-    public async Task UpsertListingsAsync_LeavesRowsOutsideTheBatchUnchanged()
+    public async Task AddToRunAsync_LeavesRowsOutsideTheBatchUnchanged()
     {
         // Arrange
         var options = CreateSqliteOptions();
         await using var repoContext = await CreateContextAsync(options);
         var repo = new FlatSnapshotRepository(repoContext);
-        await repo.UpsertListingsAsync([CreateFlat("1"), CreateFlat("2"), CreateFlat("1", source: "ImmobilienScout24")]);
+        await repo.AddToRunAsync([CreateFlat("1"), CreateFlat("2"), CreateFlat("1", source: "ImmobilienScout24")]);
 
         // Act
-        await repo.UpsertListingsAsync([
+        await repo.AddToRunAsync([
             CreateFlat("1") with { Title = "OM updated" },
             CreateFlat("1", source: "ImmobilienScout24") with { Title = "IS24 updated" }]);
 
         // Assert
         await using var dbContext = new FlatsDbContext(options);
-        var rows = await dbContext.FlatsSnapshots.ToDictionaryAsync(s => (s.Source, s.ListingId), s => s.Title);
+        var rows = await dbContext.FlatsSnapshotsStaging.ToDictionaryAsync(s => (s.Source, s.ListingId), s => s.Title);
         rows.Should().HaveCount(3);
         rows[("OhneMakler", "1")].Should().Be("OM updated");
         rows[("OhneMakler", "2")].Should().Be("Listing 2");
         rows[("ImmobilienScout24", "1")].Should().Be("IS24 updated");
     }
+
+    // ==================== RUN: BEGIN / PUBLISH / DISCARD ====================
+
+    [Test]
+    public async Task PublishSourceAsync_ReplacesTheSourcesRowsAndLeavesOtherSourcesUntouched()
+    {
+        // Arrange: the previous run published OhneMakler 1, 2 and ImmobilienScout24 1
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatSnapshotRepository(repoContext);
+        await PublishAsync(repo, CreateFlat("1"), CreateFlat("2"), CreateFlat("1", source: "ImmobilienScout24"));
+
+        // Act: this run finds OhneMakler 2 (with a new price) and 3
+        await repo.BeginRunAsync();
+        await repo.AddToRunAsync([CreateFlat("2") with { PriceEur = 250000 }, CreateFlat("3")]);
+        var published = await repo.PublishSourceAsync("OhneMakler");
+
+        // Assert
+        published.Should().Be(2);
+        await using var dbContext = new FlatsDbContext(options);
+        var rows = await dbContext.FlatsSnapshots.ToDictionaryAsync(s => (s.Source, s.ListingId), s => s.PriceEur);
+        rows.Keys.Should().BeEquivalentTo([("OhneMakler", "2"), ("OhneMakler", "3"), ("ImmobilienScout24", "1")]);
+        rows[("OhneMakler", "2")].Should().Be(250000);
+    }
+
+    [Test]
+    public async Task PublishSourceAsync_KeepsCreatedAtOfAFlatStillOfferedAndUpdatesTheRest()
+    {
+        // Arrange
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatSnapshotRepository(repoContext);
+        await PublishAsync(repo, CreateFlat("1"));
+        var firstSeen = await AuditDatesAsync(options, "1");
+
+        // Act
+        await repo.BeginRunAsync();
+        await repo.AddToRunAsync([CreateFlat("1") with { Title = "Updated" }, CreateFlat("2")]);
+        await repo.PublishSourceAsync("OhneMakler");
+
+        // Assert
+        var still = await AuditDatesAsync(options, "1");
+        still.CreatedAtUtc.Should().Be(firstSeen.CreatedAtUtc, "the flat was first seen in the previous run");
+        still.UpdatedAtUtc.Should().BeAfter(firstSeen.UpdatedAtUtc);
+        var added = await AuditDatesAsync(options, "2");
+        added.CreatedAtUtc.Should().Be(added.UpdatedAtUtc).And.BeAfter(firstSeen.CreatedAtUtc);
+        await using var dbContext = new FlatsDbContext(options);
+        (await dbContext.FlatsSnapshots.SingleAsync(s => s.ListingId == "1")).Title.Should().Be("Updated");
+    }
+
+    [Test]
+    public async Task PublishSourceAsync_CopiesEveryStoredField()
+    {
+        // Arrange
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatSnapshotRepository(repoContext);
+        var flat = CreateFlat("1") with
+        {
+            PostalCode = "76131", District = "Oststadt", PriceEur = 300000, OriginalPriceEur = 320000, RoomsCount = 3,
+            LivingAreaSqm = 75, CommissionPercent = 3.57, Details = new FlatDetails { Heating = "Gas", BuildYear = 1976 },
+        };
+
+        // Act
+        await repo.AddToRunAsync([flat]);
+        await repo.PublishSourceAsync("OhneMakler");
+
+        // Assert
+        await using var dbContext = new FlatsDbContext(options);
+        var stored = await dbContext.FlatsSnapshots.SingleAsync();
+        stored.Should().BeEquivalentTo(FlatSnapshot.From(flat), o => o
+            .Using<DateTime>(c => c.Subject.Should().BeCloseTo(c.Expectation, TimeSpan.FromMilliseconds(1))).WhenTypeIs<DateTime>());
+    }
+
+    [Test]
+    public async Task PublishSourceAsync_AfterSaving_NoLongerTracksFlatRows()
+    {
+        // Arrange
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatSnapshotRepository(repoContext);
+        await PublishAsync(repo, CreateFlat("1"), CreateFlat("2"));
+
+        // Act
+        await repo.AddToRunAsync([CreateFlat("1"), CreateFlat("3")]);
+        await repo.PublishSourceAsync("OhneMakler");
+
+        // Assert
+        repoContext.ChangeTracker.Entries().Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task BeginRunAsync_EmptiesTheStagingTableButNotFlatsSnapshots()
+    {
+        // Arrange: an interrupted run left a staged flat
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatSnapshotRepository(repoContext);
+        await PublishAsync(repo, CreateFlat("published"));
+        await repo.AddToRunAsync([CreateFlat("leftover")]);
+
+        // Act
+        await repo.BeginRunAsync();
+
+        // Assert
+        await using var dbContext = new FlatsDbContext(options);
+        (await dbContext.FlatsSnapshotsStaging.AnyAsync()).Should().BeFalse();
+        (await dbContext.FlatsSnapshots.SingleAsync()).ListingId.Should().Be("published");
+    }
+
+    [Test]
+    public async Task DiscardRunAsync_EmptiesTheStagingTableAndKeepsWhatWasPublished()
+    {
+        // Arrange: OhneMakler was published, ImmobilienScout24 failed after staging a flat
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatSnapshotRepository(repoContext);
+        await repo.BeginRunAsync();
+        await repo.AddToRunAsync([CreateFlat("1"), CreateFlat("2", source: "ImmobilienScout24")]);
+        await repo.PublishSourceAsync("OhneMakler");
+
+        // Act
+        await repo.DiscardRunAsync();
+
+        // Assert
+        await using var dbContext = new FlatsDbContext(options);
+        (await dbContext.FlatsSnapshotsStaging.AnyAsync()).Should().BeFalse();
+        (await dbContext.FlatsSnapshots.Select(s => s.Source + "/" + s.ListingId).ToListAsync()).Should().Equal("OhneMakler/1");
+    }
+
+    [Test]
+    public async Task StagingTable_HasTheSameColumnsAsFlatsSnapshots()
+    {
+        // Publishing copies row by row; a column missing in one of the tables would lose data
+        var options = CreateSqliteOptions();
+        await using var dbContext = await CreateContextAsync(options);
+
+        var live = await ColumnsAsync(dbContext, "FlatsSnapshots");
+        var staging = await ColumnsAsync(dbContext, "FlatsSnapshots_Staging");
+
+        staging.Should().NotBeEmpty().And.Equal(live);
+    }
+
+    /// <summary>Publishes the flats as a finished run would: stage, publish each source, empty the staging table.</summary>
+    private static async Task PublishAsync(FlatSnapshotRepository repo, params Flat[] flats)
+    {
+        await repo.BeginRunAsync();
+        await repo.AddToRunAsync([.. flats]);
+        foreach (var source in flats.Select(f => f.Source).Distinct())
+            await repo.PublishSourceAsync(source);
+        await repo.DiscardRunAsync();
+    }
+
+    private static async Task<(DateTime CreatedAtUtc, DateTime UpdatedAtUtc)> AuditDatesAsync(
+        DbContextOptions<FlatsDbContext> options, string listingId)
+    {
+        await using var dbContext = new FlatsDbContext(options);
+        var row = await dbContext.FlatsSnapshots.SingleAsync(s => s.ListingId == listingId);
+        var entry = dbContext.Entry(row);
+        return (entry.Property<DateTime>("CreatedAtUtc").CurrentValue, entry.Property<DateTime>("UpdatedAtUtc").CurrentValue);
+    }
+
+    private static Task<List<string>> ColumnsAsync(FlatsDbContext dbContext, string table) =>
+        dbContext.Database
+            .SqlQueryRaw<string>("SELECT name || ' ' || type || ' ' || \"notnull\" AS Value FROM pragma_table_info({0}) ORDER BY name", table)
+            .ToListAsync();
 
     private static Flat CreateFlat(string listingId, string source = "OhneMakler") => new()
     {

@@ -17,7 +17,7 @@ namespace FlatMonitor.Tests.Api.Services;
 
 /// <summary>
 /// Runs real scrape jobs through the hosted service, with the production storage classes on in-memory SQLite.
-/// The FlatsSnapshots table starts with one flat ("existing"), so a restored backup is visible.
+/// The FlatsSnapshots table starts with one OhneMakler flat ("existing"), so a source that is not published is visible.
 /// </summary>
 [TestFixture]
 public class ScrapeBackgroundServiceTests
@@ -36,7 +36,10 @@ public class ScrapeBackgroundServiceTests
 
         await using var dbContext = CreateDbContext();
         await dbContext.Database.EnsureCreatedAsync();
-        await new FlatSnapshotRepository(dbContext).UpsertListingsAsync([FakeFlatScraper.CreateFlat("existing")]);
+        var repository = new FlatSnapshotRepository(dbContext);
+        await repository.AddToRunAsync([FakeFlatScraper.CreateFlat("existing")]);
+        await repository.PublishSourceAsync("OhneMakler");
+        await repository.DiscardRunAsync();
     }
 
     [TearDown]
@@ -78,9 +81,9 @@ public class ScrapeBackgroundServiceTests
     public async Task ProcessJob_WhenAllSourcesSucceed_SavesSuccessfulHistoryWithFlatCount()
     {
         // Act
-        var job = await RunJobAsync(new FakeFlatScraper { Flats = [FakeFlatScraper.CreateFlat("1"), FakeFlatScraper.CreateFlat("2")] });
+        var job = await RunJobAsync(new FakeFlatScraper("OhneMakler") { Flats = [FakeFlatScraper.CreateFlat("1"), FakeFlatScraper.CreateFlat("2")] });
 
-        // Assert
+        // Assert: the source's earlier flat ("existing") is replaced
         job.Status.Should().Be(ScrapeJobStatus.Completed);
         await using var dbContext = CreateDbContext();
         var history = await dbContext.ScrapingHistories.SingleAsync();
@@ -107,7 +110,7 @@ public class ScrapeBackgroundServiceTests
     }
 
     [Test]
-    public async Task ProcessJob_WhenCanceled_SavesCanceledHistoryAndRestoresTheBackup()
+    public async Task ProcessJob_WhenCanceled_SavesCanceledHistoryAndKeepsThePublishedFlats()
     {
         // Arrange
         var scraper = new BlockingScraper();
@@ -131,17 +134,39 @@ public class ScrapeBackgroundServiceTests
     {
         // Act: the aggregation refresh adds a row to the shared context, then fails before saving it
         var job = await RunJobAsync(
-            [new FakeFlatScraper { Flats = [FakeFlatScraper.CreateFlat("1")] }],
+            [new FakeFlatScraper("OhneMakler") { Flats = [FakeFlatScraper.CreateFlat("1")] }],
             aggregations: sp => new InterruptedAggregationRepository(sp.GetRequiredService<FlatsDbContext>()));
 
-        // Assert
+        // Assert: the source was published before the refresh failed
         job.Status.Should().Be(ScrapeJobStatus.Failed);
         await using var dbContext = CreateDbContext();
         var history = await dbContext.ScrapingHistories.SingleAsync();
         history.Status.Should().Be(ScrapingStatus.Failed);
         history.ErrorMessage.Should().Be(InterruptedAggregationRepository.ErrorMessage);
         (await dbContext.FlatAggregations.CountAsync()).Should().Be(0);
-        (await dbContext.FlatsSnapshots.SingleAsync()).ListingId.Should().Be("existing");
+        (await dbContext.FlatsSnapshots.SingleAsync()).ListingId.Should().Be("1");
+    }
+
+    [Test]
+    public async Task ProcessJob_WhenASourceFails_ItKeepsItsPreviousFlatsAndTheOtherSourceIsReplaced()
+    {
+        // Arrange: OhneMakler has "existing" from an earlier run
+        var failing = new FakeFlatScraper("OhneMakler") { InitializeException = new HttpRequestException("Site down") };
+        var working = new FakeFlatScraper("ImmobilienScout24")
+        {
+            Flats = [FakeFlatScraper.CreateFlat("2") with { Source = "ImmobilienScout24" }],
+        };
+
+        // Act
+        var job = await RunJobAsync(failing, working);
+
+        // Assert
+        job.Status.Should().Be(ScrapeJobStatus.Completed);
+        await using var dbContext = CreateDbContext();
+        (await dbContext.ScrapingHistories.SingleAsync()).Status.Should().Be(ScrapingStatus.PartialFailed);
+        (await dbContext.FlatsSnapshots.Select(s => s.Source + "/" + s.ListingId).OrderBy(k => k).ToListAsync())
+            .Should().Equal("ImmobilienScout24/2", "OhneMakler/existing");
+        (await dbContext.FlatsSnapshotsStaging.AnyAsync()).Should().BeFalse();
     }
 
     [Test]

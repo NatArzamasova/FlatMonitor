@@ -116,6 +116,31 @@ public class FlatTests
     }
 
     [Test]
+    public void Snapshot_FromAStagedRow_CopiesEveryStoredField()
+    {
+        // Guards against a new FlatRecord property that publishing a staged row forgets
+        var staged = StagedFlatSnapshot.From(CreateFlat());
+
+        var snapshot = FlatSnapshot.From(staged);
+
+        snapshot.Should().BeEquivalentTo(staged);
+        typeof(FlatRecord).GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(p => p.GetValue(snapshot) is null || Equals(p.GetValue(snapshot), DefaultOf(p.PropertyType)))
+            .Select(p => p.Name)
+            .Should().BeEmpty();
+    }
+
+    [Test]
+    public void Snapshot_UpdateFromAStagedRow_RejectsAnotherKey()
+    {
+        var snapshot = FlatSnapshot.From(CreateFlat());
+
+        var act = () => snapshot.UpdateFrom(StagedFlatSnapshot.From(CreateFlat() with { ListingId = "2" }));
+
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Test]
     public void ScrapingStatus_SerializesByName()
     {
         var history = new ScrapingHistory { StartTimeUtc = DateTime.UtcNow, Status = ScrapingStatus.PartialFailed };

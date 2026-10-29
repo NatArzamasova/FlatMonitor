@@ -7,6 +7,8 @@ using Microsoft.Extensions.Logging;
 /// <summary>
 /// Runs every scraper in turn and owns everything after scraping: district filtering, saving in batches,
 /// progress reporting, and the JSONL snapshot. Scrapers only produce flats.
+/// Batches go into the repository's staging table; a source replaces its rows in FlatsSnapshots only once it has
+/// finished with flats. Until then, and for good if it fails, the API keeps serving its rows of the previous run.
 /// </summary>
 public sealed class ScraperCoordinator
 {
@@ -36,8 +38,9 @@ public sealed class ScraperCoordinator
     }
 
     /// <summary>
-    /// Scrapes all sources. A failing source, or one that saved no flats, is recorded in the summary and the next
-    /// source still runs; cancellation through <paramref name="ct"/> stops the whole run.
+    /// Scrapes all sources and publishes each one that succeeded. A failing source, or one that saved no flats, is
+    /// recorded in the summary, keeps its previous rows, and the next source still runs; cancellation through
+    /// <paramref name="ct"/> stops the whole run (sources published before it stay published).
     /// </summary>
     /// <param name="onBatchSaved">
     /// Awaited after each saved batch with the number of flats saved (after district filtering).
@@ -48,6 +51,21 @@ public sealed class ScraperCoordinator
         var flatsPerSource = new Dictionary<string, int>();
         var errors = new List<string>();
 
+        await _repository.BeginRunAsync(ct);
+        try
+        {
+            await ScrapeEachSourceAsync(flatsPerSource, errors, onBatchSaved, ct);
+        }
+        finally
+        {
+            await DiscardRunAsync();
+        }
+
+        return new ScrapeSummary(flatsPerSource, errors);
+    }
+
+    private async Task ScrapeEachSourceAsync(Dictionary<string, int> flatsPerSource, List<string> errors, Func<int, Task>? onBatchSaved, CancellationToken ct)
+    {
         foreach (var scraper in _scrapers)
         {
             ct.ThrowIfCancellationRequested();
@@ -60,9 +78,13 @@ public sealed class ScraperCoordinator
                 // An empty source is a failure (blocked, changed markup), not an empty market
                 if (flatsPerSource[scraper.Source] == 0)
                 {
-                    _logger.LogError("No flats found for source {Source}", scraper.Source);
+                    _logger.LogError("No flats found for source {Source}, keeping its previous flats", scraper.Source);
                     errors.Add($"{scraper.Source}: no flats found");
+                    continue;
                 }
+
+                var published = await _repository.PublishSourceAsync(scraper.Source, ct);
+                _logger.LogInformation("{Source}: published {Count} flats", scraper.Source, published);
             }
             // Only the caller's token cancels the run; an HttpClient timeout is a TaskCanceledException too
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -72,12 +94,24 @@ public sealed class ScraperCoordinator
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error scraping {Source}", scraper.Source);
+                _logger.LogError(ex, "Error scraping {Source}, keeping its previous flats", scraper.Source);
                 errors.Add($"{scraper.Source}: {ex.Message}");
             }
         }
+    }
 
-        return new ScrapeSummary(flatsPerSource, errors);
+    /// <summary>Empties the staging table; a failure is only logged, so the run's own exception still propagates.</summary>
+    private async Task DiscardRunAsync()
+    {
+        try
+        {
+            await _repository.DiscardRunAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            // Harmless: the next run starts by emptying it again
+            _logger.LogWarning(ex, "Could not empty the staging table");
+        }
     }
 
     private async Task ScrapeSourceAsync(IScraper scraper, Action<int> countSaved, Func<int, Task>? onBatchSaved, CancellationToken ct)
@@ -94,18 +128,18 @@ public sealed class ScraperCoordinator
             {
                 scraped += batch.Length;
                 withoutDistrict += batch.Count(flat => string.IsNullOrWhiteSpace(flat.District));
-                var filtered = FilterAndNormalizeBatch(batch);
+                var filtered = FilterAndNormalizeBatch(batch, scraper.Source);
                 if (filtered.Count == 0)
                     continue;
 
-                await _repository.UpsertListingsAsync(filtered, ct);
+                await _repository.AddToRunAsync(filtered, ct);
                 saved += filtered.Count;
                 countSaved(filtered.Count);
                 _logger.LogInformation("{Source}: saved {Count} flats ({Total} so far)", scraper.Source, filtered.Count, saved);
                 if (onBatchSaved != null)
                     await onBatchSaved(filtered.Count);
 
-                // Debugging backup only; written as the flats are saved, so a failed source keeps what it saved
+                // Debugging backup only; written as the flats are staged, so a failed source's file keeps what it scraped
                 snapshot ??= _snapshotWriter.Create(_dataDirectory, scraper.Source);
                 await snapshot.AppendAsync(filtered, ct);
             }
@@ -138,11 +172,14 @@ public sealed class ScraperCoordinator
         _logger.Log(level, "{Source}: skipped {Count} of {Scraped} listings without a district", source, withoutDistrict, scraped);
     }
 
-    /// <summary>Keeps flats in a tracked district, with the district name in its canonical spelling.</summary>
-    private static List<Flat> FilterAndNormalizeBatch(IEnumerable<Flat> batch)
+    /// <summary>
+    /// Keeps flats in a tracked district, with the district name in its canonical spelling. Every flat gets the
+    /// scraper's source: the source is published by that name, so a flat with another one would never be published.
+    /// </summary>
+    private static List<Flat> FilterAndNormalizeBatch(IEnumerable<Flat> batch, string source)
     {
         return batch
-            .Select(flat => KarlsruheDistricts.Match(flat.District) is { } district ? flat with { District = district } : null)
+            .Select(flat => KarlsruheDistricts.Match(flat.District) is { } district ? flat with { District = district, Source = source } : null)
             .OfType<Flat>()
             .ToList();
     }

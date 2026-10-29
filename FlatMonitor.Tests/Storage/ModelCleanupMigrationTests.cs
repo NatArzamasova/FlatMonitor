@@ -94,13 +94,15 @@ public class ModelCleanupMigrationTests
     {
         await using (var dbContext = CreateContext())
         {
-            await new FlatSnapshotRepository(dbContext).UpsertListingsAsync([new Flat
+            var repository = new FlatSnapshotRepository(dbContext);
+            await repository.AddToRunAsync([new Flat
             {
                 Source = "OhneMakler",
                 ListingId = "1",
                 Url = "https://example.org/1",
                 ScrapedAtUtc = new DateTime(2026, 10, 29, 8, 7, 49, DateTimeKind.Utc),
             }]);
+            await repository.PublishSourceAsync("OhneMakler");
         }
 
         await using var readContext = CreateContext();

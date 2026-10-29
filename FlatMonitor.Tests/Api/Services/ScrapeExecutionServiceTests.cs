@@ -35,7 +35,6 @@ public class ScrapeSummaryTests
 [TestFixture]
 public class ScrapeExecutionServiceTests
 {
-    private Mock<ISnapshotRepository> _mockSnapshotRepository = null!;
     private Mock<IFlatAggregationRepository> _mockAggregationRepository = null!;
     private Mock<ILogger<ScrapeExecutionService>> _mockLogger = null!;
     private ScraperCoordinator _coordinator = null!;
@@ -43,49 +42,20 @@ public class ScrapeExecutionServiceTests
     [SetUp]
     public void Setup()
     {
-        _mockSnapshotRepository = new Mock<ISnapshotRepository>();
         _mockAggregationRepository = new Mock<IFlatAggregationRepository>();
         _mockLogger = new Mock<ILogger<ScrapeExecutionService>>();
         _coordinator = new ScraperCoordinator(
             Array.Empty<IScraper>(),
-            _mockSnapshotRepository.Object,
+            new Mock<ISnapshotRepository>().Object,
             new SnapshotWriter(),
             Path.GetTempPath(),
             NullLogger<ScraperCoordinator>.Instance);
-
-        _mockSnapshotRepository
-            .Setup(r => r.BackupFlatsSnapshotsAsync(It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-
-        _mockSnapshotRepository
-            .Setup(r => r.DeleteBackupAsync(It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-
-        _mockAggregationRepository
-            .Setup(r => r.RefreshAsync(It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-    }
-
-    [Test]
-    public void Constructor_RequiresSnapshotRepository()
-    {
-        var action = () => new ScrapeExecutionService(
-            null!,
-            _mockAggregationRepository.Object,
-            _coordinator,
-            _mockLogger.Object);
-
-        action.Should().Throw<ArgumentNullException>();
     }
 
     [Test]
     public void Constructor_RequiresAggregationRepository()
     {
-        var action = () => new ScrapeExecutionService(
-            _mockSnapshotRepository.Object,
-            null!,
-            _coordinator,
-            _mockLogger.Object);
+        var action = () => new ScrapeExecutionService(null!, _coordinator, _mockLogger.Object);
 
         action.Should().Throw<ArgumentNullException>();
     }
@@ -93,11 +63,7 @@ public class ScrapeExecutionServiceTests
     [Test]
     public void Constructor_RequiresCoordinator()
     {
-        var action = () => new ScrapeExecutionService(
-            _mockSnapshotRepository.Object,
-            _mockAggregationRepository.Object,
-            null!,
-            _mockLogger.Object);
+        var action = () => new ScrapeExecutionService(_mockAggregationRepository.Object, null!, _mockLogger.Object);
 
         action.Should().Throw<ArgumentNullException>();
     }
@@ -105,11 +71,7 @@ public class ScrapeExecutionServiceTests
     [Test]
     public void Constructor_RequiresLogger()
     {
-        var action = () => new ScrapeExecutionService(
-            _mockSnapshotRepository.Object,
-            _mockAggregationRepository.Object,
-            _coordinator,
-            null!);
+        var action = () => new ScrapeExecutionService(_mockAggregationRepository.Object, _coordinator, null!);
 
         action.Should().Throw<ArgumentNullException>();
     }
@@ -121,14 +83,26 @@ public class ScrapeExecutionServiceExecuteTests
     private Mock<ISnapshotRepository> _mockSnapshotRepository = null!;
     private Mock<IFlatAggregationRepository> _mockAggregationRepository = null!;
     private ListLogger<ScrapeExecutionService> _logger = null!;
+    private List<string> _calls = null!;
     private string _dataDir = null!;
 
     [SetUp]
     public void Setup()
     {
-        // Loose mocks: every repository call completes without doing anything
+        // Every repository call completes without doing anything; the calls are recorded in order
+        _calls = [];
         _mockSnapshotRepository = new Mock<ISnapshotRepository>();
+        _mockSnapshotRepository.Setup(r => r.BeginRunAsync(It.IsAny<CancellationToken>()))
+            .Callback(() => _calls.Add("begin")).Returns(Task.CompletedTask);
+        _mockSnapshotRepository.Setup(r => r.AddToRunAsync(It.IsAny<List<Flat>>(), It.IsAny<CancellationToken>()))
+            .Callback(() => _calls.Add("add")).Returns(Task.CompletedTask);
+        _mockSnapshotRepository.Setup(r => r.PublishSourceAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, CancellationToken>((source, _) => _calls.Add($"publish {source}")).ReturnsAsync(1);
+        _mockSnapshotRepository.Setup(r => r.DiscardRunAsync(It.IsAny<CancellationToken>()))
+            .Callback(() => _calls.Add("discard")).Returns(Task.CompletedTask);
         _mockAggregationRepository = new Mock<IFlatAggregationRepository>();
+        _mockAggregationRepository.Setup(r => r.RefreshAsync(It.IsAny<CancellationToken>()))
+            .Callback(() => _calls.Add("refresh")).Returns(Task.CompletedTask);
         _logger = new ListLogger<ScrapeExecutionService>();
         _dataDir = Path.Combine(Path.GetTempPath(), $"ScrapeExecutionServiceExecuteTests_{Guid.NewGuid()}");
     }
@@ -141,41 +115,18 @@ public class ScrapeExecutionServiceExecuteTests
     }
 
     [Test]
-    public async Task ExecuteAsync_OnSuccess_LogsEachStepInOrder()
+    public async Task ExecuteAsync_StagesPublishesAndThenRefreshesTheAggregations()
     {
         // Arrange
-        var service = CreateService(new FakeFlatScraper { Flats = [FakeFlatScraper.CreateFlat("1")] });
+        var service = CreateService(new FakeFlatScraper("OhneMakler") { Flats = [FakeFlatScraper.CreateFlat("1")] });
 
         // Act
         var result = await service.ExecuteAsync();
 
         // Assert
         result.Success.Should().BeTrue();
-        _logger.Messages.Should().Equal(
-            "Backing up FlatsSnapshots table",
-            "Clearing FlatsSnapshots table",
-            "Refreshing flat aggregations",
-            "Scrape successful, deleting backup");
-    }
-
-    [Test]
-    public async Task ExecuteAsync_BacksUpThenClearsThroughRepositoryBeforeScraping()
-    {
-        // Arrange
-        var calls = new List<string>();
-        _mockSnapshotRepository.Setup(r => r.BackupFlatsSnapshotsAsync(It.IsAny<CancellationToken>()))
-            .Callback(() => calls.Add("backup")).Returns(Task.CompletedTask);
-        _mockSnapshotRepository.Setup(r => r.ClearAsync(It.IsAny<CancellationToken>()))
-            .Callback(() => calls.Add("clear")).Returns(Task.CompletedTask);
-        _mockSnapshotRepository.Setup(r => r.UpsertListingsAsync(It.IsAny<List<Flat>>(), It.IsAny<CancellationToken>()))
-            .Callback(() => calls.Add("upsert")).Returns(Task.CompletedTask);
-        var service = CreateService(new FakeFlatScraper { Flats = [FakeFlatScraper.CreateFlat("1")] });
-
-        // Act
-        await service.ExecuteAsync();
-
-        // Assert
-        calls.Should().Equal("backup", "clear", "upsert");
+        _calls.Should().Equal("begin", "add", "publish OhneMakler", "discard", "refresh");
+        _logger.Messages.Should().Equal("Refreshing flat aggregations");
     }
 
     [Test]
@@ -199,11 +150,12 @@ public class ScrapeExecutionServiceExecuteTests
     }
 
     [Test]
-    public async Task ExecuteAsync_WhenASourceFails_KeepsBackupAndReportsFailure()
+    public async Task ExecuteAsync_WhenASourceFails_PublishesOnlyTheOthersAndStillRefreshes()
     {
         // Arrange
         var failing = new FakeFlatScraper("ImmobilienScout24") { InitializeException = new InvalidOperationException("Login failed") };
-        var service = CreateService(failing);
+        var working = new FakeFlatScraper("OhneMakler") { Flats = [FakeFlatScraper.CreateFlat("1")] };
+        var service = CreateService(failing, working);
 
         // Act
         var result = await service.ExecuteAsync();
@@ -211,13 +163,11 @@ public class ScrapeExecutionServiceExecuteTests
         // Assert
         result.Success.Should().BeFalse();
         result.Errors.Should().Equal("ImmobilienScout24: Login failed");
-        _mockSnapshotRepository.Verify(r => r.DeleteBackupAsync(It.IsAny<CancellationToken>()), Times.Never);
-        _mockSnapshotRepository.Verify(r => r.RestoreFlatsSnapshotsAsync(It.IsAny<CancellationToken>()), Times.Never);
-        _logger.Messages.Should().NotContain("Scrape successful, deleting backup");
+        _calls.Should().Equal("begin", "add", "publish OhneMakler", "discard", "refresh");
     }
 
     [Test]
-    public async Task ExecuteAsync_WhenAStepThrows_RestoresBackupAndRethrows()
+    public async Task ExecuteAsync_WhenTheRefreshThrows_Propagates()
     {
         // Arrange
         _mockAggregationRepository.Setup(r => r.RefreshAsync(It.IsAny<CancellationToken>()))
@@ -229,15 +179,41 @@ public class ScrapeExecutionServiceExecuteTests
 
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("Disk full");
-        _mockSnapshotRepository.Verify(r => r.RestoreFlatsSnapshotsAsync(It.IsAny<CancellationToken>()), Times.Once);
-        _mockSnapshotRepository.Verify(r => r.DeleteBackupAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Test]
-    public async Task ExecuteAsync_WhenCanceled_RestoresBackupWithAnUncanceledToken()
+    public async Task ExecuteAsync_WhenCanceled_RefreshesTheAggregationsWithAnUncanceledTokenAndRethrows()
+    {
+        // Arrange: the first source is published, the second one is canceled
+        using var cts = new CancellationTokenSource();
+        var published = new FakeFlatScraper("OhneMakler") { Flats = [FakeFlatScraper.CreateFlat("1")] };
+        var canceled = new FakeFlatScraper("ImmobilienScout24")
+        {
+            Flats = [FakeFlatScraper.CreateFlat("2")],
+            OnEnrich = (_, ct) =>
+            {
+                cts.Cancel();
+                ct.ThrowIfCancellationRequested();
+            },
+        };
+        var service = CreateService(published, canceled);
+
+        // Act
+        var act = () => service.ExecuteAsync(cancellationToken: cts.Token);
+
+        // Assert
+        await act.Should().ThrowAsync<OperationCanceledException>();
+        _calls.Should().Equal("begin", "add", "publish OhneMakler", "discard", "refresh");
+        _mockAggregationRepository.Verify(r => r.RefreshAsync(It.Is<CancellationToken>(ct => !ct.IsCancellationRequested)), Times.Once);
+    }
+
+    [Test]
+    public async Task ExecuteAsync_WhenCanceledAndTheRefreshFails_StillThrowsTheCancellation()
     {
         // Arrange
         using var cts = new CancellationTokenSource();
+        _mockAggregationRepository.Setup(r => r.RefreshAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Disk full"));
         var scraper = new FakeFlatScraper
         {
             Flats = [FakeFlatScraper.CreateFlat("1")],
@@ -254,53 +230,13 @@ public class ScrapeExecutionServiceExecuteTests
 
         // Assert
         await act.Should().ThrowAsync<OperationCanceledException>();
-        _mockSnapshotRepository.Verify(r => r.RestoreFlatsSnapshotsAsync(
-            It.Is<CancellationToken>(ct => !ct.IsCancellationRequested)), Times.Once);
-    }
-
-    [Test]
-    public async Task ExecuteAsync_WhenBackupFails_DoesNotRestoreAnOlderBackup()
-    {
-        // Arrange
-        _mockSnapshotRepository.Setup(r => r.BackupFlatsSnapshotsAsync(It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Database locked"));
-        var service = CreateService();
-
-        // Act
-        var act = () => service.ExecuteAsync();
-
-        // Assert
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("Database locked");
-        _mockSnapshotRepository.Verify(r => r.ClearAsync(It.IsAny<CancellationToken>()), Times.Never);
-        _mockSnapshotRepository.Verify(r => r.RestoreFlatsSnapshotsAsync(It.IsAny<CancellationToken>()), Times.Never);
-    }
-
-    [Test]
-    public async Task ExecuteAsync_WhenRestoreAlsoFails_PropagatesTheOriginalError()
-    {
-        // Arrange
-        _mockAggregationRepository.Setup(r => r.RefreshAsync(It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Disk full"));
-        _mockSnapshotRepository.Setup(r => r.RestoreFlatsSnapshotsAsync(It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("No backup table"));
-        var service = CreateService();
-
-        // Act
-        var act = () => service.ExecuteAsync();
-
-        // Assert
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("Disk full");
-        _logger.Messages.Should().Contain("Failed to restore FlatsSnapshots from backup");
+        _logger.Messages.Should().Contain("Failed to refresh flat aggregations after the scrape was canceled");
     }
 
     private ScrapeExecutionService CreateService(params IScraper[] scrapers)
     {
         var coordinator = new ScraperCoordinator(
             scrapers, _mockSnapshotRepository.Object, new SnapshotWriter(), _dataDir, NullLogger<ScraperCoordinator>.Instance);
-        return new ScrapeExecutionService(
-            _mockSnapshotRepository.Object,
-            _mockAggregationRepository.Object,
-            coordinator,
-            _logger);
+        return new ScrapeExecutionService(_mockAggregationRepository.Object, coordinator, _logger);
     }
 }

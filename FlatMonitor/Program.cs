@@ -57,8 +57,8 @@ async Task<int> RunScrapeAsync()
 
         var executionService = scope.ServiceProvider.GetRequiredService<ScrapeExecutionService>();
 
-        // ScrapeExecutionService logs each step (backup, clear, refresh, delete backup) when it happens,
-        // and restores the backup itself if the scrape throws
+        // ScrapeExecutionService logs each step when it happens; a source is only published once it has
+        // finished, so a failed run leaves FlatsSnapshots consistent
         var result = await executionService.ExecuteAsync();
 
         if (result.Success)

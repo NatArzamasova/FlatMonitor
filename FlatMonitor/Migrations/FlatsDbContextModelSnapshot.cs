@@ -194,6 +194,72 @@ namespace FlatMonitor.Migrations
                     b.ToTable("ScrapingHistories", (string)null);
                 });
 
+            modelBuilder.Entity("FlatMonitor.Models.StagedFlatSnapshot", b =>
+                {
+                    b.Property<string>("Source")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ListingId")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("CommissionPercent")
+                        .HasColumnType("REAL");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("District")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("LivingAreaSqm")
+                        .HasColumnType("REAL");
+
+                    b.Property<int?>("OriginalPriceEur")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("PostalCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("PriceEur")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("PricePerMeter")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<double?>("RoomsCount")
+                        .HasColumnType("REAL");
+
+                    b.Property<DateTime>("ScrapedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Url")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Source", "ListingId");
+
+                    b.HasIndex("Source", "Url", "Address")
+                        .IsUnique()
+                        .HasDatabaseName("idx_Staging_Source_Url_Address");
+
+                    b.ToTable("FlatsSnapshots_Staging", (string)null);
+                });
+
             modelBuilder.Entity("FlatMonitor.Models.FlatSnapshot", b =>
                 {
                     b.OwnsOne("FlatMonitor.Models.FlatDetails", "Details", b1 =>
@@ -273,6 +339,90 @@ namespace FlatMonitor.Migrations
 
                             b1.WithOwner()
                                 .HasForeignKey("FlatSnapshotSource", "FlatSnapshotListingId");
+                        });
+
+                    b.Navigation("Details");
+                });
+
+            modelBuilder.Entity("FlatMonitor.Models.StagedFlatSnapshot", b =>
+                {
+                    b.OwnsOne("FlatMonitor.Models.FlatDetails", "Details", b1 =>
+                        {
+                            b1.Property<string>("StagedFlatSnapshotSource")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("StagedFlatSnapshotListingId")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("Availability")
+                                .HasMaxLength(100)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("Availability");
+
+                            b1.Property<int?>("BuildYear")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("BuildYear");
+
+                            b1.Property<string>("Condition")
+                                .HasMaxLength(100)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("Condition");
+
+                            b1.Property<string>("CurrentUse")
+                                .HasMaxLength(100)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("CurrentUse");
+
+                            b1.Property<string>("EnergyCertificateType")
+                                .HasMaxLength(100)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("EnergyCertificateType");
+
+                            b1.Property<string>("EnergyConsumption")
+                                .HasMaxLength(100)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("EnergyConsumption");
+
+                            b1.Property<string>("EnergyEfficiencyClass")
+                                .HasMaxLength(10)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("EnergyEfficiencyClass");
+
+                            b1.Property<string>("Floor")
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("Floor");
+
+                            b1.Property<string>("Heating")
+                                .HasMaxLength(100)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("Heating");
+
+                            b1.Property<string>("ListingStatus")
+                                .HasMaxLength(100)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("ListingStatus");
+
+                            b1.Property<string>("PrimaryEnergySource")
+                                .HasMaxLength(100)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("PrimaryEnergySource");
+
+                            b1.Property<string>("PropertyType")
+                                .HasMaxLength(50)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("PropertyType");
+
+                            b1.Property<int?>("ServiceChargeEur")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("ServiceChargeEur");
+
+                            b1.HasKey("StagedFlatSnapshotSource", "StagedFlatSnapshotListingId");
+
+                            b1.ToTable("FlatsSnapshots_Staging");
+
+                            b1.WithOwner()
+                                .HasForeignKey("StagedFlatSnapshotSource", "StagedFlatSnapshotListingId");
                         });
 
                     b.Navigation("Details");

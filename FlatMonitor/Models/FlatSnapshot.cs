@@ -1,7 +1,11 @@
 namespace FlatMonitor.Models;
 
-/// <summary>A <see cref="Flat"/> as stored in the FlatsSnapshots table.</summary>
-public sealed class FlatSnapshot
+/// <summary>
+/// A <see cref="Flat"/> as stored in a flats table. Both tables have the same columns:
+/// <see cref="FlatSnapshot"/> (FlatsSnapshots, what the API serves) and <see cref="StagedFlatSnapshot"/>
+/// (FlatsSnapshots_Staging, the running scrape until its sources are published).
+/// </summary>
+public abstract class FlatRecord
 {
     public required string Source { get; init; }
     public required string ListingId { get; init; }
@@ -19,18 +23,10 @@ public sealed class FlatSnapshot
     public FlatDetails? Details { get; set; }
     public required DateTime ScrapedAtUtc { get; set; }
 
-    public static FlatSnapshot From(Flat flat)
-    {
-        var snapshot = new FlatSnapshot { Source = flat.Source, ListingId = flat.ListingId, ScrapedAtUtc = flat.ScrapedAtUtc };
-        snapshot.UpdateFrom(flat);
-        return snapshot;
-    }
-
     /// <summary>Copies every stored field from <paramref name="flat"/>; the key (Source, ListingId) must match.</summary>
     public void UpdateFrom(Flat flat)
     {
-        if (flat.Source != Source || flat.ListingId != ListingId)
-            throw new ArgumentException($"Flat {flat.Source}/{flat.ListingId} does not belong to snapshot {Source}/{ListingId}", nameof(flat));
+        EnsureSameKey(flat.Source, flat.ListingId);
 
         Url = flat.Url;
         Title = flat.Title;
@@ -45,5 +41,60 @@ public sealed class FlatSnapshot
         CommissionPercent = flat.CommissionPercent;
         Details = flat.Details;
         ScrapedAtUtc = flat.ScrapedAtUtc;
+    }
+
+    /// <summary>Copies every stored field from <paramref name="record"/>; the key (Source, ListingId) must match.</summary>
+    public void UpdateFrom(FlatRecord record)
+    {
+        EnsureSameKey(record.Source, record.ListingId);
+
+        Url = record.Url;
+        Title = record.Title;
+        Address = record.Address;
+        PostalCode = record.PostalCode;
+        District = record.District;
+        PriceEur = record.PriceEur;
+        OriginalPriceEur = record.OriginalPriceEur;
+        PricePerMeter = record.PricePerMeter;
+        RoomsCount = record.RoomsCount;
+        LivingAreaSqm = record.LivingAreaSqm;
+        CommissionPercent = record.CommissionPercent;
+        Details = record.Details;
+        ScrapedAtUtc = record.ScrapedAtUtc;
+    }
+
+    private void EnsureSameKey(string source, string listingId)
+    {
+        if (source != Source || listingId != ListingId)
+            throw new ArgumentException($"Flat {source}/{listingId} does not belong to snapshot {Source}/{ListingId}");
+    }
+}
+
+/// <summary>A row of the FlatsSnapshots table: a flat of the latest published scrape of its source.</summary>
+public sealed class FlatSnapshot : FlatRecord
+{
+    public static FlatSnapshot From(Flat flat)
+    {
+        var snapshot = new FlatSnapshot { Source = flat.Source, ListingId = flat.ListingId, ScrapedAtUtc = flat.ScrapedAtUtc };
+        snapshot.UpdateFrom(flat);
+        return snapshot;
+    }
+
+    public static FlatSnapshot From(FlatRecord record)
+    {
+        var snapshot = new FlatSnapshot { Source = record.Source, ListingId = record.ListingId, ScrapedAtUtc = record.ScrapedAtUtc };
+        snapshot.UpdateFrom(record);
+        return snapshot;
+    }
+}
+
+/// <summary>A row of the FlatsSnapshots_Staging table: a flat of the running scrape, not yet published.</summary>
+public sealed class StagedFlatSnapshot : FlatRecord
+{
+    public static StagedFlatSnapshot From(Flat flat)
+    {
+        var snapshot = new StagedFlatSnapshot { Source = flat.Source, ListingId = flat.ListingId, ScrapedAtUtc = flat.ScrapedAtUtc };
+        snapshot.UpdateFrom(flat);
+        return snapshot;
     }
 }

@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 public class FlatsDbContext : DbContext
 {
     public DbSet<FlatSnapshot> FlatsSnapshots { get; set; }
+    public DbSet<StagedFlatSnapshot> FlatsSnapshotsStaging { get; set; }
     public DbSet<ScrapingHistory> ScrapingHistories { get; set; }
     public DbSet<FlatAggregationSnapshot> FlatAggregations { get; set; }
     public DbSet<FilterPreset> FilterPresets { get; set; }

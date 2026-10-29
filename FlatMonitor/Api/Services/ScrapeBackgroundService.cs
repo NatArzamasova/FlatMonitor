@@ -63,7 +63,7 @@ public class ScrapeBackgroundService : BackgroundService
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // Not worth blocking the job queue for: the next scrape backs up, clears and refills the table anyway
+            // Not worth blocking the job queue for: the next scrape empties the staging table anyway
             _logger.LogError(ex, "Could not clean up after the previous instance of the service");
         }
     }
@@ -90,7 +90,7 @@ public class ScrapeBackgroundService : BackgroundService
 
             try
             {
-                // ExecuteAsync restores the backup itself if it throws
+                // A failed or canceled run leaves FlatsSnapshots consistent: it only replaces sources that finished
                 var result = await executionService.ExecuteAsync(async batchCount =>
                 {
                     history.FlatsScrapedCount += batchCount;

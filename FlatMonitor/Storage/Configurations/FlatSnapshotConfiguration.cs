@@ -4,14 +4,58 @@ using FlatMonitor.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-/// <summary>The FlatsSnapshots table: one row per flat of the latest scrape, its details flattened into the same row.</summary>
-internal sealed class FlatSnapshotConfiguration : IEntityTypeConfiguration<FlatSnapshot>
+/// <summary>The FlatsSnapshots table: one row per flat of the latest published scrape of its source.</summary>
+internal sealed class FlatSnapshotConfiguration : FlatRecordConfiguration<FlatSnapshot>
 {
-    public void Configure(EntityTypeBuilder<FlatSnapshot> builder)
+    public FlatSnapshotConfiguration() : base("FlatsSnapshots", indexPrefix: "idx_")
     {
+    }
 
+    protected override void ConfigureIndexes(EntityTypeBuilder<FlatSnapshot> builder)
+    {
+        builder.HasIndex(s => s.ScrapedAtUtc)
+            .HasDatabaseName("idx_ScrapedAtUtc");
+
+        builder.HasIndex(s => s.PostalCode)
+            .HasDatabaseName("idx_PostalCode");
+
+        builder.HasIndex(s => s.District)
+            .HasDatabaseName("idx_District");
+    }
+}
+
+/// <summary>
+/// The FlatsSnapshots_Staging table: the running scrape, written batch by batch and published per source.
+/// Same columns and unique index as FlatsSnapshots, so a staged source always fits into it; no read indexes.
+/// </summary>
+internal sealed class StagedFlatSnapshotConfiguration : FlatRecordConfiguration<StagedFlatSnapshot>
+{
+    public StagedFlatSnapshotConfiguration() : base("FlatsSnapshots_Staging", indexPrefix: "idx_Staging_")
+    {
+    }
+}
+
+/// <summary>The columns of a flats table, its details flattened into the same row.</summary>
+internal abstract class FlatRecordConfiguration<T> : IEntityTypeConfiguration<T> where T : FlatRecord
+{
+    private readonly string _table;
+    private readonly string _indexPrefix;
+
+    protected FlatRecordConfiguration(string table, string indexPrefix)
+    {
+        _table = table;
+        _indexPrefix = indexPrefix;
+    }
+
+    /// <summary>Indexes beyond the key and the unique index; SQLite index names are per database.</summary>
+    protected virtual void ConfigureIndexes(EntityTypeBuilder<T> builder)
+    {
+    }
+
+    public void Configure(EntityTypeBuilder<T> builder)
+    {
         builder.HasKey(s => new { s.Source, s.ListingId });
-        builder.ToTable("FlatsSnapshots");
+        builder.ToTable(_table);
 
         builder.Property(s => s.Source)
             .IsRequired()
@@ -102,16 +146,9 @@ internal sealed class FlatSnapshotConfiguration : IEntityTypeConfiguration<FlatS
         // Indexes
         builder.HasIndex(s => new { s.Source, s.Url, s.Address })
             .IsUnique()
-            .HasDatabaseName("idx_Source_Url_Address");
+            .HasDatabaseName($"{_indexPrefix}Source_Url_Address");
 
-        builder.HasIndex(s => s.ScrapedAtUtc)
-            .HasDatabaseName("idx_ScrapedAtUtc");
-
-        builder.HasIndex(s => s.PostalCode)
-            .HasDatabaseName("idx_PostalCode");
-
-        builder.HasIndex(s => s.District)
-            .HasDatabaseName("idx_District");
+        ConfigureIndexes(builder);
 
         // Audit columns
         builder.Property<DateTime>("CreatedAtUtc")
