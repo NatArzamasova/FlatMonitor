@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging;
 
 /// <summary>
 /// Scraper for immobilienscout24.de apartment flats.
-/// Uses Playwright for browser automation (Google OAuth, robot guard), then parses flats with the generic FlatExtractor.
+/// Uses Playwright for browser automation (Google OAuth, robot guard), then parses each listing card with the ImmobilienScout24CardParser.
 /// Processes each flat's details immediately as pages are fetched.
 /// Saves flats to database in batches to avoid memory bloat on large datasets.
 /// </summary>
@@ -17,8 +17,8 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
 {
     public const string SourceName = "ImmobilienScout24";
 
-    private readonly FlatExtractor _extractor;
-    private readonly IFlatSelectors _selectors;
+    private readonly ImmobilienScout24CardParser _cardParser;
+    private readonly ImmobilienScout24Selectors _selectors;
     private readonly HtmlSnapshotStore _htmlSnapshots;
     private readonly ImmobilienScout24Options _options;
     private readonly ImmobilienScout24DetailParser _detailParser;
@@ -32,7 +32,7 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
         : base(logger)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
-        _extractor = new FlatExtractor(logger);
+        _cardParser = new ImmobilienScout24CardParser(logger);
         _selectors = new ImmobilienScout24Selectors();
         _htmlSnapshots = HtmlSnapshotStore.ForSource(storage, SourceName, logger);
         _detailParser = new ImmobilienScout24DetailParser(logger);
@@ -155,7 +155,7 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
                 try
                 {
                     Logger.LogTrace("ImmobilienScout24: card outerHTML (first 200 chars): {Html}", card.OuterHtml[..Math.Min(200, card.OuterHtml.Length)]);
-                    var flat = _extractor.ExtractFlat(card, _selectors, SourceName);
+                    var flat = _cardParser.Parse(card);
                     if (flat != null)
                     {
                         Logger.LogDebug("ImmobilienScout24: parsed card {ListingId}", flat.ListingId);

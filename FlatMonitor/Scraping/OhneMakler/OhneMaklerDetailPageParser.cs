@@ -1,9 +1,7 @@
 namespace FlatMonitor.Scraping.OhneMakler;
 
-using System.Globalization;
 using System.Text.RegularExpressions;
 using FlatMonitor.Models;
-using FlatMonitor.Scraping;
 using FlatMonitor.Scraping.Common;
 using HtmlAgilityPack;
 using Microsoft.Extensions.Logging;
@@ -13,7 +11,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 public sealed record OhneMaklerDetailPage(
     string? Title,
     string? Address,
-    int? Rooms,
+    double? Rooms,
     double? Area,
     int? Price,
     FlatDetails? Details);
@@ -22,11 +20,8 @@ public sealed record OhneMaklerDetailPage(
 /// Parses ohne-makler.net detail pages, loading each page's HTML once.
 /// Delegates selector definitions to OhneMaklerDetailSelectors for easy maintenance.
 /// </summary>
-public sealed class OhneMaklerDetailPageParser : IDetailParser
+public sealed partial class OhneMaklerDetailPageParser
 {
-    private static readonly Regex RoomsRegex = new(@"(\d+(?:,\d+)?)\s*(?:Zimmer|Zi)(?:\s|$)", RegexOptions.Compiled);
-    private static readonly Regex AreaRegex = new(@"(\d+[.,]\d+|\d+)\s*(?:m²|m2)", RegexOptions.Compiled);
-    private static readonly Regex WhitespaceRegex = new(@"\s+", RegexOptions.Compiled);
 
     private readonly OhneMaklerDetailSelectors _selectors;
     private readonly ILogger _logger;
@@ -48,7 +43,7 @@ public sealed class OhneMaklerDetailPageParser : IDetailParser
             Address: TryExtract(ExtractAddress, doc),
             Rooms: TryExtract(ExtractRooms, doc),
             Area: TryExtract(ExtractArea, doc),
-            Price: TryExtract(d => DetailExtractors.ExtractIntField(DetailExtractors.ExtractText(d, _selectors.PriceXPath)), doc),
+            Price: TryExtract(d => GermanNumberParser.ParseInteger(DetailExtractors.ExtractText(d, _selectors.PriceXPath)), doc),
             Details: ParseDetailFields(doc));
     }
 
@@ -64,14 +59,14 @@ public sealed class OhneMaklerDetailPageParser : IDetailParser
             var details = new FlatDetails
             {
                 PropertyType = DetailExtractors.ExtractText(doc, _selectors.PropertyTypeXPath),
-                BuildYear = DetailExtractors.ExtractIntField(DetailExtractors.ExtractText(doc, _selectors.BuildYearXPath)),
+                BuildYear = GermanNumberParser.ParseInteger(DetailExtractors.ExtractText(doc, _selectors.BuildYearXPath)),
                 Floor = DetailExtractors.ExtractText(doc, _selectors.FloorXPath)
                     ?? DetailExtractors.ExtractText(doc, _selectors.FloorAlternate1XPath)
                     ?? DetailExtractors.ExtractText(doc, _selectors.FloorAlternate2XPath),
                 Condition = DetailExtractors.ExtractText(doc, _selectors.ConditionXPath),
                 Heating = DetailExtractors.ExtractText(doc, _selectors.HeatingXPath),
-                ServiceChargeEur = DetailExtractors.ExtractIntField(DetailExtractors.ExtractText(doc, _selectors.ServiceChargeHausgeldXPath))
-                    ?? DetailExtractors.ExtractIntField(DetailExtractors.ExtractText(doc, _selectors.ServiceChargeNebenkostenXPath)),
+                ServiceChargeEur = GermanNumberParser.ParseInteger(DetailExtractors.ExtractText(doc, _selectors.ServiceChargeHausgeldXPath))
+                    ?? GermanNumberParser.ParseInteger(DetailExtractors.ExtractText(doc, _selectors.ServiceChargeNebenkostenXPath)),
                 EnergyCertificateType = DetailExtractors.ExtractText(doc, _selectors.EnergyCertificateTypeXPath),
                 PrimaryEnergySource = DetailExtractors.ExtractText(doc, _selectors.PrimaryEnergySourceXPath),
                 EnergyEfficiencyClass = DetailExtractors.ExtractText(doc, _selectors.EnergyEfficiencyClassXPath),
@@ -142,13 +137,11 @@ public sealed class OhneMaklerDetailPageParser : IDetailParser
         return null;
     }
 
-    /// <summary>The first "&lt;n&gt; Zimmer" in the page text. Whole rooms only: "2,5 Zimmer" gives 2 (see 3.5).</summary>
-    private static int? ExtractRooms(HtmlDocument doc)
+    /// <summary>The first "&lt;n&gt; Zimmer" in the page text, with half rooms ("2,5 Zimmer" gives 2.5).</summary>
+    private static double? ExtractRooms(HtmlDocument doc)
     {
-        var match = RoomsRegex.Match(doc.DocumentNode.InnerText);
-        return match.Success && int.TryParse(match.Groups[1].Value.Replace(",", ".").Split('.')[0], out int rooms)
-            ? rooms
-            : null;
+        var match = Rooms().Match(doc.DocumentNode.InnerText);
+        return match.Success ? GermanNumberParser.ToDouble(match.Groups[1].Value) : null;
     }
 
     /// <summary>
@@ -163,9 +156,9 @@ public sealed class OhneMaklerDetailPageParser : IDetailParser
 
         foreach (var node in nodes)
         {
-            var match = AreaRegex.Match(node.InnerText?.Trim() ?? "");
+            var match = Area().Match(node.InnerText?.Trim() ?? "");
             if (match.Success
-                && double.TryParse(match.Groups[1].Value.Replace(",", "."), CultureInfo.InvariantCulture, out double area)
+                && GermanNumberParser.ToDouble(match.Groups[1].Value) is { } area
                 && area >= 5 && area <= 500)
             {
                 return area;
@@ -175,7 +168,16 @@ public sealed class OhneMaklerDetailPageParser : IDetailParser
         return null;
     }
 
-    private static string NormalizeWhitespace(string text) => WhitespaceRegex.Replace(text, " ").Trim();
+    private static string NormalizeWhitespace(string text) => Whitespace().Replace(text, " ").Trim();
+
+    [GeneratedRegex(@"(\d+(?:,\d+)?)\s*(?:Zimmer|Zi)(?:\s|$)")]
+    private static partial Regex Rooms();
+
+    [GeneratedRegex(@"(\d+[.,]\d+|\d+)\s*(?:m²|m2)")]
+    private static partial Regex Area();
+
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex Whitespace();
 
     private string? ExtractListingStatus(HtmlDocument doc)
     {

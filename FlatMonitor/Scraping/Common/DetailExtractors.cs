@@ -4,7 +4,7 @@ using HtmlAgilityPack;
 
 /// <summary>
 /// Shared extraction helpers for detail parsers across all sources.
-/// Provides common patterns for extracting text, integers, and multi-pattern fallbacks.
+/// Provides common patterns for extracting text and multi-pattern fallbacks; numbers are read by <see cref="GermanNumberParser"/>.
 /// </summary>
 public static class DetailExtractors
 {
@@ -50,15 +50,6 @@ public static class DetailExtractors
             }
         }
         return null;
-    }
-
-    public static int? ExtractIntField(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return null;
-
-        var digits = System.Text.RegularExpressions.Regex.Replace(value, @"[^\d]", "");
-        return int.TryParse(digits, out var result) ? result : null;
     }
 
     public static bool HasNodes(HtmlDocument doc, string xpath)

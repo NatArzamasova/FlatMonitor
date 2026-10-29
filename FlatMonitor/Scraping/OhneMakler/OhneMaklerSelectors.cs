@@ -1,35 +1,12 @@
 namespace FlatMonitor.Scraping.OhneMakler;
 
 using FlatMonitor.Models;
-using FlatMonitor.Scraping.Common;
-
 
 /// <summary>
-/// OhneMakler-specific selectors for the FlatExtractor.
-/// Implements IFlatSelectors for the common parser, plus static members for legacy code.
+/// ohne-makler.net URLs, the listing link selector, Karlsruhe's postcodes and the detail page labels.
 /// </summary>
-public class OhneMaklerSelectors : IFlatSelectors
+public static class OhneMaklerSelectors
 {
-    // IListingSelectors interface implementation
-    public string ListingCardXPath => "//div[@class='angebot']";
-
-    public string IdXPath => ".//a/@href[contains(., '/immobilie/')]";
-
-    public string TitleXPath => ".//h2[@class='headline']/text()";
-
-    public string PriceXPath => ".//span[@class='price']/text()";
-
-    public string SizeXPath => ".//span[@class='objekttyp']/text()";
-
-    public string AddressXPath => ".//p[@class='location']/text()";
-
-    public string? RoomsXPath => ".//span[@class='rooms']/text()";
-
-    public string DetailUrlXPath => ".//a/@href[contains(., '/immobilie/')]";
-
-    public string BaseUrl => "https://www.ohne-makler.net";
-
-    // Static members for legacy code
     public const string ListingsBaseUrl =
         "https://www.ohne-makler.net/immobilien/wohnung-kaufen/baden-wurttemberg/karlsruhe/";
 

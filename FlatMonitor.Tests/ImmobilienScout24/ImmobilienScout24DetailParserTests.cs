@@ -3,7 +3,6 @@ namespace FlatMonitor.Tests.ImmobilienScout24;
 using NUnit.Framework;
 using FluentAssertions;
 using FlatMonitor.Scraping.ImmobilienScout24;
-using FlatMonitor.Scraping;
 
 [TestFixture]
 public class ImmobilienScout24DetailParserTests
@@ -194,13 +193,6 @@ public class ImmobilienScout24DetailParserTests
         result!.PropertyType.Should().BeNull();
         result.BuildYear.Should().BeNull();
         result.Heating.Should().BeNull();
-    }
-
-    [Test]
-    public void ParseDetailFields_ImplmentsIDetailParser()
-    {
-        // Assert
-        _parser.Should().BeAssignableTo<IDetailParser>();
     }
 
     [Test]

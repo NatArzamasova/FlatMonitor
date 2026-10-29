@@ -1,7 +1,7 @@
 namespace FlatMonitor.Scraping.ImmobilienScout24;
 
+using System.Text.RegularExpressions;
 using FlatMonitor.Models;
-using FlatMonitor.Scraping;
 using FlatMonitor.Scraping.Common;
 using HtmlAgilityPack;
 using Microsoft.Extensions.Logging;
@@ -32,9 +32,8 @@ public sealed record ImmobilienScout24DetailPage(
 
 /// <summary>
 /// Parses ImmobilienScout24 expose pages, loading each page's HTML once.
-/// Implements IDetailParser for unified multi-source architecture.
 /// </summary>
-public class ImmobilienScout24DetailParser : IDetailParser
+public partial class ImmobilienScout24DetailParser
 {
     private readonly ImmobilienScout24DetailSelectors _selectors;
     private readonly ILogger _logger;
@@ -64,14 +63,14 @@ public class ImmobilienScout24DetailParser : IDetailParser
         try
         {
             var propertyType = DetailExtractors.ExtractText(doc, _selectors.PropertyTypeXPath);
-            var buildYear = DetailExtractors.ExtractIntField(DetailExtractors.ExtractText(doc, _selectors.BuildYearXPath));
+            var buildYear = GermanNumberParser.ParseInteger(DetailExtractors.ExtractText(doc, _selectors.BuildYearXPath));
             var floor = DetailExtractors.ExtractText(doc, _selectors.FloorXPath);
             var heating = DetailExtractors.ExtractText(doc, _selectors.HeatingXPath);
             var energyCertType = DetailExtractors.ExtractText(doc, _selectors.EnergyCertificateTypeXPath);
             var energyConsumption = DetailExtractors.ExtractText(doc, _selectors.EnergyConsumptionXPath);
             var energyEffClass = DetailExtractors.ExtractAttribute(doc, _selectors.EnergyEfficiencyClassXPath, _selectors.EnergyEfficiencyClassAttributeName);
             var primaryEnergy = DetailExtractors.ExtractText(doc, _selectors.PrimaryEnergySourceXPath);
-            var serviceCharge = DetailExtractors.ExtractIntField(DetailExtractors.ExtractText(doc, _selectors.ServiceChargeXPath));
+            var serviceCharge = GermanNumberParser.ParseInteger(DetailExtractors.ExtractText(doc, _selectors.ServiceChargeXPath));
             var availability = DetailExtractors.ExtractText(doc, _selectors.AvailabilityXPath);
 
             // Map Availability to CurrentUse
@@ -134,7 +133,7 @@ public class ImmobilienScout24DetailParser : IDetailParser
                     var priceText = node.InnerText?.Trim();
                     if (!string.IsNullOrEmpty(priceText) && priceText.Contains("€"))
                     {
-                        var price = ParsePrice(priceText);
+                        var price = GermanNumberParser.ParseInteger(priceText);
                         if (price.HasValue)
                             return price;
                     }
@@ -164,34 +163,24 @@ public class ImmobilienScout24DetailParser : IDetailParser
 
             var scriptContent = scriptNodes[0].InnerText;
 
-            // Extract courtage value using regex (handles both single and double quoted strings)
-            var courtageMatch = System.Text.RegularExpressions.Regex.Match(scriptContent, @"courtage\s*:\s*['""]([^""]*)['""]");
-            var courtageStr = courtageMatch.Success ? courtageMatch.Groups[1].Value : null;
-            var commissionPercent = ParseCommission(courtageStr);
+            // Courtage text such as "3,57% inkl. MwSt." (handles both single and double quoted strings)
+            var courtageMatch = Courtage().Match(scriptContent);
+            var commissionPercent = courtageMatch.Success ? GermanNumberParser.ParseDecimal(courtageMatch.Groups[1].Value) : null;
 
-            // Extract expose object and its properties using regex
-            var exposeMatch = System.Text.RegularExpressions.Regex.Match(scriptContent, @"expose\s*:\s*\{([^}]+)\}", System.Text.RegularExpressions.RegexOptions.Singleline);
+            var exposeMatch = ExposeObject().Match(scriptContent);
             if (!exposeMatch.Success)
                 return new ExposeMetadata { CommissionPercent = commissionPercent };
 
-            var exposeContent = exposeMatch.Groups[1].Value;
-
-            // Extract individual expose properties (handles both quoted and unquoted keys)
-            var address = ExtractPropertyValue(exposeContent, "address");
-            var zip = ExtractPropertyValue(exposeContent, "zip");
-            var location = ExtractPropertyValue(exposeContent, "location");
-            var livingSpace = ExtractPropertyValue(exposeContent, "livingSpace");
-            var noRooms = ExtractPropertyValue(exposeContent, "noRooms");
-            var price = ExtractPropertyValue(exposeContent, "price");
+            var properties = ExtractProperties(exposeMatch.Groups[1].Value);
 
             var metadata = new ExposeMetadata
             {
-                Address = address,
-                PostalCode = zip,
-                District = location,
-                LivingAreaSqm = ParseDouble(livingSpace),
-                RoomsCount = string.IsNullOrWhiteSpace(noRooms) ? null : double.TryParse(noRooms, System.Globalization.CultureInfo.InvariantCulture, out var rooms) ? rooms : null,
-                PriceEur = ParsePrice(price),
+                Address = properties.GetValueOrDefault("address"),
+                PostalCode = properties.GetValueOrDefault("zip"),
+                District = properties.GetValueOrDefault("location"),
+                LivingAreaSqm = GermanNumberParser.ParseDecimal(properties.GetValueOrDefault("livingSpace")),
+                RoomsCount = GermanNumberParser.ParseDecimal(properties.GetValueOrDefault("noRooms")),
+                PriceEur = GermanNumberParser.ParseInteger(properties.GetValueOrDefault("price")),
                 CommissionPercent = commissionPercent,
             };
 
@@ -204,52 +193,26 @@ public class ImmobilienScout24DetailParser : IDetailParser
         }
     }
 
-    private string? ExtractPropertyValue(string content, string propertyName)
+    /// <summary>
+    /// The expose properties the scraper uses, by name; the first value wins if a property repeats.
+    /// Keys may be quoted or not, values are quoted strings or plain numbers.
+    /// </summary>
+    private static Dictionary<string, string> ExtractProperties(string exposeContent)
     {
-        // Match: "propertyName": "value" or 'propertyName': 'value' or propertyName: "value" or propertyName: value
-        var pattern = $@"[""']?{propertyName}[""']?\s*:\s*(?:""([^""]*)""|'([^']*)'|(\d+(?:\.\d+)?))";
-        var match = System.Text.RegularExpressions.Regex.Match(content, pattern);
-        if (!match.Success)
-            return null;
-
-        // Check which group actually matched (not just has a value, but was actually captured)
-        if (match.Groups[1].Success)
-            return match.Groups[1].Value;
-        if (match.Groups[2].Success)
-            return match.Groups[2].Value;
-        if (match.Groups[3].Success)
-            return match.Groups[3].Value;
-
-        return null;
+        var properties = new Dictionary<string, string>();
+        foreach (Match match in ExposeProperty().Matches(exposeContent))
+            properties.TryAdd(match.Groups["key"].Value, match.Groups["value"].Value);
+        return properties;
     }
 
-    private double? ParseDouble(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return null;
-        var normalized = System.Text.RegularExpressions.Regex.Replace(value, @"[^\d.,]", "");
-        normalized = normalized.Replace(",", ".");
-        return double.TryParse(normalized, System.Globalization.CultureInfo.InvariantCulture, out var result) ? result : null;
-    }
+    [GeneratedRegex(@"courtage\s*:\s*['""]([^""]*)['""]")]
+    private static partial Regex Courtage();
 
-    private int? ParsePrice(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return null;
-        var digits = System.Text.RegularExpressions.Regex.Replace(value, @"[^\d]", "");
-        return int.TryParse(digits, out var result) ? result : null;
-    }
+    [GeneratedRegex(@"expose\s*:\s*\{([^}]+)\}", RegexOptions.Singleline)]
+    private static partial Regex ExposeObject();
 
-    private double? ParseCommission(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return null;
-        var match = System.Text.RegularExpressions.Regex.Match(value, @"(\d+[.,]\d+)");
-        if (!match.Success)
-            return null;
-        var numStr = match.Groups[1].Value.Replace(",", ".");
-        return double.TryParse(numStr, System.Globalization.CultureInfo.InvariantCulture, out var result) ? result : null;
-    }
+    [GeneratedRegex(@"[""']?(?<key>address|zip|location|livingSpace|noRooms|price)[""']?\s*:\s*(?:""(?<value>[^""]*)""|'(?<value>[^']*)'|(?<value>\d+(?:\.\d+)?))")]
+    private static partial Regex ExposeProperty();
 
     /// <summary>
     /// Metadata extracted from the expose JSON embedded in the detail page.

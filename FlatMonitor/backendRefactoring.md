@@ -535,7 +535,24 @@ unless a debug flag is set.
 - The fallback card selector `//div[contains(@class, 'card')]` (`:197`) matches almost anything.
   Remove it or log a warning and return nothing.
 
-### 3.5 Generic extraction helpers
+### 3.5 Generic extraction helpers ✅ Done
+> **Done:** `FlatExtractor` moved into the IS24 folder as `ImmobilienScout24CardParser` (reads the `data-obid` attribute
+> directly, `ImmobilienScout24Selectors.IdAttribute`); `IFlatSelectors` is gone, and so are `OhneMaklerSelectors`' unused
+> instance members (it is a static class now). `IDetailParser` is dropped (only tests used it). Every inline/`RegexOptions.Compiled`
+> regex in the scraping code is a `[GeneratedRegex]`; the IS24 expose properties are read with one regex instead of one
+> built per property. `Common/GermanNumberParser` (`ParseDecimal`, `ParseInteger`, `ToDouble`) replaces `ParsePrice`/`ParseSize`/
+> `ParseRooms`, `ExtractIntField`, IS24's `ParsePrice`/`ParseDouble`/`ParseCommission` and OhneMakler's `ExtractInteger`.
+> **Behaviour changes:** rooms keep halves (OhneMakler card and detail page, IS24 card: "2,5 Zimmer" → 2.5, was 2);
+> the OhneMakler card reads "74,5 m²" as 74.5 (was 5) and the IS24 card keeps the area's decimals (was truncated);
+> integers come from the first number in the text instead of all its digits ("250,90 €" → 250, was 25090);
+> a commission without decimals ("3%") is read (was `null`).
+> **Found, not changed:** HtmlAgilityPack selects the element for an attribute XPath (`.../@href`, `.//img/@alt`), so
+> the IS24 card's URL/title would be the element's text. Live, the URL is built from the listing ID (all 551 stored IS24
+> URLs are `/expose/{id}`); reading the real `href` could add query strings to stored URLs, so it is a separate decision.
+> A test pins the current behaviour.
+> Tests: `GermanNumberParserTests` ("1.250.000 €", "84,5 m²", "3,5 Zimmer", ...), `ImmobilienScout24CardParserTests`,
+> half rooms/decimal area in `OhneMaklerFlatCardParserTests` and `OhneMaklerDetailPageParserTests`.
+
 - `FlatExtractor` is only used by IS24, and its `"@data-obid"` special case (`:45`) is IS24-specific.
   Either move it into the IS24 folder, or give `IFlatSelectors` an `IdAttribute` property.
 - `Regex` objects are created inline in `FlatExtractor`, `DetailExtractors`, and `OhneMaklerScraper`.
@@ -579,6 +596,6 @@ Each step is independently shippable and keeps `dotnet test` green.
 | 5 | ✅ 2.3 + 2.4 streaming `IScraper`, coordinator owns filtering/persistence, `Flat` as record | Fixes 1.2/1.3 structurally | Medium–High (touches both scrapers) |
 | 6 | ✅ 2.6 `ILogger` everywhere | Mechanical once DI is clean | Low |
 | 7 | ✅ 2.5 job queue via `Channel`, conflict on double trigger | Independent | Low |
-| 8 | 3.x per-source parser consolidation (single parse, `HtmlSnapshotStore`): ✅ 3.1, 3.2, 3.3, 3.4 done; 3.5 open | Needs fixture tests first | Medium |
+| 8 | ✅ 3.x per-source parser consolidation (single parse, `HtmlSnapshotStore`), 3.1–3.5 | Needs fixture tests first | Medium |
 | 9 | ✅ 2.7 API error handling, 2.8 model cleanups (enum status, `DateTime`, single `CommissionPercent`) | 2.8 needs a migration; coordinate with the frontend | Medium |
 | 10 | Decide 2.8's design note (clear-and-insert vs. real upsert with first/last seen) | Product decision; unlocks "removed"/"days on market" | High (design) |

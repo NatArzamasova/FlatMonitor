@@ -139,4 +139,24 @@ public class OhneMaklerFlatCardParserTests
         // Assert
         result.Count.Should().BeGreaterThanOrEqualTo(1);
     }
+
+    [Test]
+    public void ParsePage_KeepsHalfRoomsAndDecimalArea()
+    {
+        var html = """
+            <div class="card">
+              <a href="/immobilie/600001/"><h2>Dachgeschosswohnung</h2></a>
+              <span>389.000 €</span>
+              <span>2,5 Zimmer</span>
+              <span>74,5 m²</span>
+              <span>76133 Karlsruhe (Weststadt)</span>
+            </div>
+            """;
+
+        var flat = _parser.ParsePage(html).Should().ContainSingle().Subject.Flat;
+
+        flat.PriceEur.Should().Be(389000);
+        flat.RoomsCount.Should().Be(2.5);
+        flat.LivingAreaSqm.Should().Be(74.5);
+    }
 }

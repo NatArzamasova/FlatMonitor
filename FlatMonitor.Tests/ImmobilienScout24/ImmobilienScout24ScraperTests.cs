@@ -3,7 +3,6 @@ namespace FlatMonitor.Tests.ImmobilienScout24;
 using NUnit.Framework;
 using FluentAssertions;
 using FlatMonitor.Scraping.ImmobilienScout24;
-using FlatMonitor.Scraping;
 
 [TestFixture]
 public class ImmobilienScout24ScraperTests
@@ -198,12 +197,5 @@ public class ImmobilienScout24ScraperTests
             metadata.Should().NotBeNull();
             metadata!.CommissionPercent.Should().Be(expectedPercent, $"should parse {courtageValue} as {expectedPercent}");
         }
-    }
-
-    [Test]
-    public void Parser_ImplmentsIDetailParser()
-    {
-        // Assert - verify parser implements the interface
-        _parser.Should().BeAssignableTo<IDetailParser>();
     }
 }

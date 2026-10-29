@@ -401,6 +401,12 @@ public class OhneMaklerDetailPageParserTests
     }
 
     [Test]
+    public void Parse_Rooms_KeepsHalfRooms()
+    {
+        _parser.Parse("<html><body><h1>Wohnung</h1><span>2,5 Zimmer</span></body></html>").Rooms.Should().Be(2.5);
+    }
+
+    [Test]
     public void Parse_Area_AcceptsDecimalCommaAndM2()
     {
         _parser.Parse("<html><body><span>17,90 m2</span></body></html>").Area.Should().Be(17.9);

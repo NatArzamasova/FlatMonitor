@@ -1,22 +1,17 @@
 namespace FlatMonitor.Scraping.ImmobilienScout24;
 
-using FlatMonitor.Scraping.Common;
-
-
 /// <summary>
-/// ImmobilienScout24-specific selectors for the FlatExtractor.
-/// Maps immobilienscout24.de's React-rendered HTML structure to the common IFlatSelectors interface.
+/// Where <see cref="ImmobilienScout24CardParser"/> finds each field on immobilienscout24.de's React-rendered results page.
 /// Uses data-testid attributes for reliable selection across site updates.
 /// </summary>
-public class ImmobilienScout24Selectors : IFlatSelectors
+public class ImmobilienScout24Selectors
 {
     /// <summary>Select all listing card containers on the listings page (with data-obid attribute).</summary>
     public string ListingCardXPath => "//div[contains(@class, 'listing-card') and @data-obid]";
 
-    /// <summary>Extract listing ID from data-obid attribute.</summary>
-    public string IdXPath => "@data-obid";
+    /// <summary>The card attribute holding the listing ID.</summary>
+    public string IdAttribute => "data-obid";
 
-    /// <summary>Extract listing title/headline from headline element.</summary>
     /// <summary>Extract listing title (often in alt attribute of images or heading elements).</summary>
     public string TitleXPath => ".//img/@alt | .//h2//text() | .//h3//text()";
 
@@ -30,7 +25,7 @@ public class ImmobilienScout24Selectors : IFlatSelectors
     public string AddressXPath => ".//p[contains(@class, 'location')]//text() | .//div[contains(@class, 'address')]//text()";
 
     /// <summary>Extract number of rooms from attributes (e.g., "2 Zimmer").</summary>
-    public string? RoomsXPath => ".//text()[contains(., 'Zimmer')] | .//*[@data-testid='attributes']//text()";
+    public string RoomsXPath => ".//text()[contains(., 'Zimmer')] | .//*[@data-testid='attributes']//text()";
 
     /// <summary>Extract detail page URL from the expose link.</summary>
     public string DetailUrlXPath => ".//a[contains(@href, '/expose/')]/@href";

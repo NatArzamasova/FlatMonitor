@@ -2,17 +2,13 @@ namespace FlatMonitor.Scraping.OhneMakler;
 
 using System.Text.RegularExpressions;
 using FlatMonitor.Models;
+using FlatMonitor.Scraping.Common;
 using HtmlAgilityPack;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
-public sealed class OhneMaklerFlatCardParser
+public sealed partial class OhneMaklerFlatCardParser
 {
-    // Extract listing ID from URL like /immobilie/502814/
-    private static readonly Regex ListingIdRegex = new(@"/immobilie/(\d+)/", RegexOptions.Compiled);
-    private static readonly Regex RoomsRegex = new(@"(\d+(?:,\d+)?)\s*(?:Zimmer|Zi)", RegexOptions.Compiled);
-    private static readonly Regex AreaRegex = new(@"(\d+)\s*m[²2]", RegexOptions.Compiled);
-    private static readonly Regex LocationRegex = new(@"(\d{5})\s+(.+?)(?:\s*\((.+?)\))?(?:\s|$)", RegexOptions.Compiled);
 
     private readonly ILogger _logger;
 
@@ -40,7 +36,7 @@ public sealed class OhneMaklerFlatCardParser
                 if (string.IsNullOrWhiteSpace(href))
                     continue;
 
-                var match = ListingIdRegex.Match(href);
+                var match = ListingId().Match(href);
                 if (!match.Success)
                     continue;
 
@@ -56,8 +52,8 @@ public sealed class OhneMaklerFlatCardParser
                 string? title = ExtractTitle(card);
                 int? priceEur = ExtractPrice(card);
                 (string? PostalCode, string? District) = ExtractLocation(card);
-                int? rooms = ExtractRooms(card);
-                int? area = ExtractArea(card);
+                double? rooms = ExtractRooms(card);
+                double? area = ExtractArea(card);
 
                 var flat = new Flat
                 {
@@ -103,32 +99,6 @@ public sealed class OhneMaklerFlatCardParser
         return link;
     }
 
-    private static int? ExtractInteger(string? text, Regex? pattern = null, int groupIndex = 1)
-    {
-        if (string.IsNullOrEmpty(text))
-            return null;
-
-        if (pattern == null)
-        {
-            // Remove all non-digits (for price with thousand separators like "€ 270.000" → "270000")
-            var digitsOnly = Regex.Replace(text, @"[^\d]", "");
-            if (int.TryParse(digitsOnly, out int result))
-                return result;
-            return null;
-        }
-
-        // Use regex to extract with context (for rooms, area)
-        var match = pattern.Match(text);
-        if (!match.Success)
-            return null;
-
-        var value = match.Groups[groupIndex].Value.Replace(",", ".");
-        if (int.TryParse(value.Split('.')[0], out int result2))
-            return result2;
-
-        return null;
-    }
-
     private static string? ExtractTitle(HtmlNode card)
     {
         // Look for the listing title, usually in an <h2> or <h3> within the card.
@@ -143,7 +113,7 @@ public sealed class OhneMaklerFlatCardParser
         {
             foreach (var node in priceNodes)
             {
-                var price = ExtractInteger(node.InnerText?.Trim());
+                var price = GermanNumberParser.ParseInteger(node.InnerText?.Trim());
                 if (price.HasValue)
                     return price;
             }
@@ -157,7 +127,7 @@ public sealed class OhneMaklerFlatCardParser
         if (string.IsNullOrEmpty(locationText))
             return (null, null);
 
-        var match = LocationRegex.Match(locationText);
+        var match = Location().Match(locationText);
         if (match.Success)
         {
             string postalCode = match.Groups[1].Value;
@@ -169,9 +139,24 @@ public sealed class OhneMaklerFlatCardParser
         return (null, null);
     }
 
-    private static int? ExtractRooms(HtmlNode card) =>
-        ExtractInteger(card.InnerText, RoomsRegex);
+    /// <summary>The first "&lt;n&gt; Zimmer" on the card, with half rooms ("2,5 Zimmer" gives 2.5).</summary>
+    private static double? ExtractRooms(HtmlNode card) =>
+        Rooms().Match(card.InnerText) is { Success: true } match ? GermanNumberParser.ToDouble(match.Groups[1].Value) : null;
 
-    private static int? ExtractArea(HtmlNode card) =>
-        ExtractInteger(card.InnerText, AreaRegex);
+    /// <summary>The first "&lt;n&gt; m²" on the card, with decimals ("74,5 m²" gives 74.5).</summary>
+    private static double? ExtractArea(HtmlNode card) =>
+        Area().Match(card.InnerText) is { Success: true } match ? GermanNumberParser.ToDouble(match.Groups[1].Value) : null;
+
+    // Listing ID from a URL like /immobilie/502814/
+    [GeneratedRegex(@"/immobilie/(\d+)/")]
+    private static partial Regex ListingId();
+
+    [GeneratedRegex(@"(\d+(?:,\d+)?)\s*(?:Zimmer|Zi)")]
+    private static partial Regex Rooms();
+
+    [GeneratedRegex(@"(\d+(?:,\d+)?)\s*m[²2]")]
+    private static partial Regex Area();
+
+    [GeneratedRegex(@"(\d{5})\s+(.+?)(?:\s*\((.+?)\))?(?:\s|$)")]
+    private static partial Regex Location();
 }
