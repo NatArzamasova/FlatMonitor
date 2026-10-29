@@ -473,7 +473,19 @@ Also, `OhneMaklerScraper.cs:200` saves through a fire-and-forget `Task.Run`, so 
 lost and writes can race with the next run's `Clear`. Await the write, or do not save at all
 unless a debug flag is set.
 
-### 3.3 OhneMakler
+### 3.3 OhneMakler ✅ Done
+> **Done:** `OhneMaklerDetailPageParser.Parse(html)` loads the page once and returns `OhneMaklerDetailPage` (title,
+> address, rooms, area, price, details); the scraper's five extraction helpers moved into it unchanged, and
+> `ParseDetailFields` delegates to it (`ExtractPrice` removed). The card parser stores absolute URLs, so the scraper
+> no longer resolves them; enrichment is one `with` per branch. The postcode stop rule is
+> `OhneMaklerKarlsruheResults.TakeUntilOutsideKarlsruhe`. Before moving the code, the old extraction was recorded on
+> the 24 real detail pages of a scrape plus the sample fixture; the new parser returns identical values for all of
+> them (not committed: the real pages contain sellers' contact details).
+> **Not changed (found on the way):** titles keep HTML entities (`&amp;`, `&quot;`); rooms are whole numbers
+> (`2,5 Zimmer` → 2, see 3.5); the area is the first plausible "n m²" on the whole page.
+> Tests: new invented fixture `detail-page-live-layout.html` with the live page structure, `Parse_*` tests (incl.
+> first-plausible-area rule), `OhneMaklerKarlsruheResultsTests`, absolute URL in the card parser test.
+
 - `EnrichListingWithDetailsAsync` builds the `Flat` twice (success and failure branches) and
   computes the absolute URL three times (`:129`, `:156`, `:191`). Compute it once in the card
   parser (store absolute URLs from the start), and use `with` expressions.

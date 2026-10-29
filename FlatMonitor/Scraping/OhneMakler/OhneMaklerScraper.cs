@@ -1,7 +1,6 @@
 namespace FlatMonitor.Scraping.OhneMakler;
 
 using System.Runtime.CompilerServices;
-using System.Text.RegularExpressions;
 using FlatMonitor.Models;
 using FlatMonitor.Scraping.Common;
 using FlatMonitor.Storage;
@@ -49,39 +48,23 @@ public sealed class OhneMaklerScraper : FlatScraper
             yield break;
         }
 
-        bool shouldStop = false;
         int pageNumber = 0;
 
         // Iterate through all results pages.
         await foreach (var pageHtml in _pageFetcher.FetchAllPagesHtmlAsync(ct))
         {
             pageNumber++;
-            var pageListings = new List<Flat>();
-
-            // Parse listing cards from this page.
-            var cardListings = _cardParser.ParsePage(pageHtml);
-
-            foreach (var (listing, detailPageUrl) in cardListings)
-            {
-                // Check if postcode is in Karlsruhe whitelist
-                if (!string.IsNullOrEmpty(listing.PostalCode) &&
-                    !OhneMaklerSelectors.KarlsruhePostcodes.Contains(listing.PostalCode))
-                {
-                    Logger.LogInformation(
-                        "OhneMakler: stopping pagination, listing outside Karlsruhe postcodes ({PostalCode}) on page {Page}",
-                        listing.PostalCode, pageNumber);
-                    shouldStop = true;
-                    break;
-                }
-
-                pageListings.Add(listing);
-            }
-
-            // Return listings for this page
+            var cards = _cardParser.ParsePage(pageHtml).Select(c => c.Flat);
+            var pageListings = OhneMaklerKarlsruheResults.TakeUntilOutsideKarlsruhe(cards, out var firstOutside);
             yield return pageListings;
 
-            if (shouldStop)
+            if (firstOutside != null)
+            {
+                Logger.LogInformation(
+                    "OhneMakler: stopping pagination, listing outside Karlsruhe postcodes ({PostalCode}) on page {Page}",
+                    firstOutside.PostalCode, pageNumber);
                 yield break;
+            }
         }
     }
 
@@ -92,51 +75,31 @@ public sealed class OhneMaklerScraper : FlatScraper
             return baseListing;
         }
 
-        var absoluteUrl = baseListing.Url?.StartsWith("http") ?? false
-            ? baseListing.Url
-            : new Uri(new Uri(OhneMaklerSelectors.ListingsBaseUrl), baseListing.Url ?? "").AbsoluteUri;
-
         try
         {
-            // Fetch and parse the detail page.
-            string detailHtml = await FetchDetailPageAsync(baseListing.DetailPageUrl, baseListing.ListingId, ct);
-            var details = _detailParser.ParseDetailFields(detailHtml);
+            // The detail page is the source of truth; card data fills the gaps.
+            var html = await FetchDetailPageAsync(baseListing.DetailPageUrl, baseListing.ListingId, ct);
+            var page = _detailParser.Parse(html);
 
-            // Extract all data from detail page (detail page is the source of truth)
-            string? title = ExtractTitleFromDetailPage(detailHtml);
-            string? address = ExtractAddressFromDetailPage(detailHtml);
-            int? rooms = ExtractRoomsFromDetailPage(detailHtml);
-            double? area = ExtractAreaFromDetailPage(detailHtml);
-            int? priceFromDetail = _detailParser.ExtractPrice(detailHtml);
-
-            // Update the listing with detail-page data; card data fills the gaps.
             return baseListing with
             {
-                Url = absoluteUrl,
-                Title = title ?? baseListing.Title,
-                Address = address,
-                PriceEur = priceFromDetail ?? baseListing.PriceEur,
-                OriginalPriceEur = priceFromDetail ?? baseListing.PriceEur,
-                RoomsCount = rooms ?? baseListing.RoomsCount,
-                LivingAreaSqm = area ?? baseListing.LivingAreaSqm,
-                Details = details,
+                Title = page.Title ?? baseListing.Title,
+                Address = page.Address,
+                PriceEur = page.Price ?? baseListing.PriceEur,
+                OriginalPriceEur = page.Price ?? baseListing.PriceEur,
+                RoomsCount = page.Rooms ?? baseListing.RoomsCount,
+                LivingAreaSqm = page.Area ?? baseListing.LivingAreaSqm,
+                Details = page.Details,
                 // ohne-makler.net lists flats without an estate agent, so there is no commission
                 CommissionPercent = 0,
-                Source = SourceName,
             };
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Per confirmed behavior: log warning, still include listing with partial data.
             Logger.LogWarning(ex, "OhneMakler: failed to fetch/parse detail page for listing {ListingId} ({Url})",
-                baseListing.ListingId, absoluteUrl);
-            return baseListing with
-            {
-                Url = absoluteUrl,
-                Address = null,
-                OriginalPriceEur = baseListing.PriceEur,
-                Source = SourceName,
-            };
+                baseListing.ListingId, baseListing.DetailPageUrl);
+            return baseListing with { OriginalPriceEur = baseListing.PriceEur };
         }
     }
 
@@ -145,13 +108,9 @@ public sealed class OhneMaklerScraper : FlatScraper
         // HttpClient is a DI singleton, managed by container — do not dispose
     }
 
-    private async Task<string> FetchDetailPageAsync(string relativeUrl, string listingId, CancellationToken ct)
+    private async Task<string> FetchDetailPageAsync(string url, string listingId, CancellationToken ct)
     {
-        var absoluteUrl = relativeUrl.StartsWith("http")
-            ? relativeUrl
-            : new Uri(new Uri(OhneMaklerSelectors.ListingsBaseUrl), relativeUrl).AbsoluteUri;
-
-        var response = await _httpClient.GetAsync(absoluteUrl, ct);
+        var response = await _httpClient.GetAsync(url, ct);
         response.EnsureSuccessStatusCode();
         var html = await response.Content.ReadAsStringAsync(ct);
 
@@ -159,143 +118,5 @@ public sealed class OhneMaklerScraper : FlatScraper
         await _htmlSnapshots.SaveAsync(listingId, html, ct);
 
         return html;
-    }
-
-    private static string? ExtractTitleFromDetailPage(string html)
-    {
-        try
-        {
-            var doc = new HtmlAgilityPack.HtmlDocument();
-            doc.LoadHtml(html);
-
-            // Extract h1 heading - this is the property title/description
-            var titleNode = doc.DocumentNode.SelectSingleNode("//h1");
-            if (titleNode != null)
-            {
-                var text = titleNode.InnerText?.Trim();
-                if (!string.IsNullOrEmpty(text))
-                    return text;
-            }
-
-            return null;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    private static string? ExtractAddressFromDetailPage(string html)
-    {
-        try
-        {
-            var doc = new HtmlAgilityPack.HtmlDocument();
-            doc.LoadHtml(html);
-
-            // Address appears between <h1> (title) and first <h2> (section header).
-            // Look for text/element immediately after h1, typically an anchor or div.
-            var h1 = doc.DocumentNode.SelectSingleNode("//h1");
-            if (h1 != null)
-            {
-                // Find the next sibling that contains address-like text (e.g., street address, postal code, city)
-                var node = h1.NextSibling;
-                while (node != null)
-                {
-                    // Stop at h2 or other major section headers
-                    if (node.Name == "h2" || node.Name == "h3")
-                        break;
-
-                    if (node.NodeType == HtmlAgilityPack.HtmlNodeType.Text)
-                    {
-                        var text = node.InnerText?.Trim();
-                        if (!string.IsNullOrEmpty(text) && text.Length > 5) // Likely address, not just whitespace
-                            return OhneMaklerAddressHelper.SanitizeAddress(NormalizeWhitespace(text));
-                    }
-                    else if (node.Name == "a" || node.Name == "div" || node.Name == "p")
-                    {
-                        var text = node.InnerText?.Trim();
-                        if (!string.IsNullOrEmpty(text) && text.Length > 5 && text.Contains(' '))
-                            return OhneMaklerAddressHelper.SanitizeAddress(NormalizeWhitespace(text));
-                    }
-
-                    node = node.NextSibling;
-                }
-            }
-
-            return null;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    private static int? ExtractRoomsFromDetailPage(string html)
-    {
-        try
-        {
-            var doc = new HtmlAgilityPack.HtmlDocument();
-            doc.LoadHtml(html);
-
-            // Look for text containing "Zimmer" and extract the number before it
-            var pageText = doc.DocumentNode.InnerText;
-            var match = System.Text.RegularExpressions.Regex.Match(pageText, @"(\d+(?:,\d+)?)\s*(?:Zimmer|Zi)(?:\s|$)");
-            if (match.Success && int.TryParse(match.Groups[1].Value.Replace(",", ".").Split('.')[0], out int rooms))
-                return rooms;
-
-            return null;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    private static double? ExtractAreaFromDetailPage(string html)
-    {
-        try
-        {
-            var doc = new HtmlAgilityPack.HtmlDocument();
-            doc.LoadHtml(html);
-
-            // Search for any element containing "m²" or "m2" and extract the area from it
-            // This directly finds spans like <span>17,90 m²</span>
-            var nodes = doc.DocumentNode.SelectNodes("//*[contains(., 'm²') or contains(., 'm2')]");
-            if (nodes != null)
-            {
-                foreach (var node in nodes)
-                {
-                    var text = node.InnerText?.Trim();
-                    if (!string.IsNullOrEmpty(text))
-                    {
-                        // Match pattern: number with optional comma/period followed by m² or m2
-                        var match = System.Text.RegularExpressions.Regex.Match(text, @"(\d+[.,]\d+|\d+)\s*(?:m²|m2)");
-                        if (match.Success)
-                        {
-                            var numericPart = match.Groups[1].Value.Replace(",", ".");
-                            if (double.TryParse(numericPart, System.Globalization.CultureInfo.InvariantCulture, out double area) && area > 0)
-                            {
-                                // Found a valid area - check if it's reasonable (between 5 and 500 sqm for apartments)
-                                if (area >= 5 && area <= 500)
-                                    return area;
-                            }
-                        }
-                    }
-                }
-            }
-
-            return null;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    private static readonly Regex WhitespaceRegex = new(@"\s+", RegexOptions.Compiled);
-
-    private static string NormalizeWhitespace(string text)
-    {
-        return WhitespaceRegex.Replace(text, " ").Trim();
     }
 }

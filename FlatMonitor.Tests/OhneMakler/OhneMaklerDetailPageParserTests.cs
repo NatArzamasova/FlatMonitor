@@ -358,4 +358,71 @@ public class OhneMaklerDetailPageParserTests
         result.Should().NotBeNull();
         result!.EnergyConsumption.Should().Be("120 kWh/(m²·a)");
     }
+
+    // ==================== Parse: everything from one detail page ====================
+
+    [Test]
+    public void Parse_LiveLayout_ReadsEveryValue()
+    {
+        var page = _parser.Parse(File.ReadAllText(GetFixturePath("detail-page-live-layout.html")));
+
+        page.Title.Should().Be("Helle Altbauwohnung mit Balkon in der Weststadt");
+        page.Address.Should().Be("Musterstraße 12, 76133 Karlsruhe (Weststadt)");
+        page.Rooms.Should().Be(3);
+        page.Area.Should().Be(74.5);
+        page.Price.Should().Be(389000);
+        page.Details.Should().NotBeNull();
+        page.Details!.BuildYear.Should().Be(1912);
+        page.Details.PropertyType.Should().Be("Etagenwohnung");
+        page.Details.Heating.Should().Be("Gas-Etagenheizung");
+        page.Details.ServiceChargeEur.Should().Be(310);
+    }
+
+    [Test]
+    public void Parse_SampleFixture_AddressIsNullWhenAnH2FollowsTheTitle()
+    {
+        // The older sample has the location as an <h2>; the address search stops at the first h2/h3
+        var page = _parser.Parse(File.ReadAllText(GetFixturePath("detail-page-sample.html")));
+
+        page.Title.Should().Be("Altbauperle Weststadt - Zwei Appartements in einer Wohnung");
+        page.Address.Should().BeNull();
+        page.Rooms.Should().Be(3);
+        page.Area.Should().BeNull("'82' and 'Wohnfläche (m²)' are not adjacent in that markup");
+        page.Price.Should().BeNull();
+    }
+
+    [Test]
+    public void Parse_Area_TakesTheFirstPlausibleValueOnThePage()
+    {
+        // The 4 m² cellar is below the 5 m² minimum; 55 m² is the first plausible area
+        var html = "<html><body><p>Keller 4 m²</p><span>55 m²</span><p>Grundstück 480 m²</p></body></html>";
+
+        _parser.Parse(html).Area.Should().Be(55);
+    }
+
+    [Test]
+    public void Parse_Area_AcceptsDecimalCommaAndM2()
+    {
+        _parser.Parse("<html><body><span>17,90 m2</span></body></html>").Area.Should().Be(17.9);
+    }
+
+    [Test]
+    public void Parse_WithoutTitle_LeavesTitleAddressAndPriceEmpty()
+    {
+        var page = _parser.Parse("<html><body><p>Nur Text</p></body></html>");
+
+        page.Title.Should().BeNull();
+        page.Address.Should().BeNull();
+        page.Price.Should().BeNull();
+        page.Area.Should().BeNull();
+        page.Rooms.Should().BeNull();
+    }
+
+    [Test]
+    public void ParseDetailFields_ReturnsTheDetailsOfParse()
+    {
+        var html = File.ReadAllText(GetFixturePath("detail-page-live-layout.html"));
+
+        _parser.ParseDetailFields(html).Should().BeEquivalentTo(_parser.Parse(html).Details);
+    }
 }

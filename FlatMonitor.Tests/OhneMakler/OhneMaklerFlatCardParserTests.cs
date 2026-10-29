@@ -47,7 +47,8 @@ public class OhneMaklerFlatCardParserTests
         // Assert
         var firstFlat = result[0].Flat;
         firstFlat.ListingId.Should().Be("502814");
-        firstFlat.Url.Should().Be("/immobilie/502814/");
+        firstFlat.Url.Should().Be("https://www.ohne-makler.net/immobilie/502814/");
+        firstFlat.DetailPageUrl.Should().Be(firstFlat.Url);
         firstFlat.Title.Should().Contain("Altbauperle");
         firstFlat.PostalCode.Should().Be("76135");
         firstFlat.District.Should().Contain("Weststadt");

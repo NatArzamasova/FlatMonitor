@@ -45,6 +45,8 @@ public sealed class OhneMaklerFlatCardParser
                     continue;
 
                 string listingId = match.Groups[1].Value;
+                // Absolute from the start, so nothing later has to resolve it
+                var url = new Uri(new Uri(OhneMaklerSelectors.ListingsBaseUrl), href).AbsoluteUri;
 
                 // Find the card container (parent elements) to extract title, price, location, rooms, area.
                 var card = GetCardContainer(link);
@@ -60,7 +62,7 @@ public sealed class OhneMaklerFlatCardParser
                 var flat = new Flat
                 {
                     ListingId = listingId,
-                    Url = href,
+                    Url = url,
                     Title = title,
                     PostalCode = PostalCode,
                     District = District,
@@ -69,10 +71,10 @@ public sealed class OhneMaklerFlatCardParser
                     LivingAreaSqm = area,
                     ScrapedAtUtc = DateTime.UtcNow,
                     Source = OhneMaklerScraper.SourceName,
-                    DetailPageUrl = href,
+                    DetailPageUrl = url,
                 };
 
-                results.Add((flat, href));
+                results.Add((flat, url));
             }
             catch (Exception ex)
             {
