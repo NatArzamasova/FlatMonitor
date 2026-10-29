@@ -452,7 +452,16 @@ insert-only.
 The `?? new FlatSnapshotRepository()` default also opens a second DB context per scraper. Remove the
 parameter.
 
-### 3.2 Shared: HTML snapshot storage
+### 3.2 Shared: HTML snapshot storage ✅ Done
+> **Done:** `Storage/HtmlSnapshotStore` (`ClearAsync`, `SaveAsync(listingId, html)`; failures are logged as warnings,
+> never thrown) replaces both scrapers' `ClearPreviousSnapshotsAsync` bodies, `OhneMaklerScraper.SaveDetailHtmlSnapshotAsync`,
+> the file writing in `ImmobilienScout24DetailScraper` and both `ExtractListingIdFromUrl` helpers (the listing ID is passed in).
+> OhneMakler awaits the write instead of the fire-and-forget `Task.Run`. IS24 still saves before parsing, so a page that
+> fails to parse is kept. **Deviation:** not registered in DI; each scraper builds its store with
+> `HtmlSnapshotStore.ForSource(storage, source, logger)` from the injected `StorageOptions`, which avoids keyed services.
+> Tests: `HtmlSnapshotStoreTests`, `OhneMaklerScraperEnrichmentTests.DetailPages_AreSavedAsHtmlSnapshotsBeforeTheScrapeReturns`
+> (and its teardown no longer needs the workaround for the background write).
+
 `ClearPreviousSnapshotsAsync` is copied verbatim in both scrapers (only the folder name differs),
 and the detail HTML saving logic is duplicated (`OhneMaklerScraper.SaveDetailHtmlSnapshotAsync`,
 `ImmobilienScout24DetailScraper` constructor + `FetchAndParseDetailPageAsync`), including the

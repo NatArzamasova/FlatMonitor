@@ -18,7 +18,7 @@ public sealed class OhneMaklerScraper : FlatScraper
     public const string SourceName = "OhneMakler";
 
     private readonly HttpClient _httpClient;
-    private readonly string _htmlSnapshotsDir;
+    private readonly HtmlSnapshotStore _htmlSnapshots;
     private OhneMaklerFlatsPageFetcher? _pageFetcher;
     private readonly OhneMaklerFlatCardParser _cardParser;
     private readonly OhneMaklerDetailPageParser _detailParser;
@@ -29,7 +29,7 @@ public sealed class OhneMaklerScraper : FlatScraper
         : base(logger)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-        _htmlSnapshotsDir = Path.Combine(storage.DataDirectory, "snapshots", "html", SourceName);
+        _htmlSnapshots = HtmlSnapshotStore.ForSource(storage, SourceName, logger);
         _cardParser = new OhneMaklerFlatCardParser(logger);
         _detailParser = new OhneMaklerDetailPageParser(logger);
     }
@@ -40,29 +40,7 @@ public sealed class OhneMaklerScraper : FlatScraper
         return Task.CompletedTask;
     }
 
-    protected override Task ClearPreviousSnapshotsAsync(CancellationToken ct)
-    {
-        try
-        {
-            var htmlDir = _htmlSnapshotsDir;
-
-            if (Directory.Exists(htmlDir))
-            {
-                var files = Directory.GetFiles(htmlDir, "*.html");
-                foreach (var file in files)
-                {
-                    File.Delete(file);
-                }
-                Logger.LogDebug("Cleared {Count} previous HTML snapshots from {Directory}", files.Length, htmlDir);
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Could not clear previous HTML snapshots");
-        }
-
-        return Task.CompletedTask;
-    }
+    protected override Task ClearPreviousSnapshotsAsync(CancellationToken ct) => _htmlSnapshots.ClearAsync(ct);
 
     protected override async IAsyncEnumerable<List<Flat>> FetchAndParseAllPagesAsync([EnumeratorCancellation] CancellationToken ct)
     {
@@ -121,7 +99,7 @@ public sealed class OhneMaklerScraper : FlatScraper
         try
         {
             // Fetch and parse the detail page.
-            string detailHtml = await FetchDetailPageAsync(baseListing.DetailPageUrl, ct);
+            string detailHtml = await FetchDetailPageAsync(baseListing.DetailPageUrl, baseListing.ListingId, ct);
             var details = _detailParser.ParseDetailFields(detailHtml);
 
             // Extract all data from detail page (detail page is the source of truth)
@@ -167,7 +145,7 @@ public sealed class OhneMaklerScraper : FlatScraper
         // HttpClient is a DI singleton, managed by container — do not dispose
     }
 
-    private async Task<string> FetchDetailPageAsync(string relativeUrl, CancellationToken ct)
+    private async Task<string> FetchDetailPageAsync(string relativeUrl, string listingId, CancellationToken ct)
     {
         var absoluteUrl = relativeUrl.StartsWith("http")
             ? relativeUrl
@@ -177,46 +155,10 @@ public sealed class OhneMaklerScraper : FlatScraper
         response.EnsureSuccessStatusCode();
         var html = await response.Content.ReadAsStringAsync(ct);
 
-        // Save HTML snapshot
-        _ = Task.Run(() => SaveDetailHtmlSnapshotAsync(absoluteUrl, html), ct);
+        // Awaited: a write still running could otherwise race with the next scrape's ClearAsync
+        await _htmlSnapshots.SaveAsync(listingId, html, ct);
 
         return html;
-    }
-
-    private async Task SaveDetailHtmlSnapshotAsync(string url, string html)
-    {
-        try
-        {
-            var htmlDir = _htmlSnapshotsDir;
-            if (!Directory.Exists(htmlDir))
-            {
-                Directory.CreateDirectory(htmlDir);
-            }
-
-            var listingId = ExtractListingIdFromUrl(url);
-            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
-            var fileName = $"{listingId}_{timestamp}.html";
-            var filePath = Path.Combine(htmlDir, fileName);
-
-            await File.WriteAllTextAsync(filePath, html);
-        }
-        catch
-        {
-            // Silently fail - don't interrupt scraping for snapshot saving
-        }
-    }
-
-    private static string ExtractListingIdFromUrl(string url)
-    {
-        // Extract listing ID from URL like: https://ohne-makler.net/immobilie/502814/
-        var parts = url.Split('/');
-        var immobilieIndex = Array.IndexOf(parts, "immobilie");
-        if (immobilieIndex >= 0 && immobilieIndex < parts.Length - 1)
-        {
-            return parts[immobilieIndex + 1];
-        }
-        // Fallback to hash of URL if ID cannot be extracted
-        return Math.Abs(url.GetHashCode()).ToString();
     }
 
     private static string? ExtractTitleFromDetailPage(string html)

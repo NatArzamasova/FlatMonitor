@@ -39,21 +39,26 @@ public class OhneMaklerScraperEnrichmentTests
     [OneTimeTearDown]
     public void TearDown()
     {
-        try
-        {
-            if (Directory.Exists(_dataDir))
-                Directory.Delete(_dataDir, recursive: true);
-        }
-        catch (IOException)
-        {
-            // The scraper saves detail HTML in the background; a write still in progress may keep the folder busy
-        }
+        if (Directory.Exists(_dataDir))
+            Directory.Delete(_dataDir, recursive: true);
     }
 
     [Test]
     public void Fixture_HasOneFailingAndAtLeastOneWorkingDetailPage()
     {
         _scraped.Keys.Should().Contain(FailingId).And.HaveCountGreaterThan(1);
+    }
+
+    [Test]
+    public void DetailPages_AreSavedAsHtmlSnapshotsBeforeTheScrapeReturns()
+    {
+        // The write is awaited, so the files exist as soon as the flats have been yielded
+        var snapshotDir = Path.Combine(_dataDir, "snapshots", "html", OhneMaklerScraper.SourceName);
+        var savedIds = Directory.GetFiles(snapshotDir, "*.html")
+            .Select(f => Path.GetFileName(f).Split('_')[0])
+            .ToList();
+
+        savedIds.Should().BeEquivalentTo(_scraped.Keys.Where(id => id != FailingId));
     }
 
     [Test]

@@ -20,7 +20,7 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
 
     private readonly FlatExtractor _extractor;
     private readonly IFlatSelectors _selectors;
-    private readonly string _htmlSnapshotsDir;
+    private readonly HtmlSnapshotStore _htmlSnapshots;
     private IBrowser? _browser;
     private IPage? _page;
     private ImmobilienScout24DetailScraper? _detailScraper;
@@ -34,7 +34,7 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
     {
         _extractor = new FlatExtractor(logger);
         _selectors = new ImmobilienScout24Selectors();
-        _htmlSnapshotsDir = Path.Combine(storage.DataDirectory, "snapshots", "html", SourceName);
+        _htmlSnapshots = HtmlSnapshotStore.ForSource(storage, SourceName, logger);
     }
 
     protected override async Task InitializeAsync(CancellationToken ct)
@@ -49,34 +49,12 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
 
         _browser = browser;
         _page = page;
-        _detailScraper = new ImmobilienScout24DetailScraper(page, _htmlSnapshotsDir, Logger);
+        _detailScraper = new ImmobilienScout24DetailScraper(page, _htmlSnapshots, Logger);
         _detailParser = new ImmobilienScout24DetailParser(Logger);
         _pageFetcher = new ImmobilienScout24FlatsPageFetcher(browser, page, Logger);
     }
 
-    protected override Task ClearPreviousSnapshotsAsync(CancellationToken ct)
-    {
-        try
-        {
-            var htmlDir = _htmlSnapshotsDir;
-
-            if (Directory.Exists(htmlDir))
-            {
-                var files = Directory.GetFiles(htmlDir, "*.html");
-                foreach (var file in files)
-                {
-                    File.Delete(file);
-                }
-                Logger.LogDebug("Cleared {Count} previous HTML snapshots from {Directory}", files.Length, htmlDir);
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Could not clear previous HTML snapshots");
-        }
-
-        return Task.CompletedTask;
-    }
+    protected override Task ClearPreviousSnapshotsAsync(CancellationToken ct) => _htmlSnapshots.ClearAsync(ct);
 
     protected override async IAsyncEnumerable<List<Flat>> FetchAndParseAllPagesAsync([EnumeratorCancellation] CancellationToken ct)
     {
@@ -125,7 +103,7 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
         }
 
         Logger.LogDebug("ImmobilienScout24: listing {ListingId}: opening detail page", baseListing.ListingId);
-        var detailPageHtml = await _detailScraper.FetchAndParseDetailPageAsync(baseListing.Url);
+        var detailPageHtml = await _detailScraper.FetchAndParseDetailPageAsync(baseListing.Url, baseListing.ListingId);
 
         if (detailPageHtml == null)
         {
