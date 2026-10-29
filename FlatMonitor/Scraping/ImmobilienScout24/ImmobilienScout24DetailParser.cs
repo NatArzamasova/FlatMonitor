@@ -8,7 +8,7 @@ using HtmlAgilityPack;
 /// <summary>Everything the scraper takes from an ImmobilienScout24 expose page; <c>null</c> where the page has no value.</summary>
 public sealed record ImmobilienScout24DetailPage(
     string? Title,
-    ImmobilienScout24DetailParser.ExposeMetadata? Metadata,
+    ExposeMetadata? Metadata,
     int? OriginalPrice,
     FlatDetails? Details)
 {
@@ -26,13 +26,28 @@ public sealed record ImmobilienScout24DetailPage(
             PostalCode = Metadata?.PostalCode ?? card.PostalCode,
             District = Metadata?.District ?? card.District,
             PriceEur = priceEur,
-            OriginalPriceEur = OriginalPrice ?? Metadata?.OriginalPriceEur ?? priceEur,
+            OriginalPriceEur = OriginalPrice ?? priceEur,
             RoomsCount = Metadata?.RoomsCount ?? card.RoomsCount,
             LivingAreaSqm = Metadata?.LivingAreaSqm ?? card.LivingAreaSqm,
             CommissionPercent = Metadata?.CommissionPercent ?? card.CommissionPercent,
             Details = Details,
         };
     }
+}
+
+/// <summary>
+/// The values of the <c>commissionSplitConfig</c> script on an expose page: its <c>expose</c> object (address, zip,
+/// location, livingSpace, noRooms, price) and the courtage. <c>null</c> where the script has no value.
+/// </summary>
+public sealed record ExposeMetadata
+{
+    public string? Address { get; init; }
+    public string? PostalCode { get; init; }
+    public string? District { get; init; }
+    public double? LivingAreaSqm { get; init; }
+    public double? RoomsCount { get; init; }
+    public int? PriceEur { get; init; }
+    public double? CommissionPercent { get; init; }
 }
 
 /// <summary>
@@ -186,20 +201,4 @@ public partial class ImmobilienScout24DetailParser
 
     [GeneratedRegex(@"[""']?(?<key>address|zip|location|livingSpace|noRooms|price)[""']?\s*:\s*(?:""(?<value>[^""]*)""|'(?<value>[^']*)'|(?<value>\d+(?:\.\d+)?))")]
     private static partial Regex ExposeProperty();
-
-    /// <summary>
-    /// Metadata extracted from the expose JSON embedded in the detail page.
-    /// Maps to: address, postalCode, district, livingAreaSqm, roomsCount, priceEur, commissionPercent in Flat model.
-    /// </summary>
-    public class ExposeMetadata
-    {
-        public string? Address { get; set; }
-        public string? PostalCode { get; set; }
-        public string? District { get; set; }
-        public double? LivingAreaSqm { get; set; }
-        public double? RoomsCount { get; set; }
-        public int? PriceEur { get; set; }
-        public int? OriginalPriceEur { get; set; }
-        public double? CommissionPercent { get; set; }
-    }
 }

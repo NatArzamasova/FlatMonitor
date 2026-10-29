@@ -314,7 +314,14 @@ with `ExtractText`; `ExtractFieldByMultiplePatterns` is deleted. `OhneMaklerAddr
 - **`OhneMaklerAddressHelper`**: a one-method static class used only by the detail parser; inline it as a private
   method there. Also: `HtmlEntity.DeEntitize` instead of replacing `&ndash;` by hand.
 
-### 3.3 ImmobilienScout24
+### 3.3 ImmobilienScout24 ✅ Done
+
+**Status:** Done. `ImmobilienScout24BrowserScraper.LaunchAndAuthenticateAsync` is `ImmobilienScout24Browser.LaunchAsync(ct)`
+(Playwright takes no token, so it checks between the steps). One CSS (`ListingCardCss`) and one XPath
+(`ListingCardXPath`) card selector in `ImmobilienScout24Selectors`; the loose one the robot guard could satisfy is
+gone. `ExposeMetadata` is a top-level record with `init` properties, without the never-set `OriginalPriceEur`.
+The size heuristic is gone: a first page without cards throws, and the message says where the page was saved
+(`ImmobilienScout24DebugPage`, UTC file name) or how to turn saving on.
 
 - **`ImmobilienScout24BrowserScraper.LaunchAndAuthenticateAsync`** neither scrapes nor authenticates. Rename to
   `ImmobilienScout24Browser.LaunchAsync` (it returns the session), and pass the cancellation token.

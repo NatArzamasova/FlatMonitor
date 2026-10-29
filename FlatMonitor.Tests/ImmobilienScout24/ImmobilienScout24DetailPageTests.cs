@@ -35,7 +35,7 @@ public class ImmobilienScout24DetailPageTests
         page.OriginalPrice.Should().BeNull();
         page.Details!.PropertyType.Should().Be("Etagenwohnung");
         page.Details.BuildYear.Should().Be(1976);
-        page.Metadata.Should().BeEquivalentTo(new ImmobilienScout24DetailParser.ExposeMetadata
+        page.Metadata.Should().BeEquivalentTo(new ExposeMetadata
         {
             Address = "Daxlanden, 76189 Karlsruhe",
             PostalCode = "76189",
@@ -96,7 +96,7 @@ public class ImmobilienScout24DetailPageTests
     {
         var page = new ImmobilienScout24DetailPage(
             Title: null,
-            Metadata: new ImmobilienScout24DetailParser.ExposeMetadata { District = "Daxlanden", PriceEur = 299000 },
+            Metadata: new ExposeMetadata { District = "Daxlanden", PriceEur = 299000 },
             OriginalPrice: null,
             Details: null);
         var card = Card();
@@ -111,7 +111,7 @@ public class ImmobilienScout24DetailPageTests
     {
         var page = new ImmobilienScout24DetailPage(
             Title: null,
-            Metadata: new ImmobilienScout24DetailParser.ExposeMetadata { PriceEur = 299000 },
+            Metadata: new ExposeMetadata { PriceEur = 299000 },
             OriginalPrice: 320000,
             Details: null);
 
@@ -119,5 +119,21 @@ public class ImmobilienScout24DetailPageTests
 
         flat.PriceEur.Should().Be(299000);
         flat.OriginalPriceEur.Should().Be(320000);
+    }
+
+    [Test]
+    public void ApplyTo_WithoutAStruckOutPrice_UsesThePriceAsTheOriginalPrice()
+    {
+        var page = new ImmobilienScout24DetailPage(
+            Title: null, Metadata: new ExposeMetadata { PriceEur = 299000 }, OriginalPrice: null, Details: null);
+
+        page.ApplyTo(Card()).OriginalPriceEur.Should().Be(299000);
+    }
+
+    [Test]
+    public void ExposeMetadata_ComparesByValue()
+    {
+        // A record: tests and callers can compare whole metadata values
+        new ExposeMetadata { District = "Daxlanden", PriceEur = 1 }.Should().Be(new ExposeMetadata { District = "Daxlanden", PriceEur = 1 });
     }
 }

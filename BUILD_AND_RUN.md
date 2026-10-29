@@ -47,7 +47,7 @@ This mode:
 | `Logging:LogLevel` | FlatMonitor `Information`, `Microsoft`/`System` `Warning` | Console log levels |
 | `Scrapers:ImmobilienScout24:Headless` | `false` | Run the IS24 browser without a window (the robot guard may need a person) |
 | `Scrapers:ImmobilienScout24:SearchUrl` | Karlsruhe flats for sale | First IS24 listings page; pagination starts there |
-| `Scrapers:ImmobilienScout24:SaveDebugPages` | `false` | Save a suspiciously small first IS24 page (e.g. the robot guard) to the temp directory |
+| `Scrapers:ImmobilienScout24:SaveDebugPages` | `false` | Save the first IS24 page to the temp directory when it has no listings (e.g. the robot guard); the error names the file |
 
 Relative paths are resolved against the content root, which is the `FlatMonitor/` project directory: `dotnet run`
 always runs there (`RunWorkingDirectory` in `FlatMonitor.csproj`), from any directory. When starting the built app

@@ -115,11 +115,11 @@ async Task<int> ExploreImmobilienScout24Async()
 
     using var loggerFactory = LoggerFactory.Create(logging => logging.AddFlatMonitorLogging());
     var options = ImmobilienScout24Options.FromConfiguration(Host.CreateApplicationBuilder().Configuration);
-    var scraper = new ImmobilienScout24BrowserScraper(options, loggerFactory.CreateLogger("FlatMonitor.ExploreImmobilienScout24"));
+    var browser = new ImmobilienScout24Browser(options, loggerFactory.CreateLogger("FlatMonitor.ExploreImmobilienScout24"));
 
     try
     {
-        await using var session = await scraper.LaunchAndAuthenticateAsync();
+        await using var session = await browser.LaunchAsync();
 
         var html = await session.Page.ContentAsync();
 

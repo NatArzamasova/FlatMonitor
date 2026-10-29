@@ -165,13 +165,13 @@ public class ImmobilienScout24ScraperTests
         // Assert - ensure metadata object has all properties that Flat needs
         metadata.Should().NotBeNull();
         var metadataType = metadata!.GetType();
-        metadataType.GetProperty(nameof(ImmobilienScout24DetailParser.ExposeMetadata.Address)).Should().NotBeNull();
-        metadataType.GetProperty(nameof(ImmobilienScout24DetailParser.ExposeMetadata.PostalCode)).Should().NotBeNull();
-        metadataType.GetProperty(nameof(ImmobilienScout24DetailParser.ExposeMetadata.District)).Should().NotBeNull();
-        metadataType.GetProperty(nameof(ImmobilienScout24DetailParser.ExposeMetadata.LivingAreaSqm)).Should().NotBeNull();
-        metadataType.GetProperty(nameof(ImmobilienScout24DetailParser.ExposeMetadata.RoomsCount)).Should().NotBeNull();
-        metadataType.GetProperty(nameof(ImmobilienScout24DetailParser.ExposeMetadata.PriceEur)).Should().NotBeNull();
-        metadataType.GetProperty(nameof(ImmobilienScout24DetailParser.ExposeMetadata.CommissionPercent)).Should().NotBeNull();
+        metadataType.GetProperty(nameof(ExposeMetadata.Address)).Should().NotBeNull();
+        metadataType.GetProperty(nameof(ExposeMetadata.PostalCode)).Should().NotBeNull();
+        metadataType.GetProperty(nameof(ExposeMetadata.District)).Should().NotBeNull();
+        metadataType.GetProperty(nameof(ExposeMetadata.LivingAreaSqm)).Should().NotBeNull();
+        metadataType.GetProperty(nameof(ExposeMetadata.RoomsCount)).Should().NotBeNull();
+        metadataType.GetProperty(nameof(ExposeMetadata.PriceEur)).Should().NotBeNull();
+        metadataType.GetProperty(nameof(ExposeMetadata.CommissionPercent)).Should().NotBeNull();
     }
 
     [Test]

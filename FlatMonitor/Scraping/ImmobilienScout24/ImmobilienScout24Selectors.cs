@@ -9,6 +9,9 @@ public static class ImmobilienScout24Selectors
     /// <summary>Select all listing card containers on the listings page (with data-obid attribute).</summary>
     public const string ListingCardXPath = "//div[contains(@class, 'listing-card') and @data-obid]";
 
+    /// <summary>The same listing cards as <see cref="ListingCardXPath"/>, as a CSS selector for Playwright.</summary>
+    public const string ListingCardCss = "div[class*='listing-card'][data-obid]";
+
     /// <summary>The card attribute holding the listing ID.</summary>
     public const string IdAttribute = "data-obid";
 

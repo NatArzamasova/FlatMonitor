@@ -26,7 +26,7 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
 
     protected override async Task<IScrapeSession> StartAsync(CancellationToken ct)
     {
-        var browser = await new ImmobilienScout24BrowserScraper(_options, Logger).LaunchAndAuthenticateAsync();
+        var browser = await new ImmobilienScout24Browser(_options, Logger).LaunchAsync(ct);
         return new Session(browser, _options, HtmlSnapshots, Logger);
     }
 
@@ -57,16 +57,11 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
             _logger.LogDebug("ImmobilienScout24: processing first page");
             var firstPageHtml = await _browser.Page.ContentAsync();
 
-            // A suspiciously small page is usually the robot guard, not the listings
-            if (firstPageHtml.Length < 10000)
-            {
-                await WarnAboutSmallFirstPageAsync(firstPageHtml, ct);
-            }
-
             var firstPageListings = ParseListingsPage(firstPageHtml);
             if (firstPageListings.Count == 0)
             {
-                throw new InvalidOperationException("No listings on the first page (robot guard?)");
+                throw new InvalidOperationException(
+                    $"No listings on the first page (robot guard?); {await ImmobilienScout24DebugPage.SaveAsync(_options, firstPageHtml, ct)}");
             }
 
             yield return firstPageListings;
@@ -103,20 +98,6 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
         }
 
         public ValueTask DisposeAsync() => _browser.DisposeAsync();
-
-        private async Task WarnAboutSmallFirstPageAsync(string html, CancellationToken ct)
-        {
-            if (!_options.SaveDebugPages)
-            {
-                _logger.LogWarning("ImmobilienScout24: first page HTML is only {Bytes} bytes (set {Section}:SaveDebugPages to true to save it)",
-                    html.Length, ImmobilienScout24Options.SectionName);
-                return;
-            }
-
-            var debugPath = Path.Combine(Path.GetTempPath(), $"immobilienscout24_debug_{DateTime.Now:yyyyMMdd_HHmmss}.html");
-            await File.WriteAllTextAsync(debugPath, html, ct);
-            _logger.LogWarning("ImmobilienScout24: first page HTML is only {Bytes} bytes, saved to {Path}", html.Length, debugPath);
-        }
 
         /// <summary>
         /// Parse all listing cards from a listings page HTML. A card that cannot be read is skipped by the card parser.

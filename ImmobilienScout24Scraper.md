@@ -56,7 +56,7 @@ Tests/ImmobilienScout24/
 ### Phase 4a: Browser Automation with Playwright ✅ DONE
 - **Commit**: `feat(scraper): implement ImmobilienScout24 browser automation with Playwright`
 - **Files created**:
-  - `workInProgress/Scraping/ImmobilienScout24/ImmobilienScout24BrowserScraper.cs` — Playwright-based browser automation
+  - `workInProgress/Scraping/ImmobilienScout24/ImmobilienScout24Browser.cs` — Playwright-based browser automation
   - `workInProgress/Scraping/ImmobilienScout24/ImmobilienScout24LoginManager.cs` — Legacy HTTP-based approach (deprecated)
   - `.env.example` — Credential template
   - `dotnet-tools.json` — Local Playwright CLI tooling
@@ -80,7 +80,7 @@ Tests/ImmobilienScout24/
 - **Google OAuth required:** immobilienscout24.de uses Google OAuth (not form-based login)
 - **Robot detection guard:** Site has anti-bot detection; must authenticate via visible browser
 - **Playwright solution:** Browser automation handles auth & session, page HTML extracted for parsing
-- **Status**: ✅ Resolved via `ImmobilienScout24BrowserScraper`
+- **Status**: ✅ Resolved via `ImmobilienScout24Browser`
 
 ### Page Structure (Listings Page)
 ```
