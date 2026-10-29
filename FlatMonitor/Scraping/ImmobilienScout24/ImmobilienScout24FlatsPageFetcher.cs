@@ -8,18 +8,26 @@ using Microsoft.Playwright;
 /// <summary>
 /// Fetches flats pages from immobilienscout24.de using Playwright browser automation.
 /// Handles pagination by detecting and clicking the next-page button until no more pages exist.
+/// The page and browser belong to the scraper's <see cref="ImmobilienScout24BrowserSession"/>.
 /// </summary>
-internal sealed class ImmobilienScout24FlatsPageFetcher : IAsyncDisposable
+internal sealed class ImmobilienScout24FlatsPageFetcher
 {
-    private readonly IBrowser _browser;
+    private const int MaxPagesLimit = 50;
+    private const string ListingCardSelector = "div[class*='listing-card'][data-obid]";
+
+    // True once the first listing card is no longer the one shown before clicking "next"
+    private const string FirstCardChangedScript = """
+        ([selector, previousId]) => {
+            const card = document.querySelector(selector);
+            return card !== null && card.getAttribute('data-obid') !== previousId;
+        }
+        """;
+
     private readonly IPage _page;
     private readonly ILogger _logger;
-    private const int MaxPagesLimit = 50;
-    private bool _isLastPage = false;
 
-    public ImmobilienScout24FlatsPageFetcher(IBrowser browser, IPage page, ILogger logger)
+    public ImmobilienScout24FlatsPageFetcher(IPage page, ILogger logger)
     {
-        _browser = browser ?? throw new ArgumentNullException(nameof(browser));
         _page = page ?? throw new ArgumentNullException(nameof(page));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -32,7 +40,6 @@ internal sealed class ImmobilienScout24FlatsPageFetcher : IAsyncDisposable
     public async IAsyncEnumerable<string> FetchAllPagesHtmlAsync(
         [EnumeratorCancellation] CancellationToken ct = default)
     {
-        _isLastPage = false; // Reset for each new scrape
         int pageNumber = 2;
 
         while (pageNumber <= MaxPagesLimit)
@@ -47,14 +54,6 @@ internal sealed class ImmobilienScout24FlatsPageFetcher : IAsyncDisposable
             }
 
             yield return pageResult;
-
-            // Check if this was the last page
-            if (_isLastPage)
-            {
-                _logger.LogInformation("ImmobilienScout24: pagination complete");
-                yield break;
-            }
-
             pageNumber++;
         }
 
@@ -72,16 +71,19 @@ internal sealed class ImmobilienScout24FlatsPageFetcher : IAsyncDisposable
             if (nextButton == null)
             {
                 _logger.LogInformation("ImmobilienScout24: next page button not found or disabled, pagination complete");
-                _isLastPage = true;
                 return null;
             }
 
+            var previousFirstCard = await _page.QuerySelectorAsync(ListingCardSelector);
+            var previousFirstId = previousFirstCard == null ? null : await previousFirstCard.GetAttributeAsync("data-obid");
+
             await nextButton.ClickAsync();
 
-            // Wait for the next page to load after clicking
+            // Wait until the next page's listings have rendered
             _logger.LogDebug("ImmobilienScout24: page {Page}: waiting for page load", pageNumber);
             await _page.WaitForLoadStateAsync(LoadState.DOMContentLoaded, new() { Timeout = 60000 });
-            await Task.Delay(2000); // Give it 2 more seconds for listings to render
+            await _page.WaitForFunctionAsync(FirstCardChangedScript, new object?[] { ListingCardSelector, previousFirstId },
+                new PageWaitForFunctionOptions { Timeout = 60000 });
             _logger.LogDebug("ImmobilienScout24: page {Page}: loaded, extracting HTML", pageNumber);
 
             // Extract current page HTML (now on the new page)
@@ -107,14 +109,5 @@ internal sealed class ImmobilienScout24FlatsPageFetcher : IAsyncDisposable
             _logger.LogWarning(ex, "ImmobilienScout24: failed to fetch page {Page}, stopping pagination", pageNumber);
             return null;
         }
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        if (_page != null)
-            await _page.CloseAsync();
-
-        if (_browser != null)
-            await _browser.CloseAsync();
     }
 }

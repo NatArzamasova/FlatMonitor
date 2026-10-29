@@ -3,6 +3,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using FlatMonitor.Scraping.ImmobilienScout24;
 using FlatMonitor.Storage;
 
 namespace FlatMonitor.Tests;
@@ -31,6 +32,16 @@ public class AppSettingsTests
 
         storage.DataDirectory.Should().Be(Path.Combine(projectDir, "data"));
         storage.ConnectionString.Should().Be($"Data Source={Path.Combine(projectDir, "data", "listings.db")}");
+    }
+
+    [Test]
+    public void ImmobilienScout24_ShowsTheBrowserAndSearchesKarlsruhe()
+    {
+        var options = ImmobilienScout24Options.FromConfiguration(_configuration);
+
+        options.Headless.Should().BeFalse("the robot guard may need a person to solve it");
+        options.SearchUrl.Should().Be(ImmobilienScout24Options.DefaultSearchUrl);
+        options.SaveDebugPages.Should().BeFalse();
     }
 
     [TestCase("FlatMonitor.Api.Services.ScrapeExecutionService")]

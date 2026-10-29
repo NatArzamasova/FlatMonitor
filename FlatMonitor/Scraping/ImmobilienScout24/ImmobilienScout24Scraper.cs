@@ -6,7 +6,6 @@ using FlatMonitor.Scraping.Common;
 using FlatMonitor.Storage;
 using HtmlAgilityPack;
 using Microsoft.Extensions.Logging;
-using Microsoft.Playwright;
 
 /// <summary>
 /// Scraper for immobilienscout24.de apartment flats.
@@ -21,77 +20,78 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
     private readonly FlatExtractor _extractor;
     private readonly IFlatSelectors _selectors;
     private readonly HtmlSnapshotStore _htmlSnapshots;
-    private IBrowser? _browser;
-    private IPage? _page;
+    private readonly ImmobilienScout24Options _options;
+    private readonly ImmobilienScout24DetailParser _detailParser;
+    private ImmobilienScout24BrowserSession? _session;
     private ImmobilienScout24DetailScraper? _detailScraper;
-    private ImmobilienScout24DetailParser? _detailParser;
     private ImmobilienScout24FlatsPageFetcher? _pageFetcher;
 
     public override string Source => SourceName;
 
-    public ImmobilienScout24Scraper(StorageOptions storage, ILogger<ImmobilienScout24Scraper> logger)
+    public ImmobilienScout24Scraper(StorageOptions storage, ImmobilienScout24Options options, ILogger<ImmobilienScout24Scraper> logger)
         : base(logger)
     {
+        _options = options ?? throw new ArgumentNullException(nameof(options));
         _extractor = new FlatExtractor(logger);
         _selectors = new ImmobilienScout24Selectors();
         _htmlSnapshots = HtmlSnapshotStore.ForSource(storage, SourceName, logger);
+        _detailParser = new ImmobilienScout24DetailParser(logger);
     }
 
     protected override async Task InitializeAsync(CancellationToken ct)
     {
-        var browserScraper = new ImmobilienScout24BrowserScraper(Logger);
-        var (browser, page) = await browserScraper.LaunchAndAuthenticateAsync();
-
-        if (browser == null || page == null)
-        {
-            throw new InvalidOperationException("Failed to launch browser or authenticate.");
-        }
-
-        _browser = browser;
-        _page = page;
-        _detailScraper = new ImmobilienScout24DetailScraper(page, _htmlSnapshots, Logger);
-        _detailParser = new ImmobilienScout24DetailParser(Logger);
-        _pageFetcher = new ImmobilienScout24FlatsPageFetcher(browser, page, Logger);
+        _session = await new ImmobilienScout24BrowserScraper(_options, Logger).LaunchAndAuthenticateAsync();
+        _detailScraper = new ImmobilienScout24DetailScraper(_session.Page, _htmlSnapshots, Logger);
+        _pageFetcher = new ImmobilienScout24FlatsPageFetcher(_session.Page, Logger);
     }
 
     protected override Task ClearPreviousSnapshotsAsync(CancellationToken ct) => _htmlSnapshots.ClearAsync(ct);
 
     protected override async IAsyncEnumerable<List<Flat>> FetchAndParseAllPagesAsync([EnumeratorCancellation] CancellationToken ct)
     {
-        if (_page == null)
+        if (_session == null || _pageFetcher == null)
         {
             yield break;
         }
 
         // Fetch and parse first page
         Logger.LogDebug("ImmobilienScout24: processing first page");
-        var firstPageHtml = await _page.ContentAsync();
+        var firstPageHtml = await _session.Page.ContentAsync();
 
-        // Debug: save raw HTML for inspection if it's suspiciously small
+        // A suspiciously small page is usually the robot guard, not the listings
         if (firstPageHtml.Length < 10000)
         {
-            var debugPath = Path.Combine(Path.GetTempPath(), $"immobilienscout24_debug_{DateTime.Now:yyyyMMdd_HHmmss}.html");
-            await File.WriteAllTextAsync(debugPath, firstPageHtml);
-            Logger.LogWarning("ImmobilienScout24: first page HTML is only {Bytes} bytes, saved to {Path}", firstPageHtml.Length, debugPath);
+            await WarnAboutSmallFirstPageAsync(firstPageHtml, ct);
         }
 
         var firstPageListings = ParseListingsPage(firstPageHtml);
         yield return firstPageListings;
 
         // Fetch and parse remaining pages
-        if (_pageFetcher != null)
+        await foreach (var pageHtml in _pageFetcher.FetchAllPagesHtmlAsync(ct))
         {
-            await foreach (var pageHtml in _pageFetcher.FetchAllPagesHtmlAsync(ct))
-            {
-                var listings = ParseListingsPage(pageHtml);
-                yield return listings;
-            }
+            var listings = ParseListingsPage(pageHtml);
+            yield return listings;
         }
+    }
+
+    private async Task WarnAboutSmallFirstPageAsync(string html, CancellationToken ct)
+    {
+        if (!_options.SaveDebugPages)
+        {
+            Logger.LogWarning("ImmobilienScout24: first page HTML is only {Bytes} bytes (set {Section}:SaveDebugPages to true to save it)",
+                html.Length, ImmobilienScout24Options.SectionName);
+            return;
+        }
+
+        var debugPath = Path.Combine(Path.GetTempPath(), $"immobilienscout24_debug_{DateTime.Now:yyyyMMdd_HHmmss}.html");
+        await File.WriteAllTextAsync(debugPath, html, ct);
+        Logger.LogWarning("ImmobilienScout24: first page HTML is only {Bytes} bytes, saved to {Path}", html.Length, debugPath);
     }
 
     protected override async Task<Flat> EnrichListingWithDetailsAsync(Flat baseListing, CancellationToken ct)
     {
-        if (_detailScraper == null || _detailParser == null)
+        if (_detailScraper == null)
         {
             return baseListing;
         }
@@ -103,45 +103,27 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
         }
 
         Logger.LogDebug("ImmobilienScout24: listing {ListingId}: opening detail page", baseListing.ListingId);
-        var detailPageHtml = await _detailScraper.FetchAndParseDetailPageAsync(baseListing.Url, baseListing.ListingId);
+        var html = await _detailScraper.FetchDetailHtmlAsync(baseListing.Url, baseListing.ListingId, ct);
 
-        if (detailPageHtml == null)
+        if (html == null)
         {
             Logger.LogWarning("ImmobilienScout24: listing {ListingId}: failed to fetch detail page", baseListing.ListingId);
             return baseListing;
         }
 
-        var html = await _detailScraper.GetPageAsync();
-        var details = _detailParser.ParseDetailFields(html);
-        var metadata = _detailParser.ExtractExposeMetadata(html);
-        var originalPrice = _detailParser.ExtractOriginalPrice(html);
+        var detailPage = _detailParser.Parse(html);
+        Logger.LogDebug("ImmobilienScout24: listing {ListingId}: parsed details: PropertyType={PropertyType}, BuildYear={BuildYear}, Heating={Heating}",
+            baseListing.ListingId, detailPage.Details?.PropertyType, detailPage.Details?.BuildYear, detailPage.Details?.Heating);
 
-        // Expose metadata replaces the card's values, even where the detail page has none
-        return baseListing with
-        {
-            Title = _detailParser.ExtractTitle(html) ?? baseListing.Title,
-            Address = metadata?.Address,
-            PostalCode = metadata?.PostalCode,
-            District = metadata?.District,
-            PriceEur = metadata?.PriceEur,
-            OriginalPriceEur = originalPrice ?? metadata?.OriginalPriceEur ?? metadata?.PriceEur,
-            RoomsCount = metadata?.RoomsCount,
-            LivingAreaSqm = metadata?.LivingAreaSqm,
-            CommissionPercent = metadata?.CommissionPercent,
-            Details = details,
-        };
+        return detailPage.ApplyTo(baseListing);
     }
 
     protected override async Task CleanupAsync()
     {
-        if (_page != null)
+        if (_session != null)
         {
-            await _page.CloseAsync();
-        }
-
-        if (_browser != null)
-        {
-            await _browser.CloseAsync();
+            await _session.DisposeAsync();
+            _session = null;
         }
     }
 
@@ -164,15 +146,8 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
 
             if (listingCards == null || listingCards.Count == 0)
             {
-                Logger.LogWarning("ImmobilienScout24: no listing cards found on page, trying alternative selector");
-                // Try alternative selector
-                listingCards = doc.DocumentNode.SelectNodes("//div[contains(@class, 'card')]");
-                Logger.LogDebug("ImmobilienScout24: alternative selector matched {Count} cards", listingCards?.Count ?? 0);
-
-                if (listingCards == null || listingCards.Count == 0)
-                {
-                    return results;
-                }
+                Logger.LogWarning("ImmobilienScout24: no listing cards found on page (XPath {XPath})", _selectors.ListingCardXPath);
+                return results;
             }
 
             foreach (var card in listingCards)

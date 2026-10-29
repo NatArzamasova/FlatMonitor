@@ -1,6 +1,5 @@
 namespace FlatMonitor.Scraping.ImmobilienScout24;
 
-using System.Text.Json;
 using FlatMonitor.Models;
 using FlatMonitor.Scraping;
 using FlatMonitor.Scraping.Common;
@@ -8,8 +7,31 @@ using HtmlAgilityPack;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
+/// <summary>Everything the scraper takes from an ImmobilienScout24 expose page; <c>null</c> where the page has no value.</summary>
+public sealed record ImmobilienScout24DetailPage(
+    string? Title,
+    ImmobilienScout24DetailParser.ExposeMetadata? Metadata,
+    int? OriginalPrice,
+    FlatDetails? Details)
+{
+    /// <summary>The card enriched with this page. Expose metadata replaces the card's values, even where the page has none.</summary>
+    public Flat ApplyTo(Flat card) => card with
+    {
+        Title = Title ?? card.Title,
+        Address = Metadata?.Address,
+        PostalCode = Metadata?.PostalCode,
+        District = Metadata?.District,
+        PriceEur = Metadata?.PriceEur,
+        OriginalPriceEur = OriginalPrice ?? Metadata?.OriginalPriceEur ?? Metadata?.PriceEur,
+        RoomsCount = Metadata?.RoomsCount,
+        LivingAreaSqm = Metadata?.LivingAreaSqm,
+        CommissionPercent = Metadata?.CommissionPercent,
+        Details = Details,
+    };
+}
+
 /// <summary>
-/// Parses detail fields from ImmobilienScout24 expose page HTML.
+/// Parses ImmobilienScout24 expose pages, loading each page's HTML once.
 /// Implements IDetailParser for unified multi-source architecture.
 /// </summary>
 public class ImmobilienScout24DetailParser : IDetailParser
@@ -23,15 +45,24 @@ public class ImmobilienScout24DetailParser : IDetailParser
         _logger = logger ?? NullLogger.Instance;
     }
 
-    public FlatDetails? ParseDetailFields(string html)
+    public ImmobilienScout24DetailPage Parse(string html)
+    {
+        var doc = new HtmlDocument();
+        doc.LoadHtml(html);
+
+        return new ImmobilienScout24DetailPage(
+            Title: DetailExtractors.ExtractText(doc, _selectors.TitleXPath),
+            Metadata: ExtractExposeMetadata(doc),
+            OriginalPrice: ExtractOriginalPrice(doc),
+            Details: ParseDetailFields(doc));
+    }
+
+    public FlatDetails? ParseDetailFields(string html) => Parse(html).Details;
+
+    private FlatDetails? ParseDetailFields(HtmlDocument doc)
     {
         try
         {
-            var doc = new HtmlDocument();
-            doc.LoadHtml(html);
-            var root = doc.DocumentNode;
-
-            var address = DetailExtractors.ExtractText(doc, _selectors.AddressXPath);
             var propertyType = DetailExtractors.ExtractText(doc, _selectors.PropertyTypeXPath);
             var buildYear = DetailExtractors.ExtractIntField(DetailExtractors.ExtractText(doc, _selectors.BuildYearXPath));
             var floor = DetailExtractors.ExtractText(doc, _selectors.FloorXPath);
@@ -77,13 +108,10 @@ public class ImmobilienScout24DetailParser : IDetailParser
         }
     }
 
-    public int? ExtractOriginalPrice(string html)
+    private int? ExtractOriginalPrice(HtmlDocument doc)
     {
         try
         {
-            var doc = new HtmlDocument();
-            doc.LoadHtml(html);
-
             // Look for <s> tag (HTML semantic for strikethrough)
             var struckNodes = doc.DocumentNode.SelectNodes("//s");
 
@@ -122,47 +150,14 @@ public class ImmobilienScout24DetailParser : IDetailParser
         }
     }
 
-    public string? ExtractTitle(string html)
-    {
-        try
-        {
-            var doc = new HtmlDocument();
-            doc.LoadHtml(html);
-            return DetailExtractors.ExtractText(doc, _selectors.TitleXPath);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "ImmobilienScout24: error extracting title");
-            return null;
-        }
-    }
-
-    public string? ExtractAddress(string html)
-    {
-        try
-        {
-            var doc = new HtmlDocument();
-            doc.LoadHtml(html);
-            return DetailExtractors.ExtractText(doc, _selectors.AddressXPath);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "ImmobilienScout24: error extracting address");
-            return null;
-        }
-    }
-
     /// <summary>
     /// Extract listing metadata using regex extraction to avoid JSON parsing issues with unescaped quotes in string values.
     /// The page contains a script tag with commissionSplitConfig object containing courtage and expose sub-object.
     /// </summary>
-    public ExposeMetadata? ExtractExposeMetadata(string html)
+    private ExposeMetadata? ExtractExposeMetadata(HtmlDocument doc)
     {
         try
         {
-            var doc = new HtmlDocument();
-            doc.LoadHtml(html);
-
             var scriptNodes = doc.DocumentNode.SelectNodes("//script[contains(text(), 'commissionSplitConfig')]");
             if (scriptNodes == null || scriptNodes.Count == 0)
                 return null;
@@ -226,33 +221,6 @@ public class ImmobilienScout24DetailParser : IDetailParser
             return match.Groups[3].Value;
 
         return null;
-    }
-
-    private string? GetJsonString(JsonElement element, string propertyName)
-    {
-        if (element.TryGetProperty(propertyName, out var prop) && prop.ValueKind == JsonValueKind.String)
-        {
-            var value = prop.GetString()?.Trim();
-            return string.IsNullOrWhiteSpace(value) ? null : value;
-        }
-        return null;
-    }
-
-    private double? GetJsonDouble(JsonElement element, string propertyName)
-    {
-        if (element.TryGetProperty(propertyName, out var prop) && prop.ValueKind == JsonValueKind.Number)
-        {
-            return prop.GetDouble();
-        }
-        return null;
-    }
-
-    private int? ParseInt(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return null;
-        var digits = System.Text.RegularExpressions.Regex.Replace(value, @"[^\d]", "");
-        return int.TryParse(digits, out var result) ? result : null;
     }
 
     private double? ParseDouble(string? value)

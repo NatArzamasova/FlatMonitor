@@ -91,19 +91,14 @@ async Task<int> ExploreImmobilienScout24Async()
     Console.WriteLine("==========================================\n");
 
     using var loggerFactory = LoggerFactory.Create(logging => logging.AddFlatMonitorLogging());
-    var scraper = new ImmobilienScout24BrowserScraper(loggerFactory.CreateLogger("FlatMonitor.ExploreImmobilienScout24"));
+    var options = ImmobilienScout24Options.FromConfiguration(Host.CreateApplicationBuilder().Configuration);
+    var scraper = new ImmobilienScout24BrowserScraper(options, loggerFactory.CreateLogger("FlatMonitor.ExploreImmobilienScout24"));
 
     try
     {
-        var (browser, page) = await scraper.LaunchAndAuthenticateAsync();
+        await using var session = await scraper.LaunchAndAuthenticateAsync();
 
-        if (browser == null || page == null)
-        {
-            Console.Error.WriteLine("Failed to launch browser or authenticate.");
-            return 1;
-        }
-
-        var html = await page.ContentAsync();
+        var html = await session.Page.ContentAsync();
 
         Console.WriteLine("\n✓ Page fetched successfully!");
         Console.WriteLine($"Page size: {html.Length} bytes");
@@ -117,7 +112,6 @@ async Task<int> ExploreImmobilienScout24Async()
         Console.WriteLine($"\n✓ HTML saved to: {outputPath}");
         Console.WriteLine("You can now analyze the page structure by opening this file.");
 
-        await scraper.DisposeAsync();
         return 0;
     }
     catch (Exception ex)

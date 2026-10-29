@@ -1,17 +1,21 @@
 namespace FlatMonitor.Scraping.ImmobilienScout24;
 
-using FlatMonitor.Models;
 using FlatMonitor.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Playwright;
 
 /// <summary>
-/// Fetches and parses detail pages from ImmobilienScout24 expose URLs.
+/// Fetches detail pages from ImmobilienScout24 expose URLs.
 /// Uses the authenticated browser session to access detail pages.
-/// Saves each detail page's HTML through the <see cref="HtmlSnapshotStore"/>, before parsing it.
+/// Saves each detail page's HTML through the <see cref="HtmlSnapshotStore"/> before returning it, so a page that
+/// fails to parse is kept.
 /// </summary>
 public class ImmobilienScout24DetailScraper
 {
+    /// <summary>Any of these means the expose's attribute list has rendered.</summary>
+    public const string ExposeContentSelector = "dd[class*='is24qa-']";
+    public const int ExposeContentTimeoutMs = 5000;
+
     private readonly IPage _page;
     private readonly HtmlSnapshotStore _htmlSnapshots;
     private readonly ILogger _logger;
@@ -24,66 +28,41 @@ public class ImmobilienScout24DetailScraper
     }
 
     /// <summary>
-    /// Fetch and parse detail page from the given expose URL.
-    /// Saves the HTML first, so it is kept even when parsing fails.
+    /// Opens the expose URL and returns the page's HTML, or <c>null</c> if the page could not be loaded.
     /// </summary>
-    public async Task<FlatDetails?> FetchAndParseDetailPageAsync(string url, string listingId)
+    public async Task<string?> FetchDetailHtmlAsync(string url, string listingId, CancellationToken ct = default)
     {
         try
         {
             _logger.LogDebug("ImmobilienScout24: fetching detail page {Url}", url);
             await _page.GotoAsync(url, new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded, Timeout = 30000 });
-            await Task.Delay(1000); // Allow time for content to render
+            await WaitForExposeContentAsync(listingId);
 
             var html = await _page.ContentAsync();
             _logger.LogDebug("ImmobilienScout24: detail page fetched ({Bytes} bytes)", html.Length);
 
-            await _htmlSnapshots.SaveAsync(listingId, html);
-
-            // Parse detail fields
-            var parser = new ImmobilienScout24DetailParser(_logger);
-            var details = parser.ParseDetailFields(html);
-
-            if (details != null)
-            {
-                _logger.LogDebug("ImmobilienScout24: parsed details: PropertyType={PropertyType}, BuildYear={BuildYear}, Heating={Heating}",
-                    details.PropertyType, details.BuildYear, details.Heating);
-            }
-
-            return details;
+            await _htmlSnapshots.SaveAsync(listingId, html, ct);
+            return html;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex, "ImmobilienScout24: error fetching detail page {Url}", url);
             return null;
         }
     }
 
-    /// <summary>
-    /// Extract address from the currently loaded page.
-    /// Must be called after FetchAndParseDetailPageAsync.
-    /// </summary>
-    public async Task<string?> ExtractAddressFromCurrentPageAsync()
+    /// <summary>Gives the page time to render; a page without the expected content is still returned.</summary>
+    private async Task WaitForExposeContentAsync(string listingId)
     {
         try
         {
-            var html = await _page.ContentAsync();
-            var parser = new ImmobilienScout24DetailParser(_logger);
-            return parser.ExtractAddress(html);
+            await _page.WaitForSelectorAsync(ExposeContentSelector,
+                new PageWaitForSelectorOptions { State = WaitForSelectorState.Attached, Timeout = ExposeContentTimeoutMs });
         }
-        catch (Exception ex)
+        catch (TimeoutException)
         {
-            _logger.LogWarning(ex, "ImmobilienScout24: error extracting address");
-            return null;
+            _logger.LogDebug("ImmobilienScout24: listing {ListingId}: no expose attributes after {Timeout} ms, reading the page as it is",
+                listingId, ExposeContentTimeoutMs);
         }
-    }
-
-    /// <summary>
-    /// Get the HTML of the currently loaded page.
-    /// Used after FetchAndParseDetailPageAsync to extract additional metadata.
-    /// </summary>
-    public async Task<string> GetPageAsync()
-    {
-        return await _page.ContentAsync();
     }
 }

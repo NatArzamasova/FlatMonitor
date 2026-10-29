@@ -197,39 +197,6 @@ public class ImmobilienScout24DetailParserTests
     }
 
     [Test]
-    public void ExtractAddress_WithValidHtml_ReturnsAddress()
-    {
-        // Arrange
-        var html = @"
-            <html>
-                <body>
-                    <div data-qa='is24-expose-address'>
-                        <span class='address-text'>123 Test Street, 12345 Berlin</span>
-                    </div>
-                </body>
-            </html>";
-
-        // Act
-        var result = _parser.ExtractAddress(html);
-
-        // Assert
-        result.Should().Be("123 Test Street, 12345 Berlin");
-    }
-
-    [Test]
-    public void ExtractAddress_WithoutAddress_ReturnsNull()
-    {
-        // Arrange
-        var html = "<html><body>no address data</body></html>";
-
-        // Act
-        var result = _parser.ExtractAddress(html);
-
-        // Assert
-        result.Should().BeNull();
-    }
-
-    [Test]
     public void ParseDetailFields_ImplmentsIDetailParser()
     {
         // Assert
@@ -243,7 +210,7 @@ public class ImmobilienScout24DetailParserTests
         var html = "<script>var config = {commissionSplitConfig: {expose: {\"livingSpace\": \"104\"}}};</script>";
 
         // Act
-        var result = _parser.ExtractExposeMetadata(html);
+        var result = _parser.Parse(html).Metadata;
 
         // Assert
         result.Should().NotBeNull();
@@ -257,7 +224,7 @@ public class ImmobilienScout24DetailParserTests
         var html = "<script>var config = {commissionSplitConfig: {courtage: \"3,57% inkl. MwSt.\", expose: {}}};</script>";
 
         // Act
-        var result = _parser.ExtractExposeMetadata(html);
+        var result = _parser.Parse(html).Metadata;
 
         // Assert
         result.Should().NotBeNull();
@@ -271,7 +238,7 @@ public class ImmobilienScout24DetailParserTests
         var html = "<script>var config = {commissionSplitConfig: {courtage: \"3,57% inkl. MwSt.\", expose: {\"address\": \"Daxlanden, 76189 Karlsruhe\", \"zip\": \"76189\", \"location\": \"Daxlanden\", \"livingSpace\": \"104\", \"noRooms\": 4, \"price\": \"347.000 €\"}}};</script>";
 
         // Act
-        var result = _parser.ExtractExposeMetadata(html);
+        var result = _parser.Parse(html).Metadata;
 
         // Assert
         result.Should().NotBeNull();
@@ -302,7 +269,7 @@ public class ImmobilienScout24DetailParserTests
             </html>";
 
         // Act
-        var result = _parser.ExtractExposeMetadata(html);
+        var result = _parser.Parse(html).Metadata;
 
         // Assert
         result.Should().NotBeNull();
@@ -324,7 +291,7 @@ public class ImmobilienScout24DetailParserTests
             </script>";
 
         // Act
-        var result = _parser.ExtractExposeMetadata(html);
+        var result = _parser.Parse(html).Metadata;
 
         // Assert
         result.Should().NotBeNull();
@@ -338,7 +305,7 @@ public class ImmobilienScout24DetailParserTests
         var html = @"<script>var config = {commissionSplitConfig: {expose: {""location"": ""Daxlanden""}}};</script>";
 
         // Act
-        var result = _parser.ExtractExposeMetadata(html);
+        var result = _parser.Parse(html).Metadata;
 
         // Assert
         result.Should().NotBeNull();
@@ -352,7 +319,7 @@ public class ImmobilienScout24DetailParserTests
         var html = @"<script>var config = {commissionSplitConfig: {expose: {""livingSpace"": ""104""}}};</script>";
 
         // Act
-        var result = _parser.ExtractExposeMetadata(html);
+        var result = _parser.Parse(html).Metadata;
 
         // Assert
         result.Should().NotBeNull();
@@ -366,7 +333,7 @@ public class ImmobilienScout24DetailParserTests
         var html = @"<script>var config = {commissionSplitConfig: {expose: {""price"": ""347.000 €""}}};</script>";
 
         // Act
-        var result = _parser.ExtractExposeMetadata(html);
+        var result = _parser.Parse(html).Metadata;
 
         // Assert
         result.Should().NotBeNull();
@@ -380,7 +347,7 @@ public class ImmobilienScout24DetailParserTests
         var html = "<html><body>no config script</body></html>";
 
         // Act
-        var result = _parser.ExtractExposeMetadata(html);
+        var result = _parser.Parse(html).Metadata;
 
         // Assert
         result.Should().BeNull();
@@ -393,7 +360,7 @@ public class ImmobilienScout24DetailParserTests
         var html = @"<script>var config = {commissionSplitConfig: {expose: {""address"": ""Test Address""}}};</script>";
 
         // Act
-        var result = _parser.ExtractExposeMetadata(html);
+        var result = _parser.Parse(html).Metadata;
 
         // Assert
         result.Should().NotBeNull();
@@ -429,7 +396,7 @@ public class ImmobilienScout24DetailParserTests
         </script>";
 
         // Act
-        var result = _parser.ExtractExposeMetadata(html);
+        var result = _parser.Parse(html).Metadata;
 
         // Assert
         result.Should().NotBeNull();
@@ -462,7 +429,7 @@ public class ImmobilienScout24DetailParserTests
         </script>";
 
         // Act
-        var result = _parser.ExtractExposeMetadata(html);
+        var result = _parser.Parse(html).Metadata;
 
         // Assert
         result.Should().NotBeNull();
@@ -487,7 +454,7 @@ public class ImmobilienScout24DetailParserTests
             </html>";
 
         // Act
-        var result = _parser.ExtractOriginalPrice(html);
+        var result = _parser.Parse(html).OriginalPrice;
 
         // Assert
         result.Should().Be(790000);
@@ -505,7 +472,7 @@ public class ImmobilienScout24DetailParserTests
             </html>";
 
         // Act
-        var result = _parser.ExtractOriginalPrice(html);
+        var result = _parser.Parse(html).OriginalPrice;
 
         // Assert
         result.Should().Be(790000);
@@ -524,7 +491,7 @@ public class ImmobilienScout24DetailParserTests
             </html>";
 
         // Act
-        var result = _parser.ExtractOriginalPrice(html);
+        var result = _parser.Parse(html).OriginalPrice;
 
         // Assert
         result.Should().Be(790000);
@@ -542,7 +509,7 @@ public class ImmobilienScout24DetailParserTests
             </html>";
 
         // Act
-        var result = _parser.ExtractOriginalPrice(html);
+        var result = _parser.Parse(html).OriginalPrice;
 
         // Assert
         result.Should().BeNull();
@@ -560,7 +527,7 @@ public class ImmobilienScout24DetailParserTests
             </html>";
 
         // Act
-        var result = _parser.ExtractOriginalPrice(html);
+        var result = _parser.Parse(html).OriginalPrice;
 
         // Assert
         result.Should().BeNull();
@@ -573,7 +540,7 @@ public class ImmobilienScout24DetailParserTests
         var html = "<html><body></body></html>";
 
         // Act
-        var result = _parser.ExtractOriginalPrice(html);
+        var result = _parser.Parse(html).OriginalPrice;
 
         // Assert
         result.Should().BeNull();
@@ -598,7 +565,7 @@ public class ImmobilienScout24DetailParserTests
             var html = $@"<html><body><s>{priceText}</s></body></html>";
 
             // Act
-            var result = _parser.ExtractOriginalPrice(html);
+            var result = _parser.Parse(html).OriginalPrice;
 
             // Assert
             result.Should().Be(expectedPrice, $"for price text '{priceText}'");

@@ -23,7 +23,7 @@ public class ImmobilienScout24ScraperTests
         var html = "<script>var config = {commissionSplitConfig: {expose: {\"address\": \"Daxlanden, 76189 Karlsruhe\"}}};</script>";
 
         // Act
-        var metadata = _parser.ExtractExposeMetadata(html);
+        var metadata = _parser.Parse(html).Metadata;
 
         // Assert - verify the field that would be used in Flat.Address
         metadata.Should().NotBeNull();
@@ -37,7 +37,7 @@ public class ImmobilienScout24ScraperTests
         var html = "<script>var config = {commissionSplitConfig: {expose: {\"zip\": \"76189\"}}};</script>";
 
         // Act
-        var metadata = _parser.ExtractExposeMetadata(html);
+        var metadata = _parser.Parse(html).Metadata;
 
         // Assert - verify the field that would be used in Flat.PostalCode
         metadata.Should().NotBeNull();
@@ -51,7 +51,7 @@ public class ImmobilienScout24ScraperTests
         var html = "<script>var config = {commissionSplitConfig: {expose: {\"location\": \"Daxlanden\"}}};</script>";
 
         // Act
-        var metadata = _parser.ExtractExposeMetadata(html);
+        var metadata = _parser.Parse(html).Metadata;
 
         // Assert - verify the field that would be used in Flat.District
         metadata.Should().NotBeNull();
@@ -65,7 +65,7 @@ public class ImmobilienScout24ScraperTests
         var html = "<script>var config = {commissionSplitConfig: {expose: {\"noRooms\": 4}}};</script>";
 
         // Act
-        var metadata = _parser.ExtractExposeMetadata(html);
+        var metadata = _parser.Parse(html).Metadata;
 
         // Assert - verify the field that would be used in Flat.RoomsCount
         metadata.Should().NotBeNull();
@@ -79,7 +79,7 @@ public class ImmobilienScout24ScraperTests
         var html = "<script>var config = {commissionSplitConfig: {expose: {\"livingSpace\": \"104\"}}};</script>";
 
         // Act
-        var metadata = _parser.ExtractExposeMetadata(html);
+        var metadata = _parser.Parse(html).Metadata;
 
         // Assert - verify the field that would be used in Flat.LivingAreaSqm
         metadata.Should().NotBeNull();
@@ -93,7 +93,7 @@ public class ImmobilienScout24ScraperTests
         var html = "<script>var config = {commissionSplitConfig: {expose: {\"price\": \"347.000 €\"}}};</script>";
 
         // Act
-        var metadata = _parser.ExtractExposeMetadata(html);
+        var metadata = _parser.Parse(html).Metadata;
 
         // Assert - verify the field that would be used in Flat.PriceEur
         metadata.Should().NotBeNull();
@@ -107,7 +107,7 @@ public class ImmobilienScout24ScraperTests
         var html = "<script>var config = {commissionSplitConfig: {courtage: \"3,57% inkl. MwSt.\", expose: {}}};</script>";
 
         // Act
-        var metadata = _parser.ExtractExposeMetadata(html);
+        var metadata = _parser.Parse(html).Metadata;
 
         // Assert - verify the field that would be used in Flat.CommissionPercent
         metadata.Should().NotBeNull();
@@ -121,7 +121,7 @@ public class ImmobilienScout24ScraperTests
         var html = "<script>var config = {commissionSplitConfig: {courtage: \"3,57% inkl. MwSt.\", expose: {\"address\": \"Daxlanden, 76189 Karlsruhe\", \"zip\": \"76189\", \"location\": \"Daxlanden\", \"livingSpace\": \"104\", \"noRooms\": 4, \"price\": \"347.000 €\"}}};</script>";
 
         // Act
-        var metadata = _parser.ExtractExposeMetadata(html);
+        var metadata = _parser.Parse(html).Metadata;
 
         // Assert - verify all fields that populate a Flat object
         metadata.Should().NotBeNull();
@@ -141,7 +141,7 @@ public class ImmobilienScout24ScraperTests
         var html = "<script>var config = {commissionSplitConfig: {expose: {\"address\": \"Test Str. 1, 12345 City\", \"livingSpace\": \"80\"}}};</script>";
 
         // Act
-        var metadata = _parser.ExtractExposeMetadata(html);
+        var metadata = _parser.Parse(html).Metadata;
 
         // Assert - present fields extracted, missing fields null
         metadata.Should().NotBeNull();
@@ -161,7 +161,7 @@ public class ImmobilienScout24ScraperTests
         var html = "<script>var config = {commissionSplitConfig: {expose: {\"address\": \"Main St. 5\"}}};</script>";
 
         // Act
-        var metadata = _parser.ExtractExposeMetadata(html);
+        var metadata = _parser.Parse(html).Metadata;
 
         // Assert - ensure metadata object has all properties that Flat needs
         metadata.Should().NotBeNull();
@@ -192,7 +192,7 @@ public class ImmobilienScout24ScraperTests
             var html = "<script>var config = {commissionSplitConfig: {courtage: \"" + courtageValue + "\", expose: {}}};</script>";
 
             // Act
-            var metadata = _parser.ExtractExposeMetadata(html);
+            var metadata = _parser.Parse(html).Metadata;
 
             // Assert
             metadata.Should().NotBeNull();

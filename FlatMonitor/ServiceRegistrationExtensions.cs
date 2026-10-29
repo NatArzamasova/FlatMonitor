@@ -39,6 +39,7 @@ public static class ServiceRegistrationExtensions
             client.Timeout = TimeSpan.FromSeconds(30);
             client.DefaultRequestHeaders.Add("User-Agent", UserAgent);
         });
+        services.AddSingleton(ImmobilienScout24Options.FromConfiguration(configuration));
         services.AddScoped<ImmobilienScout24Scraper>();
 
         // Sources are scraped in registration order

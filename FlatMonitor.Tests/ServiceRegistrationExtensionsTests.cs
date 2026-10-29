@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using FlatMonitor.Api.Services;
 using FlatMonitor.Models;
 using FlatMonitor.Scraping;
+using FlatMonitor.Scraping.ImmobilienScout24;
 using FlatMonitor.Storage;
 
 namespace FlatMonitor.Tests;
@@ -60,6 +61,13 @@ public class ServiceRegistrationExtensionsTests
         var scrapers = scope.ServiceProvider.GetServices<IScraper>();
 
         scrapers.Select(s => s.Source).Should().Equal("OhneMakler", "ImmobilienScout24");
+    }
+
+    [Test]
+    public void AddFlatMonitorCore_RegistersImmobilienScout24OptionsFromConfiguration()
+    {
+        // The test configuration has no Scrapers section
+        _provider.GetRequiredService<ImmobilienScout24Options>().Should().Be(new ImmobilienScout24Options());
     }
 
     [Test]

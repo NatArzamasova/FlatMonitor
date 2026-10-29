@@ -499,7 +499,25 @@ unless a debug flag is set.
 - The postcode stop condition in `FetchAndParseAllPagesAsync` belongs to the page fetcher or a
   named policy. It is the reason pagination stops, which is not obvious in the scraper.
 
-### 3.4 ImmobilienScout24
+### 3.4 ImmobilienScout24 ✅ Done
+> **Done:** `ImmobilienScout24DetailScraper.FetchDetailHtmlAsync` opens the page, saves it through the `HtmlSnapshotStore`
+> and returns the HTML (`null` if the page cannot be loaded); `ImmobilienScout24DetailParser.Parse(html)` loads it once and
+> returns `ImmobilienScout24DetailPage` (title, expose metadata, struck-out price, details), whose `ApplyTo(card)` is the
+> enrichment (same mapping as before). The separate `Extract*` methods, the unused `ExtractAddress`/`ExtractAddressFromCurrentPageAsync`/
+> `GetPageAsync` and the dead JSON helpers are gone. (`ParseDetailFields` did not call `ExtractExposeMetadata` any more.)
+> `LaunchAndAuthenticateAsync` throws instead of returning `(null, null)` and returns an `ImmobilienScout24BrowserSession`
+> that closes the page and browser and disposes `IPlaywright`; the scraper's `CleanupAsync` disposes it. `Headless`,
+> `SearchUrl` and `SaveDebugPages` (the < 10 KB first-page dump, now off by default) come from `Scrapers:ImmobilienScout24`
+> (`ImmobilienScout24Options`, also used by `explore-is24`). The page fetcher lost `DisposeAsync`, `_browser` and
+> `_isLastPage` (it was only set when the fetch returned `null`, which already ended pagination). Fixed delays: after
+> the first page's existing `WaitForSelectorAsync` the 2 s delay is dropped; after "next" the fetcher waits until the
+> first card's `data-obid` changes; a detail page waits up to 5 s for an `is24qa-*` attribute and is read as it is
+> otherwise. The `//div[contains(@class, 'card')]` fallback is removed (warning, no cards).
+> **Not verified live:** the Playwright waits need a real scrape (browser + robot guard), which the tests cannot do.
+> Tests: `ImmobilienScout24DetailPageTests` (one parse of the fixture, `ApplyTo`), `ImmobilienScout24DetailScraperTests`
+> (mocked `IPage`: HTML returned and saved, wait instead of delay, timeout, failed page), `ImmobilienScout24OptionsTests`,
+> `AppSettingsTests`/`ServiceRegistrationExtensionsTests` for the new settings; the parser tests now call `Parse`.
+
 - `EnrichListingWithDetailsAsync` → `FetchAndParseDetailPageAsync` parses the details, and the result
   is only used as a null check. Then `GetPageAsync` fetches the HTML again, and `ParseDetailFields`,
   `ExtractExposeMetadata`, and `ExtractOriginalPrice` each parse it again. `ParseDetailFields` also calls
@@ -555,12 +573,12 @@ Each step is independently shippable and keeps `dotnet test` green.
 | # | Step | Why first | Risk |
 |---|------|-----------|------|
 | 1 | ✅ Fix 1.1 (swallowed exceptions) + test | Data loss risk today | Low |
-| 2 | Delete dead code: `ScrapeStateService`, `ScrapingCounterService`, unused scraper repo params, `ExtractAddressFromCurrentPageAsync`, no-op `SaveChanges` | Shrinks the surface before restructuring | Low |
+| 2 | ✅ Delete dead code: `ScrapeStateService`, `ScrapingCounterService` (2.5), unused scraper repo params (2.1/3.1), no-op `SaveChanges` (2.2), `ExtractAddressFromCurrentPageAsync` (3.4) | Shrinks the surface before restructuring | Low |
 | 3 | ✅ 2.1 composition root + configuration (single DI registration, connection string, `AddHttpClient`) | Every later step touches DI | Medium |
-| 4 | 2.2 repositories inject `FlatsDbContext`; move clear/restore into the repository; restore logic into `ScrapeExecutionService` | Enables transactions and simpler tests | Medium |
-| 5 | 2.3 + 2.4 streaming `IScraper`, coordinator owns filtering/persistence, `Flat` as record | Fixes 1.2/1.3 structurally | Medium–High (touches both scrapers) |
-| 6 | 2.6 `ILogger` everywhere | Mechanical once DI is clean | Low |
-| 7 | 2.5 job queue via `Channel`, conflict on double trigger | Independent | Low |
-| 8 | 3.x per-source parser consolidation (single parse, `HtmlSnapshotStore`) | Needs fixture tests first | Medium |
-| 9 | 2.7 API error handling, 2.8 model cleanups (enum status, `DateTime`, single `CommissionPercent`) | 2.8 needs a migration; coordinate with the frontend | Medium |
+| 4 | ✅ 2.2 repositories inject `FlatsDbContext`; move clear/restore into the repository; restore logic into `ScrapeExecutionService` (2.5) | Enables transactions and simpler tests | Medium |
+| 5 | ✅ 2.3 + 2.4 streaming `IScraper`, coordinator owns filtering/persistence, `Flat` as record | Fixes 1.2/1.3 structurally | Medium–High (touches both scrapers) |
+| 6 | ✅ 2.6 `ILogger` everywhere | Mechanical once DI is clean | Low |
+| 7 | ✅ 2.5 job queue via `Channel`, conflict on double trigger | Independent | Low |
+| 8 | 3.x per-source parser consolidation (single parse, `HtmlSnapshotStore`): ✅ 3.1, 3.2, 3.3, 3.4 done; 3.5 open | Needs fixture tests first | Medium |
+| 9 | ✅ 2.7 API error handling, 2.8 model cleanups (enum status, `DateTime`, single `CommissionPercent`) | 2.8 needs a migration; coordinate with the frontend | Medium |
 | 10 | Decide 2.8's design note (clear-and-insert vs. real upsert with first/last seen) | Product decision; unlocks "removed"/"days on market" | High (design) |
