@@ -59,26 +59,6 @@ public class FilterPresetRepositoryTests
         result.Select(p => p.Name).Should().Equal("east", "North", "West");
     }
 
-    [Test]
-    public async Task GetByIdAsync_ReturnsPreset()
-    {
-        var created = await _repository.CreateAsync("East", ["Durlach"]);
-
-        var result = await _repository.GetByIdAsync(created.Id);
-
-        result.Should().NotBeNull();
-        result!.Name.Should().Be("East");
-        result.Districts.Should().Equal("Durlach");
-    }
-
-    [Test]
-    public async Task GetByIdAsync_ReturnsNullForUnknownId()
-    {
-        var result = await _repository.GetByIdAsync(42);
-
-        result.Should().BeNull();
-    }
-
     // ==================== NAME EXISTS ====================
 
     [TestCase("East")]

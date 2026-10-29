@@ -17,13 +17,6 @@ public sealed class FilterPresetRepository : IFilterPresetRepository
             .ToListAsync(cancellationToken);
     }
 
-    public Task<FilterPreset?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
-    {
-        return _dbContext.FilterPresets
-            .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
-    }
-
     public Task<bool> NameExistsAsync(string name, int? excludingId = null, CancellationToken cancellationToken = default)
     {
         // Name uses NOCASE collation, so this comparison ignores case in SQLite.

@@ -11,8 +11,6 @@ public interface IFilterPresetRepository
     /// <summary>All presets, ordered by name.</summary>
     Task<IReadOnlyList<FilterPreset>> GetAllAsync(CancellationToken cancellationToken = default);
 
-    Task<FilterPreset?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
-
     /// <summary>Case-insensitive; <paramref name="excludingId"/> skips the preset being renamed.</summary>
     Task<bool> NameExistsAsync(string name, int? excludingId = null, CancellationToken cancellationToken = default);
 

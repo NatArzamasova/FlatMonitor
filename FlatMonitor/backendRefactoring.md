@@ -397,7 +397,11 @@ history chart draws as a real point.
 the average" and the `0m` case disappears. `District != null` is always true after filtering and can go.
 (Product question: if the "flats offered" count per district is wanted too, add it as a second field.)
 
-### 4.4 Smaller
+### 4.4 Smaller ✅ Done
+
+**Status:** Done. The repeated "check name → save → on `DbUpdateException` check again" block is one private
+helper, `SaveUnlessNameTakenAsync`, in `FilterPresetsController` (the lighter of the two options; the repository
+interface stays as it is). `IFilterPresetRepository.GetByIdAsync` and its two tests are removed.
 
 - `FilterPresetsController.CreateAsync`/`UpdateAsync` repeat the same "check name → save → on
   `DbUpdateException` check name again" block. Move it into the repository as a result

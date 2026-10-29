@@ -29,21 +29,11 @@ public class FilterPresetsController : ApiControllerBase
         if (!FilterPresetRequestNormalizer.TryNormalize(request, out var preset, out var error))
             return BadRequest(Failure<FilterPresetDto>(error));
 
-        try
+        return await SaveUnlessNameTakenAsync(preset.Name, excludingId: null, async () =>
         {
-            if (await _repository.NameExistsAsync(preset.Name, cancellationToken: ct))
-                return NameTaken(preset.Name);
-
             var created = await _repository.CreateAsync(preset.Name, preset.Districts, ct);
             return StatusCode(StatusCodes.Status201Created, Success(FilterPresetDto.From(created), "Filter preset created"));
-        }
-        catch (DbUpdateException)
-        {
-            // A concurrent request may have taken the name between the check and the insert.
-            if (await _repository.NameExistsAsync(preset.Name, cancellationToken: ct))
-                return NameTaken(preset.Name);
-            throw;
-        }
+        }, ct);
     }
 
     [HttpPut("{id:int}")]
@@ -52,22 +42,13 @@ public class FilterPresetsController : ApiControllerBase
         if (!FilterPresetRequestNormalizer.TryNormalize(request, out var preset, out var error))
             return BadRequest(Failure<FilterPresetDto>(error));
 
-        try
+        return await SaveUnlessNameTakenAsync(preset.Name, excludingId: id, async () =>
         {
-            if (await _repository.NameExistsAsync(preset.Name, excludingId: id, cancellationToken: ct))
-                return NameTaken(preset.Name);
-
             var updated = await _repository.UpdateAsync(id, preset.Name, preset.Districts, ct);
             return updated == null
                 ? PresetNotFound<FilterPresetDto>(id)
                 : Ok(Success(FilterPresetDto.From(updated), "Filter preset updated"));
-        }
-        catch (DbUpdateException)
-        {
-            if (await _repository.NameExistsAsync(preset.Name, excludingId: id, cancellationToken: ct))
-                return NameTaken(preset.Name);
-            throw;
-        }
+        }, ct);
     }
 
     /// <summary>Deletes the preset and returns the remaining presets.</summary>
@@ -101,6 +82,29 @@ public class FilterPresetsController : ApiControllerBase
     {
         var presets = await _repository.GetAllAsync(ct);
         return presets.Select(FilterPresetDto.From).ToList();
+    }
+
+    /// <summary>
+    /// Runs <paramref name="save"/> unless another preset (not <paramref name="excludingId"/>) has the name. If saving
+    /// fails, a concurrent request may have taken the name between the check and the write: the name is checked again,
+    /// and any other failure propagates.
+    /// </summary>
+    private async Task<ActionResult<ApiResponse<FilterPresetDto>>> SaveUnlessNameTakenAsync(
+        string name, int? excludingId, Func<Task<ActionResult<ApiResponse<FilterPresetDto>>>> save, CancellationToken ct)
+    {
+        try
+        {
+            if (await _repository.NameExistsAsync(name, excludingId, ct))
+                return NameTaken(name);
+
+            return await save();
+        }
+        catch (DbUpdateException)
+        {
+            if (await _repository.NameExistsAsync(name, excludingId, ct))
+                return NameTaken(name);
+            throw;
+        }
     }
 
     private ObjectResult NameTaken(string name) =>
