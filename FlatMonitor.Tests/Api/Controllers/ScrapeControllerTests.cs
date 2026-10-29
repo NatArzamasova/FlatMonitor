@@ -68,7 +68,7 @@ public class ScrapeControllerTests
 
         var response = Body(result, typeof(OkObjectResult));
         response.Success.Should().BeTrue();
-        response.Data!.Status.Should().Be("Queued");
+        response.Data!.Status.Should().Be(ScrapeJobService.ScrapeJobStatus.Queued);
     }
 
     [Test]
@@ -134,8 +134,8 @@ public class ScrapeControllerTests
         var response = Body(result, typeof(OkObjectResult));
         response.Success.Should().BeTrue();
         response.Data!.IsScrapingInProgress.Should().BeTrue();
-        response.Data.LastScrapingHistory.Should().BeSameAs(latest);
-        response.Data.LastSuccessfulScrapingHistory.Should().BeSameAs(latestSuccessful);
+        response.Data.LastScrapingHistory.Should().Be(ScrapingHistoryDto.From(latest));
+        response.Data.LastSuccessfulScrapingHistory.Should().Be(ScrapingHistoryDto.From(latestSuccessful));
         _mockHistoryRepository.Verify(r => r.GetLatestAsync(cts.Token), Times.Once);
     }
 }

@@ -266,7 +266,7 @@ public class FlatAggregationRepositoryTests
 
         var result = await repo.GetHistoryAsync();
 
-        result.Select(x => x.ScrapingDate).Should().Equal("2026-10-19", "2026-10-20");
+        result.Select(x => x.ScrapingDate).Should().Equal(date.AddDays(-1), date);
         result[0].District.Should().Be("Innenstadt");
     }
 

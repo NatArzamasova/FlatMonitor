@@ -2,6 +2,7 @@ namespace FlatMonitor.Api.Services;
 
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Serialization;
 using System.Threading.Channels;
 
 /// <summary>
@@ -12,6 +13,8 @@ public class ScrapeJobService
 {
     public record ScrapeJob(int Id, Guid JobId, DateTime CreatedAtUtc, ScrapeJobStatus Status = ScrapeJobStatus.Queued);
 
+    /// <summary>Serialized by name ("Queued", "Running", ...), like <see cref="Models.ScrapingStatus"/>.</summary>
+    [JsonConverter(typeof(JsonStringEnumConverter<ScrapeJobStatus>))]
     public enum ScrapeJobStatus { Queued, Running, Completed, Failed, Canceled }
 
     /// <summary>Finished jobs kept for <see cref="GetJobStatus"/>; ScrapingHistories keeps the full record.</summary>

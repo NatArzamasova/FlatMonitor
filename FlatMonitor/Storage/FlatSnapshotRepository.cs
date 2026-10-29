@@ -1,6 +1,7 @@
 namespace FlatMonitor.Storage;
 
 using FlatMonitor.Models;
+using FlatMonitor.Storage.ReadModels;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 

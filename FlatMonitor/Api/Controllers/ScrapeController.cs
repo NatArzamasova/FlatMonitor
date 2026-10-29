@@ -37,8 +37,8 @@ public class ScrapeController : ApiControllerBase
         var status = new ScrapingStatusResponse
         {
             IsScrapingInProgress = _jobService.IsScrapingInProgress(),
-            LastScrapingHistory = histories.Latest,
-            LastSuccessfulScrapingHistory = histories.LatestSuccessful
+            LastScrapingHistory = ScrapingHistoryDto.From(histories.Latest),
+            LastSuccessfulScrapingHistory = ScrapingHistoryDto.From(histories.LatestSuccessful)
         };
 
         return Ok(Success(status, "Scraping status fetched successfully"));
@@ -54,7 +54,7 @@ public class ScrapeController : ApiControllerBase
         return Ok(Success(new ScrapeJobStatusResponse
         {
             JobId = job.JobId,
-            Status = job.Status.ToString(),
+            Status = job.Status,
             CreatedAtUtc = job.CreatedAtUtc
         }, "Job status fetched successfully"));
     }

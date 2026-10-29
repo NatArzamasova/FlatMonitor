@@ -11,6 +11,7 @@ using FlatMonitor.Models;
 using FlatMonitor.Scraping;
 using FlatMonitor.Storage;
 using FlatMonitor.Tests.Scraping.Common;
+using FlatMonitor.Storage.ReadModels;
 using static FlatMonitor.Api.Services.ScrapeJobService;
 
 namespace FlatMonitor.Tests.Api.Services;

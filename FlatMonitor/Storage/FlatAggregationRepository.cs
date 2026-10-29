@@ -1,6 +1,7 @@
 namespace FlatMonitor.Storage;
 
 using FlatMonitor.Models;
+using FlatMonitor.Storage.ReadModels;
 using Microsoft.EntityFrameworkCore;
 
 
@@ -42,7 +43,7 @@ public sealed class FlatAggregationRepository : IFlatAggregationRepository
             .ThenBy(a => a.RoomsCount)
             .Select(a => new FlatHistory
             {
-                ScrapingDate = a.ScrapingDate.ToString("yyyy-MM-dd"),
+                ScrapingDate = a.ScrapingDate,
                 District = a.District,
                 RoomsCount = a.RoomsCount,
                 AvgPricePerMeter = a.AvgPricePerMeter,

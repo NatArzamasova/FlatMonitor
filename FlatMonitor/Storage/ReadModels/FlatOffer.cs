@@ -1,5 +1,6 @@
-namespace FlatMonitor.Models;
+namespace FlatMonitor.Storage.ReadModels;
 
+/// <summary>A flat of FlatsSnapshots as the API serves it.</summary>
 public class FlatOffer
 {
     public string? District { get; set; }

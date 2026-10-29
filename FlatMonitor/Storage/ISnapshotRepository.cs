@@ -1,6 +1,7 @@
 namespace FlatMonitor.Storage;
 
 using FlatMonitor.Models;
+using FlatMonitor.Storage.ReadModels;
 
 /// <summary>
 /// SQLite-specific repository for persisting apartments (Flat) to the database (FlatsSnapshots table).

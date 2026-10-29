@@ -2,6 +2,7 @@ using FlatMonitor.Api.Controllers;
 using FlatMonitor.Api.Contracts;
 using FlatMonitor.Models;
 using FlatMonitor.Storage;
+using FlatMonitor.Storage.ReadModels;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
@@ -27,7 +28,7 @@ public class FlatsControllerTests
     [Test]
     public async Task GetHistoryAsync_ReturnsSuccessfulApiResponse()
     {
-        var history = new List<FlatHistory> { new() { District = "Innenstadt", ScrapingDate = "2026-10-20" } };
+        var history = new List<FlatHistory> { new() { District = "Innenstadt", ScrapingDate = new DateOnly(2026, 10, 20) } };
         _aggregationRepository.Setup(r => r.GetHistoryAsync(It.IsAny<CancellationToken>())).ReturnsAsync(history);
 
         var result = await _controller.GetHistoryAsync();

@@ -339,7 +339,12 @@ The size heuristic is gone: a first page without cards throws, and the message s
 
 ## 4. API and model
 
-### 4.1 Put DTOs in one place and return types, not entities
+### 4.1 Put DTOs in one place and return types, not entities ✅ Done
+
+**Status:** Done. `FlatOffer`, `FlatHistory`, `FlatAggregation` moved to `Storage/ReadModels` (namespace
+`FlatMonitor.Storage.ReadModels`), as the repositories return them. `ScrapingStatusResponse` returns the new
+`ScrapingHistoryDto` record. `FlatHistory.ScrapingDate` is a `DateOnly`; `ScrapeJobStatusResponse.Status` is the
+`ScrapeJobStatus` enum, serialized by name. `ApiJsonShapeTests` pin the JSON: unchanged for the frontend.
 
 **Severity:** Low · **Files:** `Models/FlatOffer.cs`, `Models/FlatHistory.cs`, `Models/FlatAggregation.cs`,
 `Api/Contracts/ScrapingStatusResponse.cs`, `Api/Contracts/ScrapeJobStatusResponse.cs`
