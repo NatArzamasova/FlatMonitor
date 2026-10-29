@@ -74,7 +74,7 @@ public abstract class FlatScraper : IScraper
                 "{Source}: ({Position}/{Total}) {ListingId} - Address={Address}, Price={PriceEur}, OriginalPrice={OriginalPriceEur}, " +
                 "Area={LivingAreaSqm}, Rooms={RoomsCount}, Commission={CommissionPercent}",
                 Source, position, total, enrichedFlat.ListingId, enrichedFlat.Address, enrichedFlat.PriceEur, enrichedFlat.OriginalPriceEur,
-                enrichedFlat.LivingAreaSqm, enrichedFlat.RoomsCount, enrichedFlat.Details?.CommissionPercent);
+                enrichedFlat.LivingAreaSqm, enrichedFlat.RoomsCount, enrichedFlat.CommissionPercent);
             return enrichedFlat;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

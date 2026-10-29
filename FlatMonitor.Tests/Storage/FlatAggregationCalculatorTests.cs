@@ -14,9 +14,9 @@ public class FlatAggregationCalculatorTests
         // Arrange
         var snapshots = new List<FlatSnapshot>
         {
-            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 500000, PricePerMeter = 5000, ScrapedAtUtc = DateTime.UtcNow.ToString("O"), Source = "OhneMakler", ListingId = "1" },
-            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 550000, PricePerMeter = 5500, ScrapedAtUtc = DateTime.UtcNow.ToString("O"), Source = "OhneMakler", ListingId = "2" },
-            new() { District = "Innenstadt", RoomsCount = 3, PriceEur = 700000, PricePerMeter = 5800, ScrapedAtUtc = DateTime.UtcNow.ToString("O"), Source = "OhneMakler", ListingId = "3" },
+            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 500000, PricePerMeter = 5000, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "1" },
+            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 550000, PricePerMeter = 5500, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "2" },
+            new() { District = "Innenstadt", RoomsCount = 3, PriceEur = 700000, PricePerMeter = 5800, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "3" },
         };
 
         // Act
@@ -34,8 +34,8 @@ public class FlatAggregationCalculatorTests
         // Arrange
         var snapshots = new List<FlatSnapshot>
         {
-            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 500000, PricePerMeter = 5000, ScrapedAtUtc = DateTime.UtcNow.ToString("O"), Source = "OhneMakler", ListingId = "1" },
-            new() { District = null, RoomsCount = 2, PriceEur = 500000, PricePerMeter = 5000, ScrapedAtUtc = DateTime.UtcNow.ToString("O"), Source = "OhneMakler", ListingId = "2" },
+            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 500000, PricePerMeter = 5000, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "1" },
+            new() { District = null, RoomsCount = 2, PriceEur = 500000, PricePerMeter = 5000, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "2" },
         };
 
         // Act
@@ -52,9 +52,9 @@ public class FlatAggregationCalculatorTests
         // Arrange
         var snapshots = new List<FlatSnapshot>
         {
-            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 500000, PricePerMeter = 5000, ScrapedAtUtc = DateTime.UtcNow.ToString("O"), Source = "OhneMakler", ListingId = "1" },
-            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 0, PricePerMeter = null, ScrapedAtUtc = DateTime.UtcNow.ToString("O"), Source = "OhneMakler", ListingId = "2" },
-            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = null, PricePerMeter = null, ScrapedAtUtc = DateTime.UtcNow.ToString("O"), Source = "OhneMakler", ListingId = "3" },
+            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 500000, PricePerMeter = 5000, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "1" },
+            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 0, PricePerMeter = null, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "2" },
+            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = null, PricePerMeter = null, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "3" },
         };
 
         // Act
@@ -71,8 +71,8 @@ public class FlatAggregationCalculatorTests
         // Arrange
         var snapshots = new List<FlatSnapshot>
         {
-            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 500000, PricePerMeter = 5000, ScrapedAtUtc = DateTime.UtcNow.ToString("O"), Source = "OhneMakler", ListingId = "1" },
-            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 600000, PricePerMeter = null, ScrapedAtUtc = DateTime.UtcNow.ToString("O"), Source = "OhneMakler", ListingId = "2" },
+            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 500000, PricePerMeter = 5000, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "1" },
+            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 600000, PricePerMeter = null, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "2" },
         };
 
         // Act
@@ -89,8 +89,8 @@ public class FlatAggregationCalculatorTests
         // Arrange
         var snapshots = new List<FlatSnapshot>
         {
-            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 500000, PricePerMeter = null, ScrapedAtUtc = DateTime.UtcNow.ToString("O"), Source = "OhneMakler", ListingId = "1" },
-            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 600000, PricePerMeter = null, ScrapedAtUtc = DateTime.UtcNow.ToString("O"), Source = "OhneMakler", ListingId = "2" },
+            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 500000, PricePerMeter = null, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "1" },
+            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 600000, PricePerMeter = null, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "2" },
         };
 
         // Act
@@ -107,9 +107,9 @@ public class FlatAggregationCalculatorTests
         // Arrange
         var snapshots = new List<FlatSnapshot>
         {
-            new() { District = "Zentrum", RoomsCount = 3, PriceEur = 500000, PricePerMeter = 5000, ScrapedAtUtc = DateTime.UtcNow.ToString("O"), Source = "OhneMakler", ListingId = "1" },
-            new() { District = "Innenstadt", RoomsCount = 3, PriceEur = 500000, PricePerMeter = 5000, ScrapedAtUtc = DateTime.UtcNow.ToString("O"), Source = "OhneMakler", ListingId = "2" },
-            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 500000, PricePerMeter = 5000, ScrapedAtUtc = DateTime.UtcNow.ToString("O"), Source = "OhneMakler", ListingId = "3" },
+            new() { District = "Zentrum", RoomsCount = 3, PriceEur = 500000, PricePerMeter = 5000, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "1" },
+            new() { District = "Innenstadt", RoomsCount = 3, PriceEur = 500000, PricePerMeter = 5000, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "2" },
+            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 500000, PricePerMeter = 5000, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "3" },
         };
 
         // Act
@@ -130,8 +130,8 @@ public class FlatAggregationCalculatorTests
         // Arrange
         var snapshots = new List<FlatSnapshot>
         {
-            new() { District = "Innenstadt", RoomsCount = null, PriceEur = 500000, PricePerMeter = 5000, ScrapedAtUtc = DateTime.UtcNow.ToString("O"), Source = "OhneMakler", ListingId = "1" },
-            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 550000, PricePerMeter = 5500, ScrapedAtUtc = DateTime.UtcNow.ToString("O"), Source = "OhneMakler", ListingId = "2" },
+            new() { District = "Innenstadt", RoomsCount = null, PriceEur = 500000, PricePerMeter = 5000, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "1" },
+            new() { District = "Innenstadt", RoomsCount = 2, PriceEur = 550000, PricePerMeter = 5500, ScrapedAtUtc = DateTime.UtcNow, Source = "OhneMakler", ListingId = "2" },
         };
 
         // Act

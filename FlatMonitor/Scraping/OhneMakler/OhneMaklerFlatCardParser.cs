@@ -67,7 +67,7 @@ public sealed class OhneMaklerFlatCardParser
                     PriceEur = priceEur,
                     RoomsCount = rooms,
                     LivingAreaSqm = area,
-                    ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                    ScrapedAtUtc = DateTime.UtcNow,
                     Source = OhneMaklerScraper.SourceName,
                     DetailPageUrl = href,
                 };

@@ -101,9 +101,8 @@ public class OhneMaklerFlatCardParserTests
         // Assert
         result.Should().AllSatisfy(item =>
         {
-            item.Flat.ScrapedAtUtc.Should().NotBeNullOrEmpty();
-            // Should be ISO-8601 format
-            DateTime.TryParse(item.Flat.ScrapedAtUtc, out _).Should().BeTrue();
+            item.Flat.ScrapedAtUtc.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(1));
+            item.Flat.ScrapedAtUtc.Kind.Should().Be(DateTimeKind.Utc);
         });
     }
 

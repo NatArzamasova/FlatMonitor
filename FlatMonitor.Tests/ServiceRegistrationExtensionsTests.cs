@@ -88,7 +88,7 @@ public class ServiceRegistrationExtensionsTests
             Url = "/immobilie/1/",
             Title = "Listing 1",
             Address = "Address 1",
-            ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+            ScrapedAtUtc = DateTime.UtcNow,
             Source = "OhneMakler",
         }]);
 

@@ -1,8 +1,8 @@
 namespace FlatMonitor.Models;
 
+/// <summary>Fields from a flat's detail page. Title and commission live on <see cref="Flat"/>.</summary>
 public sealed class FlatDetails
 {
-    public string? Title { get; init; }
     public string? PropertyType { get; init; }
     public int? BuildYear { get; init; }
     public string? Floor { get; init; }
@@ -16,5 +16,4 @@ public sealed class FlatDetails
     public string? ListingStatus { get; init; }
     public string? CurrentUse { get; init; }
     public string? Availability { get; init; }
-    public double? CommissionPercent { get; init; }
 }

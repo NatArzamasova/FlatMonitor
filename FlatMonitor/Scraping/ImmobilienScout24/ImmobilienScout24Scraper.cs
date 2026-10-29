@@ -141,7 +141,7 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
         // Expose metadata replaces the card's values, even where the detail page has none
         return baseListing with
         {
-            Title = details?.Title ?? baseListing.Title,
+            Title = _detailParser.ExtractTitle(html) ?? baseListing.Title,
             Address = metadata?.Address,
             PostalCode = metadata?.PostalCode,
             District = metadata?.District,

@@ -114,14 +114,14 @@ public class ScrapeControllerTests
         {
             Id = 2,
             StartTimeUtc = DateTime.UtcNow,
-            Status = "Failed",
+            Status = ScrapingStatus.Failed,
             FlatsScrapedCount = 1
         };
         var latestSuccessful = new ScrapingHistory
         {
             Id = 1,
             StartTimeUtc = DateTime.UtcNow,
-            Status = "Successful",
+            Status = ScrapingStatus.Successful,
             FlatsScrapedCount = 5
         };
         using var cts = new CancellationTokenSource();

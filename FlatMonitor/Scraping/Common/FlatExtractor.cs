@@ -47,7 +47,7 @@ public class FlatExtractor
                 PriceEur = price.HasValue ? (int)price.Value : null,
                 LivingAreaSqm = size.HasValue ? (int)size.Value : null,
                 RoomsCount = rooms,
-                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                ScrapedAtUtc = DateTime.UtcNow,
             };
         }
         catch (Exception ex)

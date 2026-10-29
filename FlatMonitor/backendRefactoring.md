@@ -384,7 +384,21 @@ This also leaks exception messages (paths, SQL) to the client.
   `FlatsCount = 0` and `Success = true`; `ScrapeQueuedResponse` already exists for this case.
   Check whether that contract is unused.
 
-### 2.8 Domain model cleanup
+### 2.8 Domain model cleanup ✅ Done (except the design note)
+> **Done:** `Flat.Source` is `required`. Title and commission live only on `Flat` (`FlatDetails.Title`/`CommissionPercent`
+> removed; the IS24 parser got `ExtractTitle`, OhneMakler sets `CommissionPercent = 0` in its enrichment); `FlatSnapshot`
+> stores both in the existing `Title`/`CommissionPercent` columns. `FlatSnapshot.From(flat)`/`UpdateFrom(flat)` is the one
+> mapping for insert and update. `Flat.PricePerMeter` is computed from price and area (repository helper removed).
+> `ScrapedAtUtc`/`CreatedAtUtc`/`UpdatedAtUtc` are `DateTime`, read back as UTC. `ScrapingHistory.Status` is the
+> `ScrapingStatus` enum (`HasConversion<string>()`, `JsonStringEnumConverter`), so DB values and the API are unchanged.
+> `FlatAggregation.PostalCode`/`Availability` removed (also from the Angular model and the dead code in the overview tab
+> that copied them). Migration `ModelCleanup` changes no columns; it rewrites the date strings (round-trip format, which
+> Microsoft.Data.Sqlite would read as local time) into EF Core's format and drops a leftover `FlatsSnapshots_Backup`.
+> Verified on a copy of `listings.db` (517 rows) and with the new build serving that copy.
+> **Not done:** the design note below (clear-and-insert vs. real upsert with first/last seen) is a product decision.
+> Tests: `FlatTests` (price per m², mapping covers every property, enum JSON), `ModelCleanupMigrationTests` (old rows
+> migrated: UTC dates, title/commission, status enum, backup dropped, ordering with new rows), repository update/UTC tests.
+
 **Severity:** Low–Medium · **Files:** `Models/*`
 
 - `Flat.Source` defaults to `"OhneMakler"` (`Flat.cs:17`). A flat without an explicit source

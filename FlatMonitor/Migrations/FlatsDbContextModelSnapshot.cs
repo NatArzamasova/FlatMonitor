@@ -102,9 +102,10 @@ namespace FlatMonitor.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("CreatedAtUtc")
-                        .IsRequired()
-                        .HasMaxLength(50)
+                    b.Property<double?>("CommissionPercent")
+                        .HasColumnType("REAL");
+
+                    b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("District")
@@ -130,14 +131,14 @@ namespace FlatMonitor.Migrations
                     b.Property<double?>("RoomsCount")
                         .HasColumnType("REAL");
 
-                    b.Property<string>("ScrapedAtUtc")
-                        .IsRequired()
-                        .HasMaxLength(50)
+                    b.Property<DateTime>("ScrapedAtUtc")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("UpdatedAtUtc")
-                        .IsRequired()
-                        .HasMaxLength(50)
+                    b.Property<string>("Title")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Url")
@@ -212,10 +213,6 @@ namespace FlatMonitor.Migrations
                                 .HasColumnType("INTEGER")
                                 .HasColumnName("BuildYear");
 
-                            b1.Property<double?>("CommissionPercent")
-                                .HasColumnType("REAL")
-                                .HasColumnName("CommissionPercent");
-
                             b1.Property<string>("Condition")
                                 .HasMaxLength(100)
                                 .HasColumnType("TEXT")
@@ -269,11 +266,6 @@ namespace FlatMonitor.Migrations
                             b1.Property<int?>("ServiceChargeEur")
                                 .HasColumnType("INTEGER")
                                 .HasColumnName("ServiceChargeEur");
-
-                            b1.Property<string>("Title")
-                                .HasMaxLength(500)
-                                .HasColumnType("TEXT")
-                                .HasColumnName("Title");
 
                             b1.HasKey("FlatSnapshotSource", "FlatSnapshotListingId");
 

@@ -280,12 +280,11 @@ public class ScraperCoordinatorTests
             District = "KA-Rüppurr",
             PriceEur = 300000,
             OriginalPriceEur = 320000,
-            PricePerMeter = 4000,
             RoomsCount = 3.5,
             LivingAreaSqm = 75,
             CommissionPercent = 3.57,
             Details = new FlatDetails { Heating = "Gas" },
-            ScrapedAtUtc = "2026-10-29T08:00:00Z",
+            ScrapedAtUtc = new DateTime(2026, 10, 29, 8, 0, 0, DateTimeKind.Utc),
             Source = "ImmobilienScout24",
             DetailPageUrl = "https://example.org/1/details",
         };

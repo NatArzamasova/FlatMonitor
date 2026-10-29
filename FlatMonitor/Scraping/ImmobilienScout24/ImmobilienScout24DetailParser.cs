@@ -31,7 +31,6 @@ public class ImmobilienScout24DetailParser : IDetailParser
             doc.LoadHtml(html);
             var root = doc.DocumentNode;
 
-            var title = DetailExtractors.ExtractText(doc, _selectors.TitleXPath);
             var address = DetailExtractors.ExtractText(doc, _selectors.AddressXPath);
             var propertyType = DetailExtractors.ExtractText(doc, _selectors.PropertyTypeXPath);
             var buildYear = DetailExtractors.ExtractIntField(DetailExtractors.ExtractText(doc, _selectors.BuildYearXPath));
@@ -54,13 +53,8 @@ public class ImmobilienScout24DetailParser : IDetailParser
                     currentUse = "Nicht vermietet";
             }
 
-            // Extract commission percent from expose metadata
-            var metadata = ExtractExposeMetadata(html);
-            var commissionPercent = metadata?.CommissionPercent;
-
             var details = new FlatDetails
             {
-                Title = title,
                 PropertyType = propertyType,
                 BuildYear = buildYear,
                 Floor = floor,
@@ -72,7 +66,6 @@ public class ImmobilienScout24DetailParser : IDetailParser
                 ServiceChargeEur = serviceCharge,
                 Availability = availability,
                 CurrentUse = currentUse,
-                CommissionPercent = commissionPercent,
             };
 
             return details;
@@ -125,6 +118,21 @@ public class ImmobilienScout24DetailParser : IDetailParser
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "ImmobilienScout24: error extracting original price");
+            return null;
+        }
+    }
+
+    public string? ExtractTitle(string html)
+    {
+        try
+        {
+            var doc = new HtmlDocument();
+            doc.LoadHtml(html);
+            return DetailExtractors.ExtractText(doc, _selectors.TitleXPath);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "ImmobilienScout24: error extracting title");
             return null;
         }
     }

@@ -26,14 +26,12 @@ describe('OverviewTabComponent', () => {
     success: true,
     data: [
       {
-        postalCode: '10115',
         district: 'Mitte',
         roomsCount: 2,
         count: 5,
         avgPricePerMeter: 12.50
       },
       {
-        postalCode: '10119',
         district: 'Prenzlauer Berg',
         roomsCount: 3,
         count: 8,
@@ -103,7 +101,7 @@ describe('OverviewTabComponent', () => {
       expect(component.loading).toBe(false);
       expect(component.error).toBeNull();
       expect(component.aggregatedData.length).toBe(2);
-      expect(component.aggregatedData[0].postalCode).toBe('10115');
+      expect(component.aggregatedData[0].district).toBe('Mitte');
       expect(component.lastUpdated).toBeTruthy();
     });
 
@@ -339,11 +337,11 @@ describe('OverviewTabComponent', () => {
     const multiRoomData: ApiResponse<FlatAggregation[]> = {
       success: true,
       data: [
-        { district: 'Mitte', roomsCount: 1, count: 3, avgPricePerMeter: 15.00, postalCode: '10115' },
-        { district: 'Mitte', roomsCount: 2, count: 5, avgPricePerMeter: 12.50, postalCode: '10115' },
-        { district: 'Mitte', roomsCount: 3, count: 2, avgPricePerMeter: 10.00, postalCode: '10115' },
-        { district: 'Prenzlauer Berg', roomsCount: 1, count: 4, avgPricePerMeter: 14.00, postalCode: '10119' },
-        { district: 'Prenzlauer Berg', roomsCount: 2, count: 6, avgPricePerMeter: 11.20, postalCode: '10119' }
+        { district: 'Mitte', roomsCount: 1, count: 3, avgPricePerMeter: 15.00 },
+        { district: 'Mitte', roomsCount: 2, count: 5, avgPricePerMeter: 12.50 },
+        { district: 'Mitte', roomsCount: 3, count: 2, avgPricePerMeter: 10.00 },
+        { district: 'Prenzlauer Berg', roomsCount: 1, count: 4, avgPricePerMeter: 14.00 },
+        { district: 'Prenzlauer Berg', roomsCount: 2, count: 6, avgPricePerMeter: 11.20 }
       ],
       message: 'Success'
     };
@@ -548,10 +546,10 @@ describe('OverviewTabComponent', () => {
 
     describe('exact grouped rows', () => {
       const detailedRows: FlatAggregation[] = [
-        { district: 'Weststadt', roomsCount: 3, count: 2, avgPricePerMeter: 10, postalCode: '76135', availability: 'sofort' },
-        { district: 'Mitte', roomsCount: 2, count: 1, avgPricePerMeter: 20, postalCode: '76133', availability: 'ab 01.05.' },
-        { district: 'Weststadt', roomsCount: 2, count: 3, avgPricePerMeter: 30, postalCode: '76137', availability: 'nach Vereinbarung' },
-        { district: undefined, roomsCount: undefined, count: 4, avgPricePerMeter: 40, postalCode: '76131', availability: undefined }
+        { district: 'Weststadt', roomsCount: 3, count: 2, avgPricePerMeter: 10 },
+        { district: 'Mitte', roomsCount: 2, count: 1, avgPricePerMeter: 20 },
+        { district: 'Weststadt', roomsCount: 2, count: 3, avgPricePerMeter: 30 },
+        { district: undefined, roomsCount: undefined, count: 4, avgPricePerMeter: 40 }
       ];
 
       const group = (groupByDistrict: boolean, groupByRooms: boolean, rows = detailedRows) => {
@@ -569,23 +567,23 @@ describe('OverviewTabComponent', () => {
 
       it('groups by district, sorted by district with missing first, keeping the first row details', () => {
         expect(group(true, false)).toEqual([
-          { district: undefined, roomsCount: undefined, count: 4, avgPricePerMeter: 40, postalCode: '76131', availability: undefined },
-          { district: 'Mitte', roomsCount: undefined, count: 1, avgPricePerMeter: 20, postalCode: '76133', availability: 'ab 01.05.' },
-          { district: 'Weststadt', roomsCount: undefined, count: 5, avgPricePerMeter: 22, postalCode: '76135', availability: 'sofort' }
+          { district: undefined, roomsCount: undefined, count: 4, avgPricePerMeter: 40 },
+          { district: 'Mitte', roomsCount: undefined, count: 1, avgPricePerMeter: 20 },
+          { district: 'Weststadt', roomsCount: undefined, count: 5, avgPricePerMeter: 22 }
         ]);
       });
 
       it('groups by rooms, sorted by room count with missing first, keeping the first row details', () => {
         expect(group(false, true)).toEqual([
-          { district: undefined, roomsCount: undefined, count: 4, avgPricePerMeter: 40, postalCode: '76131', availability: undefined },
-          { district: undefined, roomsCount: 2, count: 4, avgPricePerMeter: 27.5, postalCode: '76133', availability: 'ab 01.05.' },
-          { district: undefined, roomsCount: 3, count: 2, avgPricePerMeter: 10, postalCode: '76135', availability: 'sofort' }
+          { district: undefined, roomsCount: undefined, count: 4, avgPricePerMeter: 40 },
+          { district: undefined, roomsCount: 2, count: 4, avgPricePerMeter: 27.5 },
+          { district: undefined, roomsCount: 3, count: 2, avgPricePerMeter: 10 }
         ]);
       });
 
       it('merges everything into one row without details when no grouping is selected', () => {
         expect(group(false, false)).toEqual([
-          { district: undefined, roomsCount: undefined, count: 10, avgPricePerMeter: 29, postalCode: undefined, availability: undefined }
+          { district: undefined, roomsCount: undefined, count: 10, avgPricePerMeter: 29 }
         ]);
       });
 

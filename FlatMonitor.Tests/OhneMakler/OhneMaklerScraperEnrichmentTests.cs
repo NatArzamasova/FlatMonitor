@@ -67,6 +67,7 @@ public class OhneMaklerScraperEnrichmentTests
             flat.Details.Should().NotBeNull();
             flat.OriginalPriceEur.Should().Be(flat.PriceEur);
             flat.Source.Should().Be(OhneMaklerScraper.SourceName);
+            flat.CommissionPercent.Should().Be(0, "ohne-makler.net has no estate agent");
 
             // Card fields that the detail page does not replace
             flat.PostalCode.Should().Be(card.PostalCode);

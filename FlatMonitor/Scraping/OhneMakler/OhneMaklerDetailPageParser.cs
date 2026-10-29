@@ -32,10 +32,8 @@ public sealed class OhneMaklerDetailPageParser : IDetailParser
             if (!DetailExtractors.HasValidStructure(doc, _selectors.ValidStructurePatterns))
                 return null;
 
-            var title = DetailExtractors.ExtractText(doc, _selectors.TitleXPath);
             var details = new FlatDetails
             {
-                Title = title,
                 PropertyType = DetailExtractors.ExtractText(doc, _selectors.PropertyTypeXPath),
                 BuildYear = DetailExtractors.ExtractIntField(DetailExtractors.ExtractText(doc, _selectors.BuildYearXPath)),
                 Floor = DetailExtractors.ExtractText(doc, _selectors.FloorXPath)
@@ -53,7 +51,6 @@ public sealed class OhneMaklerDetailPageParser : IDetailParser
                 CurrentUse = ExtractCurrentUse(doc),
                 Availability = DetailExtractors.ExtractText(doc, _selectors.AvailabilityXPath)
                     ?? DetailExtractors.ExtractText(doc, _selectors.AvailabilityAlternateXPath),
-                CommissionPercent = 0,
             };
 
             return details;

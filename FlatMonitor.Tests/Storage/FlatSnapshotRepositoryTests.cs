@@ -44,9 +44,9 @@ public class FlatSnapshotRepositoryTests
                 PriceEur = 500000,
                 RoomsCount = 3,
                 LivingAreaSqm = 85,
-                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                ScrapedAtUtc = DateTime.UtcNow,
                 Source = "OhneMakler",
-                Details = new FlatDetails { Title = "Test Listing" }
+                Details = new FlatDetails { Heating = "Gas" }
             }
         };
 
@@ -58,7 +58,7 @@ public class FlatSnapshotRepositoryTests
         var stored = await dbContext.FlatsSnapshots.FirstOrDefaultAsync(l => l.ListingId == "1");
         stored.Should().NotBeNull();
         stored!.Details.Should().NotBeNull();
-        stored.Details!.Title.Should().Be("Test Listing");
+        stored.Title.Should().Be("Test Listing");
         stored.Address.Should().Be("123 Main St");
         stored.PriceEur.Should().Be(500000);
         stored.Source.Should().Be("OhneMakler");
@@ -80,7 +80,7 @@ public class FlatSnapshotRepositoryTests
                 Url = "/immobilie/1/",
                 Title = "Test",
                 Address = "Test Address",
-                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                ScrapedAtUtc = DateTime.UtcNow,
                 Source = "OhneMakler",
                 Details = new FlatDetails
                 {
@@ -126,7 +126,7 @@ public class FlatSnapshotRepositoryTests
                 Url = "/immobilie/1/",
                 Title = "Test",
                 Address = "Test Address",
-                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                ScrapedAtUtc = DateTime.UtcNow,
                 Source = "OhneMakler",
                 Details = null,
             }
@@ -159,9 +159,9 @@ public class FlatSnapshotRepositoryTests
                 Title = "Original Title",
                 Address = "Original Address",
                 PriceEur = 500000,
-                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                ScrapedAtUtc = DateTime.UtcNow,
                 Source = "OhneMakler",
-                Details = new FlatDetails { Title = "Original Title" }
+                Details = new FlatDetails { Heating = "Gas" }
             }
         };
 
@@ -176,9 +176,9 @@ public class FlatSnapshotRepositoryTests
                 Title = "Updated Title",
                 Address = "Updated Address",
                 PriceEur = 550000,
-                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                ScrapedAtUtc = DateTime.UtcNow,
                 Source = "OhneMakler",
-                Details = new FlatDetails { Title = "Updated Title" }
+                Details = new FlatDetails { Heating = "Gas" }
             }
         };
 
@@ -192,7 +192,7 @@ public class FlatSnapshotRepositoryTests
 
         var stored = await dbContext.FlatsSnapshots.FirstAsync();
         stored.Details.Should().NotBeNull();
-        stored.Details!.Title.Should().Be("Updated Title");
+        stored.Title.Should().Be("Updated Title");
         stored.PriceEur.Should().Be(550000);
     }
 
@@ -212,7 +212,7 @@ public class FlatSnapshotRepositoryTests
                 Url = "/immobilie/1/",
                 Title = "Listing 1",
                 Address = "Address 1",
-                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                ScrapedAtUtc = DateTime.UtcNow,
                 Source = "OhneMakler",
             },
             new()
@@ -221,7 +221,7 @@ public class FlatSnapshotRepositoryTests
                 Url = "/immobilie/2/",
                 Title = "Listing 2",
                 Address = "Address 2",
-                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                ScrapedAtUtc = DateTime.UtcNow,
                 Source = "OhneMakler",
             },
             new()
@@ -230,7 +230,7 @@ public class FlatSnapshotRepositoryTests
                 Url = "/immobilie/3/",
                 Title = "Listing 3",
                 Address = "Address 3",
-                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                ScrapedAtUtc = DateTime.UtcNow,
                 Source = "OhneMakler",
             }
         };
@@ -260,9 +260,9 @@ public class FlatSnapshotRepositoryTests
                 Url = "/immobilie/123/",
                 Title = "From OhneMakler",
                 Address = "Address A",
-                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                ScrapedAtUtc = DateTime.UtcNow,
                 Source = "OhneMakler",
-                Details = new FlatDetails { Title = "From OhneMakler" }
+                Details = new FlatDetails { Heating = "Gas" }
             },
             new()
             {
@@ -270,9 +270,9 @@ public class FlatSnapshotRepositoryTests
                 Url = "/property/123",
                 Title = "From ImmobilienScout24",
                 Address = "Address B",
-                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                ScrapedAtUtc = DateTime.UtcNow,
                 Source = "ImmobilienScout24",
-                Details = new FlatDetails { Title = "From ImmobilienScout24" }
+                Details = new FlatDetails { Heating = "Gas" }
             }
         };
 
@@ -287,12 +287,12 @@ public class FlatSnapshotRepositoryTests
         var ohmRow = await dbContext.FlatsSnapshots.FirstOrDefaultAsync(l => l.Source == "OhneMakler" && l.ListingId == "123");
         ohmRow.Should().NotBeNull();
         ohmRow!.Details.Should().NotBeNull();
-        ohmRow.Details!.Title.Should().Be("From OhneMakler");
+        ohmRow.Title.Should().Be("From OhneMakler");
 
         var scoutRow = await dbContext.FlatsSnapshots.FirstOrDefaultAsync(l => l.Source == "ImmobilienScout24" && l.ListingId == "123");
         scoutRow.Should().NotBeNull();
         scoutRow!.Details.Should().NotBeNull();
-        scoutRow.Details!.Title.Should().Be("From ImmobilienScout24");
+        scoutRow.Title.Should().Be("From ImmobilienScout24");
     }
 
     [Test]
@@ -306,21 +306,21 @@ public class FlatSnapshotRepositoryTests
         {
             var older = new FlatSnapshot
             {
-                Source = "source", ListingId = "older", ScrapedAtUtc = "2026-10-20T08:00:00Z",
+                Source = "source", ListingId = "older", ScrapedAtUtc = new DateTime(2026, 10, 20, 8, 0, 0, DateTimeKind.Utc),
                 District = "Innenstadt", RoomsCount = 2, PriceEur = 900, PricePerMeter = 30, Url = "old-url"
             };
             var newer = new FlatSnapshot
             {
-                Source = "source", ListingId = "newer", ScrapedAtUtc = "2026-10-21T08:00:00Z",
+                Source = "source", ListingId = "newer", ScrapedAtUtc = new DateTime(2026, 10, 21, 8, 0, 0, DateTimeKind.Utc),
                 District = "Zentrum", RoomsCount = 3, PriceEur = 1200, OriginalPriceEur = 1400,
                 PricePerMeter = 40, LivingAreaSqm = 72, Url = "new-url"
             };
             dbContext.FlatsSnapshots.AddRange(older, newer);
-            var createdAt = DateTime.UtcNow.ToString("O");
+            var createdAt = DateTime.UtcNow;
             foreach (var snapshot in new[] { older, newer })
             {
-                dbContext.Entry(snapshot).Property<string>("CreatedAtUtc").CurrentValue = createdAt;
-                dbContext.Entry(snapshot).Property<string>("UpdatedAtUtc").CurrentValue = createdAt;
+                dbContext.Entry(snapshot).Property<DateTime>("CreatedAtUtc").CurrentValue = createdAt;
+                dbContext.Entry(snapshot).Property<DateTime>("UpdatedAtUtc").CurrentValue = createdAt;
             }
             await dbContext.SaveChangesAsync();
         }
@@ -366,7 +366,7 @@ public class FlatSnapshotRepositoryTests
                 Title = "Original Listing",
                 Address = "Original Address",
                 PriceEur = 500000,
-                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                ScrapedAtUtc = DateTime.UtcNow,
                 Source = "OhneMakler",
             }
         };
@@ -400,7 +400,7 @@ public class FlatSnapshotRepositoryTests
                 Title = "Original Listing",
                 Address = "Original Address",
                 PriceEur = 500000,
-                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                ScrapedAtUtc = DateTime.UtcNow,
                 Source = "OhneMakler",
             }
         };
@@ -447,7 +447,7 @@ public class FlatSnapshotRepositoryTests
                 Title = "Original",
                 Address = "Address 1",
                 PriceEur = 500000,
-                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                ScrapedAtUtc = DateTime.UtcNow,
                 Source = "OhneMakler",
             }
         };
@@ -470,7 +470,7 @@ public class FlatSnapshotRepositoryTests
                 Title = "New Listing",
                 Address = "Address 2",
                 PriceEur = 600000,
-                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                ScrapedAtUtc = DateTime.UtcNow,
                 Source = "OhneMakler",
             }
         };
@@ -507,7 +507,7 @@ public class FlatSnapshotRepositoryTests
                 Title = "Original",
                 Address = "Address 1",
                 PriceEur = 500000,
-                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                ScrapedAtUtc = DateTime.UtcNow,
                 Source = "OhneMakler",
             }
         };
@@ -530,7 +530,7 @@ public class FlatSnapshotRepositoryTests
                 Title = "New Listing",
                 Address = "Address 2",
                 PriceEur = 600000,
-                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                ScrapedAtUtc = DateTime.UtcNow,
                 Source = "OhneMakler",
             }
         };
@@ -621,13 +621,54 @@ public class FlatSnapshotRepositoryTests
     private static Task<int> CountBackupRowsAsync(FlatsDbContext dbContext) =>
         dbContext.Database.SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM FlatsSnapshots_Backup").SingleAsync();
 
+    [Test]
+    public async Task UpsertListingsAsync_UpdatingAFlat_StoresEveryField()
+    {
+        // Arrange: the old upsert left Title and CommissionPercent unchanged on update
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatSnapshotRepository(repoContext);
+        await repo.UpsertListingsAsync([CreateFlat("1") with { CommissionPercent = 3.57, PriceEur = 300000, LivingAreaSqm = 75 }]);
+
+        // Act
+        await repo.UpsertListingsAsync([CreateFlat("1") with { Title = "New title", CommissionPercent = 0, PriceEur = 150000, LivingAreaSqm = 75 }]);
+
+        // Assert
+        await using var dbContext = new FlatsDbContext(options);
+        var stored = await dbContext.FlatsSnapshots.SingleAsync();
+        stored.Title.Should().Be("New title");
+        stored.CommissionPercent.Should().Be(0);
+        stored.PricePerMeter.Should().Be(2000);
+    }
+
+    [Test]
+    public async Task UpsertListingsAsync_DatesReadBackAsUtc()
+    {
+        // Arrange
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var scrapedAt = new DateTime(2026, 10, 29, 8, 7, 48, DateTimeKind.Utc);
+
+        // Act
+        await new FlatSnapshotRepository(repoContext).UpsertListingsAsync([CreateFlat("1") with { ScrapedAtUtc = scrapedAt }]);
+
+        // Assert
+        await using var dbContext = new FlatsDbContext(options);
+        var stored = await dbContext.FlatsSnapshots.SingleAsync();
+        stored.ScrapedAtUtc.Should().Be(scrapedAt);
+        stored.ScrapedAtUtc.Kind.Should().Be(DateTimeKind.Utc);
+        var createdAt = dbContext.Entry(stored).Property<DateTime>("CreatedAtUtc").CurrentValue;
+        createdAt.Kind.Should().Be(DateTimeKind.Utc);
+        createdAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(1));
+    }
+
     private static Flat CreateFlat(string listingId, string source = "OhneMakler") => new()
     {
         ListingId = listingId,
         Url = $"/immobilie/{listingId}/",
         Title = $"Listing {listingId}",
         Address = $"Address {listingId}",
-        ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+        ScrapedAtUtc = DateTime.UtcNow,
         Source = source,
     };
 }

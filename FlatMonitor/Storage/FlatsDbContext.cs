@@ -1,10 +1,8 @@
-using FlatMonitor.Models;
-
 namespace FlatMonitor.Storage;
 
 using FlatMonitor.Models;
 using Microsoft.EntityFrameworkCore;
-using ScrapingHistory = ScrapingHistory;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 public class FlatsDbContext : DbContext
 {
@@ -12,6 +10,10 @@ public class FlatsDbContext : DbContext
     public DbSet<ScrapingHistory> ScrapingHistories { get; set; }
     public DbSet<FlatAggregationSnapshot> FlatAggregations { get; set; }
     public DbSet<FilterPreset> FilterPresets { get; set; }
+
+    /// <summary>SQLite has no time zone: values are written as UTC and read back with <see cref="DateTimeKind.Utc"/>.</summary>
+    private static readonly ValueConverter<DateTime, DateTime> UtcConverter =
+        new(v => v, v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
 
     public FlatsDbContext(DbContextOptions<FlatsDbContext> options) : base(options)
     {
@@ -49,17 +51,18 @@ public class FlatsDbContext : DbContext
 
         snapshotBuilder.Property(s => s.PricePerMeter);
 
+        snapshotBuilder.Property(s => s.Title)
+            .HasMaxLength(500);
+
+        snapshotBuilder.Property(s => s.CommissionPercent);
+
         snapshotBuilder.Property(s => s.ScrapedAtUtc)
             .IsRequired()
-            .HasMaxLength(50);
+            .HasConversion(UtcConverter);
 
-        // Owned type for Details — flattened into the OhneMaklerSnapshots table
+        // Owned type for Details, flattened into the FlatsSnapshots table
         snapshotBuilder.OwnsOne(s => s.Details, detailsBuilder =>
         {
-            detailsBuilder.Property(d => d.Title)
-                .HasColumnName("Title")
-                .HasMaxLength(500);
-
             detailsBuilder.Property(d => d.PropertyType)
                 .HasColumnName("PropertyType")
                 .HasMaxLength(50);
@@ -109,9 +112,6 @@ public class FlatsDbContext : DbContext
             detailsBuilder.Property(d => d.Availability)
                 .HasColumnName("Availability")
                 .HasMaxLength(100);
-
-            detailsBuilder.Property(d => d.CommissionPercent)
-                .HasColumnName("CommissionPercent");
         });
 
         // Indexes
@@ -129,13 +129,13 @@ public class FlatsDbContext : DbContext
             .HasDatabaseName("idx_District");
 
         // Audit columns
-        snapshotBuilder.Property<string>("CreatedAtUtc")
+        snapshotBuilder.Property<DateTime>("CreatedAtUtc")
             .IsRequired()
-            .HasMaxLength(50);
+            .HasConversion(UtcConverter);
 
-        snapshotBuilder.Property<string>("UpdatedAtUtc")
+        snapshotBuilder.Property<DateTime>("UpdatedAtUtc")
             .IsRequired()
-            .HasMaxLength(50);
+            .HasConversion(UtcConverter);
 
         // ScrapingHistory configuration
         var historyBuilder = modelBuilder.Entity<ScrapingHistory>();
@@ -143,7 +143,8 @@ public class FlatsDbContext : DbContext
         historyBuilder.ToTable("ScrapingHistories");
         historyBuilder.Property(h => h.StartTimeUtc).IsRequired();
         historyBuilder.Property(h => h.EndTimeUtc);
-        historyBuilder.Property(h => h.Status).IsRequired().HasMaxLength(50);
+        // Stored by name, as before the enum existed
+        historyBuilder.Property(h => h.Status).IsRequired().HasMaxLength(50).HasConversion<string>();
         historyBuilder.Property(h => h.ErrorMessage).HasMaxLength(500);
         historyBuilder.Property(h => h.FlatsScrapedCount).IsRequired().HasDefaultValue(0);
 

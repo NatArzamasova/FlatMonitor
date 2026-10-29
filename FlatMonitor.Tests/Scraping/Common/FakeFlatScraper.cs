@@ -21,9 +21,10 @@ internal sealed class FakeFlatScraper(string source = "Fake", ILogger? logger = 
 
     public static Flat CreateFlat(string id, string district = "Oberreut") => new()
     {
+        Source = "OhneMakler",
         ListingId = id,
         District = district,
-        ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+        ScrapedAtUtc = DateTime.UtcNow,
     };
 
     protected override Task InitializeAsync(CancellationToken ct) =>

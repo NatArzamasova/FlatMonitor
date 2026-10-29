@@ -33,7 +33,7 @@ public class FlatAggregationRepositoryTests
 
         // Seed FlatsSnapshots and ScrapingHistory
         await using var dbContext = new FlatsDbContext(options);
-        var now = DateTime.UtcNow.ToString("O");
+        var now = DateTime.UtcNow;
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
         // Create a successful scraping history (no longer used for aggregations)
@@ -41,7 +41,7 @@ public class FlatAggregationRepositoryTests
         {
             StartTimeUtc = DateTime.UtcNow.AddSeconds(-10),
             EndTimeUtc = DateTime.UtcNow,
-            Status = "Successful",
+            Status = ScrapingStatus.Successful,
             FlatsScrapedCount = 2
         };
         dbContext.ScrapingHistories.Add(history);
@@ -72,10 +72,10 @@ public class FlatAggregationRepositoryTests
         dbContext.FlatsSnapshots.Add(snap2);
 
         // Set shadow properties
-        dbContext.Entry(snap1).Property<string>("CreatedAtUtc").CurrentValue = now;
-        dbContext.Entry(snap1).Property<string>("UpdatedAtUtc").CurrentValue = now;
-        dbContext.Entry(snap2).Property<string>("CreatedAtUtc").CurrentValue = now;
-        dbContext.Entry(snap2).Property<string>("UpdatedAtUtc").CurrentValue = now;
+        dbContext.Entry(snap1).Property<DateTime>("CreatedAtUtc").CurrentValue = now;
+        dbContext.Entry(snap1).Property<DateTime>("UpdatedAtUtc").CurrentValue = now;
+        dbContext.Entry(snap2).Property<DateTime>("CreatedAtUtc").CurrentValue = now;
+        dbContext.Entry(snap2).Property<DateTime>("UpdatedAtUtc").CurrentValue = now;
 
         await dbContext.SaveChangesAsync();
 
@@ -114,14 +114,14 @@ public class FlatAggregationRepositoryTests
         await dbContext.SaveChangesAsync();
 
         // Seed new snapshots
-        var now = DateTime.UtcNow.ToString("O");
+        var now = DateTime.UtcNow;
 
         // Create a successful scraping history (no longer used for aggregations)
         var history = new ScrapingHistory
         {
             StartTimeUtc = DateTime.UtcNow.AddSeconds(-10),
             EndTimeUtc = DateTime.UtcNow,
-            Status = "Successful",
+            Status = ScrapingStatus.Successful,
             FlatsScrapedCount = 1
         };
         dbContext.ScrapingHistories.Add(history);
@@ -138,8 +138,8 @@ public class FlatAggregationRepositoryTests
             ScrapedAtUtc = now
         };
         dbContext.FlatsSnapshots.Add(snap);
-        dbContext.Entry(snap).Property<string>("CreatedAtUtc").CurrentValue = now;
-        dbContext.Entry(snap).Property<string>("UpdatedAtUtc").CurrentValue = now;
+        dbContext.Entry(snap).Property<DateTime>("CreatedAtUtc").CurrentValue = now;
+        dbContext.Entry(snap).Property<DateTime>("UpdatedAtUtc").CurrentValue = now;
         await dbContext.SaveChangesAsync();
 
         // Act
@@ -181,14 +181,14 @@ public class FlatAggregationRepositoryTests
         var repo = new FlatAggregationRepository(repoContext);
 
         await using var dbContext = new FlatsDbContext(options);
-        var now = DateTime.UtcNow.ToString("O");
+        var now = DateTime.UtcNow;
 
         // Create a successful scraping history (no longer used for aggregations)
         var history = new ScrapingHistory
         {
             StartTimeUtc = DateTime.UtcNow.AddSeconds(-10),
             EndTimeUtc = DateTime.UtcNow,
-            Status = "Successful",
+            Status = ScrapingStatus.Successful,
             FlatsScrapedCount = 1
         };
         dbContext.ScrapingHistories.Add(history);
@@ -231,12 +231,12 @@ public class FlatAggregationRepositoryTests
         dbContext.FlatsSnapshots.Add(snap3);
 
         // Set shadow properties for all
-        dbContext.Entry(snap1).Property<string>("CreatedAtUtc").CurrentValue = now;
-        dbContext.Entry(snap1).Property<string>("UpdatedAtUtc").CurrentValue = now;
-        dbContext.Entry(snap2).Property<string>("CreatedAtUtc").CurrentValue = now;
-        dbContext.Entry(snap2).Property<string>("UpdatedAtUtc").CurrentValue = now;
-        dbContext.Entry(snap3).Property<string>("CreatedAtUtc").CurrentValue = now;
-        dbContext.Entry(snap3).Property<string>("UpdatedAtUtc").CurrentValue = now;
+        dbContext.Entry(snap1).Property<DateTime>("CreatedAtUtc").CurrentValue = now;
+        dbContext.Entry(snap1).Property<DateTime>("UpdatedAtUtc").CurrentValue = now;
+        dbContext.Entry(snap2).Property<DateTime>("CreatedAtUtc").CurrentValue = now;
+        dbContext.Entry(snap2).Property<DateTime>("UpdatedAtUtc").CurrentValue = now;
+        dbContext.Entry(snap3).Property<DateTime>("CreatedAtUtc").CurrentValue = now;
+        dbContext.Entry(snap3).Property<DateTime>("UpdatedAtUtc").CurrentValue = now;
 
         await dbContext.SaveChangesAsync();
 
@@ -292,7 +292,6 @@ public class FlatAggregationRepositoryTests
 
         result.Select(x => (x.District, x.RoomsCount)).Should().ContainInOrder(
             ("Innenstadt", 2), ("Innenstadt", 3), ("Zentrum", 3));
-        result.Should().OnlyContain(x => x.PostalCode == null && x.Availability == null);
         result.Should().NotContain(x => x.Count == 99);
     }
 

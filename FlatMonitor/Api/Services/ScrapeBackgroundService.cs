@@ -66,7 +66,7 @@ public class ScrapeBackgroundService : BackgroundService
             var executionService = scope.ServiceProvider.GetRequiredService<ScrapeExecutionService>();
 
             _logger.LogInformation("Starting scrape job {JobId}", job.JobId);
-            var history = new ScrapingHistory { StartTimeUtc = DateTime.UtcNow, Status = "Running" };
+            var history = new ScrapingHistory { StartTimeUtc = DateTime.UtcNow, Status = ScrapingStatus.Running };
             dbContext.ScrapingHistories.Add(history);
             await dbContext.SaveChangesAsync(jobCt);
 
@@ -86,13 +86,13 @@ public class ScrapeBackgroundService : BackgroundService
                 {
                     _logger.LogInformation("Scrape job {JobId} completed successfully with {FlatsCount} flats",
                         job.JobId, result.TotalFlats);
-                    await CompleteHistoryAsync(dbContext, history, "Successful");
+                    await CompleteHistoryAsync(dbContext, history, ScrapingStatus.Successful);
                 }
                 else
                 {
                     var errorSummary = string.Join("; ", result.Errors);
                     _logger.LogWarning("Scrape job {JobId} completed with errors: {Errors}", job.JobId, errorSummary);
-                    await CompleteHistoryAsync(dbContext, history, "PartialFailed", errorSummary);
+                    await CompleteHistoryAsync(dbContext, history, ScrapingStatus.PartialFailed, errorSummary);
                 }
 
                 finalStatus = ScrapeJobStatus.Completed;
@@ -100,13 +100,13 @@ public class ScrapeBackgroundService : BackgroundService
             catch (OperationCanceledException)
             {
                 _logger.LogWarning("Scrape job {JobId} was canceled", job.JobId);
-                await CompleteHistoryAsync(dbContext, history, "Canceled");
+                await CompleteHistoryAsync(dbContext, history, ScrapingStatus.Canceled);
                 finalStatus = ScrapeJobStatus.Canceled;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Scrape job {JobId} failed", job.JobId);
-                await CompleteHistoryAsync(dbContext, history, "Failed", ex.Message);
+                await CompleteHistoryAsync(dbContext, history, ScrapingStatus.Failed, ex.Message);
             }
         }
         finally
@@ -120,7 +120,7 @@ public class ScrapeBackgroundService : BackgroundService
     /// context, so flats or aggregations from an interrupted write may still be tracked: drop them first,
     /// then Update re-attaches the history entity.
     /// </summary>
-    private static async Task CompleteHistoryAsync(FlatsDbContext dbContext, ScrapingHistory history, string status, string? errorMessage = null)
+    private static async Task CompleteHistoryAsync(FlatsDbContext dbContext, ScrapingHistory history, ScrapingStatus status, string? errorMessage = null)
     {
         dbContext.ChangeTracker.Clear();
         history.EndTimeUtc = DateTime.UtcNow;

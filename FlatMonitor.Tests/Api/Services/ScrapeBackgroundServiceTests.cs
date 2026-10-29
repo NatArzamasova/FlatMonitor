@@ -56,7 +56,7 @@ public class ScrapeBackgroundServiceTests
         job.Status.Should().Be(ScrapeJobStatus.Completed);
         await using var dbContext = CreateDbContext();
         var history = await dbContext.ScrapingHistories.SingleAsync();
-        history.Status.Should().Be("Successful");
+        history.Status.Should().Be(ScrapingStatus.Successful);
         history.FlatsScrapedCount.Should().Be(2);
         history.EndTimeUtc.Should().NotBeNull();
         (await dbContext.FlatsSnapshots.Select(s => s.ListingId).ToListAsync()).Should().BeEquivalentTo("1", "2");
@@ -74,7 +74,7 @@ public class ScrapeBackgroundServiceTests
         job.Status.Should().Be(ScrapeJobStatus.Completed);
         await using var dbContext = CreateDbContext();
         var history = await dbContext.ScrapingHistories.SingleAsync();
-        history.Status.Should().Be("PartialFailed");
+        history.Status.Should().Be(ScrapingStatus.PartialFailed);
         history.ErrorMessage.Should().Be("ImmobilienScout24: Login failed");
     }
 
@@ -94,7 +94,7 @@ public class ScrapeBackgroundServiceTests
         // Assert
         job.Status.Should().Be(ScrapeJobStatus.Canceled);
         await using var dbContext = CreateDbContext();
-        (await dbContext.ScrapingHistories.SingleAsync()).Status.Should().Be("Canceled");
+        (await dbContext.ScrapingHistories.SingleAsync()).Status.Should().Be(ScrapingStatus.Canceled);
         (await dbContext.FlatsSnapshots.SingleAsync()).ListingId.Should().Be("existing");
     }
 
@@ -110,7 +110,7 @@ public class ScrapeBackgroundServiceTests
         job.Status.Should().Be(ScrapeJobStatus.Failed);
         await using var dbContext = CreateDbContext();
         var history = await dbContext.ScrapingHistories.SingleAsync();
-        history.Status.Should().Be("Failed");
+        history.Status.Should().Be(ScrapingStatus.Failed);
         history.ErrorMessage.Should().Be(InterruptedAggregationRepository.ErrorMessage);
         (await dbContext.FlatAggregations.CountAsync()).Should().Be(0);
         (await dbContext.FlatsSnapshots.SingleAsync()).ListingId.Should().Be("existing");

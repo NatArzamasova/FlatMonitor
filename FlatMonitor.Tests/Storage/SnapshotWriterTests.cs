@@ -35,10 +35,11 @@ public class SnapshotWriterTests
         {
             new()
             {
+                Source = "OhneMakler",
                 ListingId = "1",
                 Url = "/immobilie/1/",
                 Title = "Test Listing",
-                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                ScrapedAtUtc = DateTime.UtcNow,
             }
         };
 
@@ -58,10 +59,11 @@ public class SnapshotWriterTests
         {
             new()
             {
+                Source = "OhneMakler",
                 ListingId = "1",
                 Url = "/immobilie/1/",
                 Title = "Test Listing",
-                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                ScrapedAtUtc = DateTime.UtcNow,
             }
         };
 
@@ -86,17 +88,19 @@ public class SnapshotWriterTests
         {
             new()
             {
+                Source = "OhneMakler",
                 ListingId = "1",
                 Url = "/immobilie/1/",
                 Title = "Listing 1",
-                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                ScrapedAtUtc = DateTime.UtcNow,
             },
             new()
             {
+                Source = "OhneMakler",
                 ListingId = "2",
                 Url = "/immobilie/2/",
                 Title = "Listing 2",
-                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                ScrapedAtUtc = DateTime.UtcNow,
             }
         };
 
@@ -123,12 +127,13 @@ public class SnapshotWriterTests
         {
             new()
             {
+                Source = "OhneMakler",
                 ListingId = "1",
                 Url = "/immobilie/1/",
                 Title = "Test",
                 PriceEur = 100000,
                 RoomsCount = 3,
-                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                ScrapedAtUtc = DateTime.UtcNow,
             }
         };
 
@@ -152,13 +157,14 @@ public class SnapshotWriterTests
         {
             new()
             {
+                Source = "OhneMakler",
                 ListingId = "1",
                 Url = "/immobilie/1/",
                 Title = null,
                 Address = null,
                 PriceEur = null,
                 Details = null,
-                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                ScrapedAtUtc = DateTime.UtcNow,
             }
         };
 
@@ -181,10 +187,11 @@ public class SnapshotWriterTests
         {
             new()
             {
+                Source = "OhneMakler",
                 ListingId = "1",
                 Url = "/immobilie/1/",
                 Title = "Test",
-                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                ScrapedAtUtc = DateTime.UtcNow,
                 Details = new FlatDetails
                 {
                     PropertyType = "Wohnung",
@@ -214,10 +221,11 @@ public class SnapshotWriterTests
         {
             new()
             {
+                Source = "OhneMakler",
                 ListingId = "1",
                 Url = "/immobilie/1/",
                 Title = "Test",
-                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                ScrapedAtUtc = DateTime.UtcNow,
             }
         };
 
@@ -255,10 +263,11 @@ public class SnapshotWriterTests
         {
             new()
             {
+                Source = "OhneMakler",
                 ListingId = "1",
                 Url = "/immobilie/1/",
                 Title = "Test",
-                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                ScrapedAtUtc = DateTime.UtcNow,
             }
         };
 
@@ -281,10 +290,11 @@ public class SnapshotWriterTests
         {
             new()
             {
+                Source = "OhneMakler",
                 ListingId = "1",
                 Url = "/immobilie/1/",
                 Title = "Test",
-                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+                ScrapedAtUtc = DateTime.UtcNow,
             }
         };
 

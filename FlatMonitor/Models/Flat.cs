@@ -11,15 +11,20 @@ public sealed record Flat
     public string? District { get; init; }
     public int? PriceEur { get; init; }
     public int? OriginalPriceEur { get; init; }
-    public int? PricePerMeter { get; init; }
     public double? RoomsCount { get; init; }
     public double? LivingAreaSqm { get; init; }
     public double? CommissionPercent { get; init; }
     public FlatDetails? Details { get; init; }
-    public required string ScrapedAtUtc { get; init; }
-    public string Source { get; init; } = "OhneMakler";
+    public required DateTime ScrapedAtUtc { get; init; }
+    public required string Source { get; init; }
     /// <summary>
     /// Optional detail page URL used by some scrapers (e.g., OhneMakler) where detail URL differs from listing URL.
     /// </summary>
     public string? DetailPageUrl { get; init; }
+
+    /// <summary>Price per m² in whole euros; <c>null</c> without a price or a positive living area.</summary>
+    public int? PricePerMeter =>
+        PriceEur is { } price && LivingAreaSqm is { } area && area > 0
+            ? (int)Math.Round(price / area)
+            : null;
 }

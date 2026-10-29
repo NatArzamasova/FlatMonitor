@@ -18,7 +18,7 @@ public sealed class ScrapingHistoryRepository : IScrapingHistoryRepository
 
         var latestSuccessful = await _dbContext.ScrapingHistories
             .AsNoTracking()
-            .Where(h => h.Status == "Successful")
+            .Where(h => h.Status == ScrapingStatus.Successful)
             .OrderByDescending(h => h.StartTimeUtc)
             .FirstOrDefaultAsync(cancellationToken);
 

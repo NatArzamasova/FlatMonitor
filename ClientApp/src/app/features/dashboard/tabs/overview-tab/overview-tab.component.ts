@@ -139,8 +139,6 @@ export class OverviewTabComponent implements OnInit {
   private aggregate(data: FlatAggregation[]): FlatAggregation[] {
     const byDistrict = this.groupByDistrict;
     const byRooms = this.groupByRooms;
-    // A group keeps its first row's postal code / availability; the all-in-one row has none.
-    const keepDetails = byDistrict || byRooms;
 
     const groups = groupWeighted(
       data,
@@ -149,9 +147,7 @@ export class OverviewTabComponent implements OnInit {
         district: byDistrict ? item.district : undefined,
         roomsCount: byRooms ? item.roomsCount : undefined,
         count: 0,
-        avgPricePerMeter: 0,
-        postalCode: keepDetails ? item.postalCode : undefined,
-        availability: keepDetails ? item.availability : undefined
+        avgPricePerMeter: 0
       })
     );
     const rows = Array.from(groups.values());

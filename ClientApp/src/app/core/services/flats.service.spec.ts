@@ -32,10 +32,8 @@ describe('FlatsService', () => {
         success: true,
         data: [
           {
-            postalCode: '10115',
             district: 'Mitte',
             roomsCount: 2,
-            availability: '2024-01-15',
             count: 5,
             avgPricePerMeter: 12.50
           }

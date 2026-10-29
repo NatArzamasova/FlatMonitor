@@ -72,6 +72,7 @@ public class SnapshotLoaderTests
         // Arrange
         var listing1 = new Flat
         {
+            Source = "OhneMakler",
             ListingId = "1",
             Url = "/immobilie/1/",
             Title = "Test Listing 1",
@@ -81,11 +82,12 @@ public class SnapshotLoaderTests
             PriceEur = 500000,
             RoomsCount = 3,
             LivingAreaSqm = 85,
-            ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+            ScrapedAtUtc = DateTime.UtcNow,
         };
 
         var listing2 = new Flat
         {
+            Source = "OhneMakler",
             ListingId = "2",
             Url = "/immobilie/2/",
             Title = "Test Listing 2",
@@ -95,7 +97,7 @@ public class SnapshotLoaderTests
             PriceEur = 600000,
             RoomsCount = 4,
             LivingAreaSqm = 100,
-            ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+            ScrapedAtUtc = DateTime.UtcNow,
         };
 
         var sourceDir = Path.Combine(_snapshotsDir, "OhneMakler");
@@ -127,18 +129,20 @@ public class SnapshotLoaderTests
         // Arrange
         var listing1 = new Flat
         {
+            Source = "OhneMakler",
             ListingId = "1",
             Url = "/immobilie/1/",
             Title = "From File 1",
-            ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+            ScrapedAtUtc = DateTime.UtcNow,
         };
 
         var listing2 = new Flat
         {
+            Source = "OhneMakler",
             ListingId = "2",
             Url = "/immobilie/2/",
             Title = "From File 2",
-            ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+            ScrapedAtUtc = DateTime.UtcNow,
         };
 
         var sourceDir = Path.Combine(_snapshotsDir, "OhneMakler");
@@ -166,10 +170,11 @@ public class SnapshotLoaderTests
         // Arrange
         var validListing = new Flat
         {
+            Source = "OhneMakler",
             ListingId = "1",
             Url = "/immobilie/1/",
             Title = "Valid",
-            ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+            ScrapedAtUtc = DateTime.UtcNow,
         };
 
         var sourceDir = Path.Combine(_snapshotsDir, "OhneMakler");
@@ -200,13 +205,14 @@ public class SnapshotLoaderTests
         // Arrange
         var listing = new Flat
         {
+            Source = "OhneMakler",
             ListingId = "1",
             Url = "/immobilie/1/",
             Title = null,
             Address = null,
             PriceEur = null,
             Details = null,
-            ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+            ScrapedAtUtc = DateTime.UtcNow,
         };
 
         var sourceDir = Path.Combine(_snapshotsDir, "OhneMakler");
@@ -233,10 +239,11 @@ public class SnapshotLoaderTests
         // Arrange
         var listing = new Flat
         {
+            Source = "OhneMakler",
             ListingId = "1",
             Url = "/immobilie/1/",
             Title = "Test",
-            ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+            ScrapedAtUtc = DateTime.UtcNow,
             Details = new FlatDetails
             {
                 PropertyType = "Wohnung",
@@ -273,18 +280,20 @@ public class SnapshotLoaderTests
         // Arrange
         var listing1 = new Flat
         {
+            Source = "OhneMakler",
             ListingId = "1",
             Url = "/immobilie/1/",
             Title = "From OhneMakler",
-            ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+            ScrapedAtUtc = DateTime.UtcNow,
         };
 
         var listing2 = new Flat
         {
+            Source = "OhneMakler",
             ListingId = "2",
             Url = "/property/2",
             Title = "From ImmobilienScout24",
-            ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+            ScrapedAtUtc = DateTime.UtcNow,
         };
 
         var ohneDir = Path.Combine(_snapshotsDir, "OhneMakler");

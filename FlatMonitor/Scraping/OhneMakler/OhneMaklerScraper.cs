@@ -142,6 +142,8 @@ public sealed class OhneMaklerScraper : FlatScraper
                 RoomsCount = rooms ?? baseListing.RoomsCount,
                 LivingAreaSqm = area ?? baseListing.LivingAreaSqm,
                 Details = details,
+                // ohne-makler.net lists flats without an estate agent, so there is no commission
+                CommissionPercent = 0,
                 Source = SourceName,
             };
         }

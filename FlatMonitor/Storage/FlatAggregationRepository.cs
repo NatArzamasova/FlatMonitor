@@ -64,10 +64,8 @@ public sealed class FlatAggregationRepository : IFlatAggregationRepository
             .ThenBy(a => a.RoomsCount)
             .Select(a => new FlatAggregation
             {
-                PostalCode = null,
                 District = a.District,
                 RoomsCount = a.RoomsCount,
-                Availability = null,
                 Count = a.Count,
                 AvgPricePerMeter = a.AvgPricePerMeter
             })
