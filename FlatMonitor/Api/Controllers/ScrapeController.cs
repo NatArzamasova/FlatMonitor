@@ -10,20 +10,28 @@ using Microsoft.AspNetCore.Mvc;
 public class ScrapeController : ControllerBase
 {
     private readonly ScrapeJobService _jobService;
-    private readonly ScrapeBackgroundService _backgroundService;
     private readonly IScrapingHistoryRepository _historyRepository;
 
-    public ScrapeController(ScrapeJobService jobService, ScrapeBackgroundService backgroundService, IScrapingHistoryRepository historyRepository)
+    public ScrapeController(ScrapeJobService jobService, IScrapingHistoryRepository historyRepository)
     {
         _jobService = jobService;
-        _backgroundService = backgroundService;
         _historyRepository = historyRepository;
     }
 
+    /// <summary>Queues a scrape; 409 Conflict while another one is queued or running.</summary>
     [HttpPost]
     public ActionResult<ScrapeResponse> TriggerScrapeAsync()
     {
-        var job = _jobService.QueueJob();
+        if (!_jobService.TryQueueJob(out var job))
+        {
+            return Conflict(new ScrapeResponse
+            {
+                Success = false,
+                Message = "A scrape is already queued or running",
+                ScrapedAtUtc = DateTime.UtcNow,
+            });
+        }
+
         return Accepted($"api/scrape/status/{job.JobId}", new ScrapeResponse
         {
             Success = true,
@@ -70,7 +78,9 @@ public class ScrapeController : ControllerBase
     [HttpPost("cancel")]
     public ActionResult CancelScrape()
     {
-        _backgroundService.CancelCurrentJob();
-        return Ok(new { message = "Scrape cancellation requested" });
+        var message = _jobService.CancelCurrentJob()
+            ? "Scrape cancellation requested"
+            : "No scrape is queued or running";
+        return Ok(new { message });
     }
 }

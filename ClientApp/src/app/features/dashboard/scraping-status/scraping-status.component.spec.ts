@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of, Subject, throwError } from 'rxjs';
 import { ScrapingStatusComponent } from './scraping-status.component';
@@ -199,6 +200,20 @@ describe('ScrapingStatusComponent', () => {
 
       expect(component.error).toBe('Scrape error: Network error');
       expect(component.scraping).toBe(false);
+    });
+
+    it('shows the API message and stays in scraping state when a scrape is already running (409)', () => {
+      const conflict = new HttpErrorResponse({
+        status: 409,
+        statusText: 'Conflict',
+        error: { success: false, message: 'A scrape is already queued or running' }
+      });
+      scrapeStatus.triggerScrape.and.returnValue(throwError(() => conflict));
+
+      component.triggerScrape();
+
+      expect(component.error).toBe('A scrape is already queued or running');
+      expect(component.scraping).toBe(true);
     });
 
     it('clears a previous error', () => {

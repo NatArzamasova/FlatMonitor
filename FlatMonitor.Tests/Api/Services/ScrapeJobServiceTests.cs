@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using FluentAssertions;
 using FlatMonitor.Api.Services;
+using static FlatMonitor.Api.Services.ScrapeJobService;
 
 namespace FlatMonitor.Tests.Api.Services;
 
@@ -15,163 +16,178 @@ public class ScrapeJobServiceTests
         _jobService = new ScrapeJobService();
     }
 
-    [Test]
-    public void QueueJob_ReturnsJobWithStatusQueued()
+    private ScrapeJob QueueJob()
     {
-        var job = _jobService.QueueJob();
+        _jobService.TryQueueJob(out var job).Should().BeTrue();
+        return job!;
+    }
 
-        job.Status.Should().Be(ScrapeJobService.ScrapeJobStatus.Queued);
+    /// <summary>Queues, dequeues, starts and finishes one job, as the background service does.</summary>
+    private async Task<ScrapeJob> RunJobAsync(ScrapeJobStatus finalStatus = ScrapeJobStatus.Completed)
+    {
+        QueueJob();
+        var job = await _jobService.DequeueAsync(CancellationToken.None);
+        _jobService.StartJob(job, CancellationToken.None);
+        _jobService.FinishJob(job.JobId, finalStatus);
+        return job;
+    }
+
+    [Test]
+    public void TryQueueJob_ReturnsJobWithStatusQueued()
+    {
+        var job = QueueJob();
+
+        job.Status.Should().Be(ScrapeJobStatus.Queued);
         job.JobId.Should().NotBeEmpty();
         job.CreatedAtUtc.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
+        _jobService.IsScrapingInProgress().Should().BeTrue();
     }
 
     [Test]
-    public void QueueJob_AssignsSequentialIds()
+    public void TryQueueJob_WhileAJobIsQueued_IsRefused()
     {
-        var job1 = _jobService.QueueJob();
-        var job2 = _jobService.QueueJob();
-        var job3 = _jobService.QueueJob();
+        QueueJob();
 
-        job1.Id.Should().Be(1);
-        job2.Id.Should().Be(2);
-        job3.Id.Should().Be(3);
+        _jobService.TryQueueJob(out var second).Should().BeFalse();
+        second.Should().BeNull();
     }
 
     [Test]
-    public void QueueJob_EachJobHasUniqueGuid()
+    public async Task TryQueueJob_WhileAJobIsRunning_IsRefused()
     {
-        var job1 = _jobService.QueueJob();
-        var job2 = _jobService.QueueJob();
+        QueueJob();
+        var job = await _jobService.DequeueAsync(CancellationToken.None);
+        _jobService.StartJob(job, CancellationToken.None);
 
-        job1.JobId.Should().NotBe(job2.JobId);
+        _jobService.TryQueueJob(out _).Should().BeFalse();
     }
 
     [Test]
-    public void TryDequeueJob_ReturnsFirstQueuedJob()
+    public async Task TryQueueJob_AfterTheJobFinished_AssignsTheNextIdAndAUniqueGuid()
     {
-        var job1 = _jobService.QueueJob();
-        var job2 = _jobService.QueueJob();
+        var first = await RunJobAsync();
 
-        var success = _jobService.TryDequeueJob(out var dequeuedJob);
+        var second = QueueJob();
 
-        success.Should().BeTrue();
-        dequeuedJob.Should().NotBeNull();
-        dequeuedJob!.JobId.Should().Be(job1.JobId);
+        second.Id.Should().Be(first.Id + 1);
+        second.JobId.Should().NotBe(first.JobId);
     }
 
     [Test]
-    public void TryDequeueJob_WhenEmpty_ReturnsFalse()
+    public async Task DequeueAsync_ReturnsTheQueuedJob()
     {
-        var success = _jobService.TryDequeueJob(out var job);
+        var queued = QueueJob();
 
-        success.Should().BeFalse();
-        job.Should().BeNull();
+        var dequeued = await _jobService.DequeueAsync(CancellationToken.None);
+
+        dequeued.JobId.Should().Be(queued.JobId);
     }
 
     [Test]
-    public void TryDequeueJob_RemovesJobFromQueue()
+    public async Task DequeueAsync_WaitsUntilAJobIsQueued()
     {
-        _jobService.QueueJob();
-        _jobService.TryDequeueJob(out _);
+        var dequeue = _jobService.DequeueAsync(CancellationToken.None).AsTask();
+        dequeue.IsCompleted.Should().BeFalse();
 
-        _jobService.QueuedJobCount.Should().Be(0);
+        var queued = QueueJob();
+
+        (await dequeue.WaitAsync(TimeSpan.FromSeconds(5))).JobId.Should().Be(queued.JobId);
     }
 
     [Test]
-    public void TryDequeueJob_MultipleJobs_DequeuesInOrder()
+    public async Task DequeueAsync_WhenStopping_ThrowsOperationCanceled()
     {
-        var job1 = _jobService.QueueJob();
-        var job2 = _jobService.QueueJob();
-        var job3 = _jobService.QueueJob();
+        using var cts = new CancellationTokenSource();
+        var dequeue = _jobService.DequeueAsync(cts.Token).AsTask();
 
-        _jobService.TryDequeueJob(out var dequeued1);
-        _jobService.TryDequeueJob(out var dequeued2);
-        _jobService.TryDequeueJob(out var dequeued3);
+        cts.Cancel();
 
-        dequeued1!.JobId.Should().Be(job1.JobId);
-        dequeued2!.JobId.Should().Be(job2.JobId);
-        dequeued3!.JobId.Should().Be(job3.JobId);
+        await dequeue.Invoking(t => t).Should().ThrowAsync<OperationCanceledException>();
     }
 
     [Test]
-    public void GetJobStatus_ReturnsJobByGuid()
+    public async Task StartJob_MarksJobRunning()
     {
-        var job = _jobService.QueueJob();
+        var job = QueueJob();
+        await _jobService.DequeueAsync(CancellationToken.None);
 
-        var retrievedJob = _jobService.GetJobStatus(job.JobId);
+        var token = _jobService.StartJob(job, CancellationToken.None);
 
-        retrievedJob.Should().NotBeNull();
-        retrievedJob!.JobId.Should().Be(job.JobId);
+        token.Should().NotBeNull();
+        _jobService.GetJobStatus(job.JobId)!.Status.Should().Be(ScrapeJobStatus.Running);
+    }
+
+    [Test]
+    public async Task FinishJob_SetsFinalStatus_AndIsNoLongerInProgress()
+    {
+        var job = await RunJobAsync(ScrapeJobStatus.Failed);
+
+        _jobService.GetJobStatus(job.JobId)!.Status.Should().Be(ScrapeJobStatus.Failed);
+        _jobService.IsScrapingInProgress().Should().BeFalse();
+    }
+
+    [Test]
+    public async Task CancelCurrentJob_CancelsTheRunningJobsToken()
+    {
+        var job = QueueJob();
+        await _jobService.DequeueAsync(CancellationToken.None);
+        var token = _jobService.StartJob(job, CancellationToken.None)!.Value;
+
+        _jobService.CancelCurrentJob().Should().BeTrue();
+
+        token.IsCancellationRequested.Should().BeTrue();
+    }
+
+    [Test]
+    public async Task CancelCurrentJob_BeforeTheJobStarted_MarksItCanceledAndStartJobSkipsIt()
+    {
+        var job = QueueJob();
+
+        _jobService.CancelCurrentJob().Should().BeTrue();
+
+        _jobService.GetJobStatus(job.JobId)!.Status.Should().Be(ScrapeJobStatus.Canceled);
+        _jobService.IsScrapingInProgress().Should().BeFalse();
+        var dequeued = await _jobService.DequeueAsync(CancellationToken.None);
+        _jobService.StartJob(dequeued, CancellationToken.None).Should().BeNull();
+    }
+
+    [Test]
+    public void CancelCurrentJob_WithoutJob_ReturnsFalse()
+    {
+        _jobService.CancelCurrentJob().Should().BeFalse();
+    }
+
+    [Test]
+    public async Task StoppingTheHost_CancelsTheRunningJob()
+    {
+        using var stopping = new CancellationTokenSource();
+        var job = QueueJob();
+        await _jobService.DequeueAsync(CancellationToken.None);
+        var token = _jobService.StartJob(job, stopping.Token)!.Value;
+
+        stopping.Cancel();
+
+        token.IsCancellationRequested.Should().BeTrue();
     }
 
     [Test]
     public void GetJobStatus_NonExistentJob_ReturnsNull()
     {
-        var retrievedJob = _jobService.GetJobStatus(Guid.NewGuid());
-
-        retrievedJob.Should().BeNull();
+        _jobService.GetJobStatus(Guid.NewGuid()).Should().BeNull();
     }
 
     [Test]
-    public void UpdateJobStatus_ChangesJobStatus()
+    public async Task FinishedJobs_KeepsOnlyTheMostRecent()
     {
-        var job = _jobService.QueueJob();
+        var jobs = new List<ScrapeJob>();
+        for (var i = 0; i < MaxTrackedJobs + 5; i++)
+            jobs.Add(await RunJobAsync());
 
-        _jobService.UpdateJobStatus(job.JobId, ScrapeJobService.ScrapeJobStatus.Running);
-        var updatedJob = _jobService.GetJobStatus(job.JobId);
+        var current = QueueJob();
 
-        updatedJob!.Status.Should().Be(ScrapeJobService.ScrapeJobStatus.Running);
-    }
-
-    [Test]
-    public void UpdateJobStatus_CanUpdateToMultipleStatuses()
-    {
-        var job = _jobService.QueueJob();
-
-        _jobService.UpdateJobStatus(job.JobId, ScrapeJobService.ScrapeJobStatus.Running);
-        var runningJob = _jobService.GetJobStatus(job.JobId);
-        runningJob!.Status.Should().Be(ScrapeJobService.ScrapeJobStatus.Running);
-
-        _jobService.UpdateJobStatus(job.JobId, ScrapeJobService.ScrapeJobStatus.Completed);
-        var completedJob = _jobService.GetJobStatus(job.JobId);
-        completedJob!.Status.Should().Be(ScrapeJobService.ScrapeJobStatus.Completed);
-    }
-
-    [Test]
-    public void UpdateJobStatus_NonExistentJob_DoesNotThrow()
-    {
-        var nonExistentJobId = Guid.NewGuid();
-
-        var action = () => _jobService.UpdateJobStatus(nonExistentJobId, ScrapeJobService.ScrapeJobStatus.Running);
-
-        action.Should().NotThrow();
-    }
-
-    [Test]
-    public void QueuedJobCount_ReflectsQueueSize()
-    {
-        _jobService.QueuedJobCount.Should().Be(0);
-
-        _jobService.QueueJob();
-        _jobService.QueuedJobCount.Should().Be(1);
-
-        _jobService.QueueJob();
-        _jobService.QueuedJobCount.Should().Be(2);
-
-        _jobService.TryDequeueJob(out _);
-        _jobService.QueuedJobCount.Should().Be(1);
-    }
-
-    [Test]
-    public void QueueJob_JobStaysInTrackerAfterDequeue()
-    {
-        var job = _jobService.QueueJob();
-        var jobId = job.JobId;
-
-        _jobService.TryDequeueJob(out _);
-
-        var trackedJob = _jobService.GetJobStatus(jobId);
-        trackedJob.Should().NotBeNull();
-        trackedJob!.JobId.Should().Be(jobId);
+        _jobService.GetJobStatus(jobs[0].JobId).Should().BeNull();
+        _jobService.GetJobStatus(jobs[^1].JobId).Should().NotBeNull();
+        _jobService.GetJobStatus(current.JobId).Should().NotBeNull();
+        jobs.Count(j => _jobService.GetJobStatus(j.JobId) != null).Should().Be(MaxTrackedJobs - 1);
     }
 }

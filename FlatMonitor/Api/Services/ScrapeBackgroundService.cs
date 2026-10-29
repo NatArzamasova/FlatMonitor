@@ -6,25 +6,22 @@ using FlatMonitor.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using static FlatMonitor.Api.Services.ScrapeJobService;
 
+/// <summary>Runs queued scrape jobs one at a time and records each run in ScrapingHistories.</summary>
 public class ScrapeBackgroundService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ScrapeJobService _jobService;
-    private readonly ScrapeStateService _stateService;
     private readonly ILogger<ScrapeBackgroundService> _logger;
-    private CancellationTokenSource? _currentJobCts;
-    private Guid? _currentJobId;
 
     public ScrapeBackgroundService(
         IServiceScopeFactory scopeFactory,
         ScrapeJobService jobService,
-        ScrapeStateService stateService,
         ILogger<ScrapeBackgroundService> logger)
     {
         _scopeFactory = scopeFactory;
         _jobService = jobService;
-        _stateService = stateService;
         _logger = logger;
     }
 
@@ -32,152 +29,104 @@ public class ScrapeBackgroundService : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
+            ScrapeJob job;
             try
             {
-                if (_jobService.TryDequeueJob(out var job))
-                {
-                    await ProcessJobAsync(job, stoppingToken);
-                }
-                else
-                {
-                    await Task.Delay(1000, stoppingToken);
-                }
+                job = await _jobService.DequeueAsync(stoppingToken);
             }
             catch (OperationCanceledException)
             {
                 break;
             }
+
+            try
+            {
+                await ProcessJobAsync(job, stoppingToken);
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Unexpected error in ScrapeBackgroundService");
-                await Task.Delay(1000, stoppingToken);
             }
         }
     }
 
-    private async Task ProcessJobAsync(ScrapeJobService.ScrapeJob job, CancellationToken stoppingToken)
+    private async Task ProcessJobAsync(ScrapeJob job, CancellationToken stoppingToken)
     {
-        if (job == null) return;
-
-        _currentJobId = job.JobId;
-        _currentJobCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-        var jobCt = _currentJobCts.Token;
-
-        _jobService.UpdateJobStatus(job.JobId, ScrapeJobService.ScrapeJobStatus.Running);
-
-        await using var scope = _scopeFactory.CreateAsyncScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<FlatsDbContext>();
-        var snapshotRepo = scope.ServiceProvider.GetRequiredService<ISnapshotRepository>();
-        var executionService = scope.ServiceProvider.GetRequiredService<ScrapeExecutionService>();
-
-        var startTime = DateTime.UtcNow;
-        var history = new ScrapingHistory
+        if (_jobService.StartJob(job, stoppingToken) is not { } jobCt)
         {
-            StartTimeUtc = startTime,
-            Status = "Running"
-        };
+            _logger.LogInformation("Scrape job {JobId} was canceled before it started", job.JobId);
+            return;
+        }
 
+        var finalStatus = ScrapeJobStatus.Failed;
         try
         {
-            _logger.LogInformation("Starting scrape job {JobId}", job.JobId);
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<FlatsDbContext>();
+            var executionService = scope.ServiceProvider.GetRequiredService<ScrapeExecutionService>();
 
+            _logger.LogInformation("Starting scrape job {JobId}", job.JobId);
+            var history = new ScrapingHistory { StartTimeUtc = DateTime.UtcNow, Status = "Running" };
             dbContext.ScrapingHistories.Add(history);
             await dbContext.SaveChangesAsync(jobCt);
 
-            var result = await executionService.ExecuteAsync(async (batchCount) =>
-            {
-                history.FlatsScrapedCount += batchCount;
-                dbContext.ScrapingHistories.Update(history);
-                await dbContext.SaveChangesAsync(jobCt);
-                _logger.LogInformation("Job {JobId}: Batch saved: +{BatchCount} flats. Total: {Total}",
-                    job.JobId, batchCount, history.FlatsScrapedCount);
-            }, jobCt);
-
-            var endTime = DateTime.UtcNow;
-            history.EndTimeUtc = endTime;
-
-            if (result.Success)
-            {
-                history.Status = "Successful";
-                _logger.LogInformation("Scrape job {JobId} completed successfully with {FlatsCount} flats",
-                    job.JobId, result.TotalFlats);
-            }
-            else
-            {
-                history.Status = "PartialFailed";
-                var errorSummary = string.Join("; ", result.Errors);
-                history.ErrorMessage = errorSummary;
-                _logger.LogWarning("Scrape job {JobId} completed with errors: {Errors}", job.JobId, errorSummary);
-            }
-
-            dbContext.ScrapingHistories.Update(history);
-            await dbContext.SaveChangesAsync(jobCt);
-
-            _jobService.UpdateJobStatus(job.JobId, ScrapeJobService.ScrapeJobStatus.Completed);
-        }
-        catch (OperationCanceledException)
-        {
-            var endTime = DateTime.UtcNow;
-            history.EndTimeUtc = endTime;
-            history.Status = "Canceled";
-            DiscardPendingChanges(dbContext);
-            dbContext.ScrapingHistories.Update(history);
-            await dbContext.SaveChangesAsync(CancellationToken.None);
-
-            _logger.LogWarning("Scrape job {JobId} was canceled, restoring from backup", job.JobId);
             try
             {
-                await snapshotRepo.RestoreFlatsSnapshotsAsync(CancellationToken.None);
-            }
-            catch (Exception restoreEx)
-            {
-                _logger.LogError(restoreEx, "Failed to restore backup for job {JobId}", job.JobId);
-            }
+                // ExecuteAsync restores the backup itself if it throws
+                var result = await executionService.ExecuteAsync(async batchCount =>
+                {
+                    history.FlatsScrapedCount += batchCount;
+                    dbContext.ScrapingHistories.Update(history);
+                    await dbContext.SaveChangesAsync(jobCt);
+                    _logger.LogInformation("Job {JobId}: Batch saved: +{BatchCount} flats. Total: {Total}",
+                        job.JobId, batchCount, history.FlatsScrapedCount);
+                }, jobCt);
 
-            _jobService.UpdateJobStatus(job.JobId, ScrapeJobService.ScrapeJobStatus.Canceled);
-        }
-        catch (Exception ex)
-        {
-            var endTime = DateTime.UtcNow;
-            history.EndTimeUtc = endTime;
-            history.Status = "Failed";
-            history.ErrorMessage = ex.Message;
-            DiscardPendingChanges(dbContext);
-            dbContext.ScrapingHistories.Update(history);
-            await dbContext.SaveChangesAsync(CancellationToken.None);
+                if (result.Success)
+                {
+                    _logger.LogInformation("Scrape job {JobId} completed successfully with {FlatsCount} flats",
+                        job.JobId, result.TotalFlats);
+                    await CompleteHistoryAsync(dbContext, history, "Successful");
+                }
+                else
+                {
+                    var errorSummary = string.Join("; ", result.Errors);
+                    _logger.LogWarning("Scrape job {JobId} completed with errors: {Errors}", job.JobId, errorSummary);
+                    await CompleteHistoryAsync(dbContext, history, "PartialFailed", errorSummary);
+                }
 
-            _logger.LogError(ex, "Scrape job {JobId} failed, restoring from backup", job.JobId);
-            try
-            {
-                await snapshotRepo.RestoreFlatsSnapshotsAsync(CancellationToken.None);
+                finalStatus = ScrapeJobStatus.Completed;
             }
-            catch (Exception restoreEx)
+            catch (OperationCanceledException)
             {
-                _logger.LogError(restoreEx, "Failed to restore backup for job {JobId}", job.JobId);
+                _logger.LogWarning("Scrape job {JobId} was canceled", job.JobId);
+                await CompleteHistoryAsync(dbContext, history, "Canceled");
+                finalStatus = ScrapeJobStatus.Canceled;
             }
-
-            _jobService.UpdateJobStatus(job.JobId, ScrapeJobService.ScrapeJobStatus.Failed);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Scrape job {JobId} failed", job.JobId);
+                await CompleteHistoryAsync(dbContext, history, "Failed", ex.Message);
+            }
         }
         finally
         {
-            _currentJobCts?.Dispose();
-            _currentJobCts = null;
-            _currentJobId = null;
+            _jobService.FinishJob(job.JobId, finalStatus);
         }
     }
 
     /// <summary>
-    /// The repositories share this scoped context. Flats from an interrupted upsert are still tracked,
-    /// so drop them before saving the history row; Update re-attaches the history entity.
+    /// Saves the history row's end state, even if the job was canceled. The repositories share this scoped
+    /// context, so flats or aggregations from an interrupted write may still be tracked: drop them first,
+    /// then Update re-attaches the history entity.
     /// </summary>
-    private static void DiscardPendingChanges(FlatsDbContext dbContext) => dbContext.ChangeTracker.Clear();
-
-    public void CancelCurrentJob()
+    private static async Task CompleteHistoryAsync(FlatsDbContext dbContext, ScrapingHistory history, string status, string? errorMessage = null)
     {
-        if (_currentJobCts != null && !_currentJobCts.IsCancellationRequested)
-        {
-            _currentJobCts.Cancel();
-            _logger.LogInformation("Cancellation requested for job {JobId}", _currentJobId);
-        }
+        dbContext.ChangeTracker.Clear();
+        history.EndTimeUtc = DateTime.UtcNow;
+        history.Status = status;
+        history.ErrorMessage = errorMessage;
+        dbContext.ScrapingHistories.Update(history);
+        await dbContext.SaveChangesAsync(CancellationToken.None);
     }
 }

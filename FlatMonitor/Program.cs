@@ -58,44 +58,25 @@ async Task<int> RunScrapeAsync()
     {
         await MigrateDatabaseAsync(scope.ServiceProvider);
 
-        var snapshotRepo = scope.ServiceProvider.GetRequiredService<ISnapshotRepository>();
         var executionService = scope.ServiceProvider.GetRequiredService<ScrapeExecutionService>();
 
-        try
-        {
-            // ScrapeExecutionService logs each step (backup, clear, refresh, delete backup) when it happens
-            var result = await executionService.ExecuteAsync();
+        // ScrapeExecutionService logs each step (backup, clear, refresh, delete backup) when it happens,
+        // and restores the backup itself if the scrape throws
+        var result = await executionService.ExecuteAsync();
 
-            if (result.Success)
-            {
-                Console.WriteLine($"✓ Scraping completed. Total flats scraped: {result.TotalFlats}");
-                return 0;
-            }
-            else
-            {
-                Console.Error.WriteLine("⚠ Scraping completed with errors:");
-                foreach (var error in result.Errors)
-                {
-                    Console.Error.WriteLine($"  - {error}");
-                }
-                Console.WriteLine($"✓ Partially scraped: {result.TotalFlats} flats collected (with errors)");
-                return 1;
-            }
-        }
-        catch (Exception ex)
+        if (result.Success)
         {
-            Console.Error.WriteLine($"Scrape failed, restoring from backup: {ex.Message}");
-            try
-            {
-                await snapshotRepo.RestoreFlatsSnapshotsAsync();
-                Console.WriteLine("✓ Data restored from backup");
-            }
-            catch (Exception restoreEx)
-            {
-                Console.Error.WriteLine($"Failed to restore backup: {restoreEx.Message}");
-            }
-            throw;
+            Console.WriteLine($"✓ Scraping completed. Total flats scraped: {result.TotalFlats}");
+            return 0;
         }
+
+        Console.Error.WriteLine("⚠ Scraping completed with errors:");
+        foreach (var error in result.Errors)
+        {
+            Console.Error.WriteLine($"  - {error}");
+        }
+        Console.WriteLine($"✓ Partially scraped: {result.TotalFlats} flats collected (with errors)");
+        return 1;
     }
     catch (Exception ex)
     {
@@ -156,10 +137,8 @@ async Task<int> RunWebServerAsync(string[] args)
 
         builder.Services.AddFlatMonitorCore(builder.Configuration, builder.Environment.ContentRootPath);
 
-        builder.Services.AddSingleton<ScrapeStateService>();
         builder.Services.AddSingleton<ScrapeJobService>();
-        builder.Services.AddSingleton<ScrapeBackgroundService>();
-        builder.Services.AddHostedService(sp => sp.GetRequiredService<ScrapeBackgroundService>());
+        builder.Services.AddHostedService<ScrapeBackgroundService>();
 
         builder.Services.AddControllers();
         builder.Services.AddSwaggerGen();

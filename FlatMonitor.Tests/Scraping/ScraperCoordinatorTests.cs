@@ -41,7 +41,7 @@ public class ScraperCoordinatorTests
             Directory.Delete(_testDir, recursive: true);
     }
 
-    private List<Flat> Saved => _savedBatches.SelectMany(b => b).ToList();
+    private List<Flat> Saved => [.. _savedBatches.SelectMany(b => b)];
 
     private ScraperCoordinator CreateCoordinator(params IScraper[] scrapers) =>
         new(scrapers, _mockRepository.Object, _snapshotWriter, _testDir);

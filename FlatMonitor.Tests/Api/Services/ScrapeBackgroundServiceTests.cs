@@ -1,6 +1,6 @@
+using System.Runtime.CompilerServices;
 using NUnit.Framework;
 using FluentAssertions;
-using Moq;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,93 +9,198 @@ using FlatMonitor.Api.Services;
 using FlatMonitor.Models;
 using FlatMonitor.Scraping;
 using FlatMonitor.Storage;
+using FlatMonitor.Tests.Scraping.Common;
+using static FlatMonitor.Api.Services.ScrapeJobService;
 
 namespace FlatMonitor.Tests.Api.Services;
 
+/// <summary>
+/// Runs real scrape jobs through the hosted service, with the production storage classes on in-memory SQLite.
+/// The FlatsSnapshots table starts with one flat ("existing"), so a restored backup is visible.
+/// </summary>
 [TestFixture]
 public class ScrapeBackgroundServiceTests
 {
-    /// <summary>
-    /// Tests that backup/restore methods are available and can be mocked.
-    /// Full integration testing of ScrapeBackgroundService is covered by
-    /// the FlatSnapshotRepositoryTests.BackupRestoreDelete_FullWorkflow_* tests.
-    /// </summary>
+    private SqliteConnection _connection = null!;
+    private string _dataDir = null!;
+    private ScrapeJobService _jobService = null!;
+
+    [SetUp]
+    public async Task Setup()
+    {
+        _connection = new SqliteConnection("Data Source=:memory:");
+        await _connection.OpenAsync();
+        _dataDir = Path.Combine(Path.GetTempPath(), $"ScrapeBackgroundServiceTests_{Guid.NewGuid()}");
+        _jobService = new ScrapeJobService();
+
+        await using var dbContext = CreateDbContext();
+        await dbContext.Database.EnsureCreatedAsync();
+        await new FlatSnapshotRepository(dbContext).UpsertListingsAsync([FakeFlatScraper.CreateFlat("existing")]);
+    }
+
+    [TearDown]
+    public async Task TearDown()
+    {
+        await _connection.DisposeAsync();
+        if (Directory.Exists(_dataDir))
+            Directory.Delete(_dataDir, recursive: true);
+    }
+
     [Test]
-    public async Task BackupRestoreMethods_AreCallable_WithoutError()
+    public async Task ProcessJob_WhenAllSourcesSucceed_SavesSuccessfulHistoryWithFlatCount()
+    {
+        // Act
+        var job = await RunJobAsync(new FakeFlatScraper { Flats = [FakeFlatScraper.CreateFlat("1"), FakeFlatScraper.CreateFlat("2")] });
+
+        // Assert
+        job.Status.Should().Be(ScrapeJobStatus.Completed);
+        await using var dbContext = CreateDbContext();
+        var history = await dbContext.ScrapingHistories.SingleAsync();
+        history.Status.Should().Be("Successful");
+        history.FlatsScrapedCount.Should().Be(2);
+        history.EndTimeUtc.Should().NotBeNull();
+        (await dbContext.FlatsSnapshots.Select(s => s.ListingId).ToListAsync()).Should().BeEquivalentTo("1", "2");
+    }
+
+    [Test]
+    public async Task ProcessJob_WhenASourceFails_SavesPartialFailedHistoryWithTheError()
+    {
+        // Act
+        var job = await RunJobAsync(
+            new FakeFlatScraper("OhneMakler") { Flats = [FakeFlatScraper.CreateFlat("1")] },
+            new FakeFlatScraper("ImmobilienScout24") { InitializeException = new InvalidOperationException("Login failed") });
+
+        // Assert
+        job.Status.Should().Be(ScrapeJobStatus.Completed);
+        await using var dbContext = CreateDbContext();
+        var history = await dbContext.ScrapingHistories.SingleAsync();
+        history.Status.Should().Be("PartialFailed");
+        history.ErrorMessage.Should().Be("ImmobilienScout24: Login failed");
+    }
+
+    [Test]
+    public async Task ProcessJob_WhenCanceled_SavesCanceledHistoryAndRestoresTheBackup()
     {
         // Arrange
-        var mockRepository = new Mock<ISnapshotRepository>();
+        var scraper = new BlockingScraper();
 
-        mockRepository
-            .Setup(r => r.BackupFlatsSnapshotsAsync(It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+        // Act
+        var job = await RunJobAsync([scraper], whileRunning: async () =>
+        {
+            await scraper.Started.WaitAsync(TimeSpan.FromSeconds(10));
+            _jobService.CancelCurrentJob().Should().BeTrue();
+        });
 
-        mockRepository
-            .Setup(r => r.RestoreFlatsSnapshotsAsync(It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-
-        mockRepository
-            .Setup(r => r.DeleteBackupAsync(It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-
-        // Act - All methods should be callable
-        await mockRepository.Object.BackupFlatsSnapshotsAsync();
-        await mockRepository.Object.RestoreFlatsSnapshotsAsync();
-        await mockRepository.Object.DeleteBackupAsync();
-
-        // Assert - Verify they were called
-        mockRepository.Verify(r => r.BackupFlatsSnapshotsAsync(It.IsAny<CancellationToken>()), Times.Once);
-        mockRepository.Verify(r => r.RestoreFlatsSnapshotsAsync(It.IsAny<CancellationToken>()), Times.Once);
-        mockRepository.Verify(r => r.DeleteBackupAsync(It.IsAny<CancellationToken>()), Times.Once);
+        // Assert
+        job.Status.Should().Be(ScrapeJobStatus.Canceled);
+        await using var dbContext = CreateDbContext();
+        (await dbContext.ScrapingHistories.SingleAsync()).Status.Should().Be("Canceled");
+        (await dbContext.FlatsSnapshots.SingleAsync()).ListingId.Should().Be("existing");
     }
 
     [Test]
     public async Task ProcessJob_WhenScrapeFailsWithUnsavedChanges_SavesFailedHistoryWithoutThem()
     {
-        // Arrange: repositories share the scoped context, like in production
-        await using var connection = new SqliteConnection("Data Source=:memory:");
-        await connection.OpenAsync();
-        var services = new ServiceCollection().AddLogging();
-        services.AddDbContext<FlatsDbContext>(o => o.UseSqlite(connection));
-        services.AddScoped<ISnapshotRepository, FlatSnapshotRepository>();
-        services.AddScoped<IFlatAggregationRepository, InterruptedAggregationRepository>();
-        services.AddScoped(sp => new ScraperCoordinator(
-            [], sp.GetRequiredService<ISnapshotRepository>(), new SnapshotWriter(), Path.GetTempPath()));
-        services.AddScoped<ScrapeExecutionService>();
-        await using var provider = services.BuildServiceProvider();
-        await using (var scope = provider.CreateAsyncScope())
-            await scope.ServiceProvider.GetRequiredService<FlatsDbContext>().Database.EnsureCreatedAsync();
-
-        var jobService = new ScrapeJobService();
-        var job = jobService.QueueJob();
-        var backgroundService = new ScrapeBackgroundService(
-            provider.GetRequiredService<IServiceScopeFactory>(),
-            jobService,
-            new ScrapeStateService(),
-            NullLogger<ScrapeBackgroundService>.Instance);
-
-        // Act
-        await backgroundService.StartAsync(CancellationToken.None);
-        await WaitUntilFinishedAsync(jobService, job.JobId);
-        await backgroundService.StopAsync(CancellationToken.None);
+        // Act: the aggregation refresh adds a row to the shared context, then fails before saving it
+        var job = await RunJobAsync(
+            [new FakeFlatScraper { Flats = [FakeFlatScraper.CreateFlat("1")] }],
+            aggregations: sp => new InterruptedAggregationRepository(sp.GetRequiredService<FlatsDbContext>()));
 
         // Assert
-        jobService.GetJobStatus(job.JobId)!.Status.Should().Be(ScrapeJobService.ScrapeJobStatus.Failed);
-        await using var dbContext = new FlatsDbContext(new DbContextOptionsBuilder<FlatsDbContext>().UseSqlite(connection).Options);
+        job.Status.Should().Be(ScrapeJobStatus.Failed);
+        await using var dbContext = CreateDbContext();
         var history = await dbContext.ScrapingHistories.SingleAsync();
         history.Status.Should().Be("Failed");
         history.ErrorMessage.Should().Be(InterruptedAggregationRepository.ErrorMessage);
         (await dbContext.FlatAggregations.CountAsync()).Should().Be(0);
+        (await dbContext.FlatsSnapshots.SingleAsync()).ListingId.Should().Be("existing");
     }
 
-    private static async Task WaitUntilFinishedAsync(ScrapeJobService jobService, Guid jobId)
+    [Test]
+    public async Task ProcessJob_JobCanceledBeforeItStarted_IsSkipped()
+    {
+        // Arrange
+        _jobService.TryQueueJob(out var job).Should().BeTrue();
+        _jobService.CancelCurrentJob();
+        var service = CreateService(BuildProvider([new FakeFlatScraper()]));
+
+        // Act
+        await service.StartAsync(CancellationToken.None);
+        await Task.Delay(200);
+        await service.StopAsync(CancellationToken.None);
+
+        // Assert
+        _jobService.GetJobStatus(job!.JobId)!.Status.Should().Be(ScrapeJobStatus.Canceled);
+        await using var dbContext = CreateDbContext();
+        (await dbContext.ScrapingHistories.AnyAsync()).Should().BeFalse();
+    }
+
+    private Task<ScrapeJob> RunJobAsync(params IScraper[] scrapers) => RunJobAsync(scrapers, aggregations: null);
+
+    /// <summary>Queues one job, runs the hosted service until the job has finished, and returns its final state.</summary>
+    private async Task<ScrapeJob> RunJobAsync(
+        IScraper[] scrapers,
+        Func<IServiceProvider, IFlatAggregationRepository>? aggregations = null,
+        Func<Task>? whileRunning = null)
+    {
+        await using var provider = BuildProvider(scrapers, aggregations);
+        _jobService.TryQueueJob(out var job).Should().BeTrue();
+        var service = CreateService(provider);
+
+        await service.StartAsync(CancellationToken.None);
+        if (whileRunning != null)
+            await whileRunning();
+        await WaitUntilFinishedAsync(job!.JobId);
+        await service.StopAsync(CancellationToken.None);
+
+        return _jobService.GetJobStatus(job.JobId)!;
+    }
+
+    private ServiceProvider BuildProvider(IScraper[] scrapers, Func<IServiceProvider, IFlatAggregationRepository>? aggregations = null)
+    {
+        var services = new ServiceCollection().AddLogging();
+        services.AddDbContext<FlatsDbContext>(o => o.UseSqlite(_connection));
+        services.AddScoped<ISnapshotRepository, FlatSnapshotRepository>();
+        if (aggregations != null)
+            services.AddScoped(aggregations);
+        else
+            services.AddScoped<IFlatAggregationRepository, FlatAggregationRepository>();
+        services.AddScoped(sp => new ScraperCoordinator(
+            scrapers, sp.GetRequiredService<ISnapshotRepository>(), new SnapshotWriter(), _dataDir));
+        services.AddScoped<ScrapeExecutionService>();
+        return services.BuildServiceProvider();
+    }
+
+    private ScrapeBackgroundService CreateService(ServiceProvider provider) =>
+        new(provider.GetRequiredService<IServiceScopeFactory>(), _jobService, NullLogger<ScrapeBackgroundService>.Instance);
+
+    private FlatsDbContext CreateDbContext() =>
+        new(new DbContextOptionsBuilder<FlatsDbContext>().UseSqlite(_connection).Options);
+
+    private async Task WaitUntilFinishedAsync(Guid jobId)
     {
         var deadline = DateTime.UtcNow.AddSeconds(10);
-        while (jobService.GetJobStatus(jobId)!.Status is ScrapeJobService.ScrapeJobStatus.Queued or ScrapeJobService.ScrapeJobStatus.Running)
+        while (_jobService.GetJobStatus(jobId)!.Status is ScrapeJobStatus.Queued or ScrapeJobStatus.Running)
         {
             if (DateTime.UtcNow > deadline)
                 Assert.Fail("Scrape job did not finish in time");
             await Task.Delay(20);
+        }
+    }
+
+    /// <summary>Signals <see cref="Started"/>, then waits until the scrape is canceled.</summary>
+    private sealed class BlockingScraper : IScraper
+    {
+        private readonly TaskCompletionSource _started = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public string Source => "Blocking";
+        public Task Started => _started.Task;
+
+        public async IAsyncEnumerable<Flat> ScrapeAsync([EnumeratorCancellation] CancellationToken ct = default)
+        {
+            _started.SetResult();
+            await Task.Delay(Timeout.Infinite, ct);
+            yield break;
         }
     }
 

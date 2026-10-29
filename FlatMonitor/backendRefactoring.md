@@ -265,7 +265,21 @@ Benefits:
   The same pattern removes the manual copies in `OhneMaklerScraper.EnrichListingWithDetailsAsync`
   (2 copies) and `ImmobilienScout24Scraper.EnrichListingWithDetailsAsync`.
 
-### 2.5 Scrape jobs: one source of truth, no polling
+### 2.5 Scrape jobs: one source of truth, no polling ✅ Done
+> **Done:** `ScrapeStateService`/`ScrapingCounterService` deleted. `ScrapeJobService` owns a `Channel<ScrapeJob>`, the
+> current job's `CancellationTokenSource` (`StartJob`/`FinishJob`/`CancelCurrentJob`, which also cancels a still-queued job),
+> takes a lock for queueing (counter, at most one queued-or-running job), and keeps only the last 20 finished jobs.
+> `IsScrapingInProgress` now also counts a queued job. `POST /api/scrape` returns `409 Conflict` with a `ScrapeResponse`
+> while a job is queued or running; the Angular `ScrapingStatusComponent` shows that message and stays in scraping state.
+> The controller no longer depends on `ScrapeBackgroundService`, which is registered once (`AddHostedService<>`) and awaits
+> `DequeueAsync` instead of polling. History updates are one `CompleteHistoryAsync`; restore-on-throw moved into
+> `ScrapeExecutionService` (after a successful backup only), so the CLI and the web job share it.
+> **Not decided:** the `PartialFailed` question below is a product decision and is left as is (backup kept, table live).
+> Tests: `ScrapeJobServiceTests` (rewritten), `ScrapeControllerTests` (409, cancel), `ScrapeBackgroundServiceTests`
+> (real jobs on in-memory SQLite: success, partial failure, cancel + restore, interrupted write, canceled before start),
+> `ScrapeExecutionServiceExecuteTests` (restore on throw/cancel, not after a failed backup, restore failure logged),
+> `scraping-status.component.spec.ts` (409).
+
 **Severity:** Medium · **Files:** `Api/Services/ScrapeJobService.cs`, `ScrapeBackgroundService.cs`, `ScrapeStateService.cs`, `ScrapingCounterService.cs`, `Api/Controllers/ScrapeController.cs`
 
 - `ScrapeStateService` and `ScrapingCounterService` are **dead code**: they are injected into

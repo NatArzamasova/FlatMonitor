@@ -210,7 +210,85 @@ public class ScrapeExecutionServiceExecuteTests
         result.Success.Should().BeFalse();
         result.Errors.Should().Equal("ImmobilienScout24: Login failed");
         _mockSnapshotRepository.Verify(r => r.DeleteBackupAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _mockSnapshotRepository.Verify(r => r.RestoreFlatsSnapshotsAsync(It.IsAny<CancellationToken>()), Times.Never);
         _logger.Messages.Should().NotContain("Scrape successful, deleting backup");
+    }
+
+    [Test]
+    public async Task ExecuteAsync_WhenAStepThrows_RestoresBackupAndRethrows()
+    {
+        // Arrange
+        _mockAggregationRepository.Setup(r => r.RefreshAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Disk full"));
+        var service = CreateService(new FakeFlatScraper { Flats = [FakeFlatScraper.CreateFlat("1")] });
+
+        // Act
+        var act = () => service.ExecuteAsync();
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("Disk full");
+        _mockSnapshotRepository.Verify(r => r.RestoreFlatsSnapshotsAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mockSnapshotRepository.Verify(r => r.DeleteBackupAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Test]
+    public async Task ExecuteAsync_WhenCanceled_RestoresBackupWithAnUncanceledToken()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var scraper = new FakeFlatScraper
+        {
+            Flats = [FakeFlatScraper.CreateFlat("1")],
+            OnEnrich = (_, ct) =>
+            {
+                cts.Cancel();
+                ct.ThrowIfCancellationRequested();
+            },
+        };
+        var service = CreateService(scraper);
+
+        // Act
+        var act = () => service.ExecuteAsync(cancellationToken: cts.Token);
+
+        // Assert
+        await act.Should().ThrowAsync<OperationCanceledException>();
+        _mockSnapshotRepository.Verify(r => r.RestoreFlatsSnapshotsAsync(
+            It.Is<CancellationToken>(ct => !ct.IsCancellationRequested)), Times.Once);
+    }
+
+    [Test]
+    public async Task ExecuteAsync_WhenBackupFails_DoesNotRestoreAnOlderBackup()
+    {
+        // Arrange
+        _mockSnapshotRepository.Setup(r => r.BackupFlatsSnapshotsAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Database locked"));
+        var service = CreateService();
+
+        // Act
+        var act = () => service.ExecuteAsync();
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("Database locked");
+        _mockSnapshotRepository.Verify(r => r.ClearAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _mockSnapshotRepository.Verify(r => r.RestoreFlatsSnapshotsAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Test]
+    public async Task ExecuteAsync_WhenRestoreAlsoFails_PropagatesTheOriginalError()
+    {
+        // Arrange
+        _mockAggregationRepository.Setup(r => r.RefreshAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Disk full"));
+        _mockSnapshotRepository.Setup(r => r.RestoreFlatsSnapshotsAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("No backup table"));
+        var service = CreateService();
+
+        // Act
+        var act = () => service.ExecuteAsync();
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("Disk full");
+        _logger.Messages.Should().Contain("Failed to restore FlatsSnapshots from backup");
     }
 
     private ScrapeExecutionService CreateService(params IScraper[] scrapers)

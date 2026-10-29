@@ -23,6 +23,11 @@ public class ScrapeExecutionService
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
+    /// <summary>
+    /// Backs up and clears FlatsSnapshots, scrapes all sources, and refreshes the aggregations.
+    /// If anything throws (including cancellation), the backup is restored before the exception propagates.
+    /// A run where only some sources failed returns normally and keeps the backup.
+    /// </summary>
     public async Task<ScrapeSummary> ExecuteAsync(
         Func<int, Task>? onBatchSaved = null,
         CancellationToken cancellationToken = default)
@@ -30,20 +35,42 @@ public class ScrapeExecutionService
         _logger.LogInformation("Backing up FlatsSnapshots table");
         await _snapshotRepository.BackupFlatsSnapshotsAsync(cancellationToken);
 
-        _logger.LogInformation("Clearing FlatsSnapshots table");
-        await _snapshotRepository.ClearAsync(cancellationToken);
-
-        var summary = await _coordinator.ScrapeAllSourcesAsync(onBatchSaved, cancellationToken);
-
-        _logger.LogInformation("Refreshing flat aggregations");
-        await _aggregationRepository.RefreshAsync(cancellationToken);
-
-        if (summary.Success)
+        try
         {
-            _logger.LogInformation("Scrape successful, deleting backup");
-            await _snapshotRepository.DeleteBackupAsync(cancellationToken);
-        }
+            _logger.LogInformation("Clearing FlatsSnapshots table");
+            await _snapshotRepository.ClearAsync(cancellationToken);
 
-        return summary;
+            var summary = await _coordinator.ScrapeAllSourcesAsync(onBatchSaved, cancellationToken);
+
+            _logger.LogInformation("Refreshing flat aggregations");
+            await _aggregationRepository.RefreshAsync(cancellationToken);
+
+            if (summary.Success)
+            {
+                _logger.LogInformation("Scrape successful, deleting backup");
+                await _snapshotRepository.DeleteBackupAsync(cancellationToken);
+            }
+
+            return summary;
+        }
+        catch
+        {
+            await TryRestoreBackupAsync();
+            throw;
+        }
+    }
+
+    /// <summary>Restores FlatsSnapshots; a failing restore is logged so the scrape's own exception still propagates.</summary>
+    private async Task TryRestoreBackupAsync()
+    {
+        try
+        {
+            _logger.LogWarning("Scrape did not finish, restoring FlatsSnapshots from backup");
+            await _snapshotRepository.RestoreFlatsSnapshotsAsync(CancellationToken.None);
+        }
+        catch (Exception restoreEx)
+        {
+            _logger.LogError(restoreEx, "Failed to restore FlatsSnapshots from backup");
+        }
     }
 }

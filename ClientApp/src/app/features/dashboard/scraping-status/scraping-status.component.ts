@@ -1,5 +1,6 @@
 import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { DatePipe, NgClass } from '@angular/common';
+import { HttpErrorResponse, HttpStatusCode } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ScrapeStatusService } from '../../../core/services/scrape-status.service';
 import { ScrapingStatus, ScrapingStatusResponse } from '../../../core/models/scraping-status-response.model';
@@ -59,6 +60,12 @@ export class ScrapingStatusComponent implements OnInit {
         }
       },
       error: (err) => {
+        // 409: a scrape is already queued or running; the API explains that in the body
+        if (err instanceof HttpErrorResponse && err.status === HttpStatusCode.Conflict) {
+          this.error = err.error?.message || 'A scrape is already queued or running';
+          this.scraping = true;
+          return;
+        }
         this.error = `Scrape error: ${err.message}`;
         this.scraping = false;
       }
