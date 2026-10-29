@@ -11,31 +11,23 @@ using FlatMonitor.Tests.Scraping.Common;
 namespace FlatMonitor.Tests.Api.Services;
 
 [TestFixture]
-public class ScrapeResultTests
+public class ScrapeSummaryTests
 {
     [Test]
-    public void ScrapeResult_InitializesWithDefaults()
+    public void TotalFlats_SumsAllSources()
     {
-        var result = new ScrapeResult();
+        var summary = new ScrapeSummary(new Dictionary<string, int> { ["OhneMakler"] = 3, ["ImmobilienScout24"] = 4 }, []);
 
-        result.Success.Should().BeFalse();
-        result.FlatsCount.Should().Be(0);
-        result.ScraperErrors.Should().BeEmpty();
+        summary.TotalFlats.Should().Be(7);
+        summary.Success.Should().BeTrue();
     }
 
     [Test]
-    public void ScrapeResult_CanSetProperties()
+    public void Success_IsFalseWhenAnySourceFailed()
     {
-        var result = new ScrapeResult
-        {
-            Success = true,
-            FlatsCount = 42,
-            ScraperErrors = new List<string> { "Error 1" }
-        };
+        var summary = new ScrapeSummary(new Dictionary<string, int> { ["OhneMakler"] = 3 }, ["ImmobilienScout24: Login failed"]);
 
-        result.Success.Should().BeTrue();
-        result.FlatsCount.Should().Be(42);
-        result.ScraperErrors.Should().HaveCount(1);
+        summary.Success.Should().BeFalse();
     }
 }
 
@@ -185,6 +177,26 @@ public class ScrapeExecutionServiceExecuteTests
     }
 
     [Test]
+    public async Task ExecuteAsync_ReportsEachSavedBatchToTheCallback()
+    {
+        // Arrange
+        var flats = Enumerable.Range(1, 25).Select(i => FakeFlatScraper.CreateFlat(i.ToString())).ToList();
+        var service = CreateService(new FakeFlatScraper { Flats = flats });
+        var reported = new List<int>();
+
+        // Act
+        var result = await service.ExecuteAsync(count =>
+        {
+            reported.Add(count);
+            return Task.CompletedTask;
+        });
+
+        // Assert
+        reported.Should().Equal(20, 5);
+        result.TotalFlats.Should().Be(25);
+    }
+
+    [Test]
     public async Task ExecuteAsync_WhenASourceFails_KeepsBackupAndReportsFailure()
     {
         // Arrange
@@ -196,7 +208,7 @@ public class ScrapeExecutionServiceExecuteTests
 
         // Assert
         result.Success.Should().BeFalse();
-        result.ScraperErrors.Should().Equal("ImmobilienScout24: Login failed");
+        result.Errors.Should().Equal("ImmobilienScout24: Login failed");
         _mockSnapshotRepository.Verify(r => r.DeleteBackupAsync(It.IsAny<CancellationToken>()), Times.Never);
         _logger.Messages.Should().NotContain("Scrape successful, deleting backup");
     }

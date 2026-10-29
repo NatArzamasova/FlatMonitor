@@ -1,34 +1,22 @@
 namespace FlatMonitor.Scraping.Common;
 
+using System.Runtime.CompilerServices;
 using FlatMonitor.Models;
 using FlatMonitor.Scraping;
 
 /// <summary>
-/// Base class for scrapers that fetch all pages first, then enrich flat with details.
-/// Provides the common flow: fetch all pages (on flats index) → collect all falts → enrich all with details (navigate to detail pages) → save to DB each page.
-/// This avoids losing pagination context when navigating to detail pages, and saves to DB immediately to avoid memory bloat on large datasets.
-/// Derived classes implement how to fetch pages, enrich falts, and save to database.
+/// Base class for scrapers that fetch all pages first, then enrich each flat with its details.
+/// Flow: initialize → fetch all pages (on the flats index) → enrich and yield each flat (navigate to detail pages) → cleanup.
+/// Collecting all cards first avoids losing pagination context when navigating to detail pages.
+/// Derived classes implement how to initialize, fetch pages, enrich flats, and clean up.
 /// </summary>
 public abstract class FlatScraper : IScraper
 {
     public abstract string Source { get; }
 
-    /// <summary>
-    /// Callback to filter and save a batch of listings. Set by ScraperCoordinator.
-    /// If null, batch saving is skipped (flats returned to caller for external handling).
-    /// </summary>
-    public Func<List<Flat>, CancellationToken, Task>? SaveListingsCallback { get; set; }
-
-    public async Task<IEnumerable<Flat>> ScrapeAsync(CancellationToken ct = default)
-        => await ScrapeAllListingsAsync(ct);
-
-    public async Task<List<Flat>> ScrapeAllListingsAsync(CancellationToken ct = default)
+    public async IAsyncEnumerable<Flat> ScrapeAsync([EnumeratorCancellation] CancellationToken ct = default)
     {
-        var allFlats = new List<Flat>();
-        var allPageFlats = new List<Flat>();
-        int totalProcessed = 0;
-        int pageNumber = 1;
-
+        // No catch: failures and cancellation must reach ScraperCoordinator, which records them as source errors.
         try
         {
             // Initialize scraper (handles browser launch, authentication, etc.)
@@ -39,63 +27,48 @@ public abstract class FlatScraper : IScraper
 
             // First, fetch and parse all pages to collect all flats
             // This must happen while on the flats index (before detail navigation)
+            var cards = new List<Flat>();
+            int pageCount = 0;
             await foreach (var pageListings in FetchAndParseAllPagesAsync(ct))
             {
-                Console.WriteLine($"--- Collected {pageListings.Count} flats from page {pageNumber} ---");
-                allPageFlats.AddRange(pageListings);
-                pageNumber++;
+                pageCount++;
+                Console.WriteLine($"--- Collected {pageListings.Count} flats from page {pageCount} ---");
+                cards.AddRange(pageListings);
             }
 
-            Console.WriteLine($"\n=== {Source}: All pages fetched: {pageNumber - 1} total pages, {allPageFlats.Count} flats collected ===\n");
+            Console.WriteLine($"\n=== {Source}: All pages fetched: {pageCount} total pages, {cards.Count} flats collected ===\n");
 
-            // Then, enrich page by page and save to DB immediately
-            Console.WriteLine($"=== {Source}: Enriching and saving {allPageFlats.Count}flats with details ===");
-            pageNumber = 1;
-            var pageBuffer = new List<Flat>();
-            int totalFlats = allPageFlats.Count;
-
-            foreach (var flat in allPageFlats)
+            // Then, enrich and yield one by one
+            Console.WriteLine($"=== {Source}: Enriching {cards.Count} flats with details ===");
+            for (int i = 0; i < cards.Count; i++)
             {
                 ct.ThrowIfCancellationRequested();
-                totalProcessed++;
-                try
-                {
-                    var enrichedFlat = await EnrichListingWithDetailsAsync(flat, ct);
-                    FlatScraperLogger.LogEnrichedFlat(Source, enrichedFlat, totalProcessed, totalFlats);
-                    pageBuffer.Add(enrichedFlat);
-                    allFlats.Add(enrichedFlat);
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    // Log error but continue with partial data
-                    FlatScraperLogger.LogEnrichmentFailed(Source, flat.ListingId, ex.Message, totalProcessed, totalFlats);
-                    pageBuffer.Add(flat);
-                    allFlats.Add(flat);
-                }
-
-                // Save batch periodically (every 20 items) to avoid memory bloat
-                // Filtering happens before saving via SaveListingsCallback
-                if (totalProcessed % 20 == 0 || totalProcessed == allPageFlats.Count)
-                {
-                    if (pageBuffer.Count > 0 && SaveListingsCallback != null)
-                    {
-                        await SaveListingsCallback(pageBuffer, ct);
-                    }
-                    pageBuffer.Clear();
-                    pageNumber++;
-                }
+                yield return await EnrichOrKeepAsync(cards[i], i + 1, cards.Count, ct);
             }
 
-            Console.WriteLine($"\n=== {Source}: Scraping complete: {pageNumber - 1} batches saved, {totalProcessed}/{totalFlats} listings processed ===\n");
+            Console.WriteLine($"\n=== {Source}: Scraping complete: {cards.Count} listings processed ===\n");
         }
-        // No catch: failures and cancellation must reach ScraperCoordinator, which records them as source errors.
         finally
         {
             // Cleanup (close browser, dispose resources, etc.)
             await CleanupAsync();
         }
+    }
 
-        return allFlats;
+    /// <summary>Enriches the flat; if its detail page fails, keeps the card data and continues.</summary>
+    private async Task<Flat> EnrichOrKeepAsync(Flat flat, int position, int total, CancellationToken ct)
+    {
+        try
+        {
+            var enrichedFlat = await EnrichListingWithDetailsAsync(flat, ct);
+            FlatScraperLogger.LogEnrichedFlat(Source, enrichedFlat, position, total);
+            return enrichedFlat;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            FlatScraperLogger.LogEnrichmentFailed(Source, flat.ListingId, ex.Message, position, total);
+            return flat;
+        }
     }
 
     /// <summary>

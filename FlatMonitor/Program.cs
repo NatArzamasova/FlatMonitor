@@ -68,17 +68,17 @@ async Task<int> RunScrapeAsync()
 
             if (result.Success)
             {
-                Console.WriteLine($"✓ Scraping completed. Total flats scraped: {result.FlatsCount}");
+                Console.WriteLine($"✓ Scraping completed. Total flats scraped: {result.TotalFlats}");
                 return 0;
             }
             else
             {
                 Console.Error.WriteLine("⚠ Scraping completed with errors:");
-                foreach (var error in result.ScraperErrors)
+                foreach (var error in result.Errors)
                 {
                     Console.Error.WriteLine($"  - {error}");
                 }
-                Console.WriteLine($"✓ Partially scraped: {result.FlatsCount} flats collected (with errors)");
+                Console.WriteLine($"✓ Partially scraped: {result.TotalFlats} flats collected (with errors)");
                 return 1;
             }
         }

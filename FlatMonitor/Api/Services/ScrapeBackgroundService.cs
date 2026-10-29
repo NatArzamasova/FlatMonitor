@@ -100,12 +100,12 @@ public class ScrapeBackgroundService : BackgroundService
             {
                 history.Status = "Successful";
                 _logger.LogInformation("Scrape job {JobId} completed successfully with {FlatsCount} flats",
-                    job.JobId, result.FlatsCount);
+                    job.JobId, result.TotalFlats);
             }
             else
             {
                 history.Status = "PartialFailed";
-                var errorSummary = string.Join("; ", result.ScraperErrors);
+                var errorSummary = string.Join("; ", result.Errors);
                 history.ErrorMessage = errorSummary;
                 _logger.LogWarning("Scrape job {JobId} completed with errors: {Errors}", job.JobId, errorSummary);
             }

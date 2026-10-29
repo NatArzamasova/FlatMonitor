@@ -28,7 +28,7 @@ public class OhneMaklerScraperTests
     [Test]
     [Explicit("Calls the live ohne-makler.net site; run with: dotnet test --filter \"TestCategory=Live\"")]
     [Category("Live")]
-    public async Task OhneMaklerScraper_ScrapeAllListingsAsync_ReturnsListOfListings()
+    public async Task OhneMaklerScraper_ScrapeAsync_ReturnsListings()
     {
         // Arrange
         using var httpClient = new HttpClient();
@@ -38,11 +38,10 @@ public class OhneMaklerScraperTests
         // This test verifies the method exists and can be called.
         // Full integration testing with real HTTP requires manual verification via:
         // dotnet run -- scrape
-        var result = await scraper.ScrapeAllListingsAsync();
+        List<Flat> result = await scraper.ScrapeAsync().ToListAsync();
 
-        // The method should return a list (even if empty due to no live connection)
+        // The scraper should yield flats (an empty list only if the site returned none)
         result.Should().NotBeNull();
-        result.Should().BeOfType<List<Flat>>();
     }
 
     [Test]

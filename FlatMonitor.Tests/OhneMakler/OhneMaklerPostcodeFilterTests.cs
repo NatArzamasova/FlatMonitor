@@ -86,6 +86,6 @@ public class OhneMaklerPostcodeFilterTests
 
         // The scraper checks: if (!Selectors.KarlsruhePostcodes.Contains(listing.PostalCode))
         // This test documents that behavior.
-        Assert.Pass("Scraper postcode check implemented in ListingScraper.ScrapeAllListingsAsync()");
+        Assert.Pass("Scraper postcode check implemented in OhneMaklerScraper.FetchAndParseAllPagesAsync()");
     }
 }

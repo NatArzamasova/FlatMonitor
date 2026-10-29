@@ -15,7 +15,7 @@ public class FlatScraperTests
         var scraper = new FakeFlatScraper { InitializeException = new InvalidOperationException("Login failed") };
 
         // Act
-        var act = () => scraper.ScrapeAsync();
+        var act = async () => await scraper.ScrapeAsync().ToListAsync();
 
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("Login failed");
@@ -29,7 +29,7 @@ public class FlatScraperTests
         var scraper = new FakeFlatScraper { PageFetchException = new HttpRequestException("First page unreachable") };
 
         // Act
-        var act = () => scraper.ScrapeAsync();
+        var act = async () => await scraper.ScrapeAsync().ToListAsync();
 
         // Assert
         await act.Should().ThrowAsync<HttpRequestException>();
@@ -52,7 +52,7 @@ public class FlatScraperTests
         };
 
         // Act
-        var act = () => scraper.ScrapeAsync(cts.Token);
+        var act = async () => await scraper.ScrapeAsync(cts.Token).ToListAsync();
 
         // Assert
         await act.Should().ThrowAsync<OperationCanceledException>();
@@ -74,9 +74,50 @@ public class FlatScraperTests
         };
 
         // Act
-        var result = (await scraper.ScrapeAsync()).ToList();
+        var result = await scraper.ScrapeAsync().ToListAsync();
 
         // Assert
         result.Select(f => f.ListingId).Should().Equal("1", "2");
+    }
+
+    [Test]
+    public async Task ScrapeAsync_YieldsEachFlatAsSoonAsItIsEnriched()
+    {
+        // Arrange
+        var enriched = new List<string>();
+        var scraper = new FakeFlatScraper
+        {
+            Flats = [CreateFlat("1"), CreateFlat("2"), CreateFlat("3")],
+            OnEnrich = (flat, _) => enriched.Add(flat.ListingId),
+        };
+
+        // Act: record which flats were enriched when each one arrives
+        var enrichedWhenYielded = new List<int>();
+        await foreach (var _ in scraper.ScrapeAsync())
+            enrichedWhenYielded.Add(enriched.Count);
+
+        // Assert
+        enrichedWhenYielded.Should().Equal(1, 2, 3);
+        scraper.CleanupCalled.Should().BeTrue();
+    }
+
+    [Test]
+    public async Task ScrapeAsync_WhenConsumerStopsEarly_CleansUpWithoutEnrichingTheRest()
+    {
+        // Arrange
+        var enriched = new List<string>();
+        var scraper = new FakeFlatScraper
+        {
+            Flats = [CreateFlat("1"), CreateFlat("2"), CreateFlat("3")],
+            OnEnrich = (flat, _) => enriched.Add(flat.ListingId),
+        };
+
+        // Act
+        await foreach (var _ in scraper.ScrapeAsync())
+            break;
+
+        // Assert
+        enriched.Should().Equal("1");
+        scraper.CleanupCalled.Should().BeTrue();
     }
 }

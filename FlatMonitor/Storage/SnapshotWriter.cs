@@ -21,6 +21,14 @@ public sealed class SnapshotWriter
         string? source = null,
         CancellationToken ct = default)
     {
+        await using var file = Create(baseDirectory, source);
+        await file.AppendAsync(listings, ct);
+        return file.Path;
+    }
+
+    /// <summary>Creates a new, empty snapshot file; append flats to it batch by batch while scraping.</summary>
+    public SnapshotFile Create(string baseDirectory, string? source = null)
+    {
         source ??= "default";
 
         // Ensure data/snapshots/{source} directory exists
@@ -30,16 +38,31 @@ public sealed class SnapshotWriter
         // Generate timestamped filename: {utc-timestamp}.jsonl
         string timestamp = DateTime.UtcNow.ToString("O").Replace(":", "-").Split('.')[0];
         string filename = $"{timestamp}.jsonl";
-        string filePath = Path.Combine(snapshotsPath, filename);
+        return new SnapshotFile(Path.Combine(snapshotsPath, filename));
+    }
+}
 
-        // Write listings as JSONL (one JSON object per line)
-        using var writer = new StreamWriter(filePath, append: false);
+/// <summary>An open JSONL snapshot file (one JSON object per line).</summary>
+public sealed class SnapshotFile : IAsyncDisposable
+{
+    private readonly StreamWriter _writer;
+
+    internal SnapshotFile(string path)
+    {
+        Path = path;
+        _writer = new StreamWriter(path, append: false);
+    }
+
+    public string Path { get; }
+
+    public async Task AppendAsync(IEnumerable<Flat> listings, CancellationToken ct = default)
+    {
         foreach (var listing in listings)
         {
             var json = JsonSerializer.Serialize(listing, JsonOptions.Snapshot);
-            await writer.WriteLineAsync(json);
+            await _writer.WriteLineAsync(json.AsMemory(), ct);
         }
-
-        return filePath;
     }
+
+    public ValueTask DisposeAsync() => _writer.DisposeAsync();
 }

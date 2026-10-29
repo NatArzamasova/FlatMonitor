@@ -23,7 +23,7 @@ public class ScrapeExecutionService
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task<ScrapeResult> ExecuteAsync(
+    public async Task<ScrapeSummary> ExecuteAsync(
         Func<int, Task>? onBatchSaved = null,
         CancellationToken cancellationToken = default)
     {
@@ -33,36 +33,17 @@ public class ScrapeExecutionService
         _logger.LogInformation("Clearing FlatsSnapshots table");
         await _snapshotRepository.ClearAsync(cancellationToken);
 
-        if (onBatchSaved != null)
-        {
-            _coordinator.SetOnBatchSavedCallback(onBatchSaved);
-        }
-
-        var flatsCount = await _coordinator.ScrapeAllSourcesAsync(cancellationToken);
+        var summary = await _coordinator.ScrapeAllSourcesAsync(onBatchSaved, cancellationToken);
 
         _logger.LogInformation("Refreshing flat aggregations");
         await _aggregationRepository.RefreshAsync(cancellationToken);
 
-        var success = _coordinator.ScraperErrors.Count == 0;
-
-        if (success)
+        if (summary.Success)
         {
             _logger.LogInformation("Scrape successful, deleting backup");
             await _snapshotRepository.DeleteBackupAsync(cancellationToken);
         }
 
-        return new ScrapeResult
-        {
-            Success = success,
-            FlatsCount = flatsCount,
-            ScraperErrors = new List<string>(_coordinator.ScraperErrors)
-        };
+        return summary;
     }
-}
-
-public class ScrapeResult
-{
-    public bool Success { get; set; }
-    public int FlatsCount { get; set; }
-    public List<string> ScraperErrors { get; set; } = new();
 }

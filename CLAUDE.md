@@ -37,7 +37,7 @@ dotnet run -- report
 2. **Snapshot files** (`data/snapshots/{source}/{utc-timestamp}.jsonl`) — optional backups for debugging only. JSON Lines format (one flat per line). Do NOT use snapshots as source for database rebuilds; snapshots may contain stale or unfiltered data.
 
 **Two run modes:**
-- `scrape` — fetches current flats from all active sources, enriches with detail pages, returns unfiltered flats to `ScraperCoordinator`. `ScraperCoordinator` filters by allowed districts (normalizing names), batch-saves filtered flats to SQLite (every 20 flats to avoid memory bloat)
+- `scrape` — fetches current flats from all active sources, enriches with detail pages, yields unfiltered flats to `ScraperCoordinator`. `ScraperCoordinator` filters by allowed districts (normalizing names), batch-saves filtered flats to SQLite (every 20 flats to avoid memory bloat)
 - `report` — queries SQLite database directly for aggregations across sources, reports statistics (new/removed/price-changed counts, aggregate €/m², days-on-market, rolling trends, per-source breakdowns)
 
 ## Key Design Notes
@@ -120,12 +120,11 @@ dotnet test
 
 1. **Scrape**: 
    - For each `IScraper` (OhneMakler, ImmobilienScout24, etc.):
-     - Fetch all pages → Parse listing cards → Enrich with detail pages → Return unfiltered flats
-     - `ScraperCoordinator` sets up batch-save callback on scraper (if FlatScraper)
-     - Callback filters flats by `KarlsruheDistricts.All` and saves to SQLite every 20 items
-     - Fallback filter (for non-FlatScraper) ensures all flats are filtered before insertion
+     - Fetch all pages → Parse listing cards → Enrich with detail pages → Yield unfiltered flats one by one (`IAsyncEnumerable<Flat>`)
+     - `ScraperCoordinator` takes them in batches of 20, filters by `KarlsruheDistricts.All` and saves each batch to SQLite
      - District names normalized during filtering (see [FILTERING.md](FILTERING.md))
-     - Write snapshot files (debugging only, after all filtering/saving complete)
+     - Each saved batch is appended to the source's snapshot file (debugging only)
+     - Result: a `ScrapeSummary` (flats saved per source, errors of failed sources)
    
 2. **Report**: 
    - Query SQLite FlatsSnapshots table directly (canonical source) → Aggregation queries per source → Cross-source comparison → Report output

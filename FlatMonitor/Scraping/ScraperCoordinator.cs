@@ -1,16 +1,20 @@
 namespace FlatMonitor.Scraping;
 
 using FlatMonitor.Models;
-using FlatMonitor.Scraping.Common;
 using FlatMonitor.Storage;
 
+/// <summary>
+/// Runs every scraper in turn and owns everything after scraping: district filtering, saving in batches,
+/// progress reporting, and the JSONL snapshot. Scrapers only produce flats.
+/// </summary>
 public sealed class ScraperCoordinator
 {
+    private const int BatchSize = 20;
+
     private readonly IEnumerable<IScraper> _scrapers;
     private readonly ISnapshotRepository _repository;
     private readonly SnapshotWriter _snapshotWriter;
     private readonly string _dataDirectory;
-    private Func<int, Task>? _onBatchSaved;
 
     public ScraperCoordinator(
         IEnumerable<IScraper> scrapers,
@@ -24,34 +28,27 @@ public sealed class ScraperCoordinator
         _dataDirectory = dataDirectory ?? throw new ArgumentNullException(nameof(dataDirectory));
     }
 
-    public void SetOnBatchSavedCallback(Func<int, Task> callback)
+    /// <summary>
+    /// Scrapes all sources. A failing source is recorded in the summary and the next source still runs;
+    /// cancellation stops the whole run.
+    /// </summary>
+    /// <param name="onBatchSaved">
+    /// Awaited after each saved batch with the number of flats saved (after district filtering).
+    /// A callback rather than <see cref="IProgress{T}"/>: callers write it to the same DbContext, so it must finish before the next batch.
+    /// </param>
+    public async Task<ScrapeSummary> ScrapeAllSourcesAsync(Func<int, Task>? onBatchSaved = null, CancellationToken ct = default)
     {
-        _onBatchSaved = callback;
-    }
-
-    private List<string> _scraperErrors = new();
-
-    public IReadOnlyList<string> ScraperErrors => _scraperErrors.AsReadOnly();
-
-    public async Task<int> ScrapeAllSourcesAsync(CancellationToken ct = default)
-    {
-        _scraperErrors.Clear();
-        int totalFlats = 0;
+        var flatsPerSource = new Dictionary<string, int>();
+        var errors = new List<string>();
 
         foreach (var scraper in _scrapers)
         {
             ct.ThrowIfCancellationRequested();
+            flatsPerSource[scraper.Source] = 0;
 
             try
             {
-                SetupBatchSaveCallback(scraper);
-                var allListings = await ScrapeSourceAsync(scraper, ct);
-
-                if (allListings.Count == 0)
-                    continue;
-
-                totalFlats += allListings.Count;
-                await WriteSnapshotAsync(scraper, allListings, ct);
+                await ScrapeSourceAsync(scraper, saved => flatsPerSource[scraper.Source] += saved, onBatchSaved, ct);
             }
             catch (OperationCanceledException)
             {
@@ -60,26 +57,56 @@ public sealed class ScraperCoordinator
             }
             catch (Exception ex)
             {
-                HandleScraperError(scraper, ex);
+                errors.Add(HandleScraperError(scraper, ex));
             }
         }
 
-        return totalFlats;
+        return new ScrapeSummary(flatsPerSource, errors);
     }
 
-    private void SetupBatchSaveCallback(IScraper scraper)
+    private async Task ScrapeSourceAsync(IScraper scraper, Action<int> countSaved, Func<int, Task>? onBatchSaved, CancellationToken ct)
     {
-        if (scraper is not FlatScraper flatScraper)
-            return;
+        Console.WriteLine($"Starting scrape for source: {scraper.Source}");
+        var scraped = 0;
+        var saved = 0;
+        SnapshotFile? snapshot = null;
 
-        flatScraper.SaveListingsCallback = async (batch, batchCt) =>
+        try
         {
-            var filtered = FilterAndNormalizeBatch(batch);
-            await SaveAndReportAsync(filtered, batchCt);
-        };
+            await foreach (var batch in scraper.ScrapeAsync(ct).Chunk(BatchSize))
+            {
+                scraped += batch.Length;
+                var filtered = FilterAndNormalizeBatch(batch);
+                if (filtered.Count == 0)
+                    continue;
+
+                await _repository.UpsertListingsAsync(filtered, ct);
+                saved += filtered.Count;
+                countSaved(filtered.Count);
+                if (onBatchSaved != null)
+                    await onBatchSaved(filtered.Count);
+
+                // Debugging backup only; written as the flats are saved, so a failed source keeps what it saved
+                snapshot ??= _snapshotWriter.Create(_dataDirectory, scraper.Source);
+                await snapshot.AppendAsync(filtered, ct);
+            }
+        }
+        finally
+        {
+            if (snapshot != null)
+            {
+                await snapshot.DisposeAsync();
+                Console.WriteLine($"Snapshot written for {scraper.Source}: {snapshot.Path}");
+            }
+        }
+
+        if (scraped == 0)
+            Console.WriteLine($"No listings found for source: {scraper.Source}");
+        else if (scraped > saved)
+            Console.WriteLine($"Skipped {scraped - saved} listings without allowed districts");
     }
 
-    private List<Flat> FilterAndNormalizeBatch(List<Flat> batch)
+    private List<Flat> FilterAndNormalizeBatch(IEnumerable<Flat> batch)
     {
         return batch
             .Select(flat =>
@@ -87,63 +114,16 @@ public sealed class ScraperCoordinator
                 var normalizedDistrict = NormalizeDistrict(flat.District);
                 return normalizedDistrict != null ? CreateFlatWithAdjustedDistrict(flat, normalizedDistrict) : null;
             })
-            .Where(f => f != null)
+            .OfType<Flat>()
             .ToList();
     }
 
-    private async Task<List<Flat>> ScrapeSourceAsync(IScraper scraper, CancellationToken ct)
+    private static string HandleScraperError(IScraper scraper, Exception ex)
     {
-        Console.WriteLine($"Starting scrape for source: {scraper.Source}");
-        var listings = (await scraper.ScrapeAsync(ct)).ToList();
-
-        if (listings.Count == 0)
-        {
-            Console.WriteLine($"No listings found for source: {scraper.Source}");
-            return listings;
-        }
-
-        // Filter again for the returned list (snapshot file, flat count)
-        var filtered = FilterAndNormalizeBatch(listings);
-        var skipped = listings.Count - filtered.Count;
-        if (skipped > 0)
-            Console.WriteLine($"Skipped {skipped} listings without allowed districts");
-
-        // FlatScrapers already saved every batch via SaveListingsCallback; only other scrapers are saved here
-        if (scraper is not FlatScraper)
-            await SaveAndReportAsync(filtered, ct);
-
-        return filtered;
-    }
-
-    /// <summary>Saves already-filtered flats and reports how many were saved to the batch-saved callback.</summary>
-    private async Task SaveAndReportAsync(List<Flat> filtered, CancellationToken ct)
-    {
-        if (filtered.Count == 0)
-            return;
-
-        await _repository.UpsertListingsAsync(filtered, ct);
-        if (_onBatchSaved != null)
-            await _onBatchSaved(filtered.Count);
-    }
-
-    private async Task WriteSnapshotAsync(IScraper scraper, List<Flat> listings, CancellationToken ct)
-    {
-        var snapshotPath = await _snapshotWriter.WriteSnapshotAsync(
-            listings,
-            baseDirectory: _dataDirectory,
-            source: scraper.Source,
-            ct: ct);
-
-        Console.WriteLine($"Snapshot written for {scraper.Source}: {snapshotPath}");
-    }
-
-    private void HandleScraperError(IScraper scraper, Exception ex)
-    {
-        var errorMsg = $"{scraper.Source}: {ex.Message}";
         Console.Error.WriteLine($"Error scraping {scraper.Source}: {ex.Message}");
-        _scraperErrors.Add(errorMsg);
         if (Environment.GetEnvironmentVariable("DEBUG") == "1")
             Console.Error.WriteLine(ex.StackTrace);
+        return $"{scraper.Source}: {ex.Message}";
     }
 
     private static Flat CreateFlatWithAdjustedDistrict(Flat flat, string normalizedDistrict)

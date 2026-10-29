@@ -194,7 +194,18 @@ different context than the backup and the upserts. No transaction can span them.
   are plain entities, `AsNoTracking().OrderByDescending(...).FirstOrDefaultAsync()` needs no
   projection at all.
 
-### 2.3 Simplify the scrape pipeline: scrapers produce, the coordinator persists
+### 2.3 Simplify the scrape pipeline: scrapers produce, the coordinator persists ✅ Done
+> **Done:** `IScraper.ScrapeAsync` returns `IAsyncEnumerable<Flat>`; `FlatScraper` yields each enriched flat (one entry
+> point, `ScrapeAllListingsAsync`, `SaveListingsCallback` and the `allFlats` list are gone). `ScraperCoordinator` uses
+> `.Chunk(20)`, filters, upserts, reports, and appends to the JSONL snapshot as it goes (`SnapshotWriter.Create` →
+> `SnapshotFile`), so no source is held in memory. It returns a `ScrapeSummary` (flats per source incl. partial counts of
+> failed sources, errors); `ScraperErrors`, `SetOnBatchSavedCallback` and `ScrapeResult` are gone.
+> **Deviation:** progress is a `Func<int, Task>` parameter, not `IProgress<int>`: the background service writes the history
+> row on the shared `DbContext` per batch, which must be awaited (`Progress<T>` would run it concurrently on the thread pool).
+> Tests: `FlatScraperTests` (lazy yield, early stop cleans up), `ScraperCoordinatorTests` (rewritten with a stub
+> `IScraper`: batching, save-before-next-batch, partial failure, cancellation, streamed snapshot), `ScrapeSummaryTests`,
+> `ScrapeExecutionServiceExecuteTests.ExecuteAsync_ReportsEachSavedBatchToTheCallback`.
+
 **Severity:** High · **Impact:** Understandability; this is the root cause of bugs 1.1 to 1.3
 **Files:** `Scraping/IScraper.cs`, `Scraping/Common/FlatScraper.cs`, `Scraping/ScraperCoordinator.cs`
 
