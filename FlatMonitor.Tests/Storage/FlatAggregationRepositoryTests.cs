@@ -16,20 +16,11 @@ public class FlatAggregationRepositoryTests
             .Options;
     }
 
-    [Test]
-    public async Task InitializeAsync_CreatesSchema()
+    private static async Task<FlatsDbContext> CreateContextAsync(DbContextOptions<FlatsDbContext> options)
     {
-        // Arrange
-        var options = CreateInMemoryOptions();
-        await using var repo = new FlatAggregationRepository(options);
-
-        // Act
-        await repo.InitializeAsync();
-
-        // Assert - verify table exists by querying
-        await using var dbContext = new FlatsDbContext(options);
-        var count = await dbContext.FlatAggregations.CountAsync();
-        count.Should().Be(0);
+        var context = new FlatsDbContext(options);
+        await context.Database.EnsureCreatedAsync();
+        return context;
     }
 
     [Test]
@@ -37,8 +28,8 @@ public class FlatAggregationRepositoryTests
     {
         // Arrange
         var options = CreateInMemoryOptions();
-        await using var repo = new FlatAggregationRepository(options);
-        await repo.InitializeAsync();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatAggregationRepository(repoContext);
 
         // Seed FlatsSnapshots and ScrapingHistory
         await using var dbContext = new FlatsDbContext(options);
@@ -105,8 +96,8 @@ public class FlatAggregationRepositoryTests
     {
         // Arrange
         var options = CreateInMemoryOptions();
-        await using var repo = new FlatAggregationRepository(options);
-        await repo.InitializeAsync();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatAggregationRepository(repoContext);
 
         await using var dbContext = new FlatsDbContext(options);
 
@@ -167,8 +158,8 @@ public class FlatAggregationRepositoryTests
     {
         // Arrange
         var options = CreateInMemoryOptions();
-        await using var repo = new FlatAggregationRepository(options);
-        await repo.InitializeAsync();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatAggregationRepository(repoContext);
 
         // Don't seed any matching snapshots (null District would be excluded anyway)
 
@@ -186,8 +177,8 @@ public class FlatAggregationRepositoryTests
     {
         // Arrange
         var options = CreateInMemoryOptions();
-        await using var repo = new FlatAggregationRepository(options);
-        await repo.InitializeAsync();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatAggregationRepository(repoContext);
 
         await using var dbContext = new FlatsDbContext(options);
         var now = DateTime.UtcNow.ToString("O");
@@ -262,8 +253,8 @@ public class FlatAggregationRepositoryTests
     public async Task GetHistoryAsync_OrdersRowsAndFormatsDate()
     {
         var options = CreateInMemoryOptions();
-        await using var repo = new FlatAggregationRepository(options);
-        await repo.InitializeAsync();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatAggregationRepository(repoContext);
         var date = new DateOnly(2026, 10, 20);
         await using (var dbContext = new FlatsDbContext(options))
         {
@@ -283,8 +274,8 @@ public class FlatAggregationRepositoryTests
     public async Task GetLatestAsync_ReturnsOnlyLatestDateOrderedByDistrictThenRooms()
     {
         var options = CreateInMemoryOptions();
-        await using var repo = new FlatAggregationRepository(options);
-        await repo.InitializeAsync();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatAggregationRepository(repoContext);
         var yesterday = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1));
         var today = yesterday.AddDays(1);
         await using (var dbContext = new FlatsDbContext(options))
@@ -309,8 +300,8 @@ public class FlatAggregationRepositoryTests
     public async Task GetLatestAsync_ReturnsEmptyListWhenThereAreNoRows()
     {
         var options = CreateInMemoryOptions();
-        await using var repo = new FlatAggregationRepository(options);
-        await repo.InitializeAsync();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatAggregationRepository(repoContext);
 
         (await repo.GetLatestAsync()).Should().BeEmpty();
     }

@@ -16,20 +16,11 @@ public class FlatSnapshotRepositoryTests
             .Options;
     }
 
-    [Test]
-    public async Task InitializeAsync_CreatesSchema()
+    private static async Task<FlatsDbContext> CreateContextAsync(DbContextOptions<FlatsDbContext> options)
     {
-        // Arrange
-        var options = CreateInMemoryOptions();
-        await using var repo = new FlatSnapshotRepository(options);
-
-        // Act
-        await repo.InitializeAsync();
-
-        // Assert - verify Listings table exists by querying
-        await using var dbContext = new FlatsDbContext(options);
-        var count = await dbContext.FlatsSnapshots.CountAsync();
-        count.Should().Be(0);
+        var context = new FlatsDbContext(options);
+        await context.Database.EnsureCreatedAsync();
+        return context;
     }
 
     [Test]
@@ -37,8 +28,8 @@ public class FlatSnapshotRepositoryTests
     {
         // Arrange
         var options = CreateInMemoryOptions();
-        await using var repo = new FlatSnapshotRepository(options);
-        await repo.InitializeAsync();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatSnapshotRepository(repoContext);
 
         var listings = new List<Flat>
         {
@@ -78,8 +69,8 @@ public class FlatSnapshotRepositoryTests
     {
         // Arrange
         var options = CreateInMemoryOptions();
-        await using var repo = new FlatSnapshotRepository(options);
-        await repo.InitializeAsync();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatSnapshotRepository(repoContext);
 
         var listings = new List<Flat>
         {
@@ -124,8 +115,8 @@ public class FlatSnapshotRepositoryTests
     {
         // Arrange
         var options = CreateInMemoryOptions();
-        await using var repo = new FlatSnapshotRepository(options);
-        await repo.InitializeAsync();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatSnapshotRepository(repoContext);
 
         var listings = new List<Flat>
         {
@@ -156,8 +147,8 @@ public class FlatSnapshotRepositoryTests
     {
         // Arrange
         var options = CreateInMemoryOptions();
-        await using var repo = new FlatSnapshotRepository(options);
-        await repo.InitializeAsync();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatSnapshotRepository(repoContext);
 
         var listing1 = new List<Flat>
         {
@@ -210,8 +201,8 @@ public class FlatSnapshotRepositoryTests
     {
         // Arrange
         var options = CreateInMemoryOptions();
-        await using var repo = new FlatSnapshotRepository(options);
-        await repo.InitializeAsync();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatSnapshotRepository(repoContext);
 
         var listings = new List<Flat>
         {
@@ -258,8 +249,8 @@ public class FlatSnapshotRepositoryTests
     {
         // Arrange
         var options = CreateInMemoryOptions();
-        await using var repo = new FlatSnapshotRepository(options);
-        await repo.InitializeAsync();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatSnapshotRepository(repoContext);
 
         var listings = new List<Flat>
         {
@@ -308,8 +299,8 @@ public class FlatSnapshotRepositoryTests
     public async Task GetCurrentOffersAsync_OrdersByMostRecentScrapeAndMapsOfferFields()
     {
         var options = CreateInMemoryOptions();
-        await using var repo = new FlatSnapshotRepository(options);
-        await repo.InitializeAsync();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatSnapshotRepository(repoContext);
 
         await using (var dbContext = new FlatsDbContext(options))
         {
@@ -363,8 +354,8 @@ public class FlatSnapshotRepositoryTests
     {
         // Arrange
         var options = CreateSqliteOptions();
-        await using var repo = new FlatSnapshotRepository(options);
-        await repo.InitializeAsync();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatSnapshotRepository(repoContext);
 
         var listings = new List<Flat>
         {
@@ -388,6 +379,7 @@ public class FlatSnapshotRepositoryTests
         await using var dbContext = new FlatsDbContext(options);
         var originalCount = await dbContext.FlatsSnapshots.CountAsync();
         originalCount.Should().Be(1);
+        (await CountBackupRowsAsync(dbContext)).Should().Be(1);
     }
 
     [Test]
@@ -395,8 +387,8 @@ public class FlatSnapshotRepositoryTests
     {
         // Arrange
         var options = CreateSqliteOptions();
-        await using var repo = new FlatSnapshotRepository(options);
-        await repo.InitializeAsync();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatSnapshotRepository(repoContext);
 
         // Insert original data
         var originalListings = new List<Flat>
@@ -443,8 +435,8 @@ public class FlatSnapshotRepositoryTests
     {
         // Arrange
         var options = CreateSqliteOptions();
-        await using var repo = new FlatSnapshotRepository(options);
-        await repo.InitializeAsync();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatSnapshotRepository(repoContext);
 
         var originalListings = new List<Flat>
         {
@@ -503,8 +495,8 @@ public class FlatSnapshotRepositoryTests
     {
         // Arrange
         var options = CreateSqliteOptions();
-        await using var repo = new FlatSnapshotRepository(options);
-        await repo.InitializeAsync();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatSnapshotRepository(repoContext);
 
         var originalListings = new List<Flat>
         {
@@ -554,4 +546,88 @@ public class FlatSnapshotRepositoryTests
         var item = await dbContext.FlatsSnapshots.FirstAsync();
         item.Address.Should().Be("Address 2");
     }
+
+    [Test]
+    public async Task ClearAsync_DeletesAllRows_AndKeepsBackup()
+    {
+        // Arrange
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatSnapshotRepository(repoContext);
+        await repo.UpsertListingsAsync([CreateFlat("1"), CreateFlat("2", source: "ImmobilienScout24")]);
+        await repo.BackupFlatsSnapshotsAsync();
+
+        // Act
+        await repo.ClearAsync();
+
+        // Assert
+        await using var dbContext = new FlatsDbContext(options);
+        (await dbContext.FlatsSnapshots.CountAsync()).Should().Be(0);
+        (await CountBackupRowsAsync(dbContext)).Should().Be(2);
+    }
+
+    [Test]
+    public async Task DeleteBackupAsync_DropsBackupTable()
+    {
+        // Arrange
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatSnapshotRepository(repoContext);
+        await repo.BackupFlatsSnapshotsAsync();
+
+        // Act
+        await repo.DeleteBackupAsync();
+
+        // Assert
+        var backupTables = await repoContext.Database
+            .SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM sqlite_master WHERE type = 'table' AND name = 'FlatsSnapshots_Backup'")
+            .SingleAsync();
+        backupTables.Should().Be(0);
+    }
+
+    [Test]
+    public async Task RestoreFlatsSnapshotsAsync_WithoutBackup_PropagatesError()
+    {
+        // Arrange
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatSnapshotRepository(repoContext);
+
+        // Act
+        var act = () => repo.RestoreFlatsSnapshotsAsync();
+
+        // Assert
+        await act.Should().ThrowAsync<Microsoft.Data.Sqlite.SqliteException>()
+            .WithMessage("*FlatsSnapshots_Backup*");
+    }
+
+    [Test]
+    public async Task GetCurrentOffersAsync_WithCanceledToken_Throws()
+    {
+        // Arrange
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatSnapshotRepository(repoContext);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        // Act
+        var act = () => repo.GetCurrentOffersAsync(cts.Token);
+
+        // Assert
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    private static Task<int> CountBackupRowsAsync(FlatsDbContext dbContext) =>
+        dbContext.Database.SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM FlatsSnapshots_Backup").SingleAsync();
+
+    private static Flat CreateFlat(string listingId, string source = "OhneMakler") => new()
+    {
+        ListingId = listingId,
+        Url = $"/immobilie/{listingId}/",
+        Title = $"Listing {listingId}",
+        Address = $"Address {listingId}",
+        ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+        Source = source,
+    };
 }

@@ -7,23 +7,8 @@ using Microsoft.EntityFrameworkCore;
 public sealed class FlatAggregationRepository : IFlatAggregationRepository
 {
     private readonly FlatsDbContext _dbContext;
-    private readonly bool _ownsContext;
 
-    public FlatAggregationRepository(DbContextOptions<FlatsDbContext> options)
-    {
-        ArgumentNullException.ThrowIfNull(options);
-        _dbContext = new FlatsDbContext(options);
-        _ownsContext = true;
-    }
-
-    public async Task InitializeAsync(CancellationToken ct = default)
-    {
-        var provider = _dbContext.Database.ProviderName;
-        if (provider?.Contains("InMemory") ?? false)
-            await _dbContext.Database.EnsureCreatedAsync(ct);
-        else
-            await _dbContext.Database.MigrateAsync(ct);
-    }
+    public FlatAggregationRepository(FlatsDbContext dbContext) => _dbContext = dbContext;
 
     public async Task RefreshAsync(CancellationToken ct = default)
     {
@@ -87,11 +72,5 @@ public sealed class FlatAggregationRepository : IFlatAggregationRepository
                 AvgPricePerMeter = a.AvgPricePerMeter
             })
             .ToListAsync(ct);
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        if (_ownsContext)
-            await _dbContext.DisposeAsync();
     }
 }

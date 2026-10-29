@@ -1,13 +1,12 @@
 using NUnit.Framework;
 using FluentAssertions;
 using Moq;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using FlatMonitor.Api.Services;
+using FlatMonitor.Models;
 using FlatMonitor.Scraping;
 using FlatMonitor.Storage;
 using FlatMonitor.Tests.Scraping.Common;
-using Microsoft.Data.Sqlite;
 
 namespace FlatMonitor.Tests.Api.Services;
 
@@ -43,7 +42,6 @@ public class ScrapeResultTests
 [TestFixture]
 public class ScrapeExecutionServiceTests
 {
-    private FlatsDbContext _dbContext = null!;
     private Mock<ISnapshotRepository> _mockSnapshotRepository = null!;
     private Mock<IFlatAggregationRepository> _mockAggregationRepository = null!;
     private Mock<ILogger<ScrapeExecutionService>> _mockLogger = null!;
@@ -52,10 +50,6 @@ public class ScrapeExecutionServiceTests
     [SetUp]
     public void Setup()
     {
-        var options = new DbContextOptionsBuilder<FlatsDbContext>()
-            .UseInMemoryDatabase($"ScrapeExecutionServiceTests_{Guid.NewGuid()}")
-            .Options;
-        _dbContext = new FlatsDbContext(options);
         _mockSnapshotRepository = new Mock<ISnapshotRepository>();
         _mockAggregationRepository = new Mock<IFlatAggregationRepository>();
         _mockLogger = new Mock<ILogger<ScrapeExecutionService>>();
@@ -76,34 +70,12 @@ public class ScrapeExecutionServiceTests
         _mockAggregationRepository
             .Setup(r => r.RefreshAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
-
-    }
-
-    [TearDown]
-    public async Task TearDown()
-    {
-        await _coordinator.DisposeAsync();
-        await _dbContext.DisposeAsync();
-    }
-
-    [Test]
-    public void Constructor_RequiresDbContext()
-    {
-        var action = () => new ScrapeExecutionService(
-            null!,
-            _mockSnapshotRepository.Object,
-            _mockAggregationRepository.Object,
-            null!,
-            _mockLogger.Object);
-
-        action.Should().Throw<ArgumentNullException>();
     }
 
     [Test]
     public void Constructor_RequiresSnapshotRepository()
     {
         var action = () => new ScrapeExecutionService(
-            _dbContext,
             null!,
             _mockAggregationRepository.Object,
             _coordinator,
@@ -116,7 +88,6 @@ public class ScrapeExecutionServiceTests
     public void Constructor_RequiresAggregationRepository()
     {
         var action = () => new ScrapeExecutionService(
-            _dbContext,
             _mockSnapshotRepository.Object,
             null!,
             _coordinator,
@@ -129,7 +100,6 @@ public class ScrapeExecutionServiceTests
     public void Constructor_RequiresCoordinator()
     {
         var action = () => new ScrapeExecutionService(
-            _dbContext,
             _mockSnapshotRepository.Object,
             _mockAggregationRepository.Object,
             null!,
@@ -142,7 +112,6 @@ public class ScrapeExecutionServiceTests
     public void Constructor_RequiresLogger()
     {
         var action = () => new ScrapeExecutionService(
-            _dbContext,
             _mockSnapshotRepository.Object,
             _mockAggregationRepository.Object,
             _coordinator,
@@ -152,25 +121,17 @@ public class ScrapeExecutionServiceTests
     }
 }
 
-// Uses SQLite, not InMemory: ExecuteAsync clears the table with ExecuteDeleteAsync, which InMemory does not support.
 [TestFixture]
 public class ScrapeExecutionServiceExecuteTests
 {
-    private SqliteConnection _connection = null!;
-    private FlatsDbContext _dbContext = null!;
     private Mock<ISnapshotRepository> _mockSnapshotRepository = null!;
     private Mock<IFlatAggregationRepository> _mockAggregationRepository = null!;
     private ListLogger<ScrapeExecutionService> _logger = null!;
     private string _dataDir = null!;
 
     [SetUp]
-    public async Task Setup()
+    public void Setup()
     {
-        _connection = new SqliteConnection("Data Source=:memory:");
-        await _connection.OpenAsync();
-        _dbContext = new FlatsDbContext(new DbContextOptionsBuilder<FlatsDbContext>().UseSqlite(_connection).Options);
-        await _dbContext.Database.EnsureCreatedAsync();
-
         // Loose mocks: every repository call completes without doing anything
         _mockSnapshotRepository = new Mock<ISnapshotRepository>();
         _mockAggregationRepository = new Mock<IFlatAggregationRepository>();
@@ -179,10 +140,8 @@ public class ScrapeExecutionServiceExecuteTests
     }
 
     [TearDown]
-    public async Task TearDown()
+    public void TearDown()
     {
-        await _dbContext.DisposeAsync();
-        await _connection.DisposeAsync();
         if (Directory.Exists(_dataDir))
             Directory.Delete(_dataDir, recursive: true);
     }
@@ -206,6 +165,26 @@ public class ScrapeExecutionServiceExecuteTests
     }
 
     [Test]
+    public async Task ExecuteAsync_BacksUpThenClearsThroughRepositoryBeforeScraping()
+    {
+        // Arrange
+        var calls = new List<string>();
+        _mockSnapshotRepository.Setup(r => r.BackupFlatsSnapshotsAsync(It.IsAny<CancellationToken>()))
+            .Callback(() => calls.Add("backup")).Returns(Task.CompletedTask);
+        _mockSnapshotRepository.Setup(r => r.ClearAsync(It.IsAny<CancellationToken>()))
+            .Callback(() => calls.Add("clear")).Returns(Task.CompletedTask);
+        _mockSnapshotRepository.Setup(r => r.UpsertListingsAsync(It.IsAny<List<Flat>>(), It.IsAny<CancellationToken>()))
+            .Callback(() => calls.Add("upsert")).Returns(Task.CompletedTask);
+        var service = CreateService(new FakeFlatScraper { Flats = [FakeFlatScraper.CreateFlat("1")] });
+
+        // Act
+        await service.ExecuteAsync();
+
+        // Assert
+        calls.Should().Equal("backup", "clear", "upsert");
+    }
+
+    [Test]
     public async Task ExecuteAsync_WhenASourceFails_KeepsBackupAndReportsFailure()
     {
         // Arrange
@@ -226,7 +205,6 @@ public class ScrapeExecutionServiceExecuteTests
     {
         var coordinator = new ScraperCoordinator(scrapers, _mockSnapshotRepository.Object, new SnapshotWriter(), _dataDir);
         return new ScrapeExecutionService(
-            _dbContext,
             _mockSnapshotRepository.Object,
             _mockAggregationRepository.Object,
             coordinator,

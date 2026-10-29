@@ -120,6 +120,7 @@ public class ScrapeBackgroundService : BackgroundService
             var endTime = DateTime.UtcNow;
             history.EndTimeUtc = endTime;
             history.Status = "Canceled";
+            DiscardPendingChanges(dbContext);
             dbContext.ScrapingHistories.Update(history);
             await dbContext.SaveChangesAsync(CancellationToken.None);
 
@@ -141,6 +142,7 @@ public class ScrapeBackgroundService : BackgroundService
             history.EndTimeUtc = endTime;
             history.Status = "Failed";
             history.ErrorMessage = ex.Message;
+            DiscardPendingChanges(dbContext);
             dbContext.ScrapingHistories.Update(history);
             await dbContext.SaveChangesAsync(CancellationToken.None);
 
@@ -163,6 +165,12 @@ public class ScrapeBackgroundService : BackgroundService
             _currentJobId = null;
         }
     }
+
+    /// <summary>
+    /// The repositories share this scoped context. Flats from an interrupted upsert are still tracked,
+    /// so drop them before saving the history row; Update re-attaches the history entity.
+    /// </summary>
+    private static void DiscardPendingChanges(FlatsDbContext dbContext) => dbContext.ChangeTracker.Clear();
 
     public void CancelCurrentJob()
     {

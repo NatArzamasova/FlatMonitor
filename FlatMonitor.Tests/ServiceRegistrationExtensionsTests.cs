@@ -1,8 +1,11 @@
 using NUnit.Framework;
 using FluentAssertions;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using FlatMonitor.Api.Services;
+using FlatMonitor.Models;
 using FlatMonitor.Scraping;
 using FlatMonitor.Storage;
 
@@ -35,6 +38,7 @@ public class ServiceRegistrationExtensionsTests
     public async Task TearDown()
     {
         await _provider.DisposeAsync();
+        SqliteConnection.ClearAllPools(); // pooled connections keep the test database file open
         if (Directory.Exists(_contentRoot))
             Directory.Delete(_contentRoot, recursive: true);
     }
@@ -61,11 +65,41 @@ public class ServiceRegistrationExtensionsTests
     [Test]
     public async Task AddFlatMonitorCore_ResolvesScrapeExecutionService()
     {
-        // Async scope: ScraperCoordinator is only IAsyncDisposable, like in Program and ScrapeBackgroundService
+        // Async scope, like in Program and ScrapeBackgroundService
         await using var scope = _provider.CreateAsyncScope();
 
         var act = () => scope.ServiceProvider.GetRequiredService<ScrapeExecutionService>();
 
         act.Should().NotThrow();
+    }
+
+    [Test]
+    public async Task AddFlatMonitorCore_RepositoriesUseTheScopedDbContext()
+    {
+        // Arrange
+        _provider.GetRequiredService<StorageOptions>().EnsureDirectoriesExist();
+        await using var scope = _provider.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<FlatsDbContext>();
+        await dbContext.Database.EnsureCreatedAsync();
+        var repository = scope.ServiceProvider.GetRequiredService<ISnapshotRepository>();
+        await repository.UpsertListingsAsync([new Flat
+        {
+            ListingId = "1",
+            Url = "/immobilie/1/",
+            Title = "Listing 1",
+            Address = "Address 1",
+            ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
+            Source = "OhneMakler",
+        }]);
+
+        // Act: a transaction on the scoped context only covers the repository if both use that context
+        await using (var transaction = await dbContext.Database.BeginTransactionAsync())
+        {
+            await repository.ClearAsync();
+            await transaction.RollbackAsync();
+        }
+
+        // Assert
+        (await dbContext.FlatsSnapshots.CountAsync()).Should().Be(1);
     }
 }

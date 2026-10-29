@@ -6,89 +6,24 @@ using Microsoft.EntityFrameworkCore;
 public sealed class FlatSnapshotRepository : ISnapshotRepository
 {
     private readonly FlatsDbContext _dbContext;
-    private readonly bool _ownsContext;
 
-    public FlatSnapshotRepository(DbContextOptions<FlatsDbContext> options)
-    {
-        ArgumentNullException.ThrowIfNull(options);
-        _dbContext = new FlatsDbContext(options);
-        _ownsContext = true;
-    }
+    public FlatSnapshotRepository(FlatsDbContext dbContext) => _dbContext = dbContext;
 
-    public async Task InitializeAsync(CancellationToken ct = default)
-    {
-        // For in-memory databases (tests), use EnsureCreatedAsync.
-        // For SQLite (production), use MigrateAsync to apply migrations while preserving data.
-        var provider = _dbContext.Database.ProviderName;
-        if (provider?.Contains("InMemory") ?? false)
-        {
-            await _dbContext.Database.EnsureCreatedAsync(ct);
-        }
-        else
-        {
-            await _dbContext.Database.MigrateAsync(ct);
-        }
-    }
+    public Task ClearAsync(CancellationToken ct = default) =>
+        _dbContext.FlatsSnapshots.ExecuteDeleteAsync(ct);
 
-    public async Task BackupFlatsSnapshotsAsync(CancellationToken ct = default)
-    {
-        try
-        {
-            var connection = _dbContext.Database.GetDbConnection();
-            var command = connection.CreateCommand();
-            command.CommandText = @"
-                DROP TABLE IF EXISTS FlatsSnapshots_Backup;
-                CREATE TABLE FlatsSnapshots_Backup AS SELECT * FROM FlatsSnapshots;
-            ";
-            await connection.OpenAsync(ct);
-            await command.ExecuteNonQueryAsync();
-            command.Dispose();
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"Backup failed: {ex.Message}");
-            throw;
-        }
-    }
+    public Task BackupFlatsSnapshotsAsync(CancellationToken ct = default) =>
+        _dbContext.Database.ExecuteSqlRawAsync(@"
+            DROP TABLE IF EXISTS FlatsSnapshots_Backup;
+            CREATE TABLE FlatsSnapshots_Backup AS SELECT * FROM FlatsSnapshots;", ct);
 
-    public async Task RestoreFlatsSnapshotsAsync(CancellationToken ct = default)
-    {
-        try
-        {
-            var connection = _dbContext.Database.GetDbConnection();
-            var command = connection.CreateCommand();
-            command.CommandText = @"
-                DELETE FROM FlatsSnapshots;
-                INSERT INTO FlatsSnapshots SELECT * FROM FlatsSnapshots_Backup;
-            ";
-            await connection.OpenAsync(ct);
-            await command.ExecuteNonQueryAsync();
-            command.Dispose();
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"Restore failed: {ex.Message}");
-            throw;
-        }
-    }
+    public Task RestoreFlatsSnapshotsAsync(CancellationToken ct = default) =>
+        _dbContext.Database.ExecuteSqlRawAsync(@"
+            DELETE FROM FlatsSnapshots;
+            INSERT INTO FlatsSnapshots SELECT * FROM FlatsSnapshots_Backup;", ct);
 
-    public async Task DeleteBackupAsync(CancellationToken ct = default)
-    {
-        try
-        {
-            var connection = _dbContext.Database.GetDbConnection();
-            var command = connection.CreateCommand();
-            command.CommandText = "DROP TABLE IF EXISTS FlatsSnapshots_Backup;";
-            await connection.OpenAsync(ct);
-            await command.ExecuteNonQueryAsync();
-            command.Dispose();
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"Delete backup failed: {ex.Message}");
-            throw;
-        }
-    }
+    public Task DeleteBackupAsync(CancellationToken ct = default) =>
+        _dbContext.Database.ExecuteSqlRawAsync("DROP TABLE IF EXISTS FlatsSnapshots_Backup;", ct);
 
     public async Task UpsertListingsAsync(List<Flat> listings, CancellationToken ct = default)
     {
@@ -151,23 +86,7 @@ public sealed class FlatSnapshotRepository : ISnapshotRepository
             }
         }
 
-        try
-        {
-            await _dbContext.SaveChangesAsync(ct);
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"Database save failed: {ex.Message}");
-            if (ex.InnerException != null)
-                Console.Error.WriteLine($"Inner exception: {ex.InnerException.Message}");
-            throw;
-        }
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        if (_ownsContext)
-            await _dbContext.DisposeAsync();
+        await _dbContext.SaveChangesAsync(ct);
     }
 
     private static int? CalculatePricePerMeter(int? priceEur, double? livingAreaSqm)
@@ -193,7 +112,7 @@ public sealed class FlatSnapshotRepository : ISnapshotRepository
                     Url = s.Url,
                     Source = s.Source
                 })
-                .ToListAsync();
+                .ToListAsync(ct);
     }
 
 }

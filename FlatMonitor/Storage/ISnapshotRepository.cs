@@ -8,9 +8,10 @@ using FlatMonitor.Models;
 /// It is distinct from the JSONL snapshot files (SnapshotWriter/SnapshotLoader), which are debugging backups only.
 /// The database is queried for reports and aggregations; snapshots are never replayed back into it.
 /// </summary>
-public interface ISnapshotRepository : IAsyncDisposable
+public interface ISnapshotRepository
 {
-    Task InitializeAsync(CancellationToken ct = default);
+    /// <summary>Deletes all rows from FlatsSnapshots (the backup table is not touched).</summary>
+    Task ClearAsync(CancellationToken ct = default);
     Task UpsertListingsAsync(List<Flat> listings, CancellationToken ct = default);
     Task BackupFlatsSnapshotsAsync(CancellationToken ct = default);
     Task RestoreFlatsSnapshotsAsync(CancellationToken ct = default);

@@ -2,25 +2,21 @@ namespace FlatMonitor.Api.Services;
 
 using FlatMonitor.Scraping;
 using FlatMonitor.Storage;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 public class ScrapeExecutionService
 {
-    private readonly FlatsDbContext _dbContext;
     private readonly ISnapshotRepository _snapshotRepository;
     private readonly IFlatAggregationRepository _aggregationRepository;
     private readonly ScraperCoordinator _coordinator;
     private readonly ILogger<ScrapeExecutionService> _logger;
 
     public ScrapeExecutionService(
-        FlatsDbContext dbContext,
         ISnapshotRepository snapshotRepository,
         IFlatAggregationRepository aggregationRepository,
         ScraperCoordinator coordinator,
         ILogger<ScrapeExecutionService> logger)
     {
-        _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
         _snapshotRepository = snapshotRepository ?? throw new ArgumentNullException(nameof(snapshotRepository));
         _aggregationRepository = aggregationRepository ?? throw new ArgumentNullException(nameof(aggregationRepository));
         _coordinator = coordinator ?? throw new ArgumentNullException(nameof(coordinator));
@@ -35,8 +31,7 @@ public class ScrapeExecutionService
         await _snapshotRepository.BackupFlatsSnapshotsAsync(cancellationToken);
 
         _logger.LogInformation("Clearing FlatsSnapshots table");
-        await _dbContext.FlatsSnapshots.ExecuteDeleteAsync(cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _snapshotRepository.ClearAsync(cancellationToken);
 
         if (onBatchSaved != null)
         {

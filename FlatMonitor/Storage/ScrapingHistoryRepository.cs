@@ -14,30 +14,12 @@ public sealed class ScrapingHistoryRepository : IScrapingHistoryRepository
         var latest = await _dbContext.ScrapingHistories
             .AsNoTracking()
             .OrderByDescending(h => h.StartTimeUtc)
-            .Select(h => new ScrapingHistory
-            {
-                Id = h.Id,
-                StartTimeUtc = h.StartTimeUtc,
-                EndTimeUtc = h.EndTimeUtc,
-                Status = h.Status,
-                ErrorMessage = h.ErrorMessage,
-                FlatsScrapedCount = h.FlatsScrapedCount
-            })
             .FirstOrDefaultAsync(cancellationToken);
 
         var latestSuccessful = await _dbContext.ScrapingHistories
             .AsNoTracking()
             .Where(h => h.Status == "Successful")
             .OrderByDescending(h => h.StartTimeUtc)
-            .Select(h => new ScrapingHistory
-            {
-                Id = h.Id,
-                StartTimeUtc = h.StartTimeUtc,
-                EndTimeUtc = h.EndTimeUtc,
-                Status = h.Status,
-                ErrorMessage = h.ErrorMessage,
-                FlatsScrapedCount = h.FlatsScrapedCount
-            })
             .FirstOrDefaultAsync(cancellationToken);
 
         return new ScrapingStatusHistory(latest, latestSuccessful);

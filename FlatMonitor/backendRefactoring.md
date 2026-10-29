@@ -154,7 +154,20 @@ public static IServiceCollection AddFlatMonitorCore(this IServiceCollection serv
 - Optionally move the CLI commands (`scrape`, `explore-is24`) to small `ICommand` classes, so
   `Program.cs` only parses arguments and dispatches.
 
-### 2.2 Repositories: inject the `DbContext`, stop owning it
+### 2.2 Repositories: inject the `DbContext`, stop owning it ✅ Done
+> **Done:** `FlatSnapshotRepository`/`FlatAggregationRepository` take the scoped `FlatsDbContext` (registered by type);
+> `InitializeAsync`, `_ownsContext` and `IAsyncDisposable` are gone from the repositories, their interfaces and
+> `ScraperCoordinator`. New `ISnapshotRepository.ClearAsync`, so `ScrapeExecutionService` no longer depends on
+> `FlatsDbContext`. Backup/restore/delete-backup are one `ExecuteSqlRawAsync` each and errors propagate (also in
+> the upsert). `GetCurrentOffersAsync` passes `ct`; `ScrapingHistoryRepository.GetLatestAsync` drops the projections.
+> Because the background service now shares the context with the repositories, it clears the change tracker before
+> saving a Failed/Canceled history row (otherwise unsaved flats/aggregations would be written with it).
+> Not done here: moving restore-on-failure into `ScrapeExecutionService` (2.5).
+> Tests: `FlatSnapshotRepositoryTests` (`ClearAsync`, `DeleteBackupAsync`, restore without backup, canceled offers query),
+> `ServiceRegistrationExtensionsTests.AddFlatMonitorCore_RepositoriesUseTheScopedDbContext`,
+> `ScrapeBackgroundServiceTests.ProcessJob_WhenScrapeFailsWithUnsavedChanges_SavesFailedHistoryWithoutThem`,
+> `ScrapeExecutionServiceExecuteTests.ExecuteAsync_BacksUpThenClearsThroughRepositoryBeforeScraping`.
+
 **Severity:** High · **Impact:** Testability, transactions, hidden dependencies
 **Files:** `Storage/FlatSnapshotRepository.cs:11-41`, `Storage/FlatAggregationRepository.cs:12-36`, `Storage/I*Repository.cs`
 

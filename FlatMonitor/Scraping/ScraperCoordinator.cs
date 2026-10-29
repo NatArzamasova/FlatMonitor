@@ -4,7 +4,7 @@ using FlatMonitor.Models;
 using FlatMonitor.Scraping.Common;
 using FlatMonitor.Storage;
 
-public sealed class ScraperCoordinator : IAsyncDisposable
+public sealed class ScraperCoordinator
 {
     private readonly IEnumerable<IScraper> _scrapers;
     private readonly ISnapshotRepository _repository;
@@ -35,7 +35,6 @@ public sealed class ScraperCoordinator : IAsyncDisposable
 
     public async Task<int> ScrapeAllSourcesAsync(CancellationToken ct = default)
     {
-        await _repository.InitializeAsync(ct);
         _scraperErrors.Clear();
         int totalFlats = 0;
 
@@ -188,10 +187,5 @@ public sealed class ScraperCoordinator : IAsyncDisposable
 
         // No match found, filter this flat out
         return null;
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        await _repository.DisposeAsync();
     }
 }

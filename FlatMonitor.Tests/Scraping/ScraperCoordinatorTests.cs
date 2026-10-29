@@ -27,12 +27,8 @@ public class ScraperCoordinatorTests
         _mockScraper2.Setup(s => s.Source).Returns("ImmobilienScout24");
 
         _mockRepository = new Mock<ISnapshotRepository>();
-        _mockRepository.Setup(r => r.InitializeAsync(It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
         _mockRepository.Setup(r => r.UpsertListingsAsync(It.IsAny<List<Flat>>()))
             .Returns(Task.CompletedTask);
-        _mockRepository.Setup(r => r.DisposeAsync())
-            .Returns(new ValueTask());
 
         _snapshotWriter = new SnapshotWriter();
 
@@ -45,37 +41,6 @@ public class ScraperCoordinatorTests
     {
         if (Directory.Exists(_testDir))
             Directory.Delete(_testDir, recursive: true);
-    }
-
-    [Test]
-    public async Task ScrapeAllSourcesAsync_InitializesRepositoryOnce()
-    {
-        // Arrange
-        var listings1 = new List<Flat>
-        {
-            new()
-            {
-                ListingId = "1",
-                Url = "/immobilie/1/",
-                Title = "Test 1",
-                District = "Oberreut",
-                ScrapedAtUtc = DateTime.UtcNow.ToString("O"),
-            }
-        };
-
-        _mockScraper1.Setup(s => s.ScrapeAsync())
-            .ReturnsAsync(listings1);
-        _mockScraper2.Setup(s => s.ScrapeAsync())
-            .ReturnsAsync(new List<Flat>());
-
-        var scrapers = new[] { _mockScraper1.Object, _mockScraper2.Object };
-        var coordinator = new ScraperCoordinator(scrapers, _mockRepository.Object, _snapshotWriter, _testDir);
-
-        // Act
-        await coordinator.ScrapeAllSourcesAsync();
-
-        // Assert
-        _mockRepository.Verify(r => r.InitializeAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test]
@@ -258,23 +223,6 @@ public class ScraperCoordinatorTests
         // Verify snapshot was created for scraper 2
         var scoutDir = Path.Combine(_testDir, "snapshots", "ImmobilienScout24");
         Directory.Exists(scoutDir).Should().BeTrue();
-    }
-
-    [Test]
-    public async Task ScrapeAllSourcesAsync_DisposesRepositoryOnCompletion()
-    {
-        // Arrange
-        _mockScraper1.Setup(s => s.ScrapeAsync())
-            .ReturnsAsync(new List<Flat>());
-
-        var scrapers = new[] { _mockScraper1.Object };
-        var coordinator = new ScraperCoordinator(scrapers, _mockRepository.Object, _snapshotWriter, _testDir);
-
-        // Act
-        await coordinator.DisposeAsync();
-
-        // Assert
-        _mockRepository.Verify(r => r.DisposeAsync(), Times.Once);
     }
 
     [Test]

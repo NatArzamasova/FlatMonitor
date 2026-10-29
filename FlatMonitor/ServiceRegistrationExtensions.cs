@@ -25,8 +25,9 @@ public static class ServiceRegistrationExtensions
         services.AddSingleton(storage);
         services.AddDbContext<FlatsDbContext>(options => options.UseSqlite(storage.ConnectionString));
 
-        services.AddScoped<ISnapshotRepository>(sp => new FlatSnapshotRepository(sp.GetRequiredService<DbContextOptions<FlatsDbContext>>()));
-        services.AddScoped<IFlatAggregationRepository>(sp => new FlatAggregationRepository(sp.GetRequiredService<DbContextOptions<FlatsDbContext>>()));
+        // All repositories share the scoped FlatsDbContext, so one scrape runs on one context and connection
+        services.AddScoped<ISnapshotRepository, FlatSnapshotRepository>();
+        services.AddScoped<IFlatAggregationRepository, FlatAggregationRepository>();
         services.AddScoped<IScrapingHistoryRepository, ScrapingHistoryRepository>();
         services.AddScoped<IFilterPresetRepository, FilterPresetRepository>();
         services.AddScoped<SnapshotWriter>();
