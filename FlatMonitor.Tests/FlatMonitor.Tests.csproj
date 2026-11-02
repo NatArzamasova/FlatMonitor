@@ -15,11 +15,26 @@
     <PackageReference Include="Moq" />
     <PackageReference Include="FluentAssertions" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
+    <!-- Code coverage: the "XPlat Code Coverage" collector of dotnet test (CI: scripts/ci/backend-test.sh) -->
+    <PackageReference Include="coverlet.collector">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\FlatMonitor\FlatMonitor.csproj" />
   </ItemGroup>
+
+  <!--
+    CI runs the built FlatMonitor.Tests.dll from the build job's artifact, without the NuGet cache: the coverage
+    collector must be in the output. coverlet.collector copies itself only on publish (CopyCoverletDataCollectorFiles);
+    run that target with the output folder as its destination.
+  -->
+  <Target Name="CopyCoverletCollectorToOutput" AfterTargets="Build">
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="CopyCoverletDataCollectorFiles"
+             Properties="TargetFramework=$(TargetFramework);Configuration=$(Configuration);PublishDir=$(OutDir)" />
+  </Target>
 
   <ItemGroup>
     <None Update="Fixtures\**\*">

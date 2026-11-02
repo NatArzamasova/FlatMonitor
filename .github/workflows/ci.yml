@@ -77,7 +77,13 @@ jobs:
         with:
           name: backend-test-binaries
           path: FlatMonitor.Tests/bin/Release/net10.0/
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: dotnet-tools-${{ hashFiles('dotnet-tools.json') }}   # ReportGenerator, restored by the script
       - run: sh scripts/ci/backend-test.sh
+      - name: Coverage summary
+        run: cat test-results/coverage/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
       - uses: dorny/test-reporter@v1
         if: always()
         with:
@@ -120,6 +126,8 @@ jobs:
           cache: npm
           cache-dependency-path: ClientApp/package-lock.json
       - run: sh scripts/ci/frontend-test.sh     # Chrome is preinstalled on ubuntu-latest
+      - name: Coverage summary
+        run: cat ClientApp/test-results/coverage/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
       - uses: dorny/test-reporter@v1
         if: always()
         with:

@@ -64,14 +64,24 @@ backend-build:
 backend-test:
   image: mcr.microsoft.com/dotnet/sdk:10.0
   needs: [backend-build]
+  cache:
+    key:
+      prefix: tools
+      files: [dotnet-tools.json]   # ReportGenerator, restored by the script
+    paths: [.nuget/packages]
   script:
     - sh scripts/ci/backend-test.sh
+  # Line coverage from ReportGenerator's summary in the log: shown on the job, the pipeline and the MR
+  coverage: '/Line coverage: \d+(?:\.\d+)?%/'
   artifacts:
     when: always
     expire_in: 1 week
-    paths: [test-results/]
+    paths: [test-results/]   # coverage/index.html: the full report
     reports:
       junit: test-results/backend-junit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: test-results/coverage/Cobertura.xml
 
 frontend-build:
   image: node:20-bookworm
@@ -102,9 +112,14 @@ frontend-test:
     - apt-get update && apt-get install -y --no-install-recommends chromium
   script:
     - sh scripts/ci/frontend-test.sh
+  # Line coverage from Karma's coverage summary in the log: shown on the job, the pipeline and the MR
+  coverage: '/Lines\s*:\s*\d+(?:\.\d+)?%/'
   artifacts:
     when: always
     expire_in: 1 week
-    paths: [ClientApp/test-results/]
+    paths: [ClientApp/test-results/]   # coverage/index.html: the full report
     reports:
       junit: ClientApp/test-results/junit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: ClientApp/test-results/coverage/cobertura.xml

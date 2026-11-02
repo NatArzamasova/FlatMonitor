@@ -153,12 +153,23 @@ Every push runs a pipeline on the platform it was pushed to: `.gitlab-ci.yml` on
 |---|---|---|
 | commit-messages | `scripts/check-commit-msg.sh --range <from>..<to>` | every pushed commit matches `type(scope): message` |
 | backend-build | `scripts/ci/backend-build.sh` | `dotnet restore` + `dotnet build -c Release` |
-| backend-test | `scripts/ci/backend-test.sh` | NUnit tests from the build's output, JUnit report |
+| backend-test | `scripts/ci/backend-test.sh` | NUnit tests from the build's output, JUnit report, code coverage |
 | frontend-build | `scripts/ci/frontend-build.sh` | `ng build` (production) |
-| frontend-test | `scripts/ci/frontend-test.sh` | Karma/Jasmine specs in headless Chrome, JUnit report |
+| frontend-test | `scripts/ci/frontend-test.sh` | Karma/Jasmine specs in headless Chrome, JUnit report, code coverage |
 
 The test jobs start once their build job is green. Failed tests are listed by name in GitLab's pipeline "Tests" tab /
 the "Backend tests" and "Frontend tests" check runs on GitHub.
+
+**Code coverage:** both test jobs measure it; it does not fail a job.
+
+| | Backend | Frontend |
+|---|---|---|
+| Measured by | coverlet (`FlatMonitor.Tests/coverage.runsettings`: the `FlatMonitor` assembly, without EF migrations), merged by ReportGenerator (local tool in `dotnet-tools.json`) | karma-coverage (`ClientApp/karma.conf.js`) |
+| Full report (artifact) | `test-results/coverage/index.html` | `ClientApp/test-results/coverage/index.html` |
+| GitLab | line coverage on the job, pipeline and MR (`coverage:` regex on the log); covered/uncovered lines in the MR diff (Cobertura report) | the same |
+| GitHub | coverage table in the job summary (`SummaryGithub.md`) | the same |
+
+Locally, the same scripts (below) write the same reports, e.g. open `test-results/coverage/index.html`.
 
 **Reproduce a job locally** (Git Bash, from the repository root):
 ```bash
