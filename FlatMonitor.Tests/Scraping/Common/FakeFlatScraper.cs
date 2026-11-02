@@ -21,6 +21,8 @@ internal sealed class FakeFlatScraper(string source = "Fake", ILogger? logger = 
     public Exception? StartException { get; init; }
     public Exception? PageFetchException { get; init; }
     public Action<Flat, CancellationToken>? OnEnrich { get; init; }
+    /// <summary>The flats whose detail page says they are no longer offered: enriching them returns <c>null</c>.</summary>
+    public Func<Flat, bool> IsNoLongerOffered { get; init; } = _ => false;
     public bool SessionStarted { get; private set; }
     public bool SessionDisposed { get; private set; }
 
@@ -51,10 +53,10 @@ internal sealed class FakeFlatScraper(string source = "Fake", ILogger? logger = 
             yield return scraper.Flats;
         }
 
-        public Task<Flat> EnrichAsync(Flat card, CancellationToken ct)
+        public Task<Flat?> EnrichAsync(Flat card, CancellationToken ct)
         {
             scraper.OnEnrich?.Invoke(card, ct);
-            return Task.FromResult(card);
+            return Task.FromResult(scraper.IsNoLongerOffered(card) ? null : card);
         }
 
         public ValueTask DisposeAsync()

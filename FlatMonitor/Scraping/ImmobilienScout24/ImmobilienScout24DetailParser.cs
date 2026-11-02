@@ -5,12 +5,17 @@ using FlatMonitor.Models;
 using FlatMonitor.Scraping.Common;
 using HtmlAgilityPack;
 
-/// <summary>Everything the scraper takes from an ImmobilienScout24 expose page; <c>null</c> where the page has no value.</summary>
+/// <summary>
+/// Everything the scraper takes from an ImmobilienScout24 expose page; <c>null</c> where the page has no value.
+/// <paramref name="IsDeactivated"/>: the listing is no longer offered (the page's <c>isDeactivated: true</c>); its
+/// expose metadata has no price or area then, and the card's price is unreliable.
+/// </summary>
 public sealed record ImmobilienScout24DetailPage(
     string? Title,
     ExposeMetadata? Metadata,
     int? OriginalPrice,
-    FlatDetails? Details)
+    FlatDetails? Details,
+    bool IsDeactivated = false)
 {
     /// <summary>
     /// The card enriched with this page. Expose metadata replaces the card's values; where the page has none
@@ -65,7 +70,14 @@ public partial class ImmobilienScout24DetailParser
             Title: DetailExtractors.ExtractText(doc, ImmobilienScout24DetailSelectors.TitleXPath),
             Metadata: ExtractExposeMetadata(doc),
             OriginalPrice: ExtractOriginalPrice(doc),
-            Details: ParseDetailFields(doc));
+            Details: ParseDetailFields(doc),
+            IsDeactivated: IsDeactivated(doc));
+    }
+
+    private static bool IsDeactivated(HtmlDocument doc)
+    {
+        var scriptNodes = doc.DocumentNode.SelectNodes("//script[contains(text(), 'isDeactivated')]");
+        return scriptNodes != null && scriptNodes.Any(node => Deactivated().IsMatch(node.InnerText));
     }
 
     private FlatDetails? ParseDetailFields(HtmlDocument doc)
@@ -190,6 +202,10 @@ public partial class ImmobilienScout24DetailParser
     // "vermietet / nach Vereinbarung", but not "unvermietet" or "nicht vermietet"
     [GeneratedRegex(@"(?<!nicht\s+)\bvermietet\b", RegexOptions.IgnoreCase)]
     private static partial Regex Rented();
+
+    // "isDeactivated: true", but not "isDeactivatedRedesign" or "isFraudReportingDeactivated"
+    [GeneratedRegex(@"\bisDeactivated\s*:\s*true\b")]
+    private static partial Regex Deactivated();
 
     [GeneratedRegex(@"courtage\s*:\s*['""]([^""]*)['""]")]
     private static partial Regex Courtage();

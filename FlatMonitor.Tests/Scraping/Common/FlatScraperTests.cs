@@ -67,7 +67,7 @@ public class FlatScraperTests
         {
             public IAsyncEnumerable<List<Flat>> FetchCardsAsync(CancellationToken ct) => AsyncEnumerable.Empty<List<Flat>>();
 
-            public Task<Flat> EnrichAsync(Flat card, CancellationToken ct) => Task.FromResult(card);
+            public Task<Flat?> EnrichAsync(Flat card, CancellationToken ct) => Task.FromResult<Flat?>(card);
 
             public ValueTask DisposeAsync() => ValueTask.CompletedTask;
         }
@@ -150,6 +150,27 @@ public class FlatScraperTests
 
         // Assert
         result.Select(f => f.ListingId).Should().Equal("1", "2");
+    }
+
+    [Test]
+    public async Task ScrapeAsync_WhenAFlatIsNoLongerOffered_LeavesItOutAndContinues()
+    {
+        // Arrange: e.g. a deactivated ImmobilienScout24 listing
+        var logger = new ListLogger<FlatScraperTests>();
+        var scraper = new FakeFlatScraper("ImmobilienScout24", logger)
+        {
+            Flats = [CreateFlat("1"), CreateFlat("2"), CreateFlat("3")],
+            IsNoLongerOffered = flat => flat.ListingId == "2",
+        };
+
+        // Act
+        var result = await scraper.ScrapeAsync().ToListAsync();
+
+        // Assert
+        result.Select(f => f.ListingId).Should().Equal("1", "3");
+        logger.Entries.Should().Contain(e => e.Level == LogLevel.Debug
+            && e.Message == "ImmobilienScout24: (2/3) 2 - no longer offered, left out");
+        scraper.SessionDisposed.Should().BeTrue();
     }
 
     [Test]

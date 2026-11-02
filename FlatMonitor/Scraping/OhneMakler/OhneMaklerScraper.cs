@@ -76,7 +76,7 @@ public sealed class OhneMaklerScraper : FlatScraper
             }
         }
 
-        public async Task<Flat> EnrichAsync(Flat card, CancellationToken ct)
+        public async Task<Flat?> EnrichAsync(Flat card, CancellationToken ct)
         {
             if (string.IsNullOrEmpty(card.Url))
             {

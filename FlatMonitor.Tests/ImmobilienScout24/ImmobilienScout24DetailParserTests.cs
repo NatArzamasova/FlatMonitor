@@ -748,6 +748,62 @@ public class ImmobilienScout24DetailParserTests
         result!.CurrentUse.Should().Be("Vermietet");
     }
 
+    [Test]
+    public void Parse_DeactivatedListing_IsDeactivated()
+    {
+        // Arrange: expose 155049251, whose card showed the living area as the price
+        var html = File.ReadAllText(GetFixturePath("detail-page-deactivated.html"));
+
+        // Act
+        var page = _parser.Parse(html);
+
+        // Assert
+        page.IsDeactivated.Should().BeTrue();
+        page.Metadata!.PriceEur.Should().BeNull();
+        page.Metadata.LivingAreaSqm.Should().BeNull();
+    }
+
+    [Test]
+    public void Parse_ActiveListing_IsNotDeactivated()
+    {
+        // Arrange
+        var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
+
+        // Act
+        var page = _parser.Parse(html);
+
+        // Assert
+        page.IsDeactivated.Should().BeFalse();
+    }
+
+    [TestCase("isDeactivated: false,")]
+    [TestCase("isDeactivatedRedesign: true,")]
+    [TestCase("isFraudReportingDeactivated: true,")]
+    public void Parse_WithoutIsDeactivatedTrue_IsNotDeactivated(string flag)
+    {
+        // Arrange: the other flags of the page that contain "Deactivated"
+        var html = $"<html><body><script>IS24.expose = {{ {flag} id: 1 }};</script></body></html>";
+
+        // Act
+        var page = _parser.Parse(html);
+
+        // Assert
+        page.IsDeactivated.Should().BeFalse();
+    }
+
+    [Test]
+    public void Parse_WithIsDeactivatedTrue_IsDeactivated()
+    {
+        // Arrange
+        var html = "<html><body><script>IS24.expose = { isDeactivated : true, isDeactivatedRedesign: false };</script></body></html>";
+
+        // Act
+        var page = _parser.Parse(html);
+
+        // Assert
+        page.IsDeactivated.Should().BeTrue();
+    }
+
     private static string AvailabilityHtml(string availability) => $"""
         <html><body>
             <dl class="grid" role="presentation">

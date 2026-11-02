@@ -56,18 +56,30 @@ public abstract class FlatScraper : IScraper
         for (int i = 0; i < cards.Count; i++)
         {
             ct.ThrowIfCancellationRequested();
-            yield return await EnrichOrKeepAsync(session, cards[i], i + 1, cards.Count, ct);
+            var flat = await EnrichOrKeepAsync(session, cards[i], i + 1, cards.Count, ct);
+            if (flat != null)
+                yield return flat;
         }
 
         Logger.LogInformation("{Source}: scraping complete, {Count} flats processed", Source, cards.Count);
     }
 
-    /// <summary>Enriches the flat; if its detail page fails, keeps the card data and continues.</summary>
-    private async Task<Flat> EnrichOrKeepAsync(IScrapeSession session, Flat flat, int position, int total, CancellationToken ct)
+    /// <summary>
+    /// Enriches the flat; if its detail page fails, keeps the card data and continues. <c>null</c> if the detail page
+    /// says the flat is no longer offered.
+    /// </summary>
+    private async Task<Flat?> EnrichOrKeepAsync(IScrapeSession session, Flat flat, int position, int total, CancellationToken ct)
     {
         try
         {
             var enrichedFlat = await session.EnrichAsync(flat, ct);
+            if (enrichedFlat == null)
+            {
+                Logger.LogDebug("{Source}: ({Position}/{Total}) {ListingId} - no longer offered, left out",
+                    Source, position, total, flat.ListingId);
+                return null;
+            }
+
             Logger.LogDebug(
                 "{Source}: ({Position}/{Total}) {ListingId} - Address={Address}, Price={PriceEur}, OriginalPrice={OriginalPriceEur}, " +
                 "Area={LivingAreaSqm}, Rooms={RoomsCount}, Commission={CommissionPercent}",
@@ -98,7 +110,10 @@ public abstract class FlatScraper : IScraper
         /// </summary>
         IAsyncEnumerable<List<Flat>> FetchCardsAsync(CancellationToken ct);
 
-        /// <summary>The card with its detail page's data. Throws if the detail page cannot be loaded.</summary>
-        Task<Flat> EnrichAsync(Flat card, CancellationToken ct);
+        /// <summary>
+        /// The card with its detail page's data, or <c>null</c> if the detail page says the flat is no longer offered
+        /// (e.g. a deactivated listing): the flat is then left out of the run. Throws if the detail page cannot be loaded.
+        /// </summary>
+        Task<Flat?> EnrichAsync(Flat card, CancellationToken ct);
     }
 }

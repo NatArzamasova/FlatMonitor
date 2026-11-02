@@ -80,7 +80,7 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
             }
         }
 
-        public async Task<Flat> EnrichAsync(Flat card, CancellationToken ct)
+        public async Task<Flat?> EnrichAsync(Flat card, CancellationToken ct)
         {
             if (string.IsNullOrEmpty(card.Url))
             {
@@ -93,6 +93,13 @@ public sealed class ImmobilienScout24Scraper : FlatScraper
             var detailPage = _detailParser.Parse(html);
             _logger.LogDebug("ImmobilienScout24: listing {ListingId}: parsed details: PropertyType={PropertyType}, BuildYear={BuildYear}, Heating={Heating}",
                 card.ListingId, detailPage.Details?.PropertyType, detailPage.Details?.BuildYear, detailPage.Details?.Heating);
+
+            // A deactivated listing is no longer for sale; its card shows no real price (e.g. the area as the price)
+            if (detailPage.IsDeactivated)
+            {
+                _logger.LogInformation("ImmobilienScout24: listing {ListingId} is deactivated, left out", card.ListingId);
+                return null;
+            }
 
             return detailPage.ApplyTo(card);
         }
