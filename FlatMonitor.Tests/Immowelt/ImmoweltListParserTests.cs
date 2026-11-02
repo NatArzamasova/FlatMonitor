@@ -138,6 +138,46 @@ public class ImmoweltListParserTests
     }
 
     [Test]
+    public void Parse_ListPage_UrlIsTheExposeOfTheLegacyId()
+    {
+        // On a single flat's card, url and legacyId name the same expose
+        ParseFixture().Flats.Should().OnlyContain(flat => flat.Url!.StartsWith("https://www.immowelt.de/expose/"));
+    }
+
+    [Test]
+    public void ParseSearchData_ProjectUnits_GetTheirOwnExposeInsteadOfTheProjectPage()
+    {
+        // Two units of a new-build project (2026-11-02): the card links both to the shared project page
+        const string json = """
+            {"pageProps":{"totalCount":2,"classifieds":["26P21WB1A3G8","26HPTXRS8IMV"],"classifiedsData":{
+              "26P21WB1A3G8":{"id":"26P21WB1A3G8","url":"https://www.immowelt.de/projekte/expose/2628ew8d2t3t",
+                "metadata":{"legacyId":"1e0b3367-d1de-4726-97e4-1cbaaf7233a5"},"rawData":{"distributionType":"BUY","price":419000}},
+              "26HPTXRS8IMV":{"id":"26HPTXRS8IMV","url":"https://www.immowelt.de/projekte/expose/2628ew8d2t3t",
+                "metadata":{"legacyId":"4d318a57-73ab-40c6-9fdf-672d2e874899"},"rawData":{"distributionType":"BUY","price":449000}}}}}
+            """;
+
+        var flats = _parser.ParseSearchData(json).Flats;
+
+        flats.Select(f => f.Url).Should().Equal(
+            "https://www.immowelt.de/expose/1e0b3367-d1de-4726-97e4-1cbaaf7233a5",
+            "https://www.immowelt.de/expose/4d318a57-73ab-40c6-9fdf-672d2e874899");
+    }
+
+    [TestCase(null, TestName = "ParseSearchData_ProjectUnitWithoutLegacyId_KeepsTheProjectPage")]
+    [TestCase("9324", TestName = "ParseSearchData_ProjectUnitWithANonGuidLegacyId_KeepsTheProjectPage")]
+    public void ParseSearchData_ProjectUnitWithoutExposeId_KeepsTheProjectPage(string? legacyId)
+    {
+        var metadata = legacyId == null ? "{}" : """{"legacyId":"ID"}""".Replace("ID", legacyId);
+        var json = """
+            {"pageProps":{"totalCount":1,"classifieds":["A1"],"classifiedsData":{
+              "A1":{"id":"A1","url":"https://www.immowelt.de/projekte/expose/2628ew8d2t3t","metadata":METADATA,
+                "rawData":{"distributionType":"BUY"}}}}}
+            """.Replace("METADATA", metadata);
+
+        _parser.ParseSearchData(json).Flats.Single().Url.Should().Be("https://www.immowelt.de/projekte/expose/2628ew8d2t3t");
+    }
+
+    [Test]
     public void ParseSearchData_NoListings_IsAnEmptyPage()
     {
         var page = _parser.ParseSearchData("""{"pageProps":{"totalCount":268,"classifieds":[],"classifiedsData":{}}}""");

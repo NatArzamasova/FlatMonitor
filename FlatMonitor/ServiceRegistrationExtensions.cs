@@ -45,10 +45,14 @@ public static class ServiceRegistrationExtensions
         services.AddSingleton(ImmoweltOptions.FromConfiguration(configuration));
         services.AddScoped<ImmoweltScraper>();
 
-        // Sources are scraped in registration order
-        services.AddScoped<IScraper>(sp => sp.GetRequiredService<OhneMaklerScraper>());
-        services.AddScoped<IScraper>(sp => sp.GetRequiredService<ImmobilienScout24Scraper>());
-        services.AddScoped<IScraper>(sp => sp.GetRequiredService<ImmoweltScraper>());
+        // Sources are scraped in registration order (the order of ScraperSources.All); only the selected ones
+        var sources = ScraperSources.FromConfiguration(configuration);
+        if (sources.Contains(OhneMaklerScraper.SourceName))
+            services.AddScoped<IScraper>(sp => sp.GetRequiredService<OhneMaklerScraper>());
+        if (sources.Contains(ImmobilienScout24Scraper.SourceName))
+            services.AddScoped<IScraper>(sp => sp.GetRequiredService<ImmobilienScout24Scraper>());
+        if (sources.Contains(ImmoweltPages.SourceName))
+            services.AddScoped<IScraper>(sp => sp.GetRequiredService<ImmoweltScraper>());
 
         services.AddScoped<ScraperCoordinator>();
         services.AddScoped<ScrapeExecutionService>();

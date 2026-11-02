@@ -23,17 +23,23 @@ public class ServiceRegistrationExtensionsTests
     public void Setup()
     {
         _contentRoot = Path.Combine(Path.GetTempPath(), $"ServiceRegistrationTests_{Guid.NewGuid()}");
+        _provider = BuildProvider();
+    }
+
+    private ServiceProvider BuildProvider(string? sources = null)
+    {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 [StorageOptions.DataDirectoryKey] = "data",
                 [$"ConnectionStrings:{StorageOptions.ConnectionStringName}"] = "Data Source=data/test.db",
+                [ScraperSources.ConfigurationKey] = sources,
             })
             .Build();
 
         var services = new ServiceCollection().AddLogging();
         services.AddFlatMonitorCore(configuration, _contentRoot);
-        _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+        return services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
     }
 
     [TearDown]
@@ -62,6 +68,25 @@ public class ServiceRegistrationExtensionsTests
         var scrapers = scope.ServiceProvider.GetServices<IScraper>();
 
         scrapers.Select(s => s.Source).Should().Equal("OhneMakler", "ImmobilienScout24", "Immowelt");
+    }
+
+    [Test]
+    public async Task AddFlatMonitorCore_WithSelectedSources_RegistersOnlyThemInScrapeOrder()
+    {
+        await using var provider = BuildProvider("Immowelt,ohnemakler");
+        await using var scope = provider.CreateAsyncScope();
+
+        var scrapers = scope.ServiceProvider.GetServices<IScraper>();
+
+        scrapers.Select(s => s.Source).Should().Equal("OhneMakler", "Immowelt");
+    }
+
+    [Test]
+    public void AddFlatMonitorCore_WithAnUnknownSource_Fails()
+    {
+        var act = () => BuildProvider("Immowlt");
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*'Immowlt' is no source*");
     }
 
     [Test]

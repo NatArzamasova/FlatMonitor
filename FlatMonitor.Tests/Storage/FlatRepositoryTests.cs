@@ -424,6 +424,25 @@ public class FlatRepositoryTests
     }
 
     [Test]
+    public async Task AddToRunAsync_WhenSavingFails_NoLongerTracksTheBatch()
+    {
+        // Arrange: two flats the unique index (Source, Url, Address) rejects together
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatRepository(repoContext);
+        var clash = CreateFlat("2") with { Url = CreateFlat("1").Url, Address = CreateFlat("1").Address };
+
+        // Act
+        var act = () => repo.AddToRunAsync([CreateFlat("1"), clash]);
+
+        // Assert: the failed rows are not saved again by the next SaveChanges on the shared context
+        await act.Should().ThrowAsync<DbUpdateException>();
+        repoContext.ChangeTracker.Entries().Should().BeEmpty();
+        repoContext.ScrapingHistories.Add(new ScrapingHistory { StartTimeUtc = DateTime.UtcNow, Status = ScrapingStatus.Running });
+        await repoContext.Invoking(c => c.SaveChangesAsync()).Should().NotThrowAsync();
+    }
+
+    [Test]
     public async Task AddToRunAsync_KeepsOtherEntitiesOfTheSharedContextTracked()
     {
         // Arrange: the background service tracks its history row on the same scoped context

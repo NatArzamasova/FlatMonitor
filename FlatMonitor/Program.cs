@@ -2,11 +2,13 @@ using dotenv.net;
 using FlatMonitor;
 using FlatMonitor.Api.Services;
 using FlatMonitor.Models;
+using FlatMonitor.Scraping;
 using FlatMonitor.Scraping.ImmobilienScout24;
 using FlatMonitor.Scraping.Immowelt;
 using FlatMonitor.Storage;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -24,7 +26,19 @@ try
             PrintUsage();
             return 0;
         case CliCommand.Scrape:
-            return await RunScrapeAsync();
+            string? sources;
+            try
+            {
+                sources = CliCommandParser.ParseSources(commandArgs);
+                ScraperSources.Parse(sources);
+            }
+            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+            {
+                Console.Error.WriteLine(ex.Message);
+                PrintUsage();
+                return 1;
+            }
+            return await RunScrapeAsync(sources);
         case CliCommand.ExploreImmobilienScout24:
             return await ExploreImmobilienScout24Async();
         case CliCommand.ExploreImmowelt:
@@ -46,11 +60,12 @@ catch (Exception ex)
     return 1;
 }
 
-async Task<int> RunScrapeAsync()
+async Task<int> RunScrapeAsync(string? sources)
 {
-    Console.WriteLine("Starting scraper...");
+    Console.WriteLine(sources == null ? "Starting scraper..." : $"Starting scraper for {sources}...");
 
-    using var host = BuildCliHost();
+    // --source overrides Scrapers:Sources of appsettings.json and the environment
+    using var host = BuildCliHost(sources == null ? null : new() { [ScraperSources.ConfigurationKey] = sources });
     await using var scope = host.Services.CreateAsyncScope();
 
     try
@@ -168,10 +183,12 @@ async Task<int> ExploreImmoweltAsync(bool headless, string? cdpUrl)
 }
 
 // The services of the CLI commands: configuration, logging and AddFlatMonitorCore, as the web server has them.
-// No args: the command name is not configuration.
-IHost BuildCliHost()
+// No args: the command name is not configuration. Command options that are configuration come as overrides.
+IHost BuildCliHost(Dictionary<string, string?>? overrides = null)
 {
     var builder = Host.CreateApplicationBuilder();
+    if (overrides != null)
+        builder.Configuration.AddInMemoryCollection(overrides);
     builder.Logging.AddFlatMonitorLogging();
     builder.Services.AddFlatMonitorCore(builder.Configuration, builder.Environment.ContentRootPath);
     return builder.Build();
@@ -234,7 +251,10 @@ void PrintUsage()
     Console.Error.WriteLine("Usage: dotnet run [-- <command>]");
     Console.Error.WriteLine("Default: Starts the web server (http://localhost:5000 unless --urls or ASPNETCORE_URLS set another)");
     Console.Error.WriteLine("Commands:");
-    Console.Error.WriteLine("  scrape        Fetch current listings into the database (CLI mode, then exit)");
+    Console.Error.WriteLine("  scrape [--source <names>]");
+    Console.Error.WriteLine("                Fetch current listings into the database (CLI mode, then exit);");
+    Console.Error.WriteLine($"                --source scrapes only these, comma-separated: {string.Join(", ", ScraperSources.All)}");
+    Console.Error.WriteLine("                (the other sources keep their flats)");
     Console.Error.WriteLine("  explore-is24  Open the ImmobilienScout24 listings page and save its HTML for analysis");
     Console.Error.WriteLine("  explore-immowelt [--headless | --cdp]");
     Console.Error.WriteLine("                Open the Immowelt search, save two listings pages and an expose for analysis;");

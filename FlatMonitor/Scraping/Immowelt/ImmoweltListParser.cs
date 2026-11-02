@@ -88,6 +88,22 @@ public sealed class ImmoweltListParser
         return new ImmoweltListPage(totalCount, flats);
     }
 
+    /// <summary>
+    /// The flat's own expose, <c>/expose/{metadata.legacyId}</c>: what <c>url</c> is for a single flat. A unit of a
+    /// new-build project links to the project page instead (<c>/projekte/expose/{projectId}</c>), shared by all its
+    /// units; its own expose is still there under its <c>legacyId</c>.
+    /// </summary>
+    private static string? ExposeUrl(JsonElement classified)
+    {
+        var url = Text(classified, "url");
+        if (url == null || !url.Contains("/projekte/", StringComparison.OrdinalIgnoreCase))
+            return url;
+
+        return Text(classified, "metadata", "legacyId") is { } legacyId && Guid.TryParse(legacyId, out _)
+            ? $"{ImmoweltPageInspection.BaseUrl}/expose/{legacyId}"
+            : url;
+    }
+
     private static Flat ToFlat(string id, JsonElement classified)
     {
         var price = Number(classified, "rawData", "price") is { } p ? (int)p : (int?)null;
@@ -97,7 +113,7 @@ public sealed class ImmoweltListParser
         {
             Source = ImmoweltPages.SourceName,
             ListingId = id,
-            Url = Text(classified, "url"),
+            Url = ExposeUrl(classified),
             Title = Text(classified, "mainDescription", "headline") ?? Text(classified, "hardFacts", "title"),
             Address = FormatAddress(Element(classified, "location", "address")),
             PostalCode = Text(classified, "location", "address", "zipCode"),

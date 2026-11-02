@@ -115,6 +115,14 @@ Explored pages: `FlatMonitor/data/explore/Immowelt/list_page1_20261102_092004.ht
   Also there: `application/ld+json` (not needed). Missing: a removed listing's expose (to save when one turns up,
   for `IsDeactivated`).
 
+### New-build projects (found in the first smoke run, 2026-11-02)
+
+The units of a new-build project are separate cards (own ID, price, area), but their `url` is the shared project
+page (`/projekte/expose/{projectId}`), and so is their address: the second unit broke the unique index
+(Source, Url, Address). Each unit still has its own expose, `/expose/{metadata.legacyId}` — for a single flat that is
+exactly its `url` (all 30 cards of the fixture) — so the list parser uses that for project units. The project page
+itself (`rawData.propertyType: PROJECT`, price "auf Anfrage", `units[]` with each unit's own `url`) is no longer opened.
+
 ### Auctions
 
 Pages 1–2: 59 × `BUY`, 1 × `COMPULSORY_AUCTION` (with a price, 331,000 €). One `BUY` listing has no `rawData.price`.
@@ -188,7 +196,8 @@ attaches to a running Chrome instead of launching one, so there is little to sha
 8. ✅ **Registration** — `ServiceRegistrationExtensions`: options singleton, `AddScoped<ImmoweltScraper>()`,
    `AddScoped<IScraper>(...)`; extend `ServiceRegistrationExtensionsTests`.
 9. **Live test + smoke run** — `ImmoweltScraperLiveTests` (`[Explicit]`, `[Category("Live")]`) reads page 1 and one
-   expose from the attached Chrome; then `dotnet run -- scrape` and check in SQLite: rows with `Source = 'Immowelt'`,
+   expose from the attached Chrome; then `dotnet run -- scrape --source Immowelt` (only immowelt; the other sources
+   keep their flats, `Scrapers:Sources` selects sources for the web server too) and check in SQLite: rows with `Source = 'Immowelt'`,
    districts recognized, €/m² plausible, no auctions.
 10. **Docs** — `CLAUDE.md` / `WohnungMonitor.md` (third source, CDP Chrome, DataDome), `BUILD_AND_RUN.md`
     (starting Chrome, `Scrapers:Immowelt` settings, `explore-immowelt`).

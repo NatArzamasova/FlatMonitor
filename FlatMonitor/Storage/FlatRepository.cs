@@ -52,8 +52,16 @@ public sealed class FlatRepository : IFlatRepository
             }
         }
 
-        await _dbContext.SaveChangesAsync(ct);
-        DetachFlatRows();
+        try
+        {
+            await _dbContext.SaveChangesAsync(ct);
+        }
+        finally
+        {
+            // Also after a failed save: rows left tracked would be inserted again by the next SaveChanges on the
+            // shared context (the next source's batch, the aggregations), failing the whole run
+            DetachFlatRows();
+        }
     }
 
     public async Task<int> PublishSourceAsync(string source, CancellationToken ct = default)

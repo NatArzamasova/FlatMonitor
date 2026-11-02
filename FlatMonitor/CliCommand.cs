@@ -34,4 +34,25 @@ public static class CliCommandParser
             _ => CliCommand.Unknown,
         };
     }
+
+    public const string SourceOption = "--source";
+
+    /// <summary>
+    /// The value of <c>--source</c> (e.g. <c>Immowelt</c> or <c>OhneMakler,Immowelt</c>), or <c>null</c> without the
+    /// option. Throws if the option has no value.
+    /// </summary>
+    public static string? ParseSources(IReadOnlyList<string> args)
+    {
+        for (var i = 0; i < args.Count; i++)
+        {
+            if (args[i] != SourceOption)
+                continue;
+
+            return i + 1 < args.Count && !args[i + 1].StartsWith('-')
+                ? args[i + 1]
+                : throw new ArgumentException($"{SourceOption} needs a source name, e.g. {SourceOption} Immowelt");
+        }
+
+        return null;
+    }
 }
