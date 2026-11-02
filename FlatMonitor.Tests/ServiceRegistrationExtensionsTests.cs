@@ -8,6 +8,7 @@ using FlatMonitor.Api.Services;
 using FlatMonitor.Models;
 using FlatMonitor.Scraping;
 using FlatMonitor.Scraping.ImmobilienScout24;
+using FlatMonitor.Scraping.Immowelt;
 using FlatMonitor.Storage;
 
 namespace FlatMonitor.Tests;
@@ -60,7 +61,7 @@ public class ServiceRegistrationExtensionsTests
 
         var scrapers = scope.ServiceProvider.GetServices<IScraper>();
 
-        scrapers.Select(s => s.Source).Should().Equal("OhneMakler", "ImmobilienScout24");
+        scrapers.Select(s => s.Source).Should().Equal("OhneMakler", "ImmobilienScout24", "Immowelt");
     }
 
     [Test]
@@ -68,6 +69,24 @@ public class ServiceRegistrationExtensionsTests
     {
         // The test configuration has no Scrapers section
         _provider.GetRequiredService<ImmobilienScout24Options>().Should().Be(new ImmobilienScout24Options());
+    }
+
+    [Test]
+    public void AddFlatMonitorCore_RegistersImmoweltOptionsFromConfiguration()
+    {
+        // The test configuration has no Scrapers section
+        _provider.GetRequiredService<ImmoweltOptions>().Should().Be(new ImmoweltOptions());
+    }
+
+    [Test]
+    public async Task AddFlatMonitorCore_ImmoweltScraperIsTheRegisteredSource()
+    {
+        // IScraper resolves the scraper of the scope, not a second instance
+        await using var scope = _provider.CreateAsyncScope();
+
+        var scraper = scope.ServiceProvider.GetServices<IScraper>().Single(s => s.Source == "Immowelt");
+
+        scraper.Should().BeSameAs(scope.ServiceProvider.GetRequiredService<ImmoweltScraper>());
     }
 
     [Test]

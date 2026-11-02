@@ -4,6 +4,7 @@ using FlatMonitor.Api;
 using FlatMonitor.Api.Services;
 using FlatMonitor.Scraping;
 using FlatMonitor.Scraping.ImmobilienScout24;
+using FlatMonitor.Scraping.Immowelt;
 using FlatMonitor.Scraping.OhneMakler;
 using FlatMonitor.Storage;
 using Microsoft.EntityFrameworkCore;
@@ -41,10 +42,13 @@ public static class ServiceRegistrationExtensions
         });
         services.AddSingleton(ImmobilienScout24Options.FromConfiguration(configuration));
         services.AddScoped<ImmobilienScout24Scraper>();
+        services.AddSingleton(ImmoweltOptions.FromConfiguration(configuration));
+        services.AddScoped<ImmoweltScraper>();
 
         // Sources are scraped in registration order
         services.AddScoped<IScraper>(sp => sp.GetRequiredService<OhneMaklerScraper>());
         services.AddScoped<IScraper>(sp => sp.GetRequiredService<ImmobilienScout24Scraper>());
+        services.AddScoped<IScraper>(sp => sp.GetRequiredService<ImmoweltScraper>());
 
         services.AddScoped<ScraperCoordinator>();
         services.AddScoped<ScrapeExecutionService>();

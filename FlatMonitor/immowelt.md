@@ -185,7 +185,7 @@ attaches to a running Chrome instead of launching one, so there is little to sha
    after the pause, saved to `HtmlPageArchive`. Expose without data → throws (`FlatScraper` keeps the card); the
    DataDome guard → that card and all further ones kept without opening their exposes (one warning).
    `ImmoweltDetailParser.Parse` returns `null` for a page without data, as the list parser does.
-8. **Registration** — `ServiceRegistrationExtensions`: options singleton, `AddScoped<ImmoweltScraper>()`,
+8. ✅ **Registration** — `ServiceRegistrationExtensions`: options singleton, `AddScoped<ImmoweltScraper>()`,
    `AddScoped<IScraper>(...)`; extend `ServiceRegistrationExtensionsTests`.
 9. **Live test + smoke run** — `ImmoweltScraperLiveTests` (`[Explicit]`, `[Category("Live")]`) reads page 1 and one
    expose from the attached Chrome; then `dotnet run -- scrape` and check in SQLite: rows with `Source = 'Immowelt'`,
