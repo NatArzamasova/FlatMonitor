@@ -175,9 +175,9 @@ attaches to a running Chrome instead of launching one, so there is little to sha
    `SearchUrl` with `distributionTypes=Buy`, `PauseBetweenPagesMs`, `SaveDebugPages`). No Chrome at the CDP URL →
    clear error ("start Chrome with --remote-debugging-port=9222 …"). `explore-immowelt --cdp` attaches through
    `ImmoweltBrowser` too.
-6. **`ImmoweltFlatsPageFetcher` + `ImmoweltScraper.FetchCardsAsync`** — page 1, then pages 2..⌈totalCount/30⌉ by
+6. ✅ **`ImmoweltFlatsPageFetcher` + `ImmoweltScraper.FetchCardsAsync`** — page 1, then pages 2..⌈totalCount/30⌉ by
    URL with the pause, safety cap 50 pages. DataDome page or no blob on page 1 → throw (with debug page); on a later
-   page → throw too (no silently shorter run).
+   page → throw too (no silently shorter run). `ImmoweltScraper.EnrichAsync` returns the card until step 7.
 7. **`ImmoweltDetailParser`** ✅ **+ `ImmoweltDetailScraper` + `EnrichAsync`** — expose is the source of truth, card
    fills gaps (like the other sources); rooms and area come from the card (exact; the expose rounds them).
    `IsDeactivated` = `metadata.status.status: false` — an assumption, verify with a removed listing's expose. Commission via `GermanNumberParser` ("provisionsfrei"/missing fee → 0 only if the
