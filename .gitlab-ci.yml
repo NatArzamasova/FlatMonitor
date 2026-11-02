@@ -1,9 +1,15 @@
 # CI for GitLab (remote "origin", code.andrena.de). GitHub runs .github/workflows/ci.yml instead.
 # The jobs only prepare the environment; the work is done by the shared scripts in scripts/.
 #
+#   stage build          stage test        stage coverage
 #   commit-messages
 #   backend-build  ──► backend-test  ──► backend-coverage
 #   frontend-build ──► frontend-test ──► frontend-coverage
+#
+# The stages are the columns of the pipeline graph; `needs:` lets a job start as soon as the jobs it needs are done,
+# without waiting for the whole previous stage.
+
+stages: [build, test, coverage]
 
 workflow:
   rules:
@@ -26,6 +32,7 @@ variables:
   npm_config_cache: $CI_PROJECT_DIR/.npm
 
 commit-messages:
+  stage: build
   image: alpine:3.20
   needs: []
   variables:
@@ -45,6 +52,7 @@ commit-messages:
       sh scripts/check-commit-msg.sh --range "$range"
 
 backend-build:
+  stage: build
   image: mcr.microsoft.com/dotnet/sdk:10.0
   needs: []
   cache:
@@ -62,6 +70,7 @@ backend-build:
       - FlatMonitor.Tests/bin/Release/net10.0/.playwright/**/*
 
 backend-test:
+  stage: test
   image: mcr.microsoft.com/dotnet/sdk:10.0
   needs: [backend-build]
   script:
@@ -74,6 +83,7 @@ backend-test:
       junit: test-results/backend-junit.xml
 
 backend-coverage:
+  stage: coverage
   image: mcr.microsoft.com/dotnet/sdk:10.0
   needs: [backend-test]      # its artifact: the raw coverage
   cache: &tools-cache
@@ -94,6 +104,7 @@ backend-coverage:
         path: test-results/coverage/backend/Cobertura.xml
 
 frontend-build:
+  stage: build
   image: node:20-bookworm
   needs: []
   cache:
@@ -107,6 +118,7 @@ frontend-build:
     paths: [ClientApp/dist/]
 
 frontend-test:
+  stage: test
   image: node:20-bookworm
   needs:
     - job: frontend-build
@@ -130,6 +142,7 @@ frontend-test:
       junit: ClientApp/test-results/junit.xml
 
 frontend-coverage:
+  stage: coverage
   image: mcr.microsoft.com/dotnet/sdk:10.0   # ReportGenerator, as for the backend
   needs: [frontend-test]     # its artifact: the raw coverage
   cache: *tools-cache
