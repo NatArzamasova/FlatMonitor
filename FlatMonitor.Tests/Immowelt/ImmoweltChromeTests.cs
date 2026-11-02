@@ -38,10 +38,21 @@ public class ImmoweltChromeTests
     [Test]
     public void StartInfo_ExpandsEnvironmentVariablesInTheProfile()
     {
-        var startInfo = ImmoweltChrome.StartInfo(@"C:\Chrome\chrome.exe", new ImmoweltOptions());
+        // An own variable: %LOCALAPPDATA% exists on Windows only, and CI runs on Linux
+        const string variable = "FLATMONITOR_TEST_PROFILES";
+        Environment.SetEnvironmentVariable(variable, @"D:\Profiles");
+        try
+        {
+            var options = new ImmoweltOptions { ChromeUserDataDir = $@"%{variable}%\FlatMonitorChrome" };
 
-        startInfo.ArgumentList[1].Should().Be(
-            "--user-data-dir=" + Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FlatMonitorChrome"));
+            var startInfo = ImmoweltChrome.StartInfo(@"C:\Chrome\chrome.exe", options);
+
+            startInfo.ArgumentList[1].Should().Be(@"--user-data-dir=D:\Profiles\FlatMonitorChrome");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(variable, null);
+        }
     }
 
     [Test]
@@ -57,7 +68,9 @@ public class ImmoweltChromeTests
     {
         var act = () => ImmoweltChrome.ChromePath(new ImmoweltOptions(), _ => false);
 
-        act.Should().Throw<InvalidOperationException>().WithMessage("Chrome not found*Program Files*Scrapers:Immowelt:ChromePath*");
+        // The install locations themselves depend on the machine (Windows variables are not set on the Linux CI)
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage(@"Chrome not found (*Google\Chrome\Application\chrome.exe*); set Scrapers:Immowelt:ChromePath to its chrome.exe.");
     }
 
     [Test]
