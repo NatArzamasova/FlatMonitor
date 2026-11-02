@@ -6,6 +6,7 @@ public enum CliCommand
     WebServer,
     Scrape,
     ExploreImmobilienScout24,
+    ExploreImmowelt,
     Help,
 
     /// <summary>A word that is no command, e.g. a typo like "scrap": must not silently start the web server.</summary>
@@ -28,6 +29,7 @@ public static class CliCommandParser
             "--help" or "-h" => CliCommand.Help,
             "scrape" => CliCommand.Scrape,
             "explore-is24" => CliCommand.ExploreImmobilienScout24,
+            "explore-immowelt" => CliCommand.ExploreImmowelt,
             var option when option.StartsWith('-') => CliCommand.WebServer,
             _ => CliCommand.Unknown,
         };

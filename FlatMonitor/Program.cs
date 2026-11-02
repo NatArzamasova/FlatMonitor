@@ -3,6 +3,7 @@ using FlatMonitor;
 using FlatMonitor.Api.Services;
 using FlatMonitor.Models;
 using FlatMonitor.Scraping.ImmobilienScout24;
+using FlatMonitor.Scraping.Immowelt;
 using FlatMonitor.Storage;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
@@ -26,6 +27,10 @@ try
             return await RunScrapeAsync();
         case CliCommand.ExploreImmobilienScout24:
             return await ExploreImmobilienScout24Async();
+        case CliCommand.ExploreImmowelt:
+            return await ExploreImmoweltAsync(
+                headless: commandArgs.Contains("--headless"),
+                cdpUrl: commandArgs.Contains("--cdp") ? ImmoweltExplorer.DefaultCdpUrl : null);
         case CliCommand.Unknown:
             Console.Error.WriteLine($"Unknown command: {commandArgs[0]}");
             PrintUsage();
@@ -141,6 +146,27 @@ async Task<int> ExploreImmobilienScout24Async()
     }
 }
 
+async Task<int> ExploreImmoweltAsync(bool headless, string? cdpUrl)
+{
+    using var host = BuildCliHost();
+    var storage = host.Services.GetRequiredService<StorageOptions>();
+    var explorer = new ImmoweltExplorer(
+        Path.Combine(storage.DataDirectory, "explore", "Immowelt"),
+        headless,
+        cdpUrl,
+        host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("FlatMonitor.ExploreImmowelt"));
+
+    try
+    {
+        return await explorer.ExploreAsync() ? 0 : 1;
+    }
+    catch (Exception ex)
+    {
+        host.Services.GetRequiredService<ILogger<Program>>().LogError(ex, "Immowelt exploration failed");
+        return 1;
+    }
+}
+
 // The services of the CLI commands: configuration, logging and AddFlatMonitorCore, as the web server has them.
 // No args: the command name is not configuration.
 IHost BuildCliHost()
@@ -210,5 +236,8 @@ void PrintUsage()
     Console.Error.WriteLine("Commands:");
     Console.Error.WriteLine("  scrape        Fetch current listings into the database (CLI mode, then exit)");
     Console.Error.WriteLine("  explore-is24  Open the ImmobilienScout24 listings page and save its HTML for analysis");
+    Console.Error.WriteLine("  explore-immowelt [--headless | --cdp]");
+    Console.Error.WriteLine("                Open the Immowelt search, save two listings pages and an expose for analysis;");
+    Console.Error.WriteLine($"                --cdp attaches to a Chrome started with --remote-debugging-port ({ImmoweltExplorer.DefaultCdpUrl})");
     Console.Error.WriteLine("  --help        Show this message");
 }

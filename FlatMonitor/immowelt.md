@@ -14,124 +14,177 @@ https://www.immowelt.de/classified-search?distributionTypes=Buy,Buy_Auction,Comp
 
 ## Decision: HttpClient (like OhneMakler) or browser (like ImmobilienScout24)?
 
-**Browser (Playwright).** Checked on 2026-11-02 with `curl`:
+**A browser — and it has to be a real Chrome the user started, attached over CDP.** Checked on 2026-11-02:
 
-| Request | Result |
+| Client | Result |
 |---|---|
-| Search URL, no User-Agent | `403`, 771 bytes |
-| Search URL, Chrome User-Agent + full browser headers (`Accept`, `Sec-Fetch-*`, `sec-ch-ua`, ...) | `403`, 771 bytes |
-| `https://www.immowelt.de/` (home page) | `403`, 771 bytes |
+| `curl`, no User-Agent / Chrome User-Agent + full browser headers / home page | `403`, 771-byte DataDome page |
+| Playwright's bundled Chromium, headless | `403`, DataDome page, no listings after 2 min |
+| Playwright's bundled Chromium, headed | hard block ("Etwas im Verhalten des Browsers hat uns stutzig gemacht"), no captcha offered |
+| User's Chrome (`--remote-debugging-port=9222`, own profile), robot check passed once by hand, Playwright attached with `ConnectOverCDPAsync` | **`200`** for list page 1, page 2 (by URL, `&page=2`) and an expose (by URL), 5 s apart |
 
-The 771-byte body is a **DataDome** challenge (`geo.captcha-delivery.com`, "Please enable JS and disable any ad
-blocker"). DataDome guards the whole site, so the expose pages are blocked to `HttpClient` the same way: the
-OhneMakler approach does not fit, neither for the list nor for the detail pages. Faking headers or replaying DataDome
-cookies in `HttpClient` is brittle (cookies expire, TLS fingerprinting) and is not pursued.
+**DataDome** (`geo.captcha-delivery.com`) guards the whole site. It recognizes Playwright's own browser (automation
+flags) even headed, so the IS24 setup (`Chromium.LaunchAsync`) does not work here; `HttpClient` (OhneMakler) neither.
 
-Consequence: one browser session per run, reused for the list pages **and** the detail pages — the IS24 pattern.
-Unlike IS24 there is no login: only the DataDome check, which a real (headed) browser usually passes without a
-captcha. Whether **headless** passes too is open (see step 1); default is headed, like IS24.
+Consequences:
+- The scraper attaches to `http://127.0.0.1:9222` (not `localhost`: resolves to IPv6 `::1`, Chrome listens on IPv4
+  only), opens its own tab, and closes only that tab. The user's Chrome must be running, with the robot check passed;
+  otherwise the source fails at start and `ScraperCoordinator` records it as a source error — the other sources still
+  run and immowelt keeps its previous rows. A scrape started from the web server (`POST /api/scrape`) behaves the same.
+- Pages are opened **by URL** (`GotoAsync`), list and expose alike. No clicking needed: the expose opened by URL
+  passed DataDome (as IS24's expose pages, which `ImmobilienScout24DetailScraper` also opens by URL). If longer runs
+  get blocked, clicking the card (with the search as referrer) is the next thing to try.
+- Pause between pages (5 s in the spike; configurable). Opening pages back to back is what DataDome calls
+  "übermenschliche Geschwindigkeit". ~9 list pages + ~270 exposes ≈ 25 min per run.
+- No further evasion (fingerprint spoofing, captcha services, proxies). If DataDome blocks the attached Chrome during
+  normal runs, drop immowelt as a source rather than escalate.
+
+Starting Chrome (PowerShell); recent Chrome refuses remote debugging on the default profile, hence the own one:
+
+```powershell
+& "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --user-data-dir="$env:LOCALAPPDATA\FlatMonitorChrome"
+```
 
 > **Note:** immowelt's `robots.txt` has `Disallow: */classified-search?*` for all user agents (expose pages are
-> allowed). The scraper is for personal use at low volume; keep requests sequential with a delay (see below).
+> allowed). The scraper is for personal use at low volume: sequential requests with a pause.
 
-### Do we need the detail pages at all?
+### Do we need the detail pages?
 
-The card is probably enough for the core fields (price, rooms, area, district/postal code), but `FlatDetails`
-(build year, heating, energy, floor, service charge) and the **commission** are only on the expose page, and the
-other two sources fill them. So: fetch details, as the other sources do. Since the browser is already open, this costs
-only time (~N pages × a few seconds). If a run turns out too slow or triggers captchas, an option
-`FetchDetails = false` keeps the card data only (step 7, optional).
+**Yes.** The list data covers price, rooms, area, district and postal code, but the commission is only reliable on the
+expose: the list says `tags.hasBrokerageFee: false` for every flat on pages 1–2, while the explored expose shows
+"Provision für Käufer: 3,57% des Kaufpreises". Build year, heating, energy, service charge and condition are only on
+the expose too.
 
-## What the site likely looks like (to verify in step 1)
+## Findings (step 1, 2026-11-02)
 
-Not verifiable with `curl` (blocked); from knowledge of the current immowelt (AVIV) frontend:
+Explored pages: `FlatMonitor/data/explore/Immowelt/list_page1_20261102_092004.html`, `list_page2_20261102_092011.html`,
+`expose_20261102_092021.html`.
 
-- **Server-rendered data blob.** List and expose pages embed their data as JSON in a script
-  (`window["__UFRN_LIFECYCLE_SERVERREQUEST__"] = JSON.parse("...")` or similar). If present, **parse that JSON
-  instead of the DOM**: stable field names, no CSS class churn, exact numbers. DOM selectors are the fallback.
-- **Cards:** `data-testid="serp-core-classified-card-testid"` (or similar), link to `/expose/{id}` where `id` is an
-  alphanumeric code (e.g. `2bz3k5x`) — that becomes `ListingId`.
-- **Card fields:** price (`"349.000 €"`), rooms (`"3 Zimmer"`), area (`"78 m²"`), location
-  (`"Südstadt, Karlsruhe (76137)"`) → `District`, `PostalCode`.
-- **Pagination:** `&page=N` in the URL. Navigating by URL is simpler and more robust than clicking "next" (the IS24
-  approach). The total count on page 1 ("123 Angebote") gives the page count; stop at the first page without cards
-  anyway.
-- **Expose:** price, Käuferprovision (commission), Baujahr, Heizung, Energieträger, Effizienzklasse, Etage, Hausgeld,
-  Zustand, Verfügbarkeit.
+**Parse embedded JSON, not the markup.** Both page types carry their data in `<script>` blobs of the form
+`window["NAME"]=JSON.parse("…escaped JSON…")`:
+
+### List page: `window["__UFRN_FETCHER__"]`
+
+- `data["classified-serp-init-data"]` is a string **compressed with lz-string** (`LZString.compressToBase64`,
+  starts with `N4Ig…`). Decompressed it is JSON; everything below is under `pageProps`.
+  (`__UFRN_LIFECYCLE_SERVERREQUEST__` on the list page only holds the user's IP and user agent.)
+- `totalCount` (`"268"`), `page` (`"1"`); **30 flats per page** → 9 pages. Pagination: `&page=N` in the URL.
+- `classifieds`: the 30 IDs of the page, in order. `suggestedClassifieds` (3 per page): **suggestions outside the
+  search — leave out.** `classifiedsData` holds both (33 entries), keyed by ID.
+- Pages 1 and 2: 60 distinct IDs, no overlap.
+- Per flat (`classifiedsData[id]`):
+
+| Field | Example | → `Flat` |
+|---|---|---|
+| `id` | `26AQWAY4363S` ("Online-ID" on the expose) | `ListingId` |
+| `url` | `https://www.immowelt.de/expose/c79373b8-…` (= `metadata.legacyId`) | `Url` |
+| `rawData.price` | `449000` (int; missing for some listings) | `PriceEur` |
+| `hardFacts.price.previousPrice` | `"475.000 €"` (only if reduced) | `OriginalPriceEur` |
+| `rawData.surface.main` | `118.09` | `LivingAreaSqm` |
+| `rawData.nbroom` | `2` | `RoomsCount` |
+| `location.address.zipCode` / `.district` | `76189` / `Daxlanden` | `PostalCode` / `District` |
+| `mainDescription.headline` (or `hardFacts.title`) | "Mediterranes Flair im Herzen von Daxlanden…" | `Title` |
+| `rawData.distributionType` | `BUY`, `COMPULSORY_AUCTION` | auction filter |
+| `metadata.creationDate` | `2026-10-30T13:47:07Z` | (not stored yet) |
+
+  Districts on pages 1–2 are Karlsruhe district names (Südweststadt, Durlach, Grötzingen, Mühlburg, Oberreut, …)
+  → `ScraperCoordinator`'s normalization should recognize them as they are; check in the smoke run.
+  `location.isAddressPublished` is `false` for most: no street address.
+
+### Expose page: `window["__UFRN_LIFECYCLE_SERVERREQUEST__"]`
+
+- Plain JSON (no lz-string): `app_demand_referral_cldp.data.classified`, with `sections`:
+
+| Path | Example | → `Flat` / `FlatDetails` |
+|---|---|---|
+| `sections.price.base.main.value.main.ariaLabel` | `"305000 €"` | `PriceEur` |
+| `sections.price.base.commissionFee.value` | `"3,57% des Kaufpreises"` | `CommissionPercent` |
+| `sections.price.additional[].details[]` label `Hausgeld` | `"346 €"` | `ServiceChargeEur` |
+| `sections.energy.features[]` type `yearOfConstruction` | `"1995"` | `BuildYear` |
+| `sections.energy.features[]` type `state` | `"Neubau, neuwertig"` | `Condition` |
+| `sections.energy.features[]` type `heatingSystem` | `"Zentralheizung"` | `Heating` |
+| `sections.energy.certificates[0].features[]` type `basedOn` | `"Verbrauchsausweis"` | `EnergyCertificateType` |
+| `sections.energy.certificates[0].features[]` type `primaryEnergySource` | `"Erdgas H"` | `PrimaryEnergySource` |
+| `sections.energy.certificates[0].scales[0].efficiencyClass.rating` | `"A"` | `EnergyEfficiencyClass` |
+| `sections.energy.certificates[0].scales[0].values[0].value` | `"40,8 kWh/(m²·a)"` | `EnergyConsumption` |
+| `sections.hardFacts.facts[]` type `numberOfFloors` | `"1. Geschoss"` | `Floor` |
+| `sections.hardFacts.facts[]` types `numberOfRooms` / `livingSpace` | `"3"` / `"75"` | rooms / area |
+| `sections.location.address` | zip, district | as on the list |
+| `title`, `rawData.distributionType`, `metadata.legacyId` | | |
+
+  Also there: `application/ld+json` (not needed). Missing: a removed listing's expose (to save when one turns up,
+  for `IsDeactivated`).
+
+### Auctions
+
+Pages 1–2: 59 × `BUY`, 1 × `COMPULSORY_AUCTION` (with a price, 331,000 €). One `BUY` listing has no `rawData.price`.
+Some listings publish a street (`location.address.street`, e.g. "Yorckstraße 49").
 
 ## Open questions
 
-1. **Auctions.** The search includes `Buy_Auction` and `Compulsory_Auction`. An auction's "price" is a market value
-   or minimum bid, which distorts the €/m² aggregations. Options: (a) drop them from the URL (`distributionTypes=Buy`),
-   (b) keep them, mark them (`FlatDetails.ListingStatus = "Zwangsversteigerung"`) and leave them out of aggregations.
-   **Proposal: (a)**, the simplest — the other sources do not include auctions either.
+1. **Auctions.** An auction's "price" is a market value or minimum bid, which distorts the €/m² aggregations.
+   Options: (a) drop them from the URL (`distributionTypes=Buy`), (b) keep them and leave out flats whose
+   `rawData.distributionType` is not `BUY`. **Proposal: (a)**, plus (b) as a safety net in the parser.
 2. **Duplicates across sources.** Many flats are listed on both immowelt and IS24 (same agent). The aggregations
-   would count them twice. Out of scope here; note it for later (match by address + area + price).
-3. **Headless.** Default headed like IS24; switch to headless if step 1 shows DataDome lets it through.
+   would count them twice. Out of scope here; note it for later (match by district + area + price).
+3. ~~**lz-string in C#**~~ — ported (`LzString.cs`), tested with vectors from the JavaScript library lz-string 1.5.0
+   and against the fixture.
 
 ## Architecture
 
 ```
-Scraping/Common/
-└── PlaywrightBrowser.cs              (NEW, extracted from ImmobilienScout24Browser: launch, open URL, wait for selector)
-
 Scraping/Immowelt/
-├── ImmoweltOptions.cs                (Headless, SearchUrl, SaveDebugPages, DelayBetweenPagesMs)
-├── ImmoweltScraper.cs                (FlatScraper; Session over one browser)
-├── ImmoweltSelectors.cs              (card selector, wait selectors, PageUrl(searchUrl, n), ExposeUrl(id))
-├── ImmoweltFlatsPageFetcher.cs       (GotoAsync(PageUrl(n)) for n = 2.., yields HTML)
-├── ImmoweltCardParser.cs             (list page HTML → List<Flat>)
-├── ImmoweltDetailScraper.cs          (open expose, wait, save to HtmlPageArchive, return HTML)
-└── ImmoweltDetailParser.cs           (expose HTML → detail record with ApplyTo(card), IsDeactivated)
+├── ImmoweltOptions.cs                (CdpUrl, SearchUrl, PauseBetweenPagesMs, SaveDebugPages)
+├── ImmoweltBrowser.cs                (attach over CDP, open a tab; disposing closes only the tab)
+├── ImmoweltScraper.cs                (FlatScraper; Session over one tab)
+├── ImmoweltPages.cs                  (SourceName, PageUrl(searchUrl, n), ReadDataScript(html, name))
+├── ImmoweltJson.cs                   (property-path helpers, address formatting)
+├── LzString.cs                       (DecompressFromBase64)
+├── ImmoweltFlatsPageFetcher.cs       (GotoAsync(PageUrl(n)) for n = 2.., pause, yields HTML)
+├── ImmoweltListParser.cs             (list page HTML → totalCount + List<Flat>, suggestions and auctions left out)
+├── ImmoweltDetailScraper.cs          (open expose, pause, save to HtmlPageArchive, return HTML)
+├── ImmoweltDetailParser.cs           (expose HTML → ImmoweltDetailPage with ApplyTo(card), IsDeactivated)
+├── ImmoweltExplorer.cs               (exists: explore-immowelt)
+└── ImmoweltPageInspection.cs         (exists)
 
 FlatMonitor.Tests/Immowelt/
-├── ImmoweltCardParserTests.cs
+├── LzStringTests.cs
+├── ImmoweltPagesTests.cs
+├── ImmoweltListParserTests.cs
 ├── ImmoweltDetailParserTests.cs
-├── ImmoweltSelectorsTests.cs         (PageUrl / ExposeUrl)
+├── ImmoweltOptionsTests.cs
 ├── ImmoweltScraperLiveTests.cs       ([Explicit], [Category("Live")])
-└── Fixtures/ (saved list page, expose page, expose of a removed listing)
+└── Fixtures/ (the explored list page and expose)
 ```
 
-Shared code: `ImmobilienScout24Browser` / `ImmobilienScout24BrowserSession` contain nothing IS24-specific except
-the options type and the card selector. Extract them into `Common/PlaywrightBrowser` (parameters: headless, URL,
-wait selector, source name for logging) and let both scrapers use it, instead of copying ~100 lines. If the refactor
-turns out larger than expected, copy first and extract later.
+The planned extraction of a shared `Common/PlaywrightBrowser` from `ImmobilienScout24Browser` is **dropped**: immowelt
+attaches to a running Chrome instead of launching one, so there is little to share.
 
 ## Implementation steps
 
-1. **Spike: `explore-immowelt` command** — like `explore-is24`: opens the search URL in Playwright (headed), saves
-   page 1, page 2 and one expose page as HTML. Answers: does the browser pass DataDome (headed / headless)? Is there a
-   JSON blob? Card selector, ID format, location format, pagination parameter, total count. Save the pages as test
-   fixtures. Write the findings into this file ("Findings" section).
-2. **Common browser** — extract `PlaywrightBrowser` from `ImmobilienScout24Browser`; IS24 tests stay green.
-3. **`ImmoweltOptions` + `ImmoweltSelectors`** — `Scrapers:Immowelt` section in `appsettings.json`
-   (`Headless`, `SearchUrl`, `SaveDebugPages`); `PageUrl(n)` adds/replaces `page=n`. Tests for the URL building and
-   options reading (like `ImmobilienScout24Options`).
-4. **`ImmoweltCardParser`** — fixture-tested: ID, URL, title, price, rooms, area, postal code, district (raw; the
-   coordinator normalizes). Unreadable card → skipped and logged, like IS24.
-5. **`ImmoweltFlatsPageFetcher` + `ImmoweltScraper.FetchCardsAsync`** — page 1 from the browser start, then pages 2..N
-   by URL, a short delay between pages, safety cap 50 pages. No cards on page 1 → throw with the saved debug page
-   (DataDome or changed markup); no cards on a later page → pagination complete. A DataDome page mid-run throws (no
-   silently shorter run).
-6. **`ImmoweltDetailParser` + `ImmoweltDetailScraper` + `EnrichAsync`** — expose page is the source of truth, card
-   fills gaps (like the other sources). Commission from "Käuferprovision" (`GermanNumberParser`, "provisionsfrei" →
-   0). `FlatDetails` fields as far as available. A removed/deactivated expose → `null` (left out). Reuse
-   `DetailExtractors` where the label/value shape matches.
-7. *(optional)* **`FetchDetails` option** — if the full run is too slow or hits captchas.
+1. ✅ **Spike: `explore-immowelt` command** — `dotnet run -- explore-immowelt [--headless | --cdp]`; findings above.
+2. ✅ **Fixtures** — `FlatMonitor.Tests/Fixtures/Immowelt/`: `list-page.html` (search page 2, only the
+   `__UFRN_FETCHER__` script, verbatim: 137 KB) and `expose-page.html` (the data script trimmed to the sections the
+   parser reads: 8 KB).
+3. ✅ **`LzString` + `ImmoweltPages`** — decompression and blob reading, tested against the fixtures; `PageUrl(n)`
+   adds/replaces `page=n`.
+4. ✅ **`ImmoweltListParser`** — fixture-tested: total count, 30 flats, ID, URL, title, price, original price, rooms,
+   area, postal code, district; suggestions and non-`BUY` flats left out. A flat that cannot be read → skipped and
+   logged.
+5. **`ImmoweltOptions` + `ImmoweltBrowser`** — `Scrapers:Immowelt` section in `appsettings.json` (`CdpUrl`,
+   `SearchUrl` with `distributionTypes=Buy`, `PauseBetweenPagesMs`, `SaveDebugPages`). No Chrome at the CDP URL →
+   clear error ("start Chrome with --remote-debugging-port=9222 …").
+6. **`ImmoweltFlatsPageFetcher` + `ImmoweltScraper.FetchCardsAsync`** — page 1, then pages 2..⌈totalCount/30⌉ by
+   URL with the pause, safety cap 50 pages. DataDome page or no blob on page 1 → throw (with debug page); on a later
+   page → throw too (no silently shorter run).
+7. **`ImmoweltDetailParser`** ✅ **+ `ImmoweltDetailScraper` + `EnrichAsync`** — expose is the source of truth, card
+   fills gaps (like the other sources); rooms and area come from the card (exact; the expose rounds them).
+   `IsDeactivated` = `metadata.status.status: false` — an assumption, verify with a removed listing's expose. Commission via `GermanNumberParser` ("provisionsfrei"/missing fee → 0 only if the
+   page says so, else `null`). Removed expose → `null` (left out).
 8. **Registration** — `ServiceRegistrationExtensions`: options singleton, `AddScoped<ImmoweltScraper>()`,
    `AddScoped<IScraper>(...)`; extend `ServiceRegistrationExtensionsTests`.
 9. **Live test + smoke run** — `ImmoweltScraperLiveTests` (`[Explicit]`, `[Category("Live")]`) reads page 1 and one
-   expose; then `dotnet run -- scrape` and check in SQLite: rows with `Source = 'Immowelt'`, districts recognized,
-   €/m² plausible, no auction prices.
-10. **Docs** — `CLAUDE.md` / `WohnungMonitor.md` (third source, browser, DataDome), `BUILD_AND_RUN.md`
-    (`Scrapers:Immowelt` settings, `explore-immowelt`).
-
-## Findings (filled in by step 1)
-
-- DataDome headed: ?
-- DataDome headless: ?
-- JSON blob on list / expose page: ?
-- Card selector / ID format: ?
-- Location format (district, postal code): ?
-- Pagination parameter, flats per page, total count: ?
-- Expose fields available: ?
+   expose from the attached Chrome; then `dotnet run -- scrape` and check in SQLite: rows with `Source = 'Immowelt'`,
+   districts recognized, €/m² plausible, no auctions.
+10. **Docs** — `CLAUDE.md` / `WohnungMonitor.md` (third source, CDP Chrome, DataDome), `BUILD_AND_RUN.md`
+    (starting Chrome, `Scrapers:Immowelt` settings, `explore-immowelt`).
