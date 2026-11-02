@@ -44,6 +44,9 @@ public sealed class ScrapeRunService
         }
 
         _logger.LogInformation("Scrape run {RunId} started", runId);
+
+        // Held for the whole run, every source: Windows' sleep after inactivity would cut the browser connections
+        using var awake = KeepSystemAwake.Start($"FlatMonitor scrape run {runId}", _logger);
         try
         {
             var summary = await _execution.ExecuteAsync(flats => _history.AddProgressAsync(runId, flats, ct), ct);

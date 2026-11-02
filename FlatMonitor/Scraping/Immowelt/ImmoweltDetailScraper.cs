@@ -21,7 +21,8 @@ internal sealed class ImmoweltDetailScraper
     private readonly HtmlPageArchive _htmlPages;
     private readonly ILogger _logger;
     private readonly ImmoweltDetailParser _parser = new();
-    private bool _blockedByDataDome;
+    /// <summary>Set once DataDome blocks the exposes or the connection to Chrome is lost: no further expose would load.</summary>
+    private bool _stopOpeningExposes;
 
     public ImmoweltDetailScraper(IPage page, ImmoweltOptions options, HtmlPageArchive htmlPages, ILogger logger)
     {
@@ -32,7 +33,8 @@ internal sealed class ImmoweltDetailScraper
     }
 
     /// <summary>
-    /// The card with its expose's data; the card unchanged if it has no URL or DataDome blocks the exposes;
+    /// The card with its expose's data; the card unchanged if it has no URL, DataDome blocks the exposes or the
+    /// connection to Chrome is lost (from then on for all further cards, without opening their exposes);
     /// <c>null</c> if the listing is gone (HTTP 404/410, or the expose says it is no longer published). Throws if the
     /// expose cannot be loaded or has no data; <see cref="Common.FlatScraper"/> then keeps the card's data.
     /// </summary>
@@ -44,16 +46,31 @@ internal sealed class ImmoweltDetailScraper
             return card;
         }
 
-        if (_blockedByDataDome)
+        if (_stopOpeningExposes)
             return card;
 
         // Every expose follows another page (a results page or the previous expose)
         await Task.Delay(_options.PauseBetweenPagesMs, ct);
 
         _logger.LogDebug("Immowelt: listing {ListingId}: opening expose {Url}", card.ListingId, card.Url);
-        var response = await _page.GotoAsync(card.Url,
-            new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded, Timeout = NavigationTimeoutMs });
-        ct.ThrowIfCancellationRequested();
+        IResponse? response;
+        string html;
+        try
+        {
+            response = await _page.GotoAsync(card.Url,
+                new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded, Timeout = NavigationTimeoutMs });
+            ct.ThrowIfCancellationRequested();
+            html = await _page.ContentAsync();
+        }
+        // Playwright reports a dropped connection as a closed page ("Target page, context or browser has been closed",
+        // an internal TargetClosedException); the tab does not come back. Any other page error keeps only this card.
+        catch (PlaywrightException ex) when (_page.IsClosed || ex.GetType().Name == "TargetClosedException")
+        {
+            _stopOpeningExposes = true;
+            _logger.LogWarning(ex, "Immowelt: the connection to Chrome is lost (listing {ListingId}; Windows asleep, Chrome " +
+                "closed?): the remaining flats keep their card data", card.ListingId);
+            return card;
+        }
 
         if (response?.Status is (int)HttpStatusCode.NotFound or (int)HttpStatusCode.Gone)
         {
@@ -61,7 +78,6 @@ internal sealed class ImmoweltDetailScraper
             return null;
         }
 
-        var html = await _page.ContentAsync();
         await _htmlPages.SaveAsync(card.ListingId, html, ct);
 
         var expose = _parser.Parse(html);
@@ -70,7 +86,7 @@ internal sealed class ImmoweltDetailScraper
             if (!ImmoweltPageInspection.Inspect(html).IsDataDomeGuard)
                 throw new InvalidOperationException($"Immowelt expose of listing {card.ListingId} has no data, has the page changed?");
 
-            _blockedByDataDome = true;
+            _stopOpeningExposes = true;
             _logger.LogWarning("Immowelt: DataDome blocks the exposes (listing {ListingId}): the remaining flats keep their " +
                 "card data; pass the robot check in the attached Chrome before the next run", card.ListingId);
             return card;

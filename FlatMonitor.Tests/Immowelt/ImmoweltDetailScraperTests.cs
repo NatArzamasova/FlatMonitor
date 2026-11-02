@@ -161,6 +161,44 @@ public class ImmoweltDetailScraperTests
     }
 
     [Test]
+    public async Task EnrichAsync_ConnectionLost_KeepsTheCardsAndOpensNoFurtherExpose()
+    {
+        // What Playwright throws when Windows' sleep cut the connection to Chrome: the page counts as closed
+        var lost = new PlaywrightException("Target page, context or browser has been closed");
+        _page.Setup(p => p.GotoAsync(It.IsAny<string>(), It.IsAny<PageGotoOptions>()))
+            .Callback((string url, PageGotoOptions? _) => _openedUrls.Add(url))
+            .ThrowsAsync(lost);
+        _page.Setup(p => p.IsClosed).Returns(true);
+        var first = Card(listingId: "A1");
+        var second = Card(url: Url + "-2", listingId: "B2");
+
+        var firstFlat = await _scraper.EnrichAsync(first, default);
+        var secondFlat = await _scraper.EnrichAsync(second, default);
+
+        firstFlat.Should().BeSameAs(first);
+        secondFlat.Should().BeSameAs(second);
+        _openedUrls.Should().ContainSingle();
+        _logger.Entries.Should().ContainSingle(e => e.Level == LogLevel.Warning)
+            .Which.Message.Should().Contain("connection to Chrome is lost");
+    }
+
+    [Test]
+    public async Task EnrichAsync_PageErrorWithTheTabOpen_ThrowsForThisCardOnly()
+    {
+        // E.g. a navigation error: FlatScraper keeps this card, the next expose is still opened
+        _page.Setup(p => p.GotoAsync(Url, It.IsAny<PageGotoOptions>()))
+            .Callback((string url, PageGotoOptions? _) => _openedUrls.Add(url))
+            .ThrowsAsync(new PlaywrightException("net::ERR_CONNECTION_RESET"));
+        _page.Setup(p => p.IsClosed).Returns(false);
+
+        var act = () => _scraper.EnrichAsync(Card(), default);
+
+        await act.Should().ThrowAsync<PlaywrightException>();
+        (await _scraper.EnrichAsync(Card(url: Url + "-2", listingId: "B2"), default)).Should().NotBeNull();
+        _openedUrls.Should().Equal(Url, Url + "-2");
+    }
+
+    [Test]
     public async Task EnrichAsync_WhenCanceled_OpensNoPage()
     {
         var act = () => _scraper.EnrichAsync(Card(), new CancellationToken(canceled: true));

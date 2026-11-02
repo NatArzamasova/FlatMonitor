@@ -30,6 +30,11 @@ public sealed class ImmoweltBrowserSession : IAsyncDisposable
             if (_browserToClose != null)
                 await ImmoweltBrowser.CloseChromeAsync(_browserToClose);
         }
+        catch (PlaywrightException)
+        {
+            // The connection is already gone (e.g. Windows slept): nothing left to close from here, and a finished
+            // run must not fail for it
+        }
         finally
         {
             // Disconnects from the Chrome

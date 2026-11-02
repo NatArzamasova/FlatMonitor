@@ -128,6 +128,15 @@ page (`/projekte/expose/{projectId}`), and so is their address: the second unit 
 exactly its `url` (all 30 cards of the fixture) — so the list parser uses that for project units. The project page
 itself (`rawData.propertyType: PROJECT`, price "auf Anfrage", `units[]` with each unit's own `url`) is no longer opened.
 
+### Windows standby (found in the second smoke run, 2026-11-02)
+
+At flat 158 of 254, Windows entered Modern Standby (screen off after inactivity, 11:47:38–11:48:14). Chrome and its
+tab survived, but the CDP connection dropped; Playwright reports that as "Target page, context or browser has been
+closed", and every further expose failed at once. Now: a scrape run holds a Windows power request
+(`KeepSystemAwake`, system + execution required; the screen may still turn off and lock), a lost connection stops
+the exposes with one warning (the remaining flats keep their card data), and closing the session ignores a lost
+connection so a finished run cannot fail for it. On battery, some laptops sleep despite the request: scrape plugged in.
+
 ### Auctions
 
 Pages 1–2: 59 × `BUY`, 1 × `COMPULSORY_AUCTION` (with a price, 331,000 €). One `BUY` listing has no `rawData.price`.
@@ -204,5 +213,11 @@ attaches to a running Chrome instead of launching one, so there is little to sha
    expose from the attached Chrome; then `dotnet run -- scrape --source Immowelt` (only immowelt; the other sources
    keep their flats, `Scrapers:Sources` selects sources for the web server too) and check in SQLite: rows with `Source = 'Immowelt'`,
    districts recognized, €/m² plausible, no auctions.
+   ✅ **Smoke run** (run 53, 2026-11-02, 25 min, Chrome started and closed by the scraper): 254 cards, 253 exposes,
+   **246 flats published**; all 246 with district (27 districts), area and rooms, 243 with price (3 "auf Anfrage"),
+   241 with build year, 242 with commission; €/m² 2,389–9,286 (avg 4,149; the top is a 210 m² penthouse); no auctions,
+   all URLs `/expose/…`, the three project units with their own exposes. Windows entered Modern Standby five times
+   during the run (up to 4.5 min) without a gap between exposes > 20 s: the power request works.
+   Open: the live test.
 10. **Docs** — `CLAUDE.md` / `WohnungMonitor.md` (third source, CDP Chrome, DataDome), `BUILD_AND_RUN.md`
     (starting Chrome, `Scrapers:Immowelt` settings, `explore-immowelt`).

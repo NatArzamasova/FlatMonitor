@@ -153,14 +153,14 @@ public class ImmoweltListParserTests
               "26P21WB1A3G8":{"id":"26P21WB1A3G8","url":"https://www.immowelt.de/projekte/expose/2628ew8d2t3t",
                 "metadata":{"legacyId":"1e0b3367-d1de-4726-97e4-1cbaaf7233a5"},"rawData":{"distributionType":"BUY","price":419000}},
               "26HPTXRS8IMV":{"id":"26HPTXRS8IMV","url":"https://www.immowelt.de/projekte/expose/2628ew8d2t3t",
-                "metadata":{"legacyId":"4d318a57-73ab-40c6-9fdf-672d2e874899"},"rawData":{"distributionType":"BUY","price":449000}}}}}
+                "metadata":{"legacyId":"78f5e1e9-1b8f-47df-a0c9-695ab45f2284"},"rawData":{"distributionType":"BUY","price":449000}}}}}
             """;
 
         var flats = _parser.ParseSearchData(json).Flats;
 
         flats.Select(f => f.Url).Should().Equal(
             "https://www.immowelt.de/expose/1e0b3367-d1de-4726-97e4-1cbaaf7233a5",
-            "https://www.immowelt.de/expose/4d318a57-73ab-40c6-9fdf-672d2e874899");
+            "https://www.immowelt.de/expose/78f5e1e9-1b8f-47df-a0c9-695ab45f2284");
     }
 
     [TestCase(null, TestName = "ParseSearchData_ProjectUnitWithoutLegacyId_KeepsTheProjectPage")]
