@@ -23,7 +23,7 @@ public class ImmoweltOptionsTests
             ChromePath = null,
             ChromeUserDataDir = @"%LOCALAPPDATA%\FlatMonitorChrome",
             SearchUrl = ImmoweltOptions.DefaultSearchUrl,
-            PauseBetweenPagesMs = 5_000,
+            PauseBetweenPagesMs = 3_000,
             SaveDebugPages = false,
         });
     }

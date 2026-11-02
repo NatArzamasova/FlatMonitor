@@ -17,8 +17,10 @@ public sealed class ImmoweltExplorer
     private const int ExposeLinksTimeoutMs = 120_000;
     private const string ExposeLinkSelector = "a[href*='/expose/']";
 
-    /// <summary>Pages opened back to back look like a robot to DataDome ("übermenschliche Geschwindigkeit").</summary>
-    private const int PauseBetweenPagesMs = 5_000;
+    /// <summary>
+    /// Pages opened back to back look like a robot to DataDome ("übermenschliche Geschwindigkeit"): the scraper's default.
+    /// </summary>
+    private const int PauseBetweenPagesMs = ImmoweltOptions.DefaultPauseBetweenPagesMs;
 
     private readonly string _outputDirectory;
     private readonly bool _headless;

@@ -39,7 +39,9 @@ Consequences:
   passed DataDome (as IS24's expose pages, which `ImmobilienScout24DetailScraper` also opens by URL). If longer runs
   get blocked, clicking the card (with the search as referrer) is the next thing to try.
 - Pause between pages (5 s in the spike; configurable). Opening pages back to back is what DataDome calls
-  "übermenschliche Geschwindigkeit". ~9 list pages + ~270 exposes ≈ 25 min per run.
+  "übermenschliche Geschwindigkeit". ~9 list pages + ~270 exposes ≈ 25 min per run. 5 s passed a full run
+  (run 53, 2026-11-02, ~0.6 s of each 5.6 s was loading); the default is now **3 s** (≈ 15 min), being tried. If
+  DataDome blocks it, go back to 5 s (`Scrapers:Immowelt:PauseBetweenPagesMs`).
 - No further evasion (fingerprint spoofing, captcha services, proxies). If DataDome blocks the attached Chrome during
   normal runs, drop immowelt as a source rather than escalate.
 

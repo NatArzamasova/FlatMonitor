@@ -22,7 +22,7 @@ public sealed record ImmoweltOptions
         "https://www.immowelt.de/classified-search?distributionTypes=Buy&estateTypes=Apartment&locations=AD08DE5585";
 
     /// <summary>Opening pages back to back looks like a robot to DataDome ("übermenschliche Geschwindigkeit").</summary>
-    public const int DefaultPauseBetweenPagesMs = 5_000;
+    public const int DefaultPauseBetweenPagesMs = 3_000;
 
     /// <summary>Chrome's own profile for the scraper: recent Chrome refuses remote debugging on the default profile.</summary>
     public const string DefaultChromeUserDataDir = @"%LOCALAPPDATA%\FlatMonitorChrome";

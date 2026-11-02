@@ -46,7 +46,7 @@ dotnet run -- scrape --source OhneMakler,ImmobilienScout24
 The sources are `OhneMakler`, `ImmobilienScout24` and `Immowelt`, scraped in that order. An unknown name stops with
 the list of valid ones.
 
-Immowelt alone takes about 25 minutes (a pause of 5 s between its ~260 pages: ~9 results pages, one expose per
+Immowelt alone takes about 15 minutes (a pause of 3 s between its ~260 pages: ~9 results pages, one expose per
 flat). While a scrape runs, Windows is kept from going to sleep (see [Immowelt and Chrome](#immowelt-and-chrome)).
 
 Exploring a site's pages for parser work (not part of a scrape):
@@ -98,7 +98,7 @@ data (no details) and the run continues.
 | `Scrapers:Immowelt:ChromePath` | (empty: found) | `chrome.exe` to start; empty looks in `Program Files`, `Program Files (x86)` and `%LOCALAPPDATA%\Google\Chrome\Application` |
 | `Scrapers:Immowelt:ChromeUserDataDir` | `%LOCALAPPDATA%\FlatMonitorChrome` | Profile of the started Chrome (keeps the passed robot check) |
 | `Scrapers:Immowelt:SearchUrl` | Karlsruhe flats to buy, no auctions | First results page; pages 2.. are opened by URL (`&page=N`) |
-| `Scrapers:Immowelt:PauseBetweenPagesMs` | `5000` | Pause between two pages (results pages and exposes); faster looks like a robot to DataDome |
+| `Scrapers:Immowelt:PauseBetweenPagesMs` | `3000` | Pause between two pages (results pages and exposes); faster looks like a robot to DataDome. 5 s passed a full run; 3 s is being tried |
 | `Scrapers:Immowelt:SaveDebugPages` | `false` | Save a page without data (e.g. the DataDome guard) to the temp directory; the error names the file |
 
 Relative paths are resolved against the content root, which is the `FlatMonitor/` project directory: `dotnet run`

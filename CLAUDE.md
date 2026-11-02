@@ -55,7 +55,7 @@ There is no `report` command: statistics are served by the web API (see [BUILD_A
 - **Immowelt needs the user's Chrome** — DataDome blocks `HttpClient` and Playwright's own browser, so the Immowelt
   scraper attaches to the installed Chrome over CDP (`127.0.0.1:9222`), starting it if needed (own profile
   `FlatMonitorChrome`). Never add automation/headless flags or evasion. Pages are read from their JSON data scripts,
-  5 s apart. See [FlatMonitor/immowelt.md](FlatMonitor/immowelt.md) and [BUILD_AND_RUN.md](BUILD_AND_RUN.md#immowelt-and-chrome)
+  3 s apart (5 s passed a full run; 3 s is being tried). See [FlatMonitor/immowelt.md](FlatMonitor/immowelt.md) and [BUILD_AND_RUN.md](BUILD_AND_RUN.md#immowelt-and-chrome)
 - **Keep-awake during a scrape** — `ScrapeRunService` holds a Windows power request (`KeepSystemAwake`) for the
   whole run: Modern Standby cut the Chrome connection mid-run. A no-op outside Windows
 - **Cross-source duplicates** — many flats are listed on several sources (188 of 246 Immowelt flats also on IS24) and
