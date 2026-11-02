@@ -30,7 +30,7 @@ try
         case CliCommand.ExploreImmowelt:
             return await ExploreImmoweltAsync(
                 headless: commandArgs.Contains("--headless"),
-                cdpUrl: commandArgs.Contains("--cdp") ? ImmoweltExplorer.DefaultCdpUrl : null);
+                cdpUrl: commandArgs.Contains("--cdp") ? ImmoweltOptions.DefaultCdpUrl : null);
         case CliCommand.Unknown:
             Console.Error.WriteLine($"Unknown command: {commandArgs[0]}");
             PrintUsage();
@@ -238,6 +238,6 @@ void PrintUsage()
     Console.Error.WriteLine("  explore-is24  Open the ImmobilienScout24 listings page and save its HTML for analysis");
     Console.Error.WriteLine("  explore-immowelt [--headless | --cdp]");
     Console.Error.WriteLine("                Open the Immowelt search, save two listings pages and an expose for analysis;");
-    Console.Error.WriteLine($"                --cdp attaches to a Chrome started with --remote-debugging-port ({ImmoweltExplorer.DefaultCdpUrl})");
+    Console.Error.WriteLine($"                --cdp attaches to a Chrome started with --remote-debugging-port ({ImmoweltOptions.DefaultCdpUrl})");
     Console.Error.WriteLine("  --help        Show this message");
 }

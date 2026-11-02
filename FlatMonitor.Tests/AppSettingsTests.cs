@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using FlatMonitor.Scraping.ImmobilienScout24;
+using FlatMonitor.Scraping.Immowelt;
 using FlatMonitor.Storage;
 
 namespace FlatMonitor.Tests;
@@ -42,6 +43,14 @@ public class AppSettingsTests
         options.Headless.Should().BeFalse("the robot guard may need a person to solve it");
         options.SearchUrl.Should().Be(ImmobilienScout24Options.DefaultSearchUrl);
         options.SaveDebugPages.Should().BeFalse();
+    }
+
+    [Test]
+    public void Immowelt_AttachesToTheLocalChromeAndSearchesKarlsruheWithoutAuctions()
+    {
+        var options = ImmoweltOptions.FromConfiguration(_configuration);
+
+        options.Should().Be(new ImmoweltOptions(), "appsettings.json repeats the defaults");
     }
 
     [TestCase("FlatMonitor.Api.Services.ScrapeExecutionService")]

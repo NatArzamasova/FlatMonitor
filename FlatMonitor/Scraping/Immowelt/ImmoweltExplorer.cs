@@ -20,12 +20,6 @@ public sealed class ImmoweltExplorer
     /// <summary>Pages opened back to back look like a robot to DataDome ("übermenschliche Geschwindigkeit").</summary>
     private const int PauseBetweenPagesMs = 5_000;
 
-    /// <summary>
-    /// Where a Chrome started with <c>--remote-debugging-port=9222</c> listens. Not <c>localhost</c>: that resolves to
-    /// IPv6 <c>::1</c>, but Chrome listens on IPv4 only.
-    /// </summary>
-    public const string DefaultCdpUrl = "http://127.0.0.1:9222";
-
     private readonly string _outputDirectory;
     private readonly bool _headless;
     private readonly string? _cdpUrl;
@@ -48,28 +42,17 @@ public sealed class ImmoweltExplorer
     {
         Directory.CreateDirectory(_outputDirectory);
 
-        using var playwright = await Playwright.CreateAsync();
         if (_cdpUrl == null)
         {
+            using var playwright = await Playwright.CreateAsync();
             _logger.LogInformation("Immowelt: launching browser (headless: {Headless})", _headless);
             await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = _headless });
             return await ExploreInAsync(await browser.NewPageAsync(new() { Locale = "de-DE" }), ct);
         }
 
-        // Not closed afterwards: the browser is the user's. Disposing Playwright only disconnects from it.
-        _logger.LogInformation("Immowelt: attaching to the running Chrome at {CdpUrl}", _cdpUrl);
-        var userBrowser = await playwright.Chromium.ConnectOverCDPAsync(_cdpUrl);
-        var context = userBrowser.Contexts.FirstOrDefault()
-            ?? throw new InvalidOperationException($"The Chrome at {_cdpUrl} has no open window");
-        var page = await context.NewPageAsync();
-        try
-        {
-            return await ExploreInAsync(page, ct);
-        }
-        finally
-        {
-            await page.CloseAsync();
-        }
+        // As the scraper does: a tab in the user's Chrome, closed afterwards; the browser stays open
+        await using var session = await new ImmoweltBrowser(new ImmoweltOptions { CdpUrl = _cdpUrl }, _logger).AttachAsync(ct);
+        return await ExploreInAsync(session.Page, ct);
     }
 
     private async Task<bool> ExploreInAsync(IPage page, CancellationToken ct)

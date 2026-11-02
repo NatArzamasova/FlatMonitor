@@ -1,0 +1,81 @@
+namespace FlatMonitor.Scraping.Immowelt;
+
+using System.Globalization;
+using Microsoft.Extensions.Configuration;
+
+/// <summary>
+/// Settings of the immowelt scraper, from the <c>Scrapers:Immowelt</c> section of <c>appsettings.json</c>
+/// (overridable by environment variables such as <c>Scrapers__Immowelt__CdpUrl</c>). A missing value keeps its default.
+/// </summary>
+public sealed record ImmoweltOptions
+{
+    public const string SectionName = "Scrapers:Immowelt";
+
+    /// <summary>
+    /// Where a Chrome started with <c>--remote-debugging-port=9222</c> listens. Not <c>localhost</c>: that resolves to
+    /// IPv6 <c>::1</c>, but Chrome listens on IPv4 only.
+    /// </summary>
+    public const string DefaultCdpUrl = "http://127.0.0.1:9222";
+
+    /// <summary>Flats to buy in Karlsruhe; auctions (<c>Buy_Auction</c>, <c>Compulsory_Auction</c>) left out.</summary>
+    public const string DefaultSearchUrl =
+        "https://www.immowelt.de/classified-search?distributionTypes=Buy&estateTypes=Apartment&locations=AD08DE5585";
+
+    /// <summary>Opening pages back to back looks like a robot to DataDome ("übermenschliche Geschwindigkeit").</summary>
+    public const int DefaultPauseBetweenPagesMs = 5_000;
+
+    /// <summary>
+    /// The user's Chrome the scraper attaches to: DataDome blocks Playwright's own browser, even headed, so the scraper
+    /// cannot launch one.
+    /// </summary>
+    public string CdpUrl { get; init; } = DefaultCdpUrl;
+
+    /// <summary>The first results page; the scraper opens the further pages by URL (<see cref="ImmoweltPages.PageUrl"/>).</summary>
+    public string SearchUrl { get; init; } = DefaultSearchUrl;
+
+    /// <summary>The pause between two pages, list pages and exposes alike.</summary>
+    public int PauseBetweenPagesMs { get; init; } = DefaultPauseBetweenPagesMs;
+
+    /// <summary>Saves a page without data (for example the DataDome guard) to the temp directory.</summary>
+    public bool SaveDebugPages { get; init; }
+
+    public static ImmoweltOptions FromConfiguration(IConfiguration configuration)
+    {
+        var section = configuration.GetSection(SectionName);
+        var defaults = new ImmoweltOptions();
+
+        return new ImmoweltOptions
+        {
+            CdpUrl = ReadString(section, nameof(CdpUrl)) ?? defaults.CdpUrl,
+            SearchUrl = ReadString(section, nameof(SearchUrl)) ?? defaults.SearchUrl,
+            PauseBetweenPagesMs = ReadNonNegativeInt(section, nameof(PauseBetweenPagesMs)) ?? defaults.PauseBetweenPagesMs,
+            SaveDebugPages = ReadBool(section, nameof(SaveDebugPages)) ?? defaults.SaveDebugPages,
+        };
+    }
+
+    private static string? ReadString(IConfiguration section, string key) =>
+        string.IsNullOrWhiteSpace(section[key]) ? null : section[key]!.Trim();
+
+    private static int? ReadNonNegativeInt(IConfiguration section, string key)
+    {
+        var value = ReadString(section, key);
+        if (value == null)
+            return null;
+
+        return int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var result)
+            ? result
+            : throw new InvalidOperationException(
+                $"Configuration '{SectionName}:{key}' must be a whole number of 0 or more, but is '{value}'.");
+    }
+
+    private static bool? ReadBool(IConfiguration section, string key)
+    {
+        var value = ReadString(section, key);
+        if (value == null)
+            return null;
+
+        return bool.TryParse(value, out var result)
+            ? result
+            : throw new InvalidOperationException($"Configuration '{SectionName}:{key}' must be true or false, but is '{value}'.");
+    }
+}

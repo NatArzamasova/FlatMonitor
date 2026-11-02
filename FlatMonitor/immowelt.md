@@ -171,9 +171,10 @@ attaches to a running Chrome instead of launching one, so there is little to sha
 4. ✅ **`ImmoweltListParser`** — fixture-tested: total count, 30 flats, ID, URL, title, price, original price, rooms,
    area, postal code, district; suggestions and non-`BUY` flats left out. A flat that cannot be read → skipped and
    logged.
-5. **`ImmoweltOptions` + `ImmoweltBrowser`** — `Scrapers:Immowelt` section in `appsettings.json` (`CdpUrl`,
+5. ✅ **`ImmoweltOptions` + `ImmoweltBrowser`** — `Scrapers:Immowelt` section in `appsettings.json` (`CdpUrl`,
    `SearchUrl` with `distributionTypes=Buy`, `PauseBetweenPagesMs`, `SaveDebugPages`). No Chrome at the CDP URL →
-   clear error ("start Chrome with --remote-debugging-port=9222 …").
+   clear error ("start Chrome with --remote-debugging-port=9222 …"). `explore-immowelt --cdp` attaches through
+   `ImmoweltBrowser` too.
 6. **`ImmoweltFlatsPageFetcher` + `ImmoweltScraper.FetchCardsAsync`** — page 1, then pages 2..⌈totalCount/30⌉ by
    URL with the pause, safety cap 50 pages. DataDome page or no blob on page 1 → throw (with debug page); on a later
    page → throw too (no silently shorter run).
