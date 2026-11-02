@@ -19,6 +19,9 @@ public class ImmoweltOptionsTests
         options.Should().Be(new ImmoweltOptions
         {
             CdpUrl = "http://127.0.0.1:9222",
+            LaunchChrome = true,
+            ChromePath = null,
+            ChromeUserDataDir = @"%LOCALAPPDATA%\FlatMonitorChrome",
             SearchUrl = ImmoweltOptions.DefaultSearchUrl,
             PauseBetweenPagesMs = 5_000,
             SaveDebugPages = false,
@@ -39,6 +42,9 @@ public class ImmoweltOptionsTests
         var options = ImmoweltOptions.FromConfiguration(Configuration(new()
         {
             ["Scrapers:Immowelt:CdpUrl"] = "http://127.0.0.1:9333",
+            ["Scrapers:Immowelt:LaunchChrome"] = "false",
+            ["Scrapers:Immowelt:ChromePath"] = @"D:\Portable\chrome.exe",
+            ["Scrapers:Immowelt:ChromeUserDataDir"] = @"D:\Profiles\Scraper",
             ["Scrapers:Immowelt:SearchUrl"] = "https://example.org/search",
             ["Scrapers:Immowelt:PauseBetweenPagesMs"] = "0",
             ["Scrapers:Immowelt:SaveDebugPages"] = "True",
@@ -47,6 +53,9 @@ public class ImmoweltOptionsTests
         options.Should().Be(new ImmoweltOptions
         {
             CdpUrl = "http://127.0.0.1:9333",
+            LaunchChrome = false,
+            ChromePath = @"D:\Portable\chrome.exe",
+            ChromeUserDataDir = @"D:\Profiles\Scraper",
             SearchUrl = "https://example.org/search",
             PauseBetweenPagesMs = 0,
             SaveDebugPages = true,
@@ -54,6 +63,9 @@ public class ImmoweltOptionsTests
     }
 
     [TestCase("CdpUrl")]
+    [TestCase("LaunchChrome")]
+    [TestCase("ChromePath")]
+    [TestCase("ChromeUserDataDir")]
     [TestCase("SearchUrl")]
     [TestCase("PauseBetweenPagesMs")]
     [TestCase("SaveDebugPages")]
@@ -71,6 +83,7 @@ public class ImmoweltOptionsTests
     [TestCase("PauseBetweenPagesMs", "5s")]
     [TestCase("PauseBetweenPagesMs", "2.5")]
     [TestCase("SaveDebugPages", "yes")]
+    [TestCase("LaunchChrome", "ja")]
     public void FromConfiguration_WithAnInvalidValue_FailsWithTheSettingsName(string key, string value)
     {
         var act = () => ImmoweltOptions.FromConfiguration(Configuration(new()

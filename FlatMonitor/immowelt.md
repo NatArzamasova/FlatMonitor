@@ -28,9 +28,13 @@ flags) even headed, so the IS24 setup (`Chromium.LaunchAsync`) does not work her
 
 Consequences:
 - The scraper attaches to `http://127.0.0.1:9222` (not `localhost`: resolves to IPv6 `::1`, Chrome listens on IPv4
-  only), opens its own tab, and closes only that tab. The user's Chrome must be running, with the robot check passed;
-  otherwise the source fails at start and `ScraperCoordinator` records it as a source error — the other sources still
-  run and immowelt keeps its previous rows. A scrape started from the web server (`POST /api/scrape`) behaves the same.
+  only), opens its own tab, and closes only that tab. If no Chrome listens there, the scraper starts the installed
+  Chrome itself (`LaunchChrome`, on by default) with the command line below — the same browser DataDome let through,
+  no automation flags — and closes it after the run; a Chrome the user started stays open. The robot check, passed
+  once in that profile, persists in its cookies. If Chrome cannot be started (not installed, `LaunchChrome` off, the
+  profile already open without the debugging port), the source fails at start and `ScraperCoordinator` records it as a
+  source error — the other sources still run and immowelt keeps its previous rows. A scrape started from the web
+  server (`POST /api/scrape`) behaves the same.
 - Pages are opened **by URL** (`GotoAsync`), list and expose alike. No clicking needed: the expose opened by URL
   passed DataDome (as IS24's expose pages, which `ImmobilienScout24DetailScraper` also opens by URL). If longer runs
   get blocked, clicking the card (with the search as referrer) is the next thing to try.
@@ -39,7 +43,8 @@ Consequences:
 - No further evasion (fingerprint spoofing, captcha services, proxies). If DataDome blocks the attached Chrome during
   normal runs, drop immowelt as a source rather than escalate.
 
-Starting Chrome (PowerShell); recent Chrome refuses remote debugging on the default profile, hence the own one:
+Starting Chrome by hand (PowerShell), e.g. to pass the robot check before a run; the scraper uses the same command
+line. Recent Chrome refuses remote debugging on the default profile, hence the own one:
 
 ```powershell
 & "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --user-data-dir="$env:LOCALAPPDATA\FlatMonitorChrome"

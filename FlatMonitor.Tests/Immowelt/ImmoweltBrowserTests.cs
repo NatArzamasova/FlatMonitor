@@ -17,12 +17,23 @@ public class ImmoweltBrowserTests
     public async Task AttachAsync_WithoutChromeAtTheCdpUrl_TellsHowToStartIt()
     {
         var cdpUrl = $"http://127.0.0.1:{FreePort()}";
-        var browser = new ImmoweltBrowser(new ImmoweltOptions { CdpUrl = cdpUrl }, NullLogger.Instance);
+        var browser = new ImmoweltBrowser(new ImmoweltOptions { CdpUrl = cdpUrl, LaunchChrome = false }, NullLogger.Instance);
 
         var act = () => browser.AttachAsync();
 
         (await act.Should().ThrowAsync<InvalidOperationException>())
             .WithMessage($"No Chrome to attach to at {cdpUrl}*--remote-debugging-port=*robot check*");
+    }
+
+    [Test]
+    public async Task AttachAsync_WithoutChromeAndAMissingChromeExe_SaysWhereItLooked()
+    {
+        var missing = Path.Combine(Path.GetTempPath(), $"no_chrome_{Guid.NewGuid()}", "chrome.exe");
+        var options = new ImmoweltOptions { CdpUrl = $"http://127.0.0.1:{FreePort()}", ChromePath = missing };
+
+        var act = () => new ImmoweltBrowser(options, NullLogger.Instance).AttachAsync();
+
+        (await act.Should().ThrowAsync<InvalidOperationException>()).WithMessage($"Chrome not found at {missing}*ChromePath*");
     }
 
     [Test]

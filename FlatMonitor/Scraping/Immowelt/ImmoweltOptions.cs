@@ -24,11 +24,26 @@ public sealed record ImmoweltOptions
     /// <summary>Opening pages back to back looks like a robot to DataDome ("übermenschliche Geschwindigkeit").</summary>
     public const int DefaultPauseBetweenPagesMs = 5_000;
 
+    /// <summary>Chrome's own profile for the scraper: recent Chrome refuses remote debugging on the default profile.</summary>
+    public const string DefaultChromeUserDataDir = @"%LOCALAPPDATA%\FlatMonitorChrome";
+
     /// <summary>
     /// The user's Chrome the scraper attaches to: DataDome blocks Playwright's own browser, even headed, so the scraper
-    /// cannot launch one.
+    /// cannot use one.
     /// </summary>
     public string CdpUrl { get; init; } = DefaultCdpUrl;
+
+    /// <summary>
+    /// If no Chrome listens at <see cref="CdpUrl"/>, start one (the installed Chrome, as the user would) and close it
+    /// after the run. Off: the user starts Chrome.
+    /// </summary>
+    public bool LaunchChrome { get; init; } = true;
+
+    /// <summary>The <c>chrome.exe</c> to start; <c>null</c>: found in the usual install locations.</summary>
+    public string? ChromePath { get; init; }
+
+    /// <summary>The profile of the started Chrome; environment variables such as <c>%LOCALAPPDATA%</c> are expanded.</summary>
+    public string ChromeUserDataDir { get; init; } = DefaultChromeUserDataDir;
 
     /// <summary>The first results page; the scraper opens the further pages by URL (<see cref="ImmoweltPages.PageUrl"/>).</summary>
     public string SearchUrl { get; init; } = DefaultSearchUrl;
@@ -47,6 +62,9 @@ public sealed record ImmoweltOptions
         return new ImmoweltOptions
         {
             CdpUrl = ReadString(section, nameof(CdpUrl)) ?? defaults.CdpUrl,
+            LaunchChrome = ReadBool(section, nameof(LaunchChrome)) ?? defaults.LaunchChrome,
+            ChromePath = ReadString(section, nameof(ChromePath)) ?? defaults.ChromePath,
+            ChromeUserDataDir = ReadString(section, nameof(ChromeUserDataDir)) ?? defaults.ChromeUserDataDir,
             SearchUrl = ReadString(section, nameof(SearchUrl)) ?? defaults.SearchUrl,
             PauseBetweenPagesMs = ReadNonNegativeInt(section, nameof(PauseBetweenPagesMs)) ?? defaults.PauseBetweenPagesMs,
             SaveDebugPages = ReadBool(section, nameof(SaveDebugPages)) ?? defaults.SaveDebugPages,

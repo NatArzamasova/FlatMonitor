@@ -33,7 +33,7 @@ public class ImmoweltScraperTests
     [Test]
     public async Task ScrapeAsync_WithoutChromeAtTheCdpUrl_FailsAtStartAndSaysHowToStartIt()
     {
-        var scraper = CreateScraper(new ImmoweltOptions { CdpUrl = $"http://127.0.0.1:{FreePort()}" });
+        var scraper = CreateScraper(new ImmoweltOptions { CdpUrl = $"http://127.0.0.1:{FreePort()}", LaunchChrome = false });
 
         var act = () => scraper.ScrapeAsync().ToListAsync().AsTask();
 
