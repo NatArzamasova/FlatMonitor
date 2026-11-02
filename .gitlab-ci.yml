@@ -2,8 +2,8 @@
 # The jobs only prepare the environment; the work is done by the shared scripts in scripts/.
 #
 #   commit-messages
-#   backend-build  ──► backend-test
-#   frontend-build ──► frontend-test
+#   backend-build  ──► backend-test  ──► backend-coverage
+#   frontend-build ──► frontend-test ──► frontend-coverage
 
 workflow:
   rules:
@@ -64,24 +64,34 @@ backend-build:
 backend-test:
   image: mcr.microsoft.com/dotnet/sdk:10.0
   needs: [backend-build]
-  cache:
+  script:
+    - sh scripts/ci/backend-test.sh
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths: [test-results/]   # coverage-raw/: read by backend-coverage
+    reports:
+      junit: test-results/backend-junit.xml
+
+backend-coverage:
+  image: mcr.microsoft.com/dotnet/sdk:10.0
+  needs: [backend-test]      # its artifact: the raw coverage
+  cache: &tools-cache
     key:
       prefix: tools
       files: [dotnet-tools.json]   # ReportGenerator, restored by the script
     paths: [.nuget/packages]
   script:
-    - sh scripts/ci/backend-test.sh
+    - sh scripts/ci/backend-coverage.sh
   # Line coverage from ReportGenerator's summary in the log: shown on the job, the pipeline and the MR
   coverage: '/Line coverage: \d+(?:\.\d+)?%/'
   artifacts:
-    when: always
     expire_in: 1 week
-    paths: [test-results/]   # coverage/index.html: the full report
+    paths: [test-results/coverage/backend/]   # index.html: the full report
     reports:
-      junit: test-results/backend-junit.xml
       coverage_report:
         coverage_format: cobertura
-        path: test-results/coverage/Cobertura.xml
+        path: test-results/coverage/backend/Cobertura.xml
 
 frontend-build:
   image: node:20-bookworm
@@ -112,14 +122,25 @@ frontend-test:
     - apt-get update && apt-get install -y --no-install-recommends chromium
   script:
     - sh scripts/ci/frontend-test.sh
-  # Line coverage from Karma's coverage summary in the log: shown on the job, the pipeline and the MR
-  coverage: '/Lines\s*:\s*\d+(?:\.\d+)?%/'
   artifacts:
     when: always
     expire_in: 1 week
-    paths: [ClientApp/test-results/]   # coverage/index.html: the full report
+    paths: [ClientApp/test-results/]   # coverage-raw/: read by frontend-coverage
     reports:
       junit: ClientApp/test-results/junit.xml
+
+frontend-coverage:
+  image: mcr.microsoft.com/dotnet/sdk:10.0   # ReportGenerator, as for the backend
+  needs: [frontend-test]     # its artifact: the raw coverage
+  cache: *tools-cache
+  script:
+    - sh scripts/ci/frontend-coverage.sh
+  # Line coverage from ReportGenerator's summary in the log: shown on the job, the pipeline and the MR
+  coverage: '/Line coverage: \d+(?:\.\d+)?%/'
+  artifacts:
+    expire_in: 1 week
+    paths: [test-results/coverage/frontend/]   # index.html: the full report
+    reports:
       coverage_report:
         coverage_format: cobertura
-        path: ClientApp/test-results/coverage/cobertura.xml
+        path: test-results/coverage/frontend/Cobertura.xml

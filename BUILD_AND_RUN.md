@@ -147,34 +147,39 @@ the details are only in the server log.
 ## CI Pipelines
 
 Every push runs a pipeline on the platform it was pushed to: `.gitlab-ci.yml` on GitLab (`origin`),
-`.github/workflows/ci.yml` on GitHub (`GitHubFlatMonitor`). Both run the same five jobs:
+`.github/workflows/ci.yml` on GitHub (`GitHubFlatMonitor`). Both run the same seven jobs:
 
 | Job | Script | Checks |
 |---|---|---|
 | commit-messages | `scripts/check-commit-msg.sh --range <from>..<to>` | every pushed commit matches `type(scope): message` |
 | backend-build | `scripts/ci/backend-build.sh` | `dotnet restore` + `dotnet build -c Release` |
-| backend-test | `scripts/ci/backend-test.sh` | NUnit tests from the build's output, JUnit report, code coverage |
+| backend-test | `scripts/ci/backend-test.sh` | NUnit tests from the build's output, JUnit report; collects raw coverage |
+| backend-coverage | `scripts/ci/backend-coverage.sh` | coverage report from backend-test's raw coverage (no tests run) |
 | frontend-build | `scripts/ci/frontend-build.sh` | `ng build` (production) |
-| frontend-test | `scripts/ci/frontend-test.sh` | Karma/Jasmine specs in headless Chrome, JUnit report, code coverage |
+| frontend-test | `scripts/ci/frontend-test.sh` | Karma/Jasmine specs in headless Chrome, JUnit report; collects raw coverage |
+| frontend-coverage | `scripts/ci/frontend-coverage.sh` | coverage report from frontend-test's raw coverage (no tests run) |
 
-The test jobs start once their build job is green. Failed tests are listed by name in GitLab's pipeline "Tests" tab /
+The test jobs start once their build job is green, the coverage jobs once their test job is. Failed tests are listed by name in GitLab's pipeline "Tests" tab /
 the "Backend tests" and "Frontend tests" check runs on GitHub.
 
-**Code coverage:** both test jobs measure it; it does not fail a job.
+**Code coverage:** the test jobs collect it while the tests run (raw Cobertura in their artifact); the coverage jobs
+turn it into reports with ReportGenerator (local tool in `dotnet-tools.json`, `scripts/ci/coverage-report.sh`). It does
+not fail a job.
 
 | | Backend | Frontend |
 |---|---|---|
-| Measured by | coverlet (`FlatMonitor.Tests/coverage.runsettings`: the `FlatMonitor` assembly, without EF migrations), merged by ReportGenerator (local tool in `dotnet-tools.json`) | karma-coverage (`ClientApp/karma.conf.js`) |
-| Full report (artifact) | `test-results/coverage/index.html` | `ClientApp/test-results/coverage/index.html` |
-| GitLab | line coverage on the job, pipeline and MR (`coverage:` regex on the log); covered/uncovered lines in the MR diff (Cobertura report) | the same |
-| GitHub | coverage table in the job summary (`SummaryGithub.md`) | the same |
+| Collected by | coverlet (`FlatMonitor.Tests/coverage.runsettings`: the `FlatMonitor` assembly, without EF migrations) | karma-coverage (`ClientApp/karma.conf.js`) |
+| Raw coverage (test job artifact) | `test-results/coverage-raw/<guid>/coverage.cobertura.xml` | `ClientApp/test-results/coverage-raw/cobertura.xml` |
+| Full report (coverage job artifact) | `test-results/coverage/backend/index.html` | `test-results/coverage/frontend/index.html` |
+| GitLab | line coverage on the coverage job, the pipeline and the MR (`coverage:` regex on the log); covered/uncovered lines in the MR diff (Cobertura report) | the same |
+| GitHub | coverage table in the coverage job's summary (`SummaryGithub.md`) | the same |
 
-Locally, the same scripts (below) write the same reports, e.g. open `test-results/coverage/index.html`.
+Locally, the same scripts (below) write the same reports, e.g. open `test-results/coverage/backend/index.html`.
 
 **Reproduce a job locally** (Git Bash, from the repository root):
 ```bash
-sh scripts/ci/backend-build.sh && sh scripts/ci/backend-test.sh
-sh scripts/ci/frontend-build.sh && sh scripts/ci/frontend-test.sh
+sh scripts/ci/backend-build.sh && sh scripts/ci/backend-test.sh && sh scripts/ci/backend-coverage.sh
+sh scripts/ci/frontend-build.sh && sh scripts/ci/frontend-test.sh && sh scripts/ci/frontend-coverage.sh
 sh scripts/check-commit-msg.sh --range origin/main..HEAD
 ```
 Locally the frontend scripts reuse `ClientApp/node_modules` (CI does a clean `npm ci`). Reports go to `test-results/`

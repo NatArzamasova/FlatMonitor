@@ -24,16 +24,13 @@ module.exports = function (config) {
     jasmineHtmlReporter: {
       suppressAll: true // removes the duplicated traces
     },
-    // With `ng test --code-coverage` (CI: scripts/ci/frontend-test.sh). In test-results/ (git-ignored, CI artifact):
-    // html to browse, cobertura for GitLab's MR coverage view, json-summary for the GitHub job summary,
-    // text-summary in the log ("Lines : N%", read by GitLab's `coverage:` regex).
+    // With `ng test --code-coverage` (CI: scripts/ci/frontend-test.sh): the raw coverage in test-results/ (git-ignored,
+    // CI artifact), from which the job "frontend-coverage" builds the reports; a short summary in the log.
     coverageReporter: {
-      dir: require('path').join(__dirname, './test-results/coverage'),
+      dir: require('path').join(__dirname, './test-results/coverage-raw'),
       subdir: '.',
       reporters: [
-        { type: 'html' },
         { type: 'cobertura', file: 'cobertura.xml' },
-        { type: 'json-summary' },
         { type: 'text-summary' }
       ]
     },

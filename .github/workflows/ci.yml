@@ -2,8 +2,8 @@
 # The jobs only prepare the environment; the work is done by the shared scripts in scripts/.
 #
 #   commit-messages
-#   backend-build  ──► backend-test
-#   frontend-build ──► frontend-test
+#   backend-build  ──► backend-test  ──► backend-coverage
+#   frontend-build ──► frontend-test ──► frontend-coverage
 
 name: CI
 
@@ -77,13 +77,7 @@ jobs:
         with:
           name: backend-test-binaries
           path: FlatMonitor.Tests/bin/Release/net10.0/
-      - uses: actions/cache@v4
-        with:
-          path: ~/.nuget/packages
-          key: dotnet-tools-${{ hashFiles('dotnet-tools.json') }}   # ReportGenerator, restored by the script
       - run: sh scripts/ci/backend-test.sh
-      - name: Coverage summary
-        run: cat test-results/coverage/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
       - uses: dorny/test-reporter@v1
         if: always()
         with:
@@ -95,6 +89,32 @@ jobs:
         with:
           name: backend-test-results
           path: test-results/
+          retention-days: 7
+
+  backend-coverage:
+    needs: backend-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4      # the sources, for the report's source view
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: dotnet-tools-${{ hashFiles('dotnet-tools.json') }}   # ReportGenerator, restored by the script
+      - uses: actions/download-artifact@v4
+        with:
+          name: backend-test-results       # the raw coverage
+          path: test-results/
+      - run: sh scripts/ci/backend-coverage.sh
+      - name: Coverage summary
+        run: cat test-results/coverage/backend/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage-report   # index.html: the full report
+          path: test-results/coverage/backend/
           retention-days: 7
 
   frontend-build:
@@ -126,8 +146,6 @@ jobs:
           cache: npm
           cache-dependency-path: ClientApp/package-lock.json
       - run: sh scripts/ci/frontend-test.sh     # Chrome is preinstalled on ubuntu-latest
-      - name: Coverage summary
-        run: cat ClientApp/test-results/coverage/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
       - uses: dorny/test-reporter@v1
         if: always()
         with:
@@ -139,4 +157,30 @@ jobs:
         with:
           name: frontend-test-results
           path: ClientApp/test-results/
+          retention-days: 7
+
+  frontend-coverage:
+    needs: frontend-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4      # the sources, for the report's source view
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: dotnet-tools-${{ hashFiles('dotnet-tools.json') }}   # ReportGenerator, restored by the script
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-test-results       # the raw coverage
+          path: ClientApp/test-results/
+      - run: sh scripts/ci/frontend-coverage.sh
+      - name: Coverage summary
+        run: cat test-results/coverage/frontend/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage-report   # index.html: the full report
+          path: test-results/coverage/frontend/
           retention-days: 7
