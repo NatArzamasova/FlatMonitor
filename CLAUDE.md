@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project: Wohnung Monitor
 
-A .NET 10 application (ASP.NET Core web API with an Angular frontend, plus a CLI) that scrapes apartment flats from multiple German sources (ohne-makler.net, immobilienscout24.de, etc.) and tracks market changes over time (new flats, price changes, removals, aggregate statistics).
+A .NET 10 application (ASP.NET Core web API with an Angular frontend, plus a CLI) that scrapes apartment flats from multiple German sources (ohne-makler.net, immobilienscout24.de, immowelt.de) and tracks market changes over time (new flats, price changes, removals, aggregate statistics).
 
 See `WohnungMonitor.md` for full architecture, data model, and API details.
 
@@ -18,6 +18,7 @@ dotnet build
 ### Run scraper (fetch current flats, append to archive)
 ```bash
 dotnet run -- scrape
+dotnet run -- scrape --source Immowelt   # only these sources (comma-separated); the others keep their flats
 ```
 
 ### Run the web server (default; API for the Angular frontend)
@@ -29,7 +30,7 @@ There is no `report` command: statistics are served by the web API (see [BUILD_A
 ## Architecture
 
 **Multi-source design:**
-- Each data source (OhneMakler, ImmobilienScout24, etc.) implements `IScraper` interface
+- Each data source (OhneMakler, ImmobilienScout24, Immowelt) implements `IScraper` interface
 - Source-specific parsing logic is encapsulated in `Scraping/{Source}/` subdirectories
 - `ScraperCoordinator` orchestrates all scrapers and manages snapshots per source
 
@@ -40,7 +41,9 @@ There is no `report` command: statistics are served by the web API (see [BUILD_A
 **Run modes:**
 - `scrape` — fetches current flats from all active sources, enriches with detail pages, yields unfiltered flats to `ScraperCoordinator`. `ScraperCoordinator` filters by allowed districts (normalizing names), batch-saves filtered flats to SQLite (every 20 flats to avoid memory bloat)
 - web server (no command, the default) — REST API read by the Angular frontend: current offers, aggregations by district and rooms and their history, filter presets; `POST /api/scrape` queues a scrape job that runs the same pipeline as `scrape`
+- `scrape --source <names>` — the same, for the named sources only (`Scrapers:Sources` does it for the web server)
 - `explore-is24` — opens ImmobilienScout24 in the browser and saves the listings page HTML for analysis
+- `explore-immowelt [--headless | --cdp]` — saves two Immowelt results pages and an expose to `data/explore/Immowelt/`
 
 ## Key Design Notes
 
@@ -49,6 +52,14 @@ There is no `report` command: statistics are served by the web API (see [BUILD_A
 - **Snapshots are backups only** — created for debugging purposes; do not use snapshots to reconstruct or validate database state
 - **District filtering** — All scraped flats are filtered to match `KarlsruheDistricts.All` (27 Karlsruhe districts only). See [FILTERING.md](FILTERING.md) for strategy and examples
 - **HTML coupling risk** — scraper is tightly bound to current site markup; mitigated by parser unit tests against saved fixtures, but real failures surface at scrape time
+- **Immowelt needs the user's Chrome** — DataDome blocks `HttpClient` and Playwright's own browser, so the Immowelt
+  scraper attaches to the installed Chrome over CDP (`127.0.0.1:9222`), starting it if needed (own profile
+  `FlatMonitorChrome`). Never add automation/headless flags or evasion. Pages are read from their JSON data scripts,
+  5 s apart. See [FlatMonitor/immowelt.md](FlatMonitor/immowelt.md) and [BUILD_AND_RUN.md](BUILD_AND_RUN.md#immowelt-and-chrome)
+- **Keep-awake during a scrape** — `ScrapeRunService` holds a Windows power request (`KeepSystemAwake`) for the
+  whole run: Modern Standby cut the Chrome connection mid-run. A no-op outside Windows
+- **Cross-source duplicates** — many flats are listed on several sources (188 of 246 Immowelt flats also on IS24) and
+  are counted once per source in the aggregations; deduplication is not done yet
 - **"Removed" ambiguity** — removal is inferred from absence in latest scrape (could be sold, delisted, or scrape miss); no ground truth from the site
 
 ## Parallel: MCP Servers

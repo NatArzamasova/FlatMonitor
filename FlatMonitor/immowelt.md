@@ -219,5 +219,5 @@ attaches to a running Chrome instead of launching one, so there is little to sha
    all URLs `/expose/…`, the three project units with their own exposes. Windows entered Modern Standby five times
    during the run (up to 4.5 min) without a gap between exposes > 20 s: the power request works.
    Open: the live test.
-10. **Docs** — `CLAUDE.md` / `WohnungMonitor.md` (third source, CDP Chrome, DataDome), `BUILD_AND_RUN.md`
+10. ✅ **Docs** — `CLAUDE.md` / `WohnungMonitor.md` (third source, CDP Chrome, DataDome), `BUILD_AND_RUN.md`
     (starting Chrome, `Scrapers:Immowelt` settings, `explore-immowelt`).

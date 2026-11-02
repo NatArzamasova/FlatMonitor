@@ -4,6 +4,7 @@
 
 - .NET 10 SDK
 - Node.js 18+ and npm
+- Google Chrome, for the Immowelt source (see [Immowelt and Chrome](#immowelt-and-chrome))
 - Environment variables in `.env` (for scraping credentials)
 
 ## Development Setup
@@ -36,6 +37,49 @@ This mode:
 - Writes new snapshots to `data/snapshots/`
 - Useful for CI/CD pipelines
 
+Scrape only some sources (comma-separated, any case); the other sources keep their flats, and the aggregations are
+computed over all flats afterwards:
+```bash
+dotnet run -- scrape --source Immowelt
+dotnet run -- scrape --source OhneMakler,ImmobilienScout24
+```
+The sources are `OhneMakler`, `ImmobilienScout24` and `Immowelt`, scraped in that order. An unknown name stops with
+the list of valid ones.
+
+Immowelt alone takes about 25 minutes (a pause of 5 s between its ~260 pages: ~9 results pages, one expose per
+flat). While a scrape runs, Windows is kept from going to sleep (see [Immowelt and Chrome](#immowelt-and-chrome)).
+
+Exploring a site's pages for parser work (not part of a scrape):
+```bash
+dotnet run -- explore-is24             # the first listings page, saved to the temp directory
+dotnet run -- explore-immowelt --cdp   # two results pages and an expose in the debug Chrome, saved to data/explore/Immowelt/
+```
+
+### Immowelt and Chrome
+
+immowelt.de is guarded by DataDome, which blocks `HttpClient` and also Playwright's own browser (even with a window).
+It lets through a normal Chrome, so the Immowelt scraper works in a tab of the installed Chrome, connected over the
+Chrome DevTools Protocol (CDP) at `http://127.0.0.1:9222`:
+
+- **No Chrome there:** the scraper starts `chrome.exe` itself with the debugging port and its own profile
+  (`%LOCALAPPDATA%\FlatMonitorChrome`), and closes it after the run. A window opening during a scrape is expected.
+- **Chrome already there** (started by hand, see below): the scraper opens its own tab, closes only that tab, and
+  leaves the browser open.
+- **Robot check:** passed once in that profile, it is remembered in its cookies. If DataDome shows it again, the run
+  fails with "blocked by DataDome"; start Chrome by hand, pass the check on immowelt.de, and scrape again.
+
+Starting the debug Chrome by hand (PowerShell); recent Chrome refuses remote debugging on the default profile, hence
+the own one:
+```powershell
+& "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --user-data-dir="$env:LOCALAPPDATA\FlatMonitorChrome"
+```
+
+**Windows sleep:** in Modern Standby, Windows cut the scraper's connection to Chrome mid-run. A scrape therefore holds
+a Windows power request for its whole run (every source, CLI and `POST /api/scrape`); it shows in `powercfg /requests`
+(admin terminal) as "FlatMonitor scrape run N". The screen still turns off and locks as usual. On battery, some laptops
+sleep anyway: scrape plugged in. Should the connection still be lost, the remaining Immowelt flats keep their list
+data (no details) and the run continues.
+
 ## Configuration
 
 `FlatMonitor/appsettings.json` holds the settings shared by the web server and the CLI:
@@ -48,6 +92,14 @@ This mode:
 | `Scrapers:ImmobilienScout24:Headless` | `false` | Run the IS24 browser without a window (the robot guard may need a person) |
 | `Scrapers:ImmobilienScout24:SearchUrl` | Karlsruhe flats for sale | First IS24 listings page; pagination starts there |
 | `Scrapers:ImmobilienScout24:SaveDebugPages` | `false` | Save the first IS24 page to the temp directory when it has no listings (e.g. the robot guard); the error names the file |
+| `Scrapers:Sources` | (empty: all) | Sources a scrape runs, comma-separated; `scrape --source` sets it on the CLI. E.g. `Scrapers__Sources=OhneMakler,ImmobilienScout24` keeps `POST /api/scrape` off Immowelt |
+| `Scrapers:Immowelt:CdpUrl` | `http://127.0.0.1:9222` | Where the debug Chrome listens (`127.0.0.1`, not `localhost`: Chrome listens on IPv4 only) |
+| `Scrapers:Immowelt:LaunchChrome` | `true` | Start Chrome if none listens at `CdpUrl`, and close it after the run |
+| `Scrapers:Immowelt:ChromePath` | (empty: found) | `chrome.exe` to start; empty looks in `Program Files`, `Program Files (x86)` and `%LOCALAPPDATA%\Google\Chrome\Application` |
+| `Scrapers:Immowelt:ChromeUserDataDir` | `%LOCALAPPDATA%\FlatMonitorChrome` | Profile of the started Chrome (keeps the passed robot check) |
+| `Scrapers:Immowelt:SearchUrl` | Karlsruhe flats to buy, no auctions | First results page; pages 2.. are opened by URL (`&page=N`) |
+| `Scrapers:Immowelt:PauseBetweenPagesMs` | `5000` | Pause between two pages (results pages and exposes); faster looks like a robot to DataDome |
+| `Scrapers:Immowelt:SaveDebugPages` | `false` | Save a page without data (e.g. the DataDome guard) to the temp directory; the error names the file |
 
 Relative paths are resolved against the content root, which is the `FlatMonitor/` project directory: `dotnet run`
 always runs there (`RunWorkingDirectory` in `FlatMonitor.csproj`), from any directory. When starting the built app
@@ -147,6 +199,18 @@ Raise the level for the scrapers only, for example:
 ```bash
 Logging__LogLevel__FlatMonitor.Scraping=Debug dotnet run -- scrape
 ```
+
+### Immowelt fails or has no details
+The Immowelt error is in the scrape summary; the other sources are not affected and Immowelt keeps its previous flats.
+
+| Message | Cause and fix |
+|---|---|
+| `No Chrome to attach to at http://127.0.0.1:9222` | `LaunchChrome` is off and no debug Chrome runs: start it by hand (above) |
+| `Chrome not found (...)` | Chrome is installed elsewhere: set `Scrapers:Immowelt:ChromePath` |
+| `Chrome started but does not answer ...` | A window of the `FlatMonitorChrome` profile is open without the debugging port: close it, scrape again |
+| `... blocked by DataDome: pass the robot check ...` | Start Chrome by hand, pass the check on immowelt.de, scrape again |
+| `... no search data, has the page changed?` | immowelt changed its pages: the parsers need work (`explore-immowelt --cdp`, `SaveDebugPages`) |
+| Warning `the connection to Chrome is lost` | Windows slept or Chrome was closed mid-run: the remaining flats keep their list data. Scrape plugged in |
 
 ### Port already in use
 - Backend (5000): `netstat -ano | findstr :5000` (Windows) or `lsof -i :5000` (Linux/Mac)

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-A .NET 10 web application that scrapes apartment listings from multiple German sources (ohne-makler.net, immobilienscout24.de, etc.) for Karlsruhe and aggregates market data over time. These sites have no archive of their own — no posted/updated dates, and removed flats just vanish. This tool builds our own history by scraping repeatedly from all sources and recording what we see, timestamped by scrape time and attributed by source. The app exposes aggregated statistics (by postal code, district, rooms, availability) via a REST API and Angular dashboard.
+A .NET 10 web application that scrapes apartment listings from multiple German sources (ohne-makler.net, immobilienscout24.de, immowelt.de) for Karlsruhe and aggregates market data over time. These sites have no archive of their own — no posted/updated dates, and removed flats just vanish. This tool builds our own history by scraping repeatedly from all sources and recording what we see, timestamped by scrape time and attributed by source. The app exposes aggregated statistics (by postal code, district, rooms, availability) via a REST API and Angular dashboard.
 
 ## Supported Sources
 
@@ -18,8 +18,22 @@ Checked live on 2026-10-09 against `/immobilien/wohnung-kaufen/baden-wurttemberg
 ### ImmobilienScout24 (immobilienscout24.de)
 TBD — architecture supports pluggable sources; add parsers as needed.
 
+### Immowelt (immowelt.de)
+Built 2026-11-02; plan, page findings and decisions in [FlatMonitor/immowelt.md](FlatMonitor/immowelt.md).
+- Guarded by **DataDome**: `HttpClient` and Playwright's own browser are blocked, a normal Chrome passes. The scraper
+  works in a tab of the installed Chrome, attached over CDP (`127.0.0.1:9222`); it starts that Chrome (own profile
+  `FlatMonitorChrome`) if none runs and closes it after the run. See [BUILD_AND_RUN.md](BUILD_AND_RUN.md#immowelt-and-chrome).
+- Results pages (`classified-search?distributionTypes=Buy&...`, 30 flats each, opened by URL with `&page=N`) and
+  exposes (`/expose/{guid}`) carry their data as JSON in scripts — the list lz-string compressed — so the parsers read
+  JSON, not markup: price, previous price, rooms, area, postal code, district; on the expose commission, Hausgeld,
+  build year, condition, heating, energy certificate, floor.
+- Units of a new-build project link to the project page; each still has its own expose (`/expose/{legacyId}`).
+- 5 s between pages (faster looks like a robot): ~25 minutes for ~250 flats.
+- Many flats are also listed on ImmobilienScout24 (same agent): 188 of 246 in the first run. The aggregations count
+  them once per source; cross-source deduplication is open.
+
 ### Future sources
-The architecture is designed to accommodate additional sources (Makler.de, Immowelt, etc.) 
+The architecture is designed to accommodate additional sources (Makler.de, etc.)
 by implementing the `IScraper` interface.
 
 ## Architecture
@@ -33,6 +47,7 @@ by implementing the `IScraper` interface.
   
 - **CLI Scrape (legacy)** — `dotnet run -- scrape`
   - Fetches current flats from all active sources and saves them to the SQLite database
+  - `dotnet run -- scrape --source Immowelt` scrapes only the named sources (comma-separated); the others keep their flats
   - Maintains backward compatibility for scheduled CI/CD pipelines
   - Executes immediately and exits
 
@@ -82,6 +97,8 @@ parsing logic and quirks. The framework provides:
 2. **Source-specific parsers** — live in `Scraping/{SourceName}/` folders:
    - `Scraping/OhneMakler/` — OhneMaklerScraper, OhneMaklerFlatCardParser, OhneMaklerDetailPageParser
    - `Scraping/ImmobilienScout24/` — ImmobilienScout24Scraper, IS24FlatCardParser, IS24DetailPageParser
+   - `Scraping/Immowelt/` — ImmoweltScraper, ImmoweltBrowser/ImmoweltChrome (CDP attach, Chrome start),
+     ImmoweltListParser, ImmoweltDetailParser, LzString
    - `Scraping/{NewSource}/` — pluggable for future sources
 
 3. **Snapshot format changes** — add `Source` field:
