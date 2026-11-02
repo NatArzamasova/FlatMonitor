@@ -17,7 +17,10 @@ public class ImmoweltDetailParserTests
         _parser = new ImmoweltDetailParser();
     }
 
-    private ImmoweltDetailPage ParseFixture() => _parser.Parse(ImmoweltFixtures.Read("expose-page.html"));
+    private ImmoweltDetailPage ParseFixture() => Parse(ImmoweltFixtures.Read("expose-page.html"));
+
+    /// <summary>A page with data: <c>null</c> fails the test here rather than as a NullReferenceException.</summary>
+    private ImmoweltDetailPage Parse(string html) => _parser.Parse(html) ?? throw new AssertionException("the page has no data");
 
     /// <summary>An expose page whose data script holds <paramref name="classifiedJson"/>, escaped as immowelt does.</summary>
     private static string ExposeHtml(string classifiedJson)
@@ -76,15 +79,18 @@ public class ImmoweltDetailParserTests
     }
 
     [Test]
-    public void Parse_PageWithoutDataScript_HasNoValues()
+    public void Parse_PageWithoutDataScript_IsNull()
     {
-        var page = _parser.Parse("""<html><body><p id="cmsg">Please enable JS and disable any ad blocker</p></body></html>""");
+        _parser.Parse("""<html><body><p id="cmsg">Please enable JS and disable any ad blocker</p></body></html>""")
+            .Should().BeNull();
+    }
 
-        page.Title.Should().BeNull();
-        page.PriceEur.Should().BeNull();
-        page.CommissionPercent.Should().BeNull();
-        page.Details.Should().BeNull();
-        page.IsDeactivated.Should().BeFalse();
+    [Test]
+    public void Parse_DataScriptWithoutClassified_IsNull()
+    {
+        var html = $"<script>window[\"__UFRN_LIFECYCLE_SERVERREQUEST__\"]=JSON.parse({JsonSerializer.Serialize("{}")});</script>";
+
+        _parser.Parse(html).Should().BeNull();
     }
 
     [Test]
@@ -92,7 +98,7 @@ public class ImmoweltDetailParserTests
     {
         var html = ExposeHtml("""{"sections":{"price":{"base":{"commissionFee":{"label":"Provision für Käufer","value":"provisionsfrei"}}}}}""");
 
-        _parser.Parse(html).CommissionPercent.Should().Be(0);
+        Parse(html).CommissionPercent.Should().Be(0);
     }
 
     [Test]
@@ -100,7 +106,7 @@ public class ImmoweltDetailParserTests
     {
         var html = ExposeHtml("""{"sections":{"price":{"base":{"main":{"value":{"main":{"value":"305.000 €"}}}}}}}""");
 
-        var page = _parser.Parse(html);
+        var page = Parse(html);
 
         page.CommissionPercent.Should().BeNull();
         page.PriceEur.Should().Be(305000);
@@ -111,13 +117,13 @@ public class ImmoweltDetailParserTests
     {
         var html = ExposeHtml("""{"metadata":{"status":{"status":false}},"sections":{}}""");
 
-        _parser.Parse(html).IsDeactivated.Should().BeTrue();
+        Parse(html).IsDeactivated.Should().BeTrue();
     }
 
     [Test]
     public void Parse_EmptySections_HasEmptyDetails()
     {
-        var details = _parser.Parse(ExposeHtml("""{"sections":{}}""")).Details!;
+        var details = Parse(ExposeHtml("""{"sections":{}}""")).Details!;
 
         details.BuildYear.Should().BeNull();
         details.Heating.Should().BeNull();
@@ -154,7 +160,7 @@ public class ImmoweltDetailParserTests
     {
         var card = Card();
 
-        var flat = _parser.Parse("<html></html>").ApplyTo(card);
+        var flat = new ImmoweltDetailPage(null, null, null, null, null, null, null, null, null).ApplyTo(card);
 
         flat.Should().BeEquivalentTo(card with { Details = null });
     }

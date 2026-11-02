@@ -178,10 +178,13 @@ attaches to a running Chrome instead of launching one, so there is little to sha
 6. ✅ **`ImmoweltFlatsPageFetcher` + `ImmoweltScraper.FetchCardsAsync`** — page 1, then pages 2..⌈totalCount/30⌉ by
    URL with the pause, safety cap 50 pages. DataDome page or no blob on page 1 → throw (with debug page); on a later
    page → throw too (no silently shorter run). `ImmoweltScraper.EnrichAsync` returns the card until step 7.
-7. **`ImmoweltDetailParser`** ✅ **+ `ImmoweltDetailScraper` + `EnrichAsync`** — expose is the source of truth, card
+7. ✅ **`ImmoweltDetailParser` + `ImmoweltDetailScraper` + `EnrichAsync`** — expose is the source of truth, card
    fills gaps (like the other sources); rooms and area come from the card (exact; the expose rounds them).
    `IsDeactivated` = `metadata.status.status: false` — an assumption, verify with a removed listing's expose. Commission via `GermanNumberParser` ("provisionsfrei"/missing fee → 0 only if the
-   page says so, else `null`). Removed expose → `null` (left out).
+   page says so, else `null`). Removed expose (HTTP 404/410 or `IsDeactivated`) → `null` (left out). Each expose
+   after the pause, saved to `HtmlPageArchive`. Expose without data → throws (`FlatScraper` keeps the card); the
+   DataDome guard → that card and all further ones kept without opening their exposes (one warning).
+   `ImmoweltDetailParser.Parse` returns `null` for a page without data, as the list parser does.
 8. **Registration** — `ServiceRegistrationExtensions`: options singleton, `AddScoped<ImmoweltScraper>()`,
    `AddScoped<IScraper>(...)`; extend `ServiceRegistrationExtensionsTests`.
 9. **Live test + smoke run** — `ImmoweltScraperLiveTests` (`[Explicit]`, `[Category("Live")]`) reads page 1 and one

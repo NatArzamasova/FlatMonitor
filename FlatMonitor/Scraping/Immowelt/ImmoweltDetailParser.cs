@@ -51,18 +51,16 @@ public sealed record ImmoweltDetailPage(
 /// </summary>
 public sealed class ImmoweltDetailParser
 {
-    private static readonly ImmoweltDetailPage NoData = new(null, null, null, null, null, null, null, null, null);
-
-    /// <summary>The page's values; all <c>null</c> if the page has no data script (the DataDome guard, a changed page).</summary>
-    public ImmoweltDetailPage Parse(string html)
+    /// <summary>The page's values, or <c>null</c> if the page has no expose data (the DataDome guard, a changed page).</summary>
+    public ImmoweltDetailPage? Parse(string html)
     {
         var scriptJson = ImmoweltPages.ReadDataScript(html, ImmoweltPages.ExposeDataScript);
         if (scriptJson == null)
-            return NoData;
+            return null;
 
         using var script = JsonDocument.Parse(scriptJson);
         if (Element(script.RootElement, "app_demand_referral_cldp", "data", "classified") is not { ValueKind: JsonValueKind.Object } classified)
-            return NoData;
+            return null;
 
         var address = Element(classified, "sections", "location", "address");
         return new ImmoweltDetailPage(
