@@ -123,7 +123,12 @@ Put the filter rows of each tab into one `card` with a `card-body py-2` "toolbar
 the active filters as removable chips (`Südstadt ✕`, `3 rooms ✕`, `≤ 400 000 € ✕`) and a
 "Reset filters" link. On small screens collapse the toolbar behind a "Filters (3)" button.
 
-### 2.3 KPI cards on the Dashboard tab
+### 2.3 KPI cards on the Dashboard tab ✅ done
+Four tiles from the aggregations (`computeOverviewKpis()`, `StatTileComponent`): flats on offer (with the
+number of districts), avg. €/m², cheapest and priciest district. They follow the filters, not the grouping.
+The price-drop tile was left out: the Dashboard tab loads no single offers, so it would need an extra
+request for the current offers.
+
 Above the aggregation table, show 3–4 stat tiles computed from the data the tab already loads:
 - Flats on offer (after filters)
 - Average €/m² (after filters)

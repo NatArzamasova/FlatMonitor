@@ -871,4 +871,58 @@ describe('OverviewTabComponent', () => {
       expect(chipTexts()).toEqual([]);
     });
   });
+
+  describe('Key figure tiles', () => {
+    const tiles = (): { label: string; value: string; hint: string | undefined }[] =>
+      Array.from(fixture.nativeElement.querySelectorAll('[data-test="kpis"] app-stat-tile') as NodeListOf<HTMLElement>)
+        .map(tile => ({
+          label: tile.querySelector('.stat-tile-label')!.textContent!.trim(),
+          value: tile.querySelector('.stat-tile-value')!.textContent!.trim(),
+          hint: tile.querySelector('.stat-tile-hint')?.textContent!.trim()
+        }));
+
+    beforeEach(() => {
+      flatsService.getAggregated.and.returnValue(apiResult({
+        success: true,
+        data: [
+          { district: 'Mitte', roomsCount: 2, count: 3, avgPricePerMeter: 4000 },
+          { district: 'Mitte', roomsCount: 3, count: 1, avgPricePerMeter: 6000 },
+          { district: 'Durlach', roomsCount: 2, count: 4, avgPricePerMeter: 3000 }
+        ],
+        message: 'Success'
+      }));
+      fixture.detectChanges();
+    });
+
+    it('shows the flats, the average price and the cheapest and priciest district', () => {
+      expect(tiles()).toEqual([
+        { label: 'Flats on offer', value: '8', hint: 'in 2 districts' },
+        { label: 'Avg. price / m²', value: '€3,750', hint: undefined },
+        { label: 'Cheapest district', value: 'Durlach', hint: '€3,000 / m²' },
+        { label: 'Priciest district', value: 'Mitte', hint: '€4,500 / m²' }
+      ]);
+    });
+
+    it('follow the filters but not the grouping', () => {
+      component.selectedRooms = [2];
+      component.groupByDistrict = false;
+      component.applyFiltersAndGrouping();
+      fixture.detectChanges();
+
+      expect(tiles().map(tile => tile.value)).toEqual(['7', '€3,429', 'Durlach', 'Mitte']);
+    });
+
+    it('drop the priciest district when one district is left, and all tiles without flats', () => {
+      component.selectedDistricts = ['Durlach'];
+      component.applyFiltersAndGrouping();
+      fixture.detectChanges();
+      expect(tiles().map(tile => tile.label)).toEqual(['Flats on offer', 'Avg. price / m²', 'Cheapest district']);
+      expect(tiles()[0].hint).toBe('in 1 district');
+
+      component.selectedRooms = [3];
+      component.applyFiltersAndGrouping();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('[data-test="kpis"]')).toBeNull();
+    });
+  });
 });

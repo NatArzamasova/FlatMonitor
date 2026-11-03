@@ -79,6 +79,42 @@
     </app-filter-toolbar>
   }
 
+  @if (!loading && kpis; as kpis) {
+    <div class="row g-2 mb-2" data-test="kpis">
+      <div class="col-6 col-lg-3">
+        <app-stat-tile
+          label="Flats on offer"
+          [value]="(kpis.flatCount | number) ?? ''"
+          [hint]="kpis.districtCount > 0 ? 'in ' + kpis.districtCount + (kpis.districtCount === 1 ? ' district' : ' districts') : null"
+        ></app-stat-tile>
+      </div>
+      <div class="col-6 col-lg-3">
+        <app-stat-tile
+          label="Avg. price / m²"
+          [value]="(kpis.avgPricePerMeter | currency: 'EUR': 'symbol': '1.0-0') ?? ''"
+        ></app-stat-tile>
+      </div>
+      @if (kpis.cheapestDistrict; as cheapest) {
+        <div class="col-6 col-lg-3">
+          <app-stat-tile
+            label="Cheapest district"
+            [value]="cheapest.district"
+            [hint]="(cheapest.avgPricePerMeter | currency: 'EUR': 'symbol': '1.0-0') + ' / m²'"
+          ></app-stat-tile>
+        </div>
+      }
+      @if (kpis.priciestDistrict; as priciest) {
+        <div class="col-6 col-lg-3">
+          <app-stat-tile
+            label="Priciest district"
+            [value]="priciest.district"
+            [hint]="(priciest.avgPricePerMeter | currency: 'EUR': 'symbol': '1.0-0') + ' / m²'"
+          ></app-stat-tile>
+        </div>
+      }
+    </div>
+  }
+
   @if (!loading && aggregatedData.length > 0) {
     <div class="table-card table-card-fill">
       <table class="table table-hover data-table">

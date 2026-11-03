@@ -19,6 +19,8 @@ import { SortableHeaderComponent } from '../../../../shared/sortable-header/sort
 import { MultiSelectFilterComponent } from '../../../../shared/multi-select-filter/multi-select-filter.component';
 import { LoadingSpinnerComponent } from '../../../../shared/loading-spinner/loading-spinner.component';
 import { DismissibleAlertComponent } from '../../../../shared/dismissible-alert/dismissible-alert.component';
+import { StatTileComponent } from '../../../../shared/stat-tile/stat-tile.component';
+import { OverviewKpis, computeOverviewKpis } from '../../../../core/utils/overview-kpis.utils';
 import { FilterToolbarComponent } from '../../../../shared/filter-toolbar/filter-toolbar.component';
 import { FilterChip, buildFilterChips } from '../../../../core/utils/filter-chips.utils';
 import { FilterPresetBarComponent } from '../../../../shared/filter-preset-bar/filter-preset-bar.component';
@@ -40,7 +42,8 @@ type AggregationSortColumn = 'district' | 'roomsCount' | 'count' | 'avgPricePerM
     LoadingSpinnerComponent,
     DismissibleAlertComponent,
     FilterPresetBarComponent,
-    FilterToolbarComponent
+    FilterToolbarComponent,
+    StatTileComponent
   ],
   templateUrl: './overview-tab.component.html',
 })
@@ -69,6 +72,8 @@ export class OverviewTabComponent implements OnInit {
   availableRooms: number[] = [];
   /** The active filters as chips, updated with the table. */
   filterChips: FilterChip[] = [];
+  /** Key figures of the filtered rows (independent of the grouping), shown as tiles above the table. */
+  kpis: OverviewKpis | null = null;
 
   ngOnInit(): void {
     this.followActivePreset();
@@ -125,6 +130,7 @@ export class OverviewTabComponent implements OnInit {
     filtered = filterByDistricts(filtered, this.selectedDistricts, item => item.district);
     filtered = filterByRooms(filtered, this.selectedRooms, item => normalizeRooms(item.roomsCount));
     this.filterChips = buildFilterChips({ districts: this.selectedDistricts, rooms: this.selectedRooms });
+    this.kpis = computeOverviewKpis(filtered);
 
     // Backend rows are already one per district + rooms combination.
     this.aggregatedData = this.groupByDistrict && this.groupByRooms ? filtered : this.aggregate(filtered);
