@@ -288,7 +288,7 @@ describe('OverviewTabComponent', () => {
 
       const status = fixture.nativeElement.querySelector('app-scraping-status') as HTMLElement;
       expect(status).toBeTruthy();
-      expect(status.querySelector('.text-muted')?.textContent).toContain('Data last updated:');
+      expect(status.querySelector('.text-body-secondary')?.textContent).toContain('Data last updated:');
       const buttons = Array.from(status.querySelectorAll('.col-auto button')) as HTMLElement[];
       expect(buttons.map(button => button.textContent!.trim())).toEqual(['Refresh Data', 'Manual Scrape']);
     });

@@ -76,7 +76,12 @@ The overview says "Filter District:" / "Filter Rooms:", the other tabs say "Dist
 history says "Group By:" while overview uses checkboxes. Pick one wording ("District", "Rooms",
 "Group by") and use it on every tab.
 
-### 1.6 Clean up `styles.scss`
+### 1.6 Clean up `styles.scss` ✅ done
+The fixed colours are Bootstrap variables now (`body` uses `--bs-tertiary-bg`), the global `.text-muted`
+size and the rules that repeated Bootstrap's defaults are gone, and `text-muted` (deprecated in 5.3) is
+replaced by `text-body-secondary`. The chart height had already moved out of the inline style (see 1.2).
+The source pill and chart colours are still fixed values; they are left for dark mode (3.2) and 2.7.
+
 - `.text-muted { font-size: 0.9rem }` changes the size of *every* muted text, including inside
   Bootstrap components. Remove it and use `.small` where needed.
 - `h1…h6 { color: #333 }` and `body { background: #f5f5f5 }` are fixed values that will break dark mode

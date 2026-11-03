@@ -5,7 +5,7 @@
 <main class="container-fluid py-4">
   <h1 class="h3 mb-3">Filter presets</h1>
 
-  <p class="text-muted">
+  <p class="text-body-secondary small">
     A preset is a saved district filter. The default preset (★) is applied when the dashboard opens.
     Changes show up in open dashboard tabs automatically.
   </p>
@@ -24,7 +24,7 @@
             <small>{{ preset.districts.length === 0 ? 'all districts' : preset.districts.length + ' districts' }}</small>
           </button>
         } @empty {
-          <div class="list-group-item text-muted">No presets yet.</div>
+          <div class="list-group-item text-body-secondary">No presets yet.</div>
         }
       </div>
       <button type="button" class="btn btn-primary mt-3" (click)="startNew()" [disabled]="busy">+ New preset</button>
@@ -50,7 +50,7 @@
             <fieldset>
               <legend class="form-label fs-6 d-flex align-items-center gap-2">
                 Districts
-                <small class="text-muted">
+                <small class="text-body-secondary">
                   {{ draft.districts.length === 0 ? '(none ticked = all districts)' : '(' + draft.districts.length + ' ticked)' }}
                 </small>
                 <button type="button" class="btn btn-sm btn-link p-0" (click)="clearDistricts()"
@@ -98,7 +98,7 @@
           </div>
         </div>
       } @else {
-        <p class="text-muted">Choose a preset on the left or create a new one.</p>
+        <p class="text-body-secondary small">Choose a preset on the left or create a new one.</p>
       }
     </div>
   </div>

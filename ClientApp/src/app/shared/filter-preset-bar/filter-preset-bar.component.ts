@@ -52,7 +52,7 @@ import { sameElements } from '../../core/utils/collection.utils';
       <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cancelNaming()" [disabled]="busy">Cancel</button>
     } @else {
       @if (isModified) {
-        <small class="text-muted fst-italic">modified</small>
+        <small class="text-body-secondary fst-italic">modified</small>
       }
       <button type="button" class="btn btn-sm btn-outline-secondary" (click)="save()"
         [disabled]="busy || !activePreset || !isModified" title="Overwrite the preset with the current districts">Save</button>

@@ -250,7 +250,7 @@ describe('ScrapingStatusComponent', () => {
       hostFixture.detectChanges();
       const host: HTMLElement = hostFixture.nativeElement;
 
-      expect(host.querySelector('.text-muted .projected-info')).toBeTruthy();
+      expect(host.querySelector('.text-body-secondary .projected-info')).toBeTruthy();
       const actionButtons = Array.from(host.querySelectorAll('.col-auto button')) as HTMLElement[];
       expect(actionButtons.map(button => button.textContent!.trim())).toEqual(['Projected action', 'Manual Scrape']);
     });
