@@ -7,6 +7,7 @@ import { ScrapingHistoryDto, ScrapingStatus, ScrapingStatusResponse } from '../.
 import { parseUtcDate } from '../../../core/utils/date.utils';
 import { formatTimeAgo } from '../../../core/utils/relative-time.utils';
 import { describeScrapeStartError } from '../../../core/utils/scrape-error.utils';
+import { ToastService, ToastTone } from '../../../core/services/toast.service';
 
 /** A scrape run as shown in the header and its details panel. */
 export interface ScrapeRun {
@@ -192,6 +193,9 @@ export class ScrapeControlComponent implements OnInit {
   private readonly scrapeStatus = inject(ScrapeStatusService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly toasts = inject(ToastService);
+  /** Whether the last poll reported a running scrape (not the optimistic `scraping`), to notice a scrape ending. */
+  private polledScraping = false;
 
   scraping = false;
   /** A start or cancel request is under way. */
@@ -229,6 +233,7 @@ export class ScrapeControlComponent implements OnInit {
         next: (response) => {
           if (response.success) {
             this.scraping = true;
+            this.toasts.show('Scrape started', 'info');
           } else {
             this.error = response.message || 'Scrape failed';
           }
@@ -247,6 +252,11 @@ export class ScrapeControlComponent implements OnInit {
     this.scrapeStatus.cancelScrape()
       .pipe(finalize(() => this.busy = false))
       .subscribe({
+        next: (response) => {
+          if (response.data) {
+            this.toasts.show('Cancelling the scrape…', 'info');
+          }
+        },
         error: (err) => this.error = `Cancel error: ${err.message}`
       });
   }
@@ -263,6 +273,28 @@ export class ScrapeControlComponent implements OnInit {
     this.scraping = status.isScrapingInProgress;
     this.lastRun = status.lastScrapingHistory ? toRun(status.lastScrapingHistory, now) : null;
     this.lastSuccessfulRun = status.lastSuccessfulScrapingHistory ? toRun(status.lastSuccessfulScrapingHistory, now) : null;
+
+    if (this.polledScraping && !status.isScrapingInProgress && this.lastRun) {
+      const { message, tone } = describeFinishedRun(this.lastRun);
+      this.toasts.show(message, tone);
+    }
+    this.polledScraping = status.isScrapingInProgress;
+  }
+}
+
+/** The toast for a scrape that has just ended; the tabs reload silently, so this says what happened. */
+function describeFinishedRun(run: ScrapeRun): { message: string; tone: ToastTone } {
+  switch (run.status) {
+    case 'Successful':
+      return { message: `Scrape finished: ${run.flats} flats`, tone: 'success' };
+    case 'PartialFailed':
+      return { message: `Scrape partly failed: ${run.flats} flats saved`, tone: 'warning' };
+    case 'Failed':
+      return { message: 'Scrape failed', tone: 'danger' };
+    case 'Canceled':
+      return { message: 'Scrape canceled', tone: 'info' };
+    default:
+      return { message: `Scrape ended: ${run.statusLabel}`, tone: 'info' };
   }
 }
 

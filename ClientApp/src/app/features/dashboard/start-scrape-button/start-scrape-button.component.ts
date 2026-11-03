@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs/operators';
 import { ScrapeStatusService } from '../../../core/services/scrape-status.service';
 import { describeScrapeStartError } from '../../../core/utils/scrape-error.utils';
+import { ToastService } from '../../../core/services/toast.service';
 
 /**
  * "Start a scrape" for the tabs' empty states. While a scrape runs it is disabled and says so; the header's scrape
@@ -29,6 +30,7 @@ import { describeScrapeStartError } from '../../../core/utils/scrape-error.utils
 export class StartScrapeButtonComponent implements OnInit {
   private readonly scrapeStatus = inject(ScrapeStatusService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly toasts = inject(ToastService);
 
   scraping = false;
   busy = false;
@@ -49,6 +51,7 @@ export class StartScrapeButtonComponent implements OnInit {
         next: response => {
           if (response.success) {
             this.scraping = true;
+            this.toasts.show('Scrape started', 'info');
           } else {
             this.error = response.message || 'Scrape failed';
           }

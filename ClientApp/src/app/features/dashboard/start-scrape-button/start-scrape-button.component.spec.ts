@@ -1,4 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { ToastService } from '../../../core/services/toast.service';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of, Subject, throwError } from 'rxjs';
 import { StartScrapeButtonComponent } from './start-scrape-button.component';
@@ -9,6 +10,7 @@ describe('StartScrapeButtonComponent', () => {
   let fixture: ComponentFixture<StartScrapeButtonComponent>;
   let status$: Subject<ScrapingStatusResponse>;
   let scrapeStatus: jasmine.SpyObj<ScrapeStatusService>;
+  let toasts: jasmine.SpyObj<ToastService>;
 
   const button = (): HTMLButtonElement => fixture.nativeElement.querySelector('button');
   const error = (): string | undefined =>
@@ -17,10 +19,14 @@ describe('StartScrapeButtonComponent', () => {
   beforeEach(async () => {
     status$ = new Subject<ScrapingStatusResponse>();
     scrapeStatus = jasmine.createSpyObj('ScrapeStatusService', ['triggerScrape'], { status$ });
+    toasts = jasmine.createSpyObj<ToastService>('ToastService', ['show']);
 
     await TestBed.configureTestingModule({
       imports: [StartScrapeButtonComponent],
-      providers: [{ provide: ScrapeStatusService, useValue: scrapeStatus }]
+      providers: [
+        { provide: ScrapeStatusService, useValue: scrapeStatus },
+        { provide: ToastService, useValue: toasts }
+      ]
     }).compileComponents();
 
     fixture = TestBed.createComponent(StartScrapeButtonComponent);
@@ -36,6 +42,7 @@ describe('StartScrapeButtonComponent', () => {
     expect(scrapeStatus.triggerScrape).toHaveBeenCalled();
     expect(button().disabled).toBe(true);
     expect(button().textContent!.trim()).toBe('Scraping…');
+    expect(toasts.show).toHaveBeenCalledWith('Scrape started', 'info');
   });
 
   it('follows the polled status', () => {
@@ -57,6 +64,7 @@ describe('StartScrapeButtonComponent', () => {
 
     expect(error()).toBe('Scrape error: Network error');
     expect(button().disabled).toBe(false);
+    expect(toasts.show).not.toHaveBeenCalled();
   });
 
   it('shows the running state when a scrape is already running (409)', () => {

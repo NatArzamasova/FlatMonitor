@@ -1,4 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { ToastService } from '../../../core/services/toast.service';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of, Subject, throwError } from 'rxjs';
 import { ScrapeControlComponent } from './scrape-control.component';
@@ -11,6 +12,7 @@ describe('ScrapeControlComponent', () => {
   let component: ScrapeControlComponent;
   let status$: Subject<ScrapingStatusResponse>;
   let scrapeStatus: jasmine.SpyObj<ScrapeStatusService>;
+  let toasts: jasmine.SpyObj<ToastService>;
 
   const hoursAgo = (hours: number): string => new Date(Date.now() - hours * 3_600_000).toISOString();
 
@@ -50,10 +52,14 @@ describe('ScrapeControlComponent', () => {
   beforeEach(async () => {
     status$ = new Subject<ScrapingStatusResponse>();
     scrapeStatus = jasmine.createSpyObj('ScrapeStatusService', ['triggerScrape', 'cancelScrape'], { status$ });
+    toasts = jasmine.createSpyObj<ToastService>('ToastService', ['show']);
 
     await TestBed.configureTestingModule({
       imports: [ScrapeControlComponent],
-      providers: [{ provide: ScrapeStatusService, useValue: scrapeStatus }]
+      providers: [
+        { provide: ScrapeStatusService, useValue: scrapeStatus },
+        { provide: ToastService, useValue: toasts }
+      ]
     }).compileComponents();
 
     fixture = TestBed.createComponent(ScrapeControlComponent);
@@ -116,6 +122,45 @@ describe('ScrapeControlComponent', () => {
     });
   });
 
+  describe('finished scrapes', () => {
+    const finishWith = (status: ScrapingStatus) => {
+      push(running);
+      push(finished(status));
+    };
+
+    it('reports the outcome of a scrape that has just ended', () => {
+      finishWith('Successful');
+      expect(toasts.show).toHaveBeenCalledWith('Scrape finished: 246 flats', 'success');
+
+      finishWith('PartialFailed');
+      expect(toasts.show).toHaveBeenCalledWith('Scrape partly failed: 246 flats saved', 'warning');
+
+      finishWith('Failed');
+      expect(toasts.show).toHaveBeenCalledWith('Scrape failed', 'danger');
+
+      finishWith('Canceled');
+      expect(toasts.show).toHaveBeenCalledWith('Scrape canceled', 'info');
+    });
+
+    it('says nothing about a scrape that ended before the page was opened', () => {
+      push(finished());
+      push(finished());
+
+      expect(toasts.show).not.toHaveBeenCalled();
+    });
+
+    it('waits for the poll, not the optimistic state after starting, to notice the end', () => {
+      scrapeStatus.triggerScrape.and.returnValue(of(queued));
+      push(finished());
+      component.triggerScrape();
+      toasts.show.calls.reset();
+
+      push(finished());
+
+      expect(toasts.show).not.toHaveBeenCalled();
+    });
+  });
+
   describe('details panel', () => {
     it('opens with the status, times and flats of the last scrape', () => {
       push(finished());
@@ -170,6 +215,7 @@ describe('ScrapeControlComponent', () => {
       expect(component.scraping).toBe(true);
       expect(actionButton().textContent!.trim()).toBe('Cancel');
       expect(component.busy).toBe(false);
+      expect(toasts.show).toHaveBeenCalledWith('Scrape started', 'info');
     });
 
     it('shows the API message when the scrape could not be started', () => {
@@ -228,6 +274,7 @@ describe('ScrapeControlComponent', () => {
 
       expect(scrapeStatus.cancelScrape).toHaveBeenCalled();
       expect(component.error).toBeNull();
+      expect(toasts.show).toHaveBeenCalledWith('Cancelling the scrape…', 'info');
     });
 
     it('shows cancel errors', () => {

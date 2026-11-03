@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { ToastService } from '../../core/services/toast.service';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
@@ -19,6 +20,7 @@ describe('FilterPresetBarComponent', () => {
   const east: FilterPreset = { id: 1, name: 'East', districts: ['Durlach'], isDefault: true, updatedAtUtc: '' };
   const west: FilterPreset = { id: 2, name: 'West', districts: ['Weststadt'], isDefault: false, updatedAtUtc: '' };
 
+  let toasts: jasmine.SpyObj<ToastService>;
   let fixture: ComponentFixture<HostComponent>;
   let host: HostComponent;
   let presets$: BehaviorSubject<FilterPreset[]>;
@@ -45,6 +47,7 @@ describe('FilterPresetBarComponent', () => {
 
   beforeEach(async () => {
     presets$ = new BehaviorSubject<FilterPreset[]>([east, west]);
+    toasts = jasmine.createSpyObj<ToastService>('ToastService', ['show']);
     activePreset$ = new BehaviorSubject<FilterPreset | null>(east);
     service = jasmine.createSpyObj<FilterPresetsService>(
       'FilterPresetsService',
@@ -54,7 +57,10 @@ describe('FilterPresetBarComponent', () => {
 
     await TestBed.configureTestingModule({
       imports: [HostComponent],
-      providers: [{ provide: FilterPresetsService, useValue: service }]
+      providers: [
+        { provide: FilterPresetsService, useValue: service },
+        { provide: ToastService, useValue: toasts }
+      ]
     }).compileComponents();
 
     fixture = TestBed.createComponent(HostComponent);
@@ -128,6 +134,7 @@ describe('FilterPresetBarComponent', () => {
       await render();
 
       expect(service.update).toHaveBeenCalledWith(1, { name: 'East', districts: ['Durlach', 'Hagsfeld'] });
+      expect(toasts.show).toHaveBeenCalledWith('Preset "East" saved');
     });
   });
 
@@ -147,6 +154,7 @@ describe('FilterPresetBarComponent', () => {
       expect(service.create).toHaveBeenCalledWith({ name: 'North', districts: ['Hagsfeld'] });
       expect(service.selectPreset).toHaveBeenCalledWith(3);
       expect(nameInput()).toBeNull();
+      expect(toasts.show).toHaveBeenCalledWith('Preset "North" created');
     });
 
     it('submits with Enter and cancels with Escape', async () => {

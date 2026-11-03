@@ -9,6 +9,7 @@ import { DistrictsService } from '../../core/services/districts.service';
 import { FilterPreset } from '../../core/models/filter-preset.model';
 import { describeWriteError } from '../../core/utils/api-response.utils';
 import { sameElements } from '../../core/utils/collection.utils';
+import { ToastService } from '../../core/services/toast.service';
 import { AppHeaderComponent } from '../../shared/app-header/app-header.component';
 
 /** The preset being edited; `id: null` is a new preset. */
@@ -32,6 +33,7 @@ export class FilterPresetsPageComponent implements OnInit {
   private readonly presetsService = inject(FilterPresetsService);
   private readonly districtsService = inject(DistrictsService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly toasts = inject(ToastService);
 
   presets: FilterPreset[] = [];
   districts: string[] = [];
@@ -116,9 +118,15 @@ export class FilterPresetsPageComponent implements OnInit {
     const request = { name, districts: draft.districts };
 
     if (draft.id === null) {
-      this.run(this.presetsService.create(request), created => this.edit(created));
+      this.run(this.presetsService.create(request), created => {
+        this.edit(created);
+        this.toasts.show(`Preset "${created.name}" created`);
+      });
     } else {
-      this.run(this.presetsService.update(draft.id, request), updated => this.edit(updated));
+      this.run(this.presetsService.update(draft.id, request), updated => {
+        this.edit(updated);
+        this.toasts.show(`Preset "${updated.name}" saved`);
+      });
     }
   }
 
@@ -130,7 +138,9 @@ export class FilterPresetsPageComponent implements OnInit {
     const request: Observable<unknown> = stored.isDefault
       ? this.presetsService.clearDefault()
       : this.presetsService.setDefault(stored.id);
-    this.run(request);
+    this.run(request, () => this.toasts.show(stored.isDefault
+      ? `"${stored.name}" is no longer the default`
+      : `"${stored.name}" is now the default`));
   }
 
   deletePreset(): void {
@@ -138,7 +148,10 @@ export class FilterPresetsPageComponent implements OnInit {
     if (!stored || !confirm(`Delete preset "${stored.name}"?`)) {
       return;
     }
-    this.run(this.presetsService.delete(stored.id), () => this.draft = null);
+    this.run(this.presetsService.delete(stored.id), () => {
+      this.draft = null;
+      this.toasts.show(`Preset "${stored.name}" deleted`);
+    });
   }
 
   /**

@@ -7,6 +7,7 @@ import { FilterPresetsService } from '../../core/services/filter-presets.service
 import { FilterPreset } from '../../core/models/filter-preset.model';
 import { describeWriteError } from '../../core/utils/api-response.utils';
 import { sameElements } from '../../core/utils/collection.utils';
+import { ToastService } from '../../core/services/toast.service';
 
 /**
  * Preset dropdown for the district filter, plus the actions that need the tab's current selection:
@@ -68,6 +69,7 @@ import { sameElements } from '../../core/utils/collection.utils';
 export class FilterPresetBarComponent implements OnInit {
   private readonly presetsService = inject(FilterPresetsService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly toasts = inject(ToastService);
 
   /** The host tab's current district selection. */
   @Input() selected: string[] = [];
@@ -111,7 +113,8 @@ export class FilterPresetBarComponent implements OnInit {
     if (!active) {
       return;
     }
-    this.run(this.presetsService.update(active.id, { name: active.name, districts: this.selected }));
+    this.run(this.presetsService.update(active.id, { name: active.name, districts: this.selected }),
+      () => this.toasts.show(`Preset "${active.name}" saved`));
   }
 
   startNaming(): void {
@@ -134,6 +137,7 @@ export class FilterPresetBarComponent implements OnInit {
     this.run(this.presetsService.create({ name, districts: this.selected }), created => {
       this.cancelNaming();
       this.presetsService.selectPreset(created.id);
+      this.toasts.show(`Preset "${created.name}" created`);
     });
   }
 

@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ToastService } from '../../core/services/toast.service';
 import { HttpErrorResponse } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
 import { BehaviorSubject, of, throwError } from 'rxjs';
@@ -12,6 +13,7 @@ describe('FilterPresetsPageComponent', () => {
   const east = filterPreset(1, 'East', ['Durlach'], true);
   const west = filterPreset(2, 'West', []);
 
+  let toasts: jasmine.SpyObj<ToastService>;
   let fixture: ComponentFixture<FilterPresetsPageComponent>;
   let component: FilterPresetsPageComponent;
   let presets: FilterPresetsServiceStub;
@@ -52,6 +54,7 @@ describe('FilterPresetsPageComponent', () => {
 
   beforeEach(async () => {
     presets = createFilterPresetsServiceStub([east, west]);
+    toasts = jasmine.createSpyObj<ToastService>('ToastService', ['show']);
     districts$ = new BehaviorSubject<string[]>(['Durlach', 'Hagsfeld', 'Weststadt']);
 
     await TestBed.configureTestingModule({
@@ -59,7 +62,8 @@ describe('FilterPresetsPageComponent', () => {
       providers: [
         provideRouter([]),
         { provide: FilterPresetsService, useValue: presets.service },
-        { provide: DistrictsService, useValue: { districts$ } }
+        { provide: DistrictsService, useValue: { districts$ } },
+        { provide: ToastService, useValue: toasts }
       ]
     }).compileComponents();
 
@@ -115,6 +119,7 @@ describe('FilterPresetsPageComponent', () => {
       await render();
 
       expect(presets.service.update).toHaveBeenCalledWith(1, { name: 'Far east', districts: ['Durlach', 'Hagsfeld'] });
+      expect(toasts.show).toHaveBeenCalledWith('Preset "Far east" saved');
     });
 
     it('saves an empty selection as "all districts"', async () => {
@@ -199,6 +204,7 @@ describe('FilterPresetsPageComponent', () => {
 
       expect(presets.service.create).toHaveBeenCalledWith({ name: 'North', districts: ['Hagsfeld'] });
       expect(component.draft).toEqual({ id: 3, name: 'North', districts: ['Hagsfeld'] });
+      expect(toasts.show).toHaveBeenCalledWith('Preset "North" created');
     });
 
     it('shows the API message on a conflict and keeps the draft', async () => {
@@ -215,6 +221,7 @@ describe('FilterPresetsPageComponent', () => {
 
       expect(element().querySelector('[role="alert"]')!.textContent).toContain("A filter preset named 'East' already exists");
       expect(nameInput().value).toBe('East');
+      expect(toasts.show).not.toHaveBeenCalled();
     });
 
     it('has no default or delete actions before it is created', async () => {
@@ -235,6 +242,7 @@ describe('FilterPresetsPageComponent', () => {
       await render();
 
       expect(presets.service.clearDefault).toHaveBeenCalled();
+      expect(toasts.show).toHaveBeenCalledWith('"East" is no longer the default');
     });
 
     it('sets another preset as default', async () => {
@@ -245,6 +253,7 @@ describe('FilterPresetsPageComponent', () => {
       await render();
 
       expect(presets.service.setDefault).toHaveBeenCalledWith(2);
+      expect(toasts.show).toHaveBeenCalledWith('"West" is now the default');
     });
   });
 
@@ -260,6 +269,7 @@ describe('FilterPresetsPageComponent', () => {
       expect(window.confirm).toHaveBeenCalledWith('Delete preset "East"?');
       expect(presets.service.delete).toHaveBeenCalledWith(1);
       expect(nameInput()).toBeNull();
+      expect(toasts.show).toHaveBeenCalledWith('Preset "East" deleted');
     });
 
     it('does nothing when the confirmation is declined', async () => {

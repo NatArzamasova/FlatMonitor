@@ -173,7 +173,11 @@ wording (`describeScrapeStartError()`).
 - Replace the full-page spinner with skeleton rows (`placeholder-glow` + `placeholder` in table
   cells). The layout then does not jump when the data arrives.
 
-### 2.6 Toasts for success messages
+### 2.6 Toasts for success messages ✅ done
+`ToastService` + `ToastContainerComponent` (in the app root, bottom right, hidden after 4 s, at most 4).
+Toasts for: scrape started, cancel requested, scrape finished with its outcome (success / partly failed /
+failed / canceled, noticed from the polled status); presets saved and created (filter bar and presets page),
+set or unset as default, deleted. Errors stay inline.
 "Scrape started" etc. currently push the page down as an alert. Use a Bootstrap toast in the corner
 for success/info (auto-hide after 4 s) and keep inline alerts only for errors.
 
@@ -190,6 +194,7 @@ for success/info (auto-hide after 4 s) and keep inline alerts only for errors.
 - A fixed height of 600 px is too tall on laptops. Use `clamp(320px, 55vh, 600px)`.
 
 ### 2.8 Presets page
+The "Saved ✓" confirmation is done through the toasts of 2.6.
 - Show districts as toggle pills (`btn-check` + `btn btn-sm btn-outline-primary`) instead of
   three columns of checkboxes. This is quicker to scan and to click.
 - Ask before deleting (small modal or a second "Really delete?" click).

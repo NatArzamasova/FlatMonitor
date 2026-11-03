@@ -22,6 +22,11 @@ describe('AppComponent', () => {
     expect(component.title).toBe('FlatMonitor');
   });
 
+  it('should render the toast container on every page', () => {
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('app-toast-container')).toBeTruthy();
+  });
+
   it('should render router outlet', () => {
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
