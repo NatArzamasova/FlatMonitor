@@ -417,6 +417,31 @@ describe('OffersTabComponent', () => {
       expect(component.filteredOffers[0].priceEur).toBe(2000);
     });
 
+    it('sorts the cards through their sort control the same way as the header buttons', () => {
+      flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
+      fixture.detectChanges();
+      const headerOrder = () => {
+        (fixture.nativeElement.querySelectorAll('thead button[aria-label^="Sort by"]')[2] as HTMLButtonElement).click();
+        fixture.detectChanges();
+        return component.filteredOffers.map(offer => offer.priceEur);
+      };
+      const ascendingByHeader = headerOrder();
+      const descendingByHeader = headerOrder();
+      component.sort.column = null;
+      component.applyFilters();
+      fixture.detectChanges();
+
+      const select = fixture.nativeElement.querySelector('app-offer-card-list #offerCardSort') as HTMLSelectElement;
+      select.value = 'priceEur';
+      select.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+      expect(component.filteredOffers.map(offer => offer.priceEur)).toEqual(ascendingByHeader);
+
+      (fixture.nativeElement.querySelector('app-offer-card-list .offer-sort-direction') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(component.filteredOffers.map(offer => offer.priceEur)).toEqual(descendingByHeader);
+    });
+
     it('reapplies the active sort after filters change', () => {
       component.onSort('priceEur');
       component.selectedDistricts = ['Aachen', 'Zürich'];
@@ -658,6 +683,35 @@ describe('OffersTabComponent', () => {
 
       expect(cell.querySelector('a')).toBeNull();
       expect(cell.querySelector('.source-badge')!.textContent!.trim()).toBe('ohne-makler');
+    });
+  });
+
+  describe('Cards on small screens', () => {
+    beforeEach(() => {
+      flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
+      fixture.detectChanges();
+    });
+
+    it('renders the offers as cards below md and the table from md', () => {
+      const cardList = fixture.nativeElement.querySelector('app-offer-card-list') as HTMLElement;
+      const tableCard = fixture.nativeElement.querySelector('.table-card') as HTMLElement;
+
+      expect(cardList.classList).toContain('d-md-none');
+      expect(cardList.classList).toContain('card-list-fill');
+      expect(tableCard.classList).toContain('d-none');
+      expect(tableCard.classList).toContain('d-md-block');
+      expect(cardList.querySelectorAll('article.offer-card').length).toBe(component.offerRows.length);
+    });
+
+    it('gives the cards the same rows, in the same order, as the table', () => {
+      component.onSort('priceEur');
+      fixture.detectChanges();
+
+      const cardPrices = Array.from(fixture.nativeElement.querySelectorAll('app-offer-card-list .offer-card-price'))
+        .map(price => (price as HTMLElement).textContent!.trim());
+      const tablePrices = Array.from(fixture.nativeElement.querySelectorAll('tbody tr td:nth-child(3)'))
+        .map(cell => (cell as HTMLElement).firstChild!.textContent!.trim());
+      expect(cardPrices).toEqual(tablePrices);
     });
   });
 

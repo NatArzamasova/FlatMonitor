@@ -383,7 +383,14 @@ the change touches many spec files (mechanical).
 
 **Size.** S–M (option A), after the decision.
 
-### 3.4 Story: Offers as cards on small screens
+### 3.4 Story: Offers as cards on small screens ✅ done
+`OfferCardListComponent` (`offers-tab/offer-card-list/`) renders `offerRows` as cards below md (CSS only:
+`d-md-none` on the list, `d-none d-md-block` on the table, both in the DOM). Each card shows "Südstadt · 3 rooms", the
+price with the price-drop pill, "65,5 m² · 4.250 € / m²" and the source pill with the same link markup as the table.
+The "Sort by" select and the ↑/↓ button emit the same `sortRequested` column as the header buttons (a new column
+sorts ascending, the button asks for the current one again, which toggles). `OfferRow`, `OfferSortColumn` and the
+column list moved to `offers-tab/offer-row.ts`. The list scrolls inside `.card-list-fill`, below the sort control;
+`LoadingSkeletonComponent` got `cardsOnSmallScreens` (card placeholders below md).
 
 **Story.** As a user checking new flats on my phone, I want each offer as a readable card instead of a
 table that scrolls sideways, so that I can scan price, size and district without zooming.
@@ -478,7 +485,7 @@ Open, in this order:
 3. ~~**3.1 Sass theme** (M): the base for dark mode.~~ ✅ done
 4. ~~**3.2 Dark mode** (M–L): after 3.1.~~ ✅ done
 5. ~~**3.3 German formats** (S–M): once the format decision is made; independent of the others.~~ ✅ done
-6. **3.4 Offers as cards on small screens** (M): when the app is used on phones.
+6. ~~**3.4 Offers as cards on small screens** (M): when the app is used on phones.~~ ✅ done
 
 Specs that query by CSS class or element must be updated together with the change (e.g. 3.3 changes
 many expected texts, 3.5 the row markup).

@@ -37,4 +37,25 @@ describe('LoadingSkeletonComponent', () => {
     expect(element().querySelector('.skeleton-chart')).not.toBeNull();
     expect(element().querySelector('table')).toBeNull();
   });
+
+  it('adds card placeholders below md and hides the table there with cardsOnSmallScreens', () => {
+    fixture.componentRef.setInput('rows', 8);
+    fixture.componentRef.setInput('cardsOnSmallScreens', true);
+    fixture.detectChanges();
+
+    const cards = fixture.nativeElement.querySelector('.skeleton-cards') as HTMLElement;
+    const table = fixture.nativeElement.querySelector('.table-card') as HTMLElement;
+    expect(cards.classList).toContain('d-md-none');
+    expect(cards.getAttribute('aria-hidden')).toBe('true');
+    expect(cards.querySelectorAll('.card').length).toBe(4);
+    expect(table.classList).toContain('d-none');
+    expect(table.classList).toContain('d-md-block');
+  });
+
+  it('shows only the table without cardsOnSmallScreens', () => {
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.skeleton-cards')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.table-card').classList).not.toContain('d-none');
+  });
 });

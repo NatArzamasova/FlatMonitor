@@ -3,7 +3,8 @@ import { Component, Input } from '@angular/core';
 /**
  * Grey placeholders in the shape of a tab while its data loads (a filter toolbar, then a table or a chart),
  * so the layout does not jump when the data arrives: `<app-loading-skeleton variant="table" [columns]="6">`.
- * The table variant fills the height left in a `.fill-column`, like the real table.
+ * The table variant fills the height left in a `.fill-column`, like the real table. With `cardsOnSmallScreens` it
+ * shows card placeholders below md instead, for tabs whose table becomes a card list there.
  */
 @Component({
   selector: 'app-loading-skeleton',
@@ -26,7 +27,21 @@ import { Component, Input } from '@angular/core';
           <span class="placeholder w-100 h-100"></span>
         </div>
       } @else {
-        <div class="table-card table-card-fill" aria-hidden="true">
+        @if (cardsOnSmallScreens) {
+          <div class="d-md-none d-flex flex-column gap-2 skeleton-cards" aria-hidden="true">
+            @for (row of cardList; track row) {
+              <div class="card">
+                <div class="card-body py-2 px-3 d-flex flex-column gap-2">
+                  <span class="placeholder col-6"></span>
+                  <span class="placeholder placeholder-lg col-4"></span>
+                  <span class="placeholder col-8"></span>
+                </div>
+              </div>
+            }
+          </div>
+        }
+        <div class="table-card table-card-fill" [class.d-none]="cardsOnSmallScreens" [class.d-md-block]="cardsOnSmallScreens"
+          aria-hidden="true">
           <table class="table data-table skeleton-table">
             <thead>
               <tr>
@@ -59,7 +74,11 @@ import { Component, Input } from '@angular/core';
       height: 24rem;
       padding: 1rem;
     }
-    .skeleton-table .placeholder {
+    .skeleton-cards {
+      overflow: hidden;
+    }
+    .skeleton-table .placeholder,
+    .skeleton-cards .placeholder {
       border-radius: var(--bs-border-radius-sm);
     }
   `]
@@ -68,9 +87,15 @@ export class LoadingSkeletonComponent {
   @Input() variant: 'table' | 'chart' = 'table';
   @Input() rows = 8;
   @Input() columns = 4;
+  /** Card placeholders below md instead of the table (table variant only). */
+  @Input() cardsOnSmallScreens = false;
 
   get rowList(): number[] {
     return Array.from({ length: this.rows }, (_, index) => index);
+  }
+
+  get cardList(): number[] {
+    return Array.from({ length: Math.min(this.rows, 4) }, (_, index) => index);
   }
 
   get columnList(): number[] {

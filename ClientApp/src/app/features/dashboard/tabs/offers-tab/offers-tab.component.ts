@@ -10,7 +10,7 @@ import { FilterPresetsService } from '../../../../core/services/filter-presets.s
 import { filterByDistricts, filterByPriceRange, filterByRooms } from '../../../../core/utils/filter.utils';
 import { FlatOffer } from '../../../../core/models/flat-offer.model';
 import { isHttpUrl } from '../../../../core/utils/url.utils';
-import { SourceBadge, sourceBadge } from '../../../../core/utils/source.utils';
+import { sourceBadge } from '../../../../core/utils/source.utils';
 import { normalizeRooms } from '../../../../core/utils/rooms.utils';
 import { distinctSorted } from '../../../../core/utils/collection.utils';
 import { describeLoadError } from '../../../../core/utils/api-response.utils';
@@ -24,16 +24,9 @@ import { DismissibleAlertComponent } from '../../../../shared/dismissible-alert/
 import { FilterToolbarComponent } from '../../../../shared/filter-toolbar/filter-toolbar.component';
 import { FilterChip, buildFilterChips } from '../../../../core/utils/filter-chips.utils';
 import { FilterPresetBarComponent } from '../../../../shared/filter-preset-bar/filter-preset-bar.component';
+import { OfferCardListComponent } from './offer-card-list/offer-card-list.component';
+import { OfferRow, OfferSortColumn } from './offer-row';
 
-type OfferSortColumn =
-  'district' | 'roomsCount' | 'priceEur' | 'livingAreaSqm' | 'pricePerMeter' | 'source';
-
-interface OfferRow {
-  offer: FlatOffer;
-  discountPercentage: number | null;
-  hasLink: boolean;
-  source: SourceBadge;
-}
 
 @Component({
   selector: 'app-offers-tab',
@@ -50,7 +43,8 @@ interface OfferRow {
     StartScrapeButtonComponent,
     DismissibleAlertComponent,
     FilterPresetBarComponent,
-    FilterToolbarComponent
+    FilterToolbarComponent,
+    OfferCardListComponent
   ],
   templateUrl: './offers-tab.component.html',
 })

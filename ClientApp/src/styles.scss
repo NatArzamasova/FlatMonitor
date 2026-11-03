@@ -165,6 +165,12 @@ body {
   min-height: 12rem;
 }
 
+/* A card list that takes the height left in a `.fill-column` and scrolls inside it, like `.table-card-fill`. */
+.card-list-fill {
+  flex: 1 1 0;
+  min-height: 12rem;
+}
+
 .data-table {
   thead th {
     --bs-table-bg: var(--bs-tertiary-bg);
