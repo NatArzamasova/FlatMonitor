@@ -20,6 +20,7 @@ public class FlatPreviewDownloaderTests
     private StubHandler _handler = null!;
     private ListLogger<FlatPreviewDownloader> _logger = null!;
     private FlatPreviewDownloader _downloader = null!;
+    private readonly ScrapeDatabaseLock _database = new();
 
     [SetUp]
     public void SetUp()
@@ -56,7 +57,7 @@ public class FlatPreviewDownloaderTests
         _handler.Respond("https://pictures.example/1.jpg", [1, 1], "image/jpeg");
         _handler.Respond("https://pictures.example/2.jpg", [2], "image/webp");
 
-        var saved = await _downloader.SavePreviewsAsync([Flat("1"), Flat("2")]);
+        var saved = await _downloader.SavePreviewsAsync([Flat("1"), Flat("2")], _database);
 
         saved.Should().Be(2);
         _saved.Should().BeEquivalentTo([
@@ -73,7 +74,7 @@ public class FlatPreviewDownloaderTests
         _storedUrls["2"] = "https://pictures.example/2-old.jpg";
         _handler.Respond("https://pictures.example/2.jpg", [2], "image/jpeg");
 
-        await _downloader.SavePreviewsAsync([Flat("1"), Flat("2")]);
+        await _downloader.SavePreviewsAsync([Flat("1"), Flat("2")], _database);
 
         _handler.Requested.Should().Equal("https://pictures.example/2.jpg");
         _saved.Select(p => p.ListingId).Should().Equal("2");
@@ -82,7 +83,7 @@ public class FlatPreviewDownloaderTests
     [Test]
     public async Task SavePreviewsAsync_FlatsWithoutPhoto_AreLeftOutWithoutAnyRequest()
     {
-        var saved = await _downloader.SavePreviewsAsync([Flat("1") with { ImageUrl = null }, Flat("2") with { ImageUrl = "" }]);
+        var saved = await _downloader.SavePreviewsAsync([Flat("1") with { ImageUrl = null }, Flat("2") with { ImageUrl = "" }], _database);
 
         saved.Should().Be(0);
         _handler.Requested.Should().BeEmpty();
@@ -97,7 +98,7 @@ public class FlatPreviewDownloaderTests
         _handler.Fail("https://pictures.example/3.jpg", new HttpRequestException("connection refused"));
         _handler.Respond("https://pictures.example/4.jpg", [4], "image/jpeg");
 
-        var saved = await _downloader.SavePreviewsAsync([Flat("1"), Flat("2"), Flat("3"), Flat("4")]);
+        var saved = await _downloader.SavePreviewsAsync([Flat("1"), Flat("2"), Flat("3"), Flat("4")], _database);
 
         saved.Should().Be(2);
         _saved.Select(p => p.ListingId).Should().BeEquivalentTo(["1", "4"]);
@@ -113,7 +114,7 @@ public class FlatPreviewDownloaderTests
         // The API serves the bytes from its own origin: an SVG or HTML could run script there
         _handler.Respond("https://pictures.example/1.jpg", [1], contentType);
 
-        (await _downloader.SavePreviewsAsync([Flat("1")])).Should().Be(0);
+        (await _downloader.SavePreviewsAsync([Flat("1")], _database)).Should().Be(0);
 
         _saved.Should().BeEmpty();
     }
@@ -125,7 +126,7 @@ public class FlatPreviewDownloaderTests
         _handler.Respond("https://pictures.example/2.jpg", new byte[FlatPreview.MaxBytes], "image/jpeg", omitContentLength: true);
         _handler.Respond("https://pictures.example/3.jpg", new byte[FlatPreview.MaxBytes + 1], "image/jpeg", omitContentLength: true);
 
-        await _downloader.SavePreviewsAsync([Flat("1"), Flat("2"), Flat("3")]);
+        await _downloader.SavePreviewsAsync([Flat("1"), Flat("2"), Flat("3")], _database);
 
         _saved.Select(p => p.ListingId).Should().Equal("2");
     }
@@ -135,7 +136,7 @@ public class FlatPreviewDownloaderTests
     {
         _handler.Respond("https://pictures.example/1.jpg", [1], "image/jpeg");
 
-        await _downloader.SavePreviewsAsync([Flat("1"), Flat("1")]);
+        await _downloader.SavePreviewsAsync([Flat("1"), Flat("1")], _database);
 
         _handler.Requested.Should().ContainSingle();
     }
@@ -148,7 +149,7 @@ public class FlatPreviewDownloaderTests
         _repository.Setup(r => r.SaveAsync(It.IsAny<IReadOnlyCollection<FlatPreview>>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("database is locked"));
 
-        (await _downloader.SavePreviewsAsync([Flat("1")])).Should().Be(0);
+        (await _downloader.SavePreviewsAsync([Flat("1")], _database)).Should().Be(0);
 
         _logger.Entries.Should().Contain(e => e.Level == Microsoft.Extensions.Logging.LogLevel.Warning);
     }
@@ -160,7 +161,7 @@ public class FlatPreviewDownloaderTests
         _handler.OnRequest = cts.Cancel;
         _handler.Respond("https://pictures.example/1.jpg", [1], "image/jpeg");
 
-        var act = () => _downloader.SavePreviewsAsync([Flat("1")], cts.Token);
+        var act = () => _downloader.SavePreviewsAsync([Flat("1")], _database, cts.Token);
 
         await act.Should().ThrowAsync<OperationCanceledException>();
     }
@@ -185,7 +186,7 @@ public class FlatPreviewDownloaderTests
             Flat("iw") with { ImageUrl = "https://mms.immowelt.de/a/d/c/5/adc58dcd-36dc-44ea-9c75-8859df8a4380.jpg?w=400&h=300" },
         ];
 
-        var saved = await downloader.SavePreviewsAsync(flats);
+        var saved = await downloader.SavePreviewsAsync(flats, _database);
 
         saved.Should().Be(3, string.Join(Environment.NewLine, _logger.Messages));
         foreach (var preview in _saved)

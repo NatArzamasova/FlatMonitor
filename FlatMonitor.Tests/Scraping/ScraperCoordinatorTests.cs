@@ -32,8 +32,8 @@ public class ScraperCoordinatorTests
         _mockRepository = new Mock<IFlatRepository>();
         _previewBatches = [];
         _mockPreviews = new Mock<IFlatPreviewDownloader>();
-        _mockPreviews.Setup(p => p.SavePreviewsAsync(It.IsAny<IReadOnlyCollection<Flat>>(), It.IsAny<CancellationToken>()))
-            .Callback<IReadOnlyCollection<Flat>, CancellationToken>((batch, _) => _previewBatches.Add([.. batch]))
+        _mockPreviews.Setup(p => p.SavePreviewsAsync(It.IsAny<IReadOnlyCollection<Flat>>(), It.IsAny<ScrapeDatabaseLock>(), It.IsAny<CancellationToken>()))
+            .Callback<IReadOnlyCollection<Flat>, ScrapeDatabaseLock, CancellationToken>((batch, _, _) => _previewBatches.Add([.. batch]))
             .ReturnsAsync(0);
         _mockRepository.Setup(r => r.AddToRunAsync(It.IsAny<List<Flat>>(), It.IsAny<CancellationToken>()))
             .Callback<List<Flat>, CancellationToken>((batch, _) => _savedBatches.Add([.. batch]))
@@ -100,8 +100,9 @@ public class ScraperCoordinatorTests
         // Act
         await CreateCoordinator(scraper1, scraper2).ScrapeAllSourcesAsync();
 
-        // Assert
-        _savedBatches.Select(b => b.Single().ListingId).Should().Equal("1", "2");
+        // Assert: the sources run in parallel, so their batches may come in either order, but never mixed
+        _savedBatches.Select(b => b.Single().ListingId).Should().BeEquivalentTo(["1", "2"]);
+        _savedBatches.Should().OnlyContain(batch => batch.Select(flat => flat.Source).Distinct().Count() == 1);
     }
 
     [Test]
@@ -275,25 +276,66 @@ public class ScraperCoordinatorTests
     }
 
     [Test]
-    public async Task ScrapeAllSourcesAsync_PublishesEachSourceThatSucceededRightAfterIt()
+    public async Task ScrapeAllSourcesAsync_ScrapesTheSourcesAtTheSameTimeAndPublishesEachOneWhenItIsDone()
     {
-        // Arrange
-        var publishedBeforeSecondSource = new List<string>();
-        var first = new StubScraper("OhneMakler", CreateFlat("1"));
+        // Arrange: the first source registered yields its flats only once a later one is published. One source after
+        // another, it would wait for ever (the gate times out); in parallel, the later source gets past it first.
+        var ohneMaklerPublished = new TaskCompletionSource();
+        _mockRepository.Setup(r => r.PublishSourceAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, CancellationToken>((source, _) =>
+            {
+                _runCalls.Add("publish " + source);
+                if (source == "OhneMakler")
+                    ohneMaklerPublished.TrySetResult();
+            })
+            .ReturnsAsync(1);
+        var waiting = new GatedScraper("ImmobilienScout24", ohneMaklerPublished.Task, CreateFlat("3"));
         var failing = new StubScraper("Failing", CreateFlat("2")) { Error = new HttpRequestException("Site down") };
         var empty = new StubScraper("Empty");
-        var last = new FakeFlatScraper("ImmobilienScout24")
-        {
-            Flats = [CreateFlat("3")],
-            OnEnrich = (_, _) => publishedBeforeSecondSource.AddRange(_runCalls),
-        };
+        var first = new StubScraper("OhneMakler", CreateFlat("1"));
 
         // Act
-        await CreateCoordinator(first, failing, empty, last).ScrapeAllSourcesAsync();
+        var summary = await CreateCoordinator(waiting, failing, empty, first).ScrapeAllSourcesAsync();
+
+        // Assert: failed and empty sources are not published, and do not stop the others
+        _runCalls.Should().Equal("begin", "publish OhneMakler", "publish ImmobilienScout24", "discard");
+        summary.FlatsPerSource.Keys.Should().Equal("ImmobilienScout24", "Failing", "Empty", "OhneMakler");
+        summary.Errors.Should().BeEquivalentTo(["Failing: Site down", "Empty: no flats found"]);
+    }
+
+    [Test]
+    public async Task ScrapeAllSourcesAsync_RunsTheDatabaseWorkOfParallelSourcesOneCallAtATime()
+    {
+        // Arrange: saving a batch and the progress callback each take a moment; none may overlap another
+        var active = 0;
+        var maxActive = 0;
+        async Task DatabaseCall()
+        {
+            var now = Interlocked.Increment(ref active);
+            InterlockedMax(ref maxActive, now);
+            await Task.Delay(5);
+            Interlocked.Decrement(ref active);
+        }
+        _mockRepository.Setup(r => r.AddToRunAsync(It.IsAny<List<Flat>>(), It.IsAny<CancellationToken>()))
+            .Returns(DatabaseCall);
+        var scrapers = new[] { "OhneMakler", "ImmobilienScout24", "Immowelt" }
+            .Select(source => new StubScraper(source, [.. Enumerable.Range(1, 45).Select(i => CreateFlat($"{source}-{i}"))]))
+            .ToArray<IScraper>();
+
+        // Act
+        var summary = await CreateCoordinator(scrapers).ScrapeAllSourcesAsync(_ => DatabaseCall());
 
         // Assert
-        _runCalls.Should().Equal("begin", "publish OhneMakler", "publish ImmobilienScout24", "discard");
-        publishedBeforeSecondSource.Should().Equal("begin", "publish OhneMakler");
+        summary.TotalFlats.Should().Be(135);
+        maxActive.Should().Be(1);
+    }
+
+    private static void InterlockedMax(ref int target, int value)
+    {
+        int current;
+        while (value > (current = Volatile.Read(ref target)) && Interlocked.CompareExchange(ref target, value, current) != current)
+        {
+        }
     }
 
     [Test]
@@ -382,9 +424,9 @@ public class ScraperCoordinatorTests
     }
 
     [Test]
-    public async Task ScrapeAllSourcesAsync_WhenCanceled_ThrowsInsteadOfRecordingAnError()
+    public async Task ScrapeAllSourcesAsync_WhenCanceled_StopsEverySourceAndThrowsInsteadOfRecordingAnError()
     {
-        // Arrange
+        // Arrange: one source cancels the run while the other is still waiting for its flats
         using var cts = new CancellationTokenSource();
         var scraper = new FakeFlatScraper("OhneMakler")
         {
@@ -395,14 +437,15 @@ public class ScraperCoordinatorTests
                 ct.ThrowIfCancellationRequested();
             },
         };
-        var next = new StubScraper("ImmobilienScout24", CreateFlat("3"));
+        var other = new GatedScraper("ImmobilienScout24", new TaskCompletionSource().Task, CreateFlat("3"));
 
         // Act
-        var act = () => CreateCoordinator(scraper, next).ScrapeAllSourcesAsync(ct: cts.Token);
+        var act = () => CreateCoordinator(scraper, other).ScrapeAllSourcesAsync(ct: cts.Token);
 
-        // Assert
+        // Assert: both were running; the run ends with the staging table emptied, nothing published
         await act.Should().ThrowAsync<OperationCanceledException>();
-        next.Calls.Should().Be(0);
+        other.Started.Should().BeTrue();
+        _runCalls.Should().Equal("begin", "discard");
     }
 
     [TestCase("Oberreut", "Oberreut", TestName = "District_ExactMatch")]

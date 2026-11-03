@@ -5,7 +5,7 @@ using FlatMonitor.Storage;
 using Microsoft.Extensions.Logging;
 
 /// <summary>
-/// Runs every scraper in turn and owns everything after scraping: district filtering, saving in batches,
+/// Runs all scrapers at the same time and owns everything after scraping: district filtering, saving in batches,
 /// downloading the flats' title photos, progress reporting, and the JSONL backup file. Scrapers only produce flats.
 /// Batches go into the repository's staging table; a source replaces its rows in FlatsSnapshots only once it has
 /// finished with flats. Until then, and for good if it fails, the API keeps serving its rows of the previous run.
@@ -41,65 +41,79 @@ public sealed class ScraperCoordinator
     }
 
     /// <summary>
-    /// Scrapes all sources and publishes each one that succeeded. A failing source, or one that saved no flats, is
-    /// recorded in the summary, keeps its previous rows, and the next source still runs; cancellation through
-    /// <paramref name="ct"/> stops the whole run (sources published before it stay published).
+    /// Scrapes all sources at the same time and publishes each one that succeeded as soon as it has finished. They are
+    /// different sites, each in its own browser or HttpClient; only their database work is taken one call at a time
+    /// (<see cref="ScrapeDatabaseLock"/>). A failing source, or one that saved no flats, is recorded in the summary and
+    /// keeps its previous rows; the other sources go on. Cancellation through <paramref name="ct"/> stops all of them
+    /// (sources published before it stay published). Returns only once every source has stopped.
     /// </summary>
     /// <param name="onBatchSaved">
-    /// Awaited after each saved batch with the number of flats saved (after district filtering).
-    /// A callback rather than <see cref="IProgress{T}"/>: callers write it to the same DbContext, so it must finish before the next batch.
+    /// Awaited after each saved batch with the number of flats saved (after district filtering), one call at a time.
+    /// A callback rather than <see cref="IProgress{T}"/>: callers write it to the same DbContext, so it runs inside the
+    /// database lock and must finish before the next database call.
     /// </param>
     public async Task<ScrapeSummary> ScrapeAllSourcesAsync(Func<int, Task>? onBatchSaved = null, CancellationToken ct = default)
     {
-        var flatsPerSource = new Dictionary<string, int>();
-        var errors = new List<string>();
-
+        var database = new ScrapeDatabaseLock();
         await _repository.BeginRunAsync(ct);
+        SourceResult[] results;
         try
         {
-            await ScrapeEachSourceAsync(flatsPerSource, errors, onBatchSaved, ct);
+            // Materialized first, so every source has started before the first one is awaited
+            var sources = _scrapers.Select(scraper => ScrapeAndPublishAsync(scraper, database, onBatchSaved, ct)).ToList();
+            results = await Task.WhenAll(sources);
         }
         finally
         {
+            // Task.WhenAll returns (or throws) only once every source has stopped, so nothing writes to staging any more
             await DiscardRunAsync();
         }
 
+        // In registration order, whichever source finished first
+        var flatsPerSource = new Dictionary<string, int>();
+        foreach (var result in results)
+            flatsPerSource[result.Source] = result.Saved;
+        var errors = results.Select(result => result.Error).OfType<string>().ToList();
         return new ScrapeSummary(flatsPerSource, errors);
     }
 
-    private async Task ScrapeEachSourceAsync(Dictionary<string, int> flatsPerSource, List<string> errors, Func<int, Task>? onBatchSaved, CancellationToken ct)
+    /// <summary>What one source's part of a run gave: the flats it saved, and the error if it failed.</summary>
+    private sealed record SourceResult(string Source, int Saved, string? Error);
+
+    /// <summary>Scrapes one source and publishes it; any failure but cancellation is returned, not thrown.</summary>
+    private async Task<SourceResult> ScrapeAndPublishAsync(
+        IScraper scraper, ScrapeDatabaseLock database, Func<int, Task>? onBatchSaved, CancellationToken ct)
     {
-        foreach (var scraper in _scrapers)
+        // Lets every source start before the first one runs synchronously up to its first await
+        await Task.Yield();
+        ct.ThrowIfCancellationRequested();
+        var saved = 0;
+
+        try
         {
-            ct.ThrowIfCancellationRequested();
-            flatsPerSource[scraper.Source] = 0;
+            await ScrapeSourceAsync(scraper, database, count => saved += count, onBatchSaved, ct);
 
-            try
+            // An empty source is a failure (blocked, changed markup), not an empty market
+            if (saved == 0)
             {
-                await ScrapeSourceAsync(scraper, saved => flatsPerSource[scraper.Source] += saved, onBatchSaved, ct);
+                _logger.LogError("No flats found for source {Source}, keeping its previous flats", scraper.Source);
+                return new SourceResult(scraper.Source, saved, $"{scraper.Source}: no flats found");
+            }
 
-                // An empty source is a failure (blocked, changed markup), not an empty market
-                if (flatsPerSource[scraper.Source] == 0)
-                {
-                    _logger.LogError("No flats found for source {Source}, keeping its previous flats", scraper.Source);
-                    errors.Add($"{scraper.Source}: no flats found");
-                    continue;
-                }
-
-                var published = await _repository.PublishSourceAsync(scraper.Source, ct);
-                _logger.LogInformation("{Source}: published {Count} flats", scraper.Source, published);
-            }
-            // Only the caller's token cancels the run; an HttpClient timeout is a TaskCanceledException too
-            catch (OperationCanceledException) when (ct.IsCancellationRequested)
-            {
-                _logger.LogWarning("Scraping canceled for {Source}", scraper.Source);
-                throw;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error scraping {Source}, keeping its previous flats", scraper.Source);
-                errors.Add($"{scraper.Source}: {ex.Message}");
-            }
+            var published = await database.RunAsync(() => _repository.PublishSourceAsync(scraper.Source, ct), ct);
+            _logger.LogInformation("{Source}: published {Count} flats", scraper.Source, published);
+            return new SourceResult(scraper.Source, saved, Error: null);
+        }
+        // Only the caller's token cancels the run; an HttpClient timeout is a TaskCanceledException too
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            _logger.LogWarning("Scraping canceled for {Source}", scraper.Source);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error scraping {Source}, keeping its previous flats", scraper.Source);
+            return new SourceResult(scraper.Source, saved, $"{scraper.Source}: {ex.Message}");
         }
     }
 
@@ -117,7 +131,8 @@ public sealed class ScraperCoordinator
         }
     }
 
-    private async Task ScrapeSourceAsync(IScraper scraper, Action<int> countSaved, Func<int, Task>? onBatchSaved, CancellationToken ct)
+    private async Task ScrapeSourceAsync(
+        IScraper scraper, ScrapeDatabaseLock database, Action<int> countSaved, Func<int, Task>? onBatchSaved, CancellationToken ct)
     {
         _logger.LogInformation("Starting scrape for source {Source}", scraper.Source);
         var scraped = 0;
@@ -136,15 +151,15 @@ public sealed class ScraperCoordinator
                 if (filtered.Count == 0)
                     continue;
 
-                await _repository.AddToRunAsync(filtered, ct);
+                await database.RunAsync(() => _repository.AddToRunAsync(filtered, ct), ct);
                 // The title photos for the hover preview; a photo that fails leaves the flat without one
-                await _previews.SavePreviewsAsync(filtered, ct);
+                await _previews.SavePreviewsAsync(filtered, database, ct);
                 saved += filtered.Count;
                 health.Count(filtered);
                 countSaved(filtered.Count);
                 _logger.LogInformation("{Source}: saved {Count} flats ({Total} so far)", scraper.Source, filtered.Count, saved);
                 if (onBatchSaved != null)
-                    await onBatchSaved(filtered.Count);
+                    await database.RunAsync(() => onBatchSaved(filtered.Count), ct);
 
                 // Debugging backup only; written as the flats are staged, so a failed source's file keeps what it scraped
                 backup ??= _backupWriter.Create(scraper.Source);

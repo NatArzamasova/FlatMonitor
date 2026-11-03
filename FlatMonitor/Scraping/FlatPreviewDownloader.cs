@@ -11,9 +11,10 @@ public interface IFlatPreviewDownloader
     /// <summary>
     /// Downloads and stores the photo (<see cref="Flat.ImageUrl"/>) of each flat whose stored preview is missing or has
     /// another URL. Never throws but on cancellation through <paramref name="ct"/>: a flat without a preview is still a
-    /// flat. Returns the number of previews stored.
+    /// flat. Returns the number of previews stored. Its database calls run in <paramref name="database"/>, the downloads
+    /// outside it, so the other sources of the scrape are not held up.
     /// </summary>
-    Task<int> SavePreviewsAsync(IReadOnlyCollection<Flat> flats, CancellationToken ct = default);
+    Task<int> SavePreviewsAsync(IReadOnlyCollection<Flat> flats, ScrapeDatabaseLock database, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -37,11 +38,11 @@ public sealed class FlatPreviewDownloader : IFlatPreviewDownloader
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task<int> SavePreviewsAsync(IReadOnlyCollection<Flat> flats, CancellationToken ct = default)
+    public async Task<int> SavePreviewsAsync(IReadOnlyCollection<Flat> flats, ScrapeDatabaseLock database, CancellationToken ct = default)
     {
         try
         {
-            var toDownload = await WithoutCurrentPreviewAsync(flats, ct);
+            var toDownload = await database.RunAsync(() => WithoutCurrentPreviewAsync(flats, ct), ct);
             if (toDownload.Count == 0)
                 return 0;
 
@@ -53,8 +54,8 @@ public sealed class FlatPreviewDownloader : IFlatPreviewDownloader
                     previews.Add(preview);
             });
 
-            // Database access stays sequential: the context is shared with the whole scrape
-            await _repository.SaveAsync(previews.ToList(), ct);
+            // The context is shared with the whole scrape, whose sources run in parallel
+            await database.RunAsync(() => _repository.SaveAsync(previews.ToList(), ct), ct);
 
             var failed = toDownload.Count - previews.Count;
             _logger.Log(failed > 0 ? LogLevel.Warning : LogLevel.Debug,

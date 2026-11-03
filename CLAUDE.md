@@ -134,7 +134,9 @@ dotnet test
 ## Data Flow
 
 1. **Scrape**: 
-   - For each `IScraper` (OhneMakler, ImmobilienScout24, etc.):
+   - All `IScraper`s (OhneMakler, ImmobilienScout24, Immowelt) run at the same time; their database calls go through
+     one `ScrapeDatabaseLock`, as they share the scrape's `FlatsDbContext`. A run takes as long as its slowest source.
+     For each of them:
      - Fetch all pages → Parse listing cards → Enrich with detail pages → Yield unfiltered flats one by one (`IAsyncEnumerable<Flat>`)
      - `ScraperCoordinator` takes them in batches of 20, filters by `KarlsruheDistricts.All` and saves each batch to the
        staging table `FlatsSnapshots_Staging`

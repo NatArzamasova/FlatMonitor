@@ -184,13 +184,20 @@ public class ScrapeExecutionServiceExecuteTests
     [Test]
     public async Task ExecuteAsync_WhenCanceled_RefreshesTheAggregationsWithAnUncanceledTokenAndRethrows()
     {
-        // Arrange: the first source is published, the second one is canceled
+        // Arrange: the first source is published, then the second one (running in parallel) cancels the run
         using var cts = new CancellationTokenSource();
+        var ohneMaklerPublished = new TaskCompletionSource();
+        _mockFlatRepository.Setup(r => r.PublishSourceAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, CancellationToken>((source, _) =>
+            {
+                _calls.Add($"publish {source}");
+                ohneMaklerPublished.TrySetResult();
+            })
+            .ReturnsAsync(1);
         var published = new FakeFlatScraper("OhneMakler") { Flats = [FakeFlatScraper.CreateFlat("1")] };
-        var canceled = new FakeFlatScraper("ImmobilienScout24")
+        var canceled = new GatedScraper("ImmobilienScout24", ohneMaklerPublished.Task, FakeFlatScraper.CreateFlat("2"))
         {
-            Flats = [FakeFlatScraper.CreateFlat("2")],
-            OnEnrich = (_, ct) =>
+            AfterGate = ct =>
             {
                 cts.Cancel();
                 ct.ThrowIfCancellationRequested();
