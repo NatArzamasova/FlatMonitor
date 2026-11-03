@@ -93,7 +93,7 @@ describe('DashboardComponent (Shell) routing', () => {
   it('renders tab links and marks the current tab as active', async () => {
     await harness.navigateByUrl('/offers');
 
-    const links = Array.from(harness.routeNativeElement!.querySelectorAll('.nav-tabs a')) as HTMLAnchorElement[];
+    const links = Array.from(harness.routeNativeElement!.querySelectorAll('nav[aria-label="Dashboard tabs"] a')) as HTMLAnchorElement[];
     expect(links.map(link => link.getAttribute('href'))).toEqual(['/overview', '/offers', '/history']);
     expect(links.map(link => link.classList.contains('active'))).toEqual([false, true, false]);
     expect(links[1].getAttribute('aria-current')).toBe('page');
@@ -102,7 +102,7 @@ describe('DashboardComponent (Shell) routing', () => {
   it('switches tabs when a tab link is clicked', async () => {
     await harness.navigateByUrl('/overview');
 
-    const historyLink = harness.routeNativeElement!.querySelectorAll('.nav-tabs a')[2] as HTMLAnchorElement;
+    const historyLink = harness.routeNativeElement!.querySelectorAll('nav[aria-label="Dashboard tabs"] a')[2] as HTMLAnchorElement;
     historyLink.click();
     await harness.fixture.whenStable();
     harness.detectChanges();
@@ -125,6 +125,15 @@ describe('DashboardComponent (Shell) routing', () => {
 
     const page = harness.fixture.nativeElement as HTMLElement;
     expect(page.querySelector('app-filter-presets-page')).toBeTruthy();
-    expect(page.querySelector('.nav-tabs')).toBeNull();
+    expect(page.querySelector('nav[aria-label="Dashboard tabs"]')).toBeNull();
+  });
+
+  it('renders the shared header on the dashboard and on the presets page', async () => {
+    await harness.navigateByUrl('/overview');
+    expect(rendered('app-header a.navbar-brand')).toBeTruthy();
+
+    await harness.navigateByUrl('/presets');
+    const backLink = rendered('app-header a[href="/overview"]:not(.navbar-brand)') as HTMLAnchorElement;
+    expect(backLink.textContent).toContain('Back to dashboard');
   });
 });

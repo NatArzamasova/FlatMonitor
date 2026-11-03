@@ -9,6 +9,7 @@ import { DistrictsService } from '../../core/services/districts.service';
 import { FilterPreset } from '../../core/models/filter-preset.model';
 import { describeWriteError } from '../../core/utils/api-response.utils';
 import { sameElements } from '../../core/utils/collection.utils';
+import { AppHeaderComponent } from '../../shared/app-header/app-header.component';
 
 /** The preset being edited; `id: null` is a new preset. */
 interface PresetDraft {
@@ -24,7 +25,7 @@ interface PresetDraft {
 @Component({
   selector: 'app-filter-presets-page',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [AppHeaderComponent, FormsModule, RouterLink],
   templateUrl: './filter-presets-page.component.html'
 })
 export class FilterPresetsPageComponent implements OnInit {
