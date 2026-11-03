@@ -200,7 +200,9 @@ with 1.2.
 - A fixed height of 600 px is too tall on laptops. Use `clamp(320px, 55vh, 600px)`.
 
 ### 2.8 Presets page
-The "Saved ✓" confirmation is done through the toasts of 2.6.
+✅ done. The districts are toggle pills (`btn-check` + `btn-outline-primary rounded-pill`), deleting asks
+inline ("Delete preset "East"? Delete / Keep") instead of `window.confirm`, and the "Saved ✓" confirmation is
+done through the toasts of 2.6.
 - Show districts as toggle pills (`btn-check` + `btn btn-sm btn-outline-primary`) instead of
   three columns of checkboxes. This is quicker to scan and to click.
 - Ask before deleting (small modal or a second "Really delete?" click).

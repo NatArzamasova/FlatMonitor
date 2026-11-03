@@ -257,29 +257,72 @@ describe('FilterPresetsPageComponent', () => {
     });
   });
 
+  describe('District pills', () => {
+    it('shows the districts as toggle buttons that keep their checkbox', async () => {
+      await open(east);
+
+      const input = checkbox('Durlach');
+      const pill = input.nextElementSibling as HTMLLabelElement;
+      expect(input.classList).toContain('btn-check');
+      expect(pill.htmlFor).toBe(input.id);
+      expect(pill.classList).toContain('btn-outline-primary');
+      expect(pill.classList).toContain('rounded-pill');
+      expect(input.checked).toBeTrue();
+    });
+  });
+
   describe('Delete', () => {
-    it('deletes after confirmation and closes the editor', async () => {
-      spyOn(window, 'confirm').and.returnValue(true);
-      presets.service.delete.and.returnValue(of([west]));
+    const confirmation = (): HTMLElement | null => element().querySelector('.delete-confirmation');
+    const confirmationButton = (text: string): HTMLButtonElement =>
+      Array.from(confirmation()!.querySelectorAll('button')).find(b => b.textContent!.trim() === text)!;
+
+    it('asks inline before deleting, without deleting yet', async () => {
       await open(east);
 
       button('Delete').click();
       await render();
 
-      expect(window.confirm).toHaveBeenCalledWith('Delete preset "East"?');
+      expect(confirmation()!.textContent).toContain('Delete preset "East"?');
+      expect(button('Delete').disabled).toBeTrue();
+      expect(presets.service.delete).not.toHaveBeenCalled();
+    });
+
+    it('deletes after confirmation and closes the editor', async () => {
+      presets.service.delete.and.returnValue(of([west]));
+      await open(east);
+      button('Delete').click();
+      await render();
+
+      confirmationButton('Delete').click();
+      await render();
+
       expect(presets.service.delete).toHaveBeenCalledWith(1);
+      expect(confirmation()).toBeNull();
       expect(nameInput()).toBeNull();
       expect(toasts.show).toHaveBeenCalledWith('Preset "East" deleted');
     });
 
-    it('does nothing when the confirmation is declined', async () => {
-      spyOn(window, 'confirm').and.returnValue(false);
+    it('does nothing when the preset is kept', async () => {
       await open(east);
-
       button('Delete').click();
       await render();
 
+      confirmationButton('Keep').click();
+      await render();
+
       expect(presets.service.delete).not.toHaveBeenCalled();
+      expect(confirmation()).toBeNull();
+      expect(button('Delete').disabled).toBeFalse();
+    });
+
+    it('drops the question when another preset is opened', async () => {
+      await open(east);
+      button('Delete').click();
+      await render();
+
+      await open(west);
+
+      expect(confirmation()).toBeNull();
     });
   });
 });

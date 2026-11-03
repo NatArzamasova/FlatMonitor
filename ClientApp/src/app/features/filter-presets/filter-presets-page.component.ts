@@ -40,6 +40,8 @@ export class FilterPresetsPageComponent implements OnInit {
   draft: PresetDraft | null = null;
   busy = false;
   error: string | null = null;
+  /** The editor shows "Delete preset …? Delete / Keep" instead of deleting on the first click. */
+  confirmingDelete = false;
 
   /** The stored preset behind the draft; `null` for a new preset or nothing selected. */
   get editedPreset(): FilterPreset | null {
@@ -77,16 +79,19 @@ export class FilterPresetsPageComponent implements OnInit {
 
   edit(preset: FilterPreset): void {
     this.error = null;
+    this.confirmingDelete = false;
     this.draft = { id: preset.id, name: preset.name, districts: [...preset.districts] };
   }
 
   startNew(): void {
     this.error = null;
+    this.confirmingDelete = false;
     this.draft = { id: null, name: '', districts: [] };
   }
 
   cancel(): void {
     this.error = null;
+    this.confirmingDelete = false;
     const stored = this.editedPreset;
     this.draft = stored ? { id: stored.id, name: stored.name, districts: [...stored.districts] } : null;
   }
@@ -143,12 +148,19 @@ export class FilterPresetsPageComponent implements OnInit {
       : `"${stored.name}" is now the default`));
   }
 
+  askToDelete(): void {
+    this.error = null;
+    this.confirmingDelete = this.editedPreset !== null;
+  }
+
+  /** The confirmed delete. */
   deletePreset(): void {
     const stored = this.editedPreset;
-    if (!stored || !confirm(`Delete preset "${stored.name}"?`)) {
+    if (!stored) {
       return;
     }
     this.run(this.presetsService.delete(stored.id), () => {
+      this.confirmingDelete = false;
       this.draft = null;
       this.toasts.show(`Preset "${stored.name}" deleted`);
     });

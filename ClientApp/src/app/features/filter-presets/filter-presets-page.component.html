@@ -59,18 +59,18 @@
               @if (districtOptions.length === 0) {
                 <small class="text-danger">Could not load the districts. Is the backend running?</small>
               }
-              <div class="row row-cols-2 row-cols-lg-3 g-1">
+              <!-- Toggle pills: each is a visually hidden checkbox with its label styled as a button. -->
+              <div class="d-flex flex-wrap gap-2 district-pills">
                 @for (district of districtOptions; track district; let i = $index) {
-                  <div class="col form-check">
-                    <input
-                      class="form-check-input"
-                      type="checkbox"
-                      [id]="'district-' + i"
-                      [checked]="isChecked(district)"
-                      (change)="toggleDistrict(district, $any($event.target).checked)"
-                    />
-                    <label class="form-check-label" [for]="'district-' + i">{{ district }}</label>
-                  </div>
+                  <input
+                    class="btn-check"
+                    type="checkbox"
+                    autocomplete="off"
+                    [id]="'district-' + i"
+                    [checked]="isChecked(district)"
+                    (change)="toggleDistrict(district, $any($event.target).checked)"
+                  />
+                  <label class="btn btn-sm btn-outline-primary rounded-pill district-pill" [for]="'district-' + i">{{ district }}</label>
                 }
               </div>
             </fieldset>
@@ -87,10 +87,19 @@
                   [disabled]="busy" title="The default preset is applied when the dashboard opens">
                   {{ stored.isDefault ? 'Unset default' : 'Set as default' }}
                 </button>
-                <button type="button" class="btn btn-outline-danger ms-auto" (click)="deletePreset()"
-                  [disabled]="busy">Delete</button>
+                <button type="button" class="btn btn-outline-danger ms-auto" (click)="askToDelete()"
+                  [disabled]="busy || confirmingDelete">Delete</button>
               }
             </div>
+
+            @if (confirmingDelete && editedPreset; as stored) {
+              <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2 mb-0 delete-confirmation" role="alert">
+                <span class="me-auto">Delete preset "{{ stored.name }}"? This cannot be undone.</span>
+                <button type="button" class="btn btn-sm btn-danger" (click)="deletePreset()" [disabled]="busy">Delete</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" (click)="confirmingDelete = false"
+                  [disabled]="busy">Keep</button>
+              </div>
+            }
 
             @if (error) {
               <div class="alert alert-danger mb-0" role="alert">{{ error }}</div>
