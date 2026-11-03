@@ -58,8 +58,10 @@ There is no `report` command: statistics are served by the web API (see [BUILD_A
   3 s apart (5 s passed a full run; 3 s is being tried). See [FlatMonitor/immowelt.md](FlatMonitor/immowelt.md) and [BUILD_AND_RUN.md](BUILD_AND_RUN.md#immowelt-and-chrome)
 - **Keep-awake during a scrape** — `ScrapeRunService` holds a Windows power request (`KeepSystemAwake`) for the
   whole run: Modern Standby cut the Chrome connection mid-run. A no-op outside Windows
-- **Cross-source duplicates** — many flats are listed on several sources (188 of 246 Immowelt flats also on IS24) and
-  are counted once per source in the aggregations; deduplication is not done yet
+- **Cross-source duplicates** — many flats are listed on several sources (188 of 246 Immowelt flats also on IS24).
+  All sources are scraped and saved as they are; `FlatAggregationCalculator` counts a flat once when other sources
+  have one with the same normalized title and postal code (not district: the portals place the same flat in different
+  districts). Within one source such flats stay different (agents reuse titles for several units)
 - **"Removed" ambiguity** — removal is inferred from absence in latest scrape (could be sold, delisted, or scrape miss); no ground truth from the site
 
 ## Parallel: MCP Servers
