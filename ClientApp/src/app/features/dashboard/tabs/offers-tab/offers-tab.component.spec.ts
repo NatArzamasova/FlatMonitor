@@ -179,12 +179,11 @@ describe('OffersTabComponent', () => {
       expect(component.filteredOffers[0].roomsCount).toBe(3);
     });
 
-    it('should filter offers by price range min', () => {
-      component.priceRangeMin = 2200;
-      component.applyFilters();
+    it('has no minimum price filter', () => {
+      fixture.detectChanges();
 
-      expect(component.filteredOffers.length).toBe(1);
-      expect(component.filteredOffers[0].priceEur).toBe(2500);
+      expect(fixture.nativeElement.querySelector('#priceMin')).toBeNull();
+      expect('priceRangeMin' in component).toBeFalse();
     });
 
     it('should filter offers by price range max', () => {
@@ -198,7 +197,6 @@ describe('OffersTabComponent', () => {
     it('should combine multiple filters', () => {
       component.selectedDistricts = ['Mitte', 'Charlottenburg'];
       component.selectedRooms = [2];
-      component.priceRangeMin = 1500;
       component.priceRangeMax = 2200;
       component.applyFilters();
 
@@ -273,17 +271,70 @@ describe('OffersTabComponent', () => {
       expect(component.filteredOffers).toEqual([]);
     });
 
-    it('filters by price through the min and max inputs', async () => {
+    it('filters by price through the max input', async () => {
       flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
       await render();
 
-      await enterPrice('priceMin', '2200');
-      expect(component.priceRangeMin).toBe(2200);
-      expect(component.filteredOffers.map(offer => offer.priceEur)).toEqual([2500]);
-
-      await enterPrice('priceMin', '');
       await enterPrice('priceMax', '2200');
+      expect(component.priceRangeMax).toBe(2200);
       expect(component.filteredOffers.map(offer => offer.priceEur)).toEqual([2000]);
+    });
+
+    describe('EE class and Provision', () => {
+      const offers: FlatOffer[] = [
+        { district: 'Mitte', priceEur: 1000, energyEfficiencyClass: 'A_PLUS', commissionPercent: 0 },
+        { district: 'Weststadt', priceEur: 2000, energyEfficiencyClass: 'C', commissionPercent: 3.57 },
+        { district: 'Durlach', priceEur: 3000, energyEfficiencyClass: 'c', commissionPercent: 2.38 },
+        { district: 'Oststadt', priceEur: 4000, energyEfficiencyClass: 'F' },
+        { district: 'Südstadt', priceEur: 5000, commissionPercent: 1.5 }
+      ];
+      const districts = () => component.filteredOffers.map(offer => offer.district);
+
+      beforeEach(async () => {
+        flatsService.getCurrentOffers.and.returnValue(apiResult({ success: true, data: offers, message: 'Success' }));
+        await render();
+      });
+
+      it('offers the classes of the scale that some offer has, best first, whatever the portal\'s spelling', () => {
+        expect(component.availableEnergyClasses).toEqual(['A+', 'C', 'F']);
+        const label = fixture.nativeElement.querySelector('label[for="offerEnergyClassSelect"]') as HTMLLabelElement;
+        expect(label.textContent!.trim()).toBe('EE Class:');
+      });
+
+      it('filters by energy class through the dropdown, leaving out offers without a class', async () => {
+        await chooseOption('offerEnergyClassSelect', 'C');
+        expect(component.selectedEnergyClasses).toEqual(['C']);
+        expect(districts()).toEqual(['Weststadt', 'Durlach']);
+
+        // The menu is still open: close it, so that choosing opens it again
+        (fixture.nativeElement.querySelector('#offerEnergyClassSelect') as HTMLButtonElement).click();
+        fixture.detectChanges();
+        await chooseOption('offerEnergyClassSelect', 'A+');
+        expect(districts()).toEqual(['Mitte', 'Weststadt', 'Durlach']);
+      });
+
+      it('filters by the highest Provision, leaving out offers whose Provision is unknown', async () => {
+        await enterPrice('commissionMax', '2.38');
+        expect(component.commissionMax).toBe(2.38);
+        expect(districts()).toEqual(['Mitte', 'Durlach', 'Südstadt']);
+
+        await enterPrice('commissionMax', '');
+        expect(component.commissionMax).toBeNull();
+        expect(districts().length).toBe(5);
+      });
+
+      it('takes a Provision of 0 as commission-free only', async () => {
+        await enterPrice('commissionMax', '0');
+
+        expect(districts()).toEqual(['Mitte']);
+      });
+
+      it('combines energy class and Provision', async () => {
+        await chooseOption('offerEnergyClassSelect', 'C');
+        await enterPrice('commissionMax', '3');
+
+        expect(districts()).toEqual(['Durlach']);
+      });
     });
 
     it('shows a loading skeleton while offers are loading', () => {
@@ -735,6 +786,81 @@ describe('OffersTabComponent', () => {
     });
   });
 
+  describe('Clickable rows', () => {
+    let open: jasmine.Spy;
+    const rows = (): HTMLTableRowElement[] => Array.from(fixture.nativeElement.querySelectorAll('tbody tr'));
+    const click = (element: Element) => {
+      (element as HTMLElement).click();
+      fixture.detectChanges();
+    };
+
+    beforeEach(() => {
+      open = spyOn(window, 'open');
+      window.getSelection()?.removeAllRanges();
+      flatsService.getCurrentOffers.and.returnValue(apiResult({
+        success: true,
+        data: [
+          { district: 'Mitte', priceEur: 2000, url: 'https://example.com/flat1', source: 'ImmobilienScout24', listingId: '1', hasPreview: true },
+          { district: 'Durlach', priceEur: 1000, url: 'javascript:alert(1)', source: 'OhneMakler' }
+        ],
+        message: 'Success'
+      }));
+      fixture.detectChanges();
+    });
+
+    it('opens the offer on its portal in a new tab when any cell of its row is clicked', () => {
+      const [withLink] = rows();
+
+      click(withLink.cells[1]);
+      click(withLink.querySelector('td.offer-price-per-meter')!);
+
+      expect(open).toHaveBeenCalledTimes(2);
+      expect(open).toHaveBeenCalledWith('https://example.com/flat1', '_blank', 'noopener,noreferrer');
+      expect(withLink.classList).toContain('row-link');
+      expect(withLink.title).toBe('Open the offer on ImmobilienScout24');
+    });
+
+    it('opens the offer on a middle click on the row, but leaves the right button to the context menu', () => {
+      const cell = rows()[0].cells[1];
+
+      cell.dispatchEvent(new MouseEvent('auxclick', { bubbles: true, button: 2 }));
+      expect(open).not.toHaveBeenCalled();
+
+      cell.dispatchEvent(new MouseEvent('auxclick', { bubbles: true, button: 1 }));
+      expect(open).toHaveBeenCalledOnceWith('https://example.com/flat1', '_blank', 'noopener,noreferrer');
+    });
+
+    it('leaves a click on the source link to the link, and on the photo to the photo', () => {
+      const [withLink] = rows();
+      const link = withLink.querySelector('a.source-link') as HTMLAnchorElement;
+      link.addEventListener('click', event => event.preventDefault());
+
+      click(link);
+      click(withLink.querySelector('.offer-thumb-button')!);
+
+      expect(open).not.toHaveBeenCalled();
+    });
+
+    it('does not open anything for an offer without a usable URL', () => {
+      const withoutLink = rows()[1];
+
+      click(withoutLink.cells[1]);
+
+      expect(open).not.toHaveBeenCalled();
+      expect(withoutLink.classList).not.toContain('row-link');
+      expect(withoutLink.hasAttribute('title')).toBeFalse();
+    });
+
+    it('does not open the offer when the click ends a text selection, e.g. copying the price', () => {
+      // Stubbed: below the md breakpoint (the headless test window) the table is hidden, and so is any selection in it
+      spyOn(window, 'getSelection').and.returnValue({ toString: () => '2.000 €' } as Selection);
+
+      click(rows()[0].cells[3]);
+
+      expect(open).not.toHaveBeenCalled();
+    });
+  });
+
   describe('Offer links', () => {
     const renderLinkCell = (url: string | undefined): HTMLElement => {
       flatsService.getCurrentOffers.and.returnValue(apiResult({
@@ -756,6 +882,9 @@ describe('OffersTabComponent', () => {
       expect(link.querySelector('.source-badge')!.textContent!.trim()).toBe('ohne-makler');
       expect(link.querySelector('.source-badge')!.classList).toContain('source-ohne-makler');
       expect(link.title).toBe('Open the offer on OhneMakler');
+      // Only the badge shows; the link's name says what it does
+      expect(link.textContent!.trim()).toBe('ohne-makler');
+      expect(link.getAttribute('aria-label')).toBe('Open the offer on OhneMakler');
     });
 
     it('does not render a link for javascript: offer URLs', () => {
@@ -1045,7 +1174,12 @@ describe('OffersTabComponent', () => {
         'app-multi-select-filter#offerDistrictSelect',
         'app-filter-preset-bar#offerPresetSelect'
       ]);
-      expect(rowItems('other')).toEqual(['app-multi-select-filter#offerRoomsSelect', 'priceMin', 'priceMax']);
+      expect(rowItems('other')).toEqual([
+        'app-multi-select-filter#offerRoomsSelect',
+        'app-multi-select-filter#offerEnergyClassSelect',
+        'priceMax',
+        'commissionMax'
+      ]);
     });
   });
 
@@ -1067,14 +1201,13 @@ describe('OffersTabComponent', () => {
       fixture.detectChanges();
       component.selectedDistricts = ['Mitte', 'Charlottenburg'];
       component.selectedRooms = [2];
-      component.priceRangeMin = 1000;
       component.priceRangeMax = 3000;
       component.applyFilters();
       fixture.detectChanges();
     });
 
     it('shows every active filter as a chip', () => {
-      expect(chipTexts()).toEqual(['Mitte', 'Charlottenburg', '2 rooms', 'from 1.000 €', 'up to 3.000 €']);
+      expect(chipTexts()).toEqual(['Mitte', 'Charlottenburg', '2 rooms', 'up to 3.000 €']);
       expect(component.filteredOffers.map(offer => offer.district)).toEqual(['Mitte']);
     });
 
@@ -1084,11 +1217,9 @@ describe('OffersTabComponent', () => {
       expect(component.filteredOffers.length).toBe(2);
 
       removeChip('Mitte');
-      removeChip('from 1.000 €');
       removeChip('up to 3.000 €');
 
       expect(component.selectedDistricts).toEqual(['Charlottenburg']);
-      expect(component.priceRangeMin).toBeNull();
       expect(component.priceRangeMax).toBeNull();
       expect(chipTexts()).toEqual(['Charlottenburg']);
     });
@@ -1098,10 +1229,54 @@ describe('OffersTabComponent', () => {
 
       expect(component.selectedDistricts).toEqual([]);
       expect(component.selectedRooms).toEqual([]);
-      expect(component.priceRangeMin).toBeNull();
+      expect(component.selectedEnergyClasses).toEqual([]);
       expect(component.priceRangeMax).toBeNull();
+      expect(component.commissionMax).toBeNull();
       expect(presets.service.selectPreset).toHaveBeenCalledWith(null);
       expect(component.filteredOffers.length).toBe(2);
+      expect(chipTexts()).toEqual([]);
+    });
+  });
+
+  describe('Active filter chips for energy class and Provision', () => {
+    const chipTexts = (): string[] =>
+      Array.from(fixture.nativeElement.querySelectorAll('.filter-chip') as NodeListOf<HTMLElement>)
+        .map(chip => chip.firstChild!.textContent!.trim());
+    const removeChip = (label: string) => {
+      (fixture.nativeElement.querySelector(`[aria-label="Remove filter ${label}"]`) as HTMLButtonElement).click();
+      fixture.detectChanges();
+    };
+
+    beforeEach(() => {
+      flatsService.getCurrentOffers.and.returnValue(apiResult({
+        success: true,
+        data: [
+          { district: 'Mitte', energyEfficiencyClass: 'B', commissionPercent: 2.38 },
+          { district: 'Weststadt', energyEfficiencyClass: 'B', commissionPercent: 3.57 },
+          { district: 'Durlach', energyEfficiencyClass: 'D', commissionPercent: 0 }
+        ],
+        message: 'Success'
+      }));
+      fixture.detectChanges();
+      component.selectedEnergyClasses = ['B'];
+      component.commissionMax = 3;
+      component.applyFilters();
+      fixture.detectChanges();
+    });
+
+    it('shows them as chips', () => {
+      expect(chipTexts()).toEqual(['EE class B', 'Provision ≤ 3 %']);
+      expect(component.filteredOffers.map(offer => offer.district)).toEqual(['Mitte']);
+    });
+
+    it('removes them per chip and filters again', () => {
+      removeChip('EE class B');
+      expect(component.selectedEnergyClasses).toEqual([]);
+      expect(component.filteredOffers.map(offer => offer.district)).toEqual(['Mitte', 'Durlach']);
+
+      removeChip('Provision ≤ 3 %');
+      expect(component.commissionMax).toBeNull();
+      expect(component.filteredOffers.length).toBe(3);
       expect(chipTexts()).toEqual([]);
     });
   });

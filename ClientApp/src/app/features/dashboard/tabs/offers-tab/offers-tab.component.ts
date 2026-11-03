@@ -7,12 +7,12 @@ import { finalize, skip } from 'rxjs/operators';
 import { FlatsService } from '../../../../core/services/flats.service';
 import { DataReloadService } from '../../../../core/services/data-reload.service';
 import { FilterPresetsService } from '../../../../core/services/filter-presets.service';
-import { filterByDistricts, filterByPriceRange, filterByRooms } from '../../../../core/utils/filter.utils';
+import { filterByDistricts, filterByMaximum, filterByPriceRange, filterByRooms, filterBySelection } from '../../../../core/utils/filter.utils';
 import { FlatOffer } from '../../../../core/models/flat-offer.model';
 import { isHttpUrl } from '../../../../core/utils/url.utils';
 import { offerPreviewUrl } from '../../../../core/utils/preview.utils';
 import { sourceBadge } from '../../../../core/utils/source.utils';
-import { energyClassBadge, energyClassRank } from '../../../../core/utils/energy-class.utils';
+import { ENERGY_CLASSES, energyClassBadge, energyClassRank, normalizeEnergyClass } from '../../../../core/utils/energy-class.utils';
 import { normalizeRooms } from '../../../../core/utils/rooms.utils';
 import { distinctSorted } from '../../../../core/utils/collection.utils';
 import { describeLoadError } from '../../../../core/utils/api-response.utils';
@@ -28,7 +28,7 @@ import { FilterChip, buildFilterChips } from '../../../../core/utils/filter-chip
 import { FilterPresetBarComponent } from '../../../../shared/filter-preset-bar/filter-preset-bar.component';
 import { OfferCardListComponent } from './offer-card-list/offer-card-list.component';
 import { OfferPreviewComponent } from './offer-preview/offer-preview.component';
-import { OfferRow, OfferSortColumn } from './offer-row';
+import { OfferRow, OfferSortColumn, openOfferLabel, openOfferOnClick } from './offer-row';
 
 
 @Component({
@@ -87,10 +87,15 @@ export class OffersTabComponent implements OnInit {
 
   selectedDistricts: string[] = [];
   selectedRooms: number[] = [];
-  priceRangeMin: number | null = null;
+  /** Normalized classes (`A+` … `H`). */
+  selectedEnergyClasses: string[] = [];
   priceRangeMax: number | null = null;
+  /** Highest Provision in percent; `0` = commission-free only, `null` = no limit. */
+  commissionMax: number | null = null;
   availableDistricts: string[] = [];
   availableRooms: number[] = [];
+  /** The classes of the scale that some offer has, best first. */
+  availableEnergyClasses: string[] = [];
   /** The active filters as chips, updated with the table. */
   filterChips: FilterChip[] = [];
 
@@ -180,6 +185,10 @@ export class OffersTabComponent implements OnInit {
   private updateAvailableFilters(): void {
     this.updateDistrictOptions();
     this.availableRooms = distinctSorted(this.currentOffers.map(offer => normalizeRooms(offer.roomsCount)), (a, b) => a - b);
+    const classes = new Set(this.currentOffers.map(offer => normalizeEnergyClass(offer.energyEfficiencyClass)));
+    // Selected classes stay choosable after a reload without them, so they can still be deselected
+    this.availableEnergyClasses = ENERGY_CLASSES.filter(energyClass =>
+      classes.has(energyClass) || this.selectedEnergyClasses.includes(energyClass));
   }
 
   /** Districts from the data plus selected ones without offers, so a preset's districts can always be deselected. */
@@ -195,19 +204,17 @@ export class OffersTabComponent implements OnInit {
       this.selectedRooms,
       offer => normalizeRooms(offer.roomsCount)
     );
-    filtered = filterByPriceRange(
-      filtered,
-      this.priceRangeMin,
-      this.priceRangeMax,
-      offer => offer.priceEur
-    );
+    filtered = filterBySelection(filtered, this.selectedEnergyClasses, offer => normalizeEnergyClass(offer.energyEfficiencyClass));
+    filtered = filterByPriceRange(filtered, null, this.priceRangeMax, offer => offer.priceEur);
+    filtered = filterByMaximum(filtered, this.commissionMax, offer => offer.commissionPercent);
 
     this.filteredOffers = this.sort.apply(filtered);
     this.filterChips = buildFilterChips({
       districts: this.selectedDistricts,
       rooms: this.selectedRooms,
-      priceMin: this.priceRangeMin,
-      priceMax: this.priceRangeMax
+      energyClasses: this.selectedEnergyClasses,
+      priceMax: this.priceRangeMax,
+      commissionMax: this.commissionMax
     });
     this.offerRows = this.filteredOffers.map(offer => ({
       offer,
@@ -227,11 +234,14 @@ export class OffersTabComponent implements OnInit {
       case 'rooms':
         this.selectedRooms = this.selectedRooms.filter(rooms => rooms !== chip.value);
         break;
-      case 'priceMin':
-        this.priceRangeMin = null;
+      case 'energyClass':
+        this.selectedEnergyClasses = this.selectedEnergyClasses.filter(energyClass => energyClass !== chip.value);
         break;
       case 'priceMax':
         this.priceRangeMax = null;
+        break;
+      case 'commissionMax':
+        this.commissionMax = null;
         break;
     }
     this.applyFilters();
@@ -241,11 +251,15 @@ export class OffersTabComponent implements OnInit {
   resetFilters(): void {
     this.selectedDistricts = [];
     this.selectedRooms = [];
-    this.priceRangeMin = null;
+    this.selectedEnergyClasses = [];
     this.priceRangeMax = null;
+    this.commissionMax = null;
     this.filterPresets.selectPreset(null);
     this.applyFilters();
   }
+
+  readonly openOffer = openOfferOnClick;
+  readonly openOfferLabel = openOfferLabel;
 
   onSort(column: OfferSortColumn): void {
     this.sort.toggle(column);

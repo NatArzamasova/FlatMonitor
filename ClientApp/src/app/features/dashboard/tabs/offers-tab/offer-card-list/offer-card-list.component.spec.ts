@@ -77,7 +77,7 @@ describe('OfferCardListComponent', () => {
       expect(card.querySelector('.source-badge')!.classList).toContain('source-is24');
     });
 
-    it('links the source pill to the offer like the table, with the same accessible name', () => {
+    it('makes the source pill the link of the card, named after the portal, without an arrow', () => {
       render([fullRow]);
       const link = cards()[0].querySelector('a.source-link') as HTMLAnchorElement;
 
@@ -85,9 +85,8 @@ describe('OfferCardListComponent', () => {
       expect(link.target).toBe('_blank');
       expect(link.getAttribute('rel')).toBe('noopener noreferrer');
       expect(link.title).toBe('Open the offer on ImmobilienScout24');
-      // The arrow is hidden, so the name is the pill's label.
-      expect(link.querySelector('[aria-hidden="true"]')!.textContent).toBe('↗');
-      expect(text(link, '.source-badge')).toBe('IS24');
+      expect(link.getAttribute('aria-label')).toBe('Open the offer on ImmobilienScout24');
+      expect(link.textContent!.trim()).toBe('IS24');
     });
 
     it('shows the pill without a link when the offer has no usable URL', () => {
@@ -202,6 +201,40 @@ describe('OfferCardListComponent', () => {
       component.chooseColumn('priceEur');
 
       expect(requested).toEqual([]);
+    });
+  });
+
+  describe('clickable cards', () => {
+    let open: jasmine.Spy;
+
+    beforeEach(() => {
+      open = spyOn(window, 'open');
+      window.getSelection()?.removeAllRanges();
+    });
+
+    it('opens the offer on its portal when the card is clicked, but not from its source link', () => {
+      render([fullRow]);
+      const card = cards()[0];
+
+      card.querySelector<HTMLElement>('.offer-card-title')!.click();
+      expect(open).toHaveBeenCalledOnceWith('https://example.com/flat1', '_blank', 'noopener,noreferrer');
+      expect(card.classList).toContain('offer-card-link');
+      expect(card.title).toBe('Open the offer on ImmobilienScout24');
+
+      const link = card.querySelector('a.source-link') as HTMLAnchorElement;
+      link.addEventListener('click', event => event.preventDefault());
+      link.click();
+      expect(open).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not open anything for an offer without a usable URL', () => {
+      render([row({ district: 'Mitte', url: 'javascript:alert(1)', source: 'OhneMakler' }, null, false)]);
+      const card = cards()[0];
+
+      card.querySelector<HTMLElement>('.offer-card-title')!.click();
+
+      expect(open).not.toHaveBeenCalled();
+      expect(card.classList).not.toContain('offer-card-link');
     });
   });
 

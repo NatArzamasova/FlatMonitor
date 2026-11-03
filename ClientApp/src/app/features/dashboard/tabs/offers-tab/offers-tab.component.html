@@ -27,17 +27,14 @@
           [minWidth]="110"
         ></app-multi-select-filter>
 
-        <div class="d-flex align-items-center gap-1">
-          <label for="priceMin" class="form-label mb-0 filter-label">Price (min):</label>
-          <input
-            id="priceMin"
-            type="number"
-            class="form-control form-control-sm filter-price-input"
-            [(ngModel)]="priceRangeMin"
-            (change)="applyFilters()"
-            placeholder="Min"
-          />
-        </div>
+        <app-multi-select-filter
+          label="EE Class:"
+          inputId="offerEnergyClassSelect"
+          [options]="availableEnergyClasses"
+          [(selected)]="selectedEnergyClasses"
+          (changed)="applyFilters()"
+          [minWidth]="110"
+        ></app-multi-select-filter>
 
         <div class="d-flex align-items-center gap-1">
           <label for="priceMax" class="form-label mb-0 filter-label">Price (max):</label>
@@ -48,6 +45,22 @@
             [(ngModel)]="priceRangeMax"
             (change)="applyFilters()"
             placeholder="Max"
+          />
+        </div>
+
+        <!-- 0 keeps the commission-free offers only; offers whose Provision is unknown are left out once it is set. -->
+        <div class="d-flex align-items-center gap-1">
+          <label for="commissionMax" class="form-label mb-0 filter-label">Provision (max %):</label>
+          <input
+            id="commissionMax"
+            type="number"
+            min="0"
+            step="0.01"
+            class="form-control form-control-sm filter-commission-input"
+            [(ngModel)]="commissionMax"
+            (change)="applyFilters()"
+            placeholder="e.g. 3,57"
+            title="Shows offers whose buyer's commission is at most this many percent; 0 = commission-free only"
           />
         </div>
       </div>
@@ -87,8 +100,11 @@
         </thead>
         <tbody>
           <!-- The offer objects survive filtering and sorting, so their rows are moved instead of re-created. -->
+          <!-- A row with a usable URL opens the offer on its portal (click, middle click). The source badge is the
+               row's real link underneath, without looking like one: Tab and Enter, "copy link". -->
           @for (row of offerRows; track row.offer) {
-            <tr>
+            <tr [class.row-link]="row.hasLink" (click)="openOffer(row, $event)" (auxclick)="openOffer(row, $event)"
+              [attr.title]="row.hasLink ? openOfferLabel(row) : null">
               <td class="offer-photo"><app-offer-preview [src]="row.previewUrl"></app-offer-preview></td>
               <td>{{ row.offer.district || '-' }}</td>
               <td class="text-center">{{ row.offer.roomsCount ? (row.offer.roomsCount | number: '1.0-1') : '-' }}</td>
@@ -114,12 +130,11 @@
               </td>
               <td class="text-end offer-availability" [title]="row.offer.availability ?? ''">{{ row.offer.availability || '-' }}</td>
               <td>
-                <!-- The pill names the portal; with a usable URL the whole cell content opens the offer there. -->
+                <!-- The pill names the portal; with a usable URL it is also the row's link. -->
                 @if (row.hasLink) {
                   <a [href]="row.offer.url" target="_blank" rel="noopener noreferrer" class="source-link"
-                    [title]="'Open the offer on ' + (row.offer.source || 'its portal')">
+                    [title]="openOfferLabel(row)" [attr.aria-label]="openOfferLabel(row)">
                     <span class="badge rounded-pill source-badge" [class]="row.source.className">{{ row.source.label }}</span>
-                    <span aria-hidden="true">↗</span>
                   </a>
                 } @else {
                   <span class="badge rounded-pill source-badge" [class]="row.source.className">{{ row.source.label }}</span>

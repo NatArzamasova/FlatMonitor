@@ -109,18 +109,12 @@ body {
   .source-ohne-makler { --source-bg: #0f324f; --source-fg: #a9d4f5; }
 }
 
+/* The source badge as the link of its offer row or card: it looks like the plain badge; the row shows the focus. */
 .source-link {
   display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  color: var(--bs-secondary-color);
   text-decoration: none;
   white-space: nowrap;
-
-  &:hover,
-  &:focus-visible {
-    color: var(--bs-emphasis-color);
-  }
+  border-radius: var(--bs-border-radius-pill);
 }
 
 /* Free-text availability in the offers table ("sofort", "01.03.2027", longer notes are cut off; full text as title). */
@@ -171,6 +165,10 @@ body {
 
 .filter-price-input {
   width: 100px;
+}
+
+.filter-commission-input {
+  width: 85px;
 }
 
 /*
@@ -229,15 +227,15 @@ body {
 }
 
 /*
- * A table row that opens something: `<tr class="row-link">` with a last `.row-link-cell` holding the real
- * `<a class="row-link-chevron">` (keyboard, ctrl/middle click, "copy link"); a click elsewhere on the row is a mouse
- * shortcut. The hover background comes from `table-hover`.
+ * A table row that opens something: `<tr class="row-link">` with a cell holding the real link, a last
+ * `.row-link-cell` with `<a class="row-link-chevron">` or the offers' `.source-link` (keyboard, ctrl/middle click,
+ * "copy link"); a click elsewhere on the row is a mouse shortcut. The hover background comes from `table-hover`.
  */
 .row-link {
   cursor: pointer;
 
   /* The link is small, so the whole row shows where the focus is. */
-  &:has(.row-link-chevron:focus-visible) {
+  &:has(.row-link-chevron:focus-visible, .source-link:focus-visible) {
     outline: 2px solid var(--bs-primary);
     outline-offset: -2px;
   }

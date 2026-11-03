@@ -3,7 +3,7 @@ import { CurrencyPipe, DecimalPipe } from '@angular/common';
 import { FlatOffer } from '../../../../../core/models/flat-offer.model';
 import { TableSort } from '../../../../../core/utils/table-sort';
 import { roomsLabel } from '../../../../../core/utils/filter-chips.utils';
-import { OFFER_SORT_COLUMNS, OfferRow, OfferSortColumn } from '../offer-row';
+import { OFFER_SORT_COLUMNS, OfferRow, OfferSortColumn, openOfferLabel, openOfferOnClick } from '../offer-row';
 import { OfferPreviewComponent } from '../offer-preview/offer-preview.component';
 
 /**
@@ -40,7 +40,9 @@ import { OfferPreviewComponent } from '../offer-preview/offer-preview.component'
       <!-- The offer objects survive filtering and sorting, so their cards are moved instead of re-created. -->
       @for (row of rows; track row.offer) {
         <li>
-          <article class="card offer-card">
+          <!-- Like a table row: a card with a usable URL opens the offer; its source link stays the real link. -->
+          <article class="card offer-card" [class.offer-card-link]="row.hasLink" (click)="openOffer(row, $event)" (auxclick)="openOffer(row, $event)"
+            [attr.title]="row.hasLink ? openOfferLabel(row) : null">
             <div class="card-body py-2 px-3 d-flex gap-3">
               <app-offer-preview class="flex-shrink-0 mt-1 offer-card-photo" [src]="row.previewUrl"></app-offer-preview>
               <div class="flex-grow-1 offer-card-content">
@@ -86,9 +88,8 @@ import { OfferPreviewComponent } from '../offer-preview/offer-preview.component'
                 <!-- Same markup as the table's source cell, so the link has the same accessible name. -->
                 @if (row.hasLink) {
                   <a [href]="row.offer.url" target="_blank" rel="noopener noreferrer" class="source-link"
-                    [title]="'Open the offer on ' + (row.offer.source || 'its portal')">
+                    [title]="openOfferLabel(row)" [attr.aria-label]="openOfferLabel(row)">
                     <span class="badge rounded-pill source-badge" [class]="row.source.className">{{ row.source.label }}</span>
-                    <span aria-hidden="true">↗</span>
                   </a>
                 } @else {
                   <span class="badge rounded-pill source-badge" [class]="row.source.className">{{ row.source.label }}</span>
@@ -115,6 +116,17 @@ import { OfferPreviewComponent } from '../offer-preview/offer-preview.component'
       min-height: 0;
       overflow-y: auto;
     }
+    .offer-card-link {
+      cursor: pointer;
+    }
+    .offer-card-link:hover {
+      border-color: var(--bs-primary-border-subtle);
+    }
+    /* The link is small, so the whole card shows where the focus is. */
+    .offer-card-link:has(.source-link:focus-visible) {
+      outline: 2px solid var(--bs-primary);
+      outline-offset: -2px;
+    }
     /* A card has room for a larger thumbnail than a table row. */
     .offer-card-photo {
       --offer-thumb-width: 64px;
@@ -135,6 +147,8 @@ export class OfferCardListComponent {
   @Output() sortRequested = new EventEmitter<OfferSortColumn>();
 
   readonly columns = OFFER_SORT_COLUMNS;
+  readonly openOffer = openOfferOnClick;
+  readonly openOfferLabel = openOfferLabel;
 
   get directionLabel(): string {
     return this.sort.direction === 'asc' ? 'Ascending (switch to descending)' : 'Descending (switch to ascending)';

@@ -1,4 +1,4 @@
-import { filterByDistricts, filterByPriceRange, filterByRooms } from './filter.utils';
+import { filterByDistricts, filterByMaximum, filterByPriceRange, filterByRooms, filterBySelection, isActiveMaximum } from './filter.utils';
 
 describe('filter.utils', () => {
   describe('filterByDistricts', () => {
@@ -75,6 +75,45 @@ describe('filter.utils', () => {
     it('should return empty array when no matches', () => {
       const result = filterByRooms(testData, [99], item => item.rooms);
       expect(result.length).toBe(0);
+    });
+  });
+
+  describe('filterBySelection', () => {
+    const offers = [{ energyClass: 'A+' }, { energyClass: 'C' }, { energyClass: undefined }, { energyClass: 'H' }];
+
+    it('keeps everything without a selection, also rows without a value', () => {
+      expect(filterBySelection(offers, [], offer => offer.energyClass)).toEqual(offers);
+    });
+
+    it('keeps the rows whose value is selected and drops rows without one', () => {
+      expect(filterBySelection(offers, ['A+', 'H'], offer => offer.energyClass).map(offer => offer.energyClass))
+        .toEqual(['A+', 'H']);
+    });
+  });
+
+  describe('filterByMaximum', () => {
+    const offers = [{ commission: 0 }, { commission: 2.38 }, { commission: 3.57 }, { commission: undefined }, { commission: null }];
+    const commissions = (max: number | null) =>
+      filterByMaximum(offers, max, offer => offer.commission).map(offer => offer.commission);
+
+    it('keeps everything without a bound, also rows without a value', () => {
+      expect(commissions(null)).toEqual([0, 2.38, 3.57, undefined, null]);
+    });
+
+    it('keeps the rows at or below the bound and drops rows without a value', () => {
+      expect(commissions(3.57)).toEqual([0, 2.38, 3.57]);
+      expect(commissions(3)).toEqual([0, 2.38]);
+    });
+
+    it('takes 0 as a bound: commission-free only', () => {
+      expect(commissions(0)).toEqual([0]);
+    });
+
+    it('ignores a negative or non-finite bound', () => {
+      expect(commissions(-1)).toEqual([0, 2.38, 3.57, undefined, null]);
+      expect(commissions(NaN)).toEqual([0, 2.38, 3.57, undefined, null]);
+      expect(isActiveMaximum(undefined)).toBeFalse();
+      expect(isActiveMaximum(0)).toBeTrue();
     });
   });
 

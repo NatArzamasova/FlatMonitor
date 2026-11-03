@@ -16,6 +16,7 @@ const EURO_FORMAT = new Intl.NumberFormat(APP_LOCALE, {
   maximumFractionDigits: 0
 });
 const DECIMAL_FORMAT = new Intl.NumberFormat(APP_LOCALE, { maximumFractionDigits: 1 });
+const PERCENT_FORMAT = new Intl.NumberFormat(APP_LOCALE, { maximumFractionDigits: 3 });
 
 /** Whole euros: `4200` → `4.200 €`. */
 export function formatEuro(value: number): string {
@@ -25,6 +26,11 @@ export function formatEuro(value: number): string {
 /** At most one decimal: `2.5` → `2,5`, `1200` → `1.200`. */
 export function formatDecimal(value: number): string {
   return DECIMAL_FORMAT.format(value);
+}
+
+/** A percentage as the portals give it, up to three decimals: `3.57` → `3,57 %`, `0` → `0 %`. */
+export function formatPercent(value: number): string {
+  return `${PERCENT_FORMAT.format(value)} %`;
 }
 
 /** `LOCALE_ID` and the default currency for Angular's pipes; also for specs that check formatted text. */

@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
 import { DEFAULT_CURRENCY_CODE, LOCALE_ID } from '@angular/core';
-import { APP_CURRENCY, APP_LOCALE, formatDecimal, formatEuro, provideAppLocale } from './locale.utils';
+import { APP_CURRENCY, APP_LOCALE, formatDecimal, formatEuro, formatPercent, provideAppLocale } from './locale.utils';
 
 describe('locale.utils', () => {
   it('uses German formats', () => {
@@ -29,6 +29,14 @@ describe('locale.utils', () => {
       expect(formatDecimal(65.55)).toBe('65,6');
       expect(formatDecimal(3)).toBe('3');
       expect(formatDecimal(1200)).toBe('1.200');
+    });
+  });
+
+  describe('formatPercent', () => {
+    it('formats up to three decimals with a comma and a percent sign', () => {
+      expect(formatPercent(3.57)).toBe('3,57 %');
+      expect(formatPercent(2.975)).toBe('2,975 %');
+      expect(formatPercent(0)).toBe('0 %');
     });
   });
 

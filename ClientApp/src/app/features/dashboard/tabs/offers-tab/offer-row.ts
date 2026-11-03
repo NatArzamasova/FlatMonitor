@@ -17,6 +17,30 @@ export interface OfferRow {
   previewUrl: string | null;
 }
 
+/**
+ * Opens the offer on its portal in a new tab, for a click or middle click (`auxclick`) anywhere on its table row or
+ * card: a mouse shortcut to the source badge, which stays the real link (keyboard, "copy link"). Left alone: other
+ * buttons (the right one opens the context menu), an offer without a usable URL, a click on a link or button inside
+ * (the source link itself, the photo thumbnail), and a click that ends a text selection (copying a price).
+ */
+export function openOfferOnClick(row: OfferRow, event: MouseEvent): void {
+  if (event.button !== 0 && event.button !== 1) {
+    return;
+  }
+  if (!row.hasLink || (event.target as Element | null)?.closest('a, button')) {
+    return;
+  }
+  if (window.getSelection()?.toString()) {
+    return;
+  }
+  window.open(row.offer.url, '_blank', 'noopener,noreferrer');
+}
+
+/** `Open the offer on ImmobilienScout24`; the title of a clickable row or card and of its source link. */
+export function openOfferLabel(row: OfferRow): string {
+  return `Open the offer on ${row.offer.source || 'its portal'}`;
+}
+
 /** The sortable columns in table order, with the names used by the header buttons and the cards' sort control. */
 export const OFFER_SORT_COLUMNS: readonly { column: OfferSortColumn; label: string }[] = [
   { column: 'district', label: 'District' },
