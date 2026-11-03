@@ -199,8 +199,8 @@ with 1.2.
 - Subtle grid (`grid: { color: 'rgba(0,0,0,.06)' }`), no x grid, y ticks formatted as `4 200 €`.
 - A fixed height of 600 px is too tall on laptops. Use `clamp(320px, 55vh, 600px)`.
 
-### 2.8 Presets page
-✅ done. The districts are toggle pills (`btn-check` + `btn-outline-primary rounded-pill`), deleting asks
+### 2.8 Presets page ✅ done
+The districts are toggle pills (`btn-check` + `btn-outline-primary rounded-pill`), deleting asks
 inline ("Delete preset "East"? Delete / Keep") instead of `window.confirm`, and the "Saved ✓" confirmation is
 done through the toasts of 2.6.
 - Show districts as toggle pills (`btn-check` + `btn btn-sm btn-outline-primary`) instead of
@@ -210,53 +210,254 @@ done through the toasts of 2.6.
 
 ---
 
-## 3. Bigger changes (worth a story each)
+## 3. Bigger changes (one story each)
 
-### 3.1 Theme via Bootstrap Sass instead of CSS overrides
-`angular.json` loads `bootstrap.min.css` and then overrides it in `styles.scss`. Import Bootstrap's
-Sass in `styles.scss` and set the variables once:
+Each item below is written as a story: what it is for, where the code stands today, what to do, and when
+it is done. Sizes: S = up to half a day, M = about a day, L = several days.
 
-```scss
-$primary: #2f6fde;
-$font-family-sans-serif: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-$border-radius: .5rem;
-$card-border-color: rgba(0,0,0,.06);
-$enable-shadows: false;
-@import 'bootstrap/scss/bootstrap';
-```
-This gives one consistent brand colour, font and radius everywhere, and removes most of the custom rules.
-For the font, use the self-hosted `@fontsource/inter` npm package (no requests to Google from the
-app).
+### 3.1 Story: Theme the app through Bootstrap's Sass variables
 
-### 3.2 Dark mode
-Bootstrap 5.3 supports `data-bs-theme="dark"`. Add a toggle in the navbar (default: follow
-`prefers-color-scheme`, remember the choice in `localStorage`). This needs 1.6 done first (no fixed colours)
-and the chart to read its text/grid colours from CSS variables.
+**Story.** As a user of FlatMonitor, I want one consistent look (brand colour, font, corner radius, card
+borders) on every page, so that the app feels like one product and not like plain Bootstrap with patches.
 
-### 3.3 German number and currency formatting
-The app shows `€4,200` (en-US). Users of a Karlsruhe flat monitor expect `4.200 €`. Register the `de`
-locale (`registerLocaleData(localeDe)` + `{ provide: LOCALE_ID, useValue: 'de-DE' }`) and use it in the
-chart's `Intl` formatters too. If the UI language stays English, `en-DE` is not available, so this is a
-decision between consistent English and German number formats. To decide.
+**Today.**
+- `angular.json` loads the compiled `node_modules/bootstrap/dist/css/bootstrap.min.css` (build *and* test
+  config), then `src/styles.scss` overrides parts of it (`.btn` / `.badge` font weight, `.alert` radius,
+  `.data-table` header, …).
+- Components use Bootstrap's CSS variables (`--bs-primary-*`, `--bs-tertiary-bg`, `--bs-border-radius-lg`),
+  so a theme change through the variables reaches them without touching each component.
+- The font is the system font stack (Bootstrap default).
 
-### 3.4 Mobile layout for the offers table
-Seven columns do not fit on a phone. Below `md`, show each offer as a card (district + rooms as
-title, price large, €/m² and area as secondary text, source pill + link), above `md` keep the table.
+**Tasks.**
+1. Remove `bootstrap.min.css` from both `styles` arrays in `angular.json`.
+2. At the top of `src/styles.scss`, set the theme variables and import Bootstrap's Sass:
+   ```scss
+   $primary: #2f6fde;
+   $font-family-sans-serif: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+   $border-radius: .5rem;
+   $border-radius-lg: .75rem;
+   $card-border-color: rgba(0, 0, 0, .06);
+   $enable-shadows: false;
+   @import 'bootstrap/scss/bootstrap';
+   ```
+   (Bootstrap 5.3 still uses `@import`; the Sass deprecation warnings it causes can be silenced with
+   `"stylePreprocessorOptions": { "sass": { "silenceDeprecations": ["import"] } }` if they are noisy.)
+3. Add the font as the self-hosted npm package `@fontsource/inter` (weights 400, 500, 600) and import it in
+   `styles.scss`, so the app sends no requests to Google.
+4. Move the overrides that are only theme values into variables (`$btn-font-weight: 500`,
+   `$badge-font-weight: 500`, `$alert-border-radius: $border-radius-lg`) and delete them from the CSS part.
+5. Check the screens: header, filter toolbar and dropdown, chips, tiles, tables, empty states, toasts,
+   presets page.
 
-### 3.5 Clickable rows: make it obvious
-Overview rows open the offers tab, but nothing looks clickable. Add `cursor: pointer`, a
-chevron `›` in the last column, and a visible `:focus-visible` outline (the rows have `tabindex="0"`).
+**Acceptance criteria.**
+- `angular.json` no longer references `bootstrap.min.css`; Bootstrap is compiled from Sass.
+- The primary colour, font and radii are set in one place in `styles.scss`; no component repeats them.
+- The Inter font is loaded from the app bundle, not from a CDN.
+- `ng build` and `ng test` pass; the production bundle stays within the existing budgets.
+- Apart from the new colour, font and radius, the pages look as before (no lost spacing or layout).
+
+**Tests.** No new unit tests (pure styling). Existing specs must stay green; check the pages by hand.
+
+**Dependencies / risks.** Builds on 1.6 (done). Should come before 3.2, so dark mode is designed on the
+final theme. Risk: a few Bootstrap class combinations may look different after compiling from Sass with new
+values; the manual check (task 5) covers it.
+
+**Size.** M.
+
+### 3.2 Story: Dark mode
+
+**Story.** As a user who works in the evening, I want a dark theme that follows my system setting and that I
+can switch myself, so that the dashboard is easy on the eyes and fits my other apps.
+
+**Today.**
+- Bootstrap 5.3 supports `data-bs-theme="dark"` on `<html>`; almost all colours in the app are already
+  Bootstrap variables (1.6), so most of the UI switches with it.
+- Still fixed and unreadable or wrong in dark mode:
+  - the source pills (`.source-is24`, `.source-immowelt`, `.source-ohne-makler` in `styles.scss`: light
+    backgrounds with dark text);
+  - the history chart: `GRID_COLOR = 'rgba(0, 0, 0, 0.06)'`, Chart.js' default grey text for ticks, title and
+    legend, and the line palette, which is chosen for a white background;
+  - the `body` background `--bs-tertiary-bg` and the header's `bg-body` switch on their own.
+- No stored user preferences yet (no `localStorage` use in the app).
+
+**Tasks.**
+1. `ThemeService` (core/services): the choice `'light' | 'dark' | 'system'`, stored in `localStorage`
+   (default `system`); sets `data-bs-theme` on `document.documentElement`; for `system` it follows
+   `matchMedia('(prefers-color-scheme: dark)')` and its `change` event. Wrap `localStorage` access in
+   `try/catch` (private windows).
+2. Set the theme before Angular starts (a small inline script in `index.html` reading the stored choice), so
+   the page does not flash white on load.
+3. A theme toggle in the app header (on the dashboard and the presets page): an icon button cycling
+   System → Light → Dark, with an `aria-label` that names the current choice.
+4. Source pills: add `[data-bs-theme="dark"]` variants of the three `--source-bg` / `--source-fg` pairs
+   (dark tinted background, light text).
+5. Chart: read text and grid colours from the CSS variables when the chart is built
+   (`getComputedStyle(document.documentElement).getPropertyValue('--bs-secondary-color')`,
+   `--bs-border-color-translucent`) and rebuild the chart when the theme changes
+   (`HistoryChartComponent` subscribes to `ThemeService`). Check the 10 line colours on the dark background
+   and lighten the two darkest (`#332288`, `#882255`) for dark mode if they do not stand out.
+6. Check every screen in both themes, including toasts, dropdowns, empty states and the skeleton.
+
+**Acceptance criteria.**
+- On first visit the app follows the system setting; switching the system setting switches the app live.
+- The header toggle switches between System, Light and Dark; the choice survives a reload.
+- No white flash when loading in dark mode.
+- All text has at least WCAG AA contrast in both themes, including source pills, chart axes and legend.
+- The chart switches colours without a page reload.
+
+**Tests.**
+- `ThemeService`: default `system`; stores and restores the choice; sets `data-bs-theme`; follows the media
+  query in `system` mode; works when `localStorage` throws.
+- Header: the toggle cycles the three modes and updates its `aria-label`.
+- Chart config: takes the text/grid colours from its input instead of the fixed constants.
+
+**Dependencies / risks.** After 3.1 (final theme). The chart is the most work, because Chart.js does not
+read CSS variables itself.
+
+**Size.** M–L.
+
+### 3.3 Story: German number, currency and date formats
+
+**Story.** As a user in Karlsruhe, I want prices, areas and dates in the format I am used to (`4.200 €`,
+`65,5 m²`, `15.01.2024`), so that I can read the figures at a glance.
+
+**Today.** Everything is formatted in US English:
+- Angular pipes without a locale (`currency: 'EUR'`, `number`, `date`) in the Dashboard, Current Offers and
+  History templates and in the scrape control → `€4,200`, `2.5`, `1/15/24, 10:00 AM`;
+- fixed `Intl` formatters: `en-US` for prices in the chart ticks and the filter chips
+  (`filter-chips.utils.ts`), `en-GB` for the chart's x-axis dates;
+- many specs assert these texts (e.g. `'€3,750'`, `'from €200,000'`, `'Was €2,200 when first listed'`).
+
+**Decision needed first.** The UI text is English. Options:
+- **A. German formats, English text** (`de-DE` locale): "Avg. price / m² 4.250 €". What German users
+  expect from the numbers, but mixes languages.
+- **B. Keep English formats** and close this story.
+- **C. Translate the whole UI to German** as well (Angular i18n): consistent, but a much bigger story of its
+  own.
+
+Recommendation: A. Numbers are what the user reads most; the English labels are short and stay clear.
+
+**Tasks (option A).**
+1. In `main.ts`: `registerLocaleData(localeDe)` and `{ provide: LOCALE_ID, useValue: 'de-DE' }`; set the
+   default currency (`DEFAULT_CURRENCY_CODE` = `'EUR'`) so templates can use `currency` without arguments.
+2. Replace the fixed `Intl` locales with one shared `APP_LOCALE` constant (core/utils) used by the chart
+   (`history-chart.config.ts`), the filter chips and `formatTimeAgo` if it ever uses `Intl`.
+3. Check the date formats: `date: 'short'` / `'medium'` give German dates with `de-DE`; the chart's x-axis
+   becomes `15. Jan.`.
+4. Number inputs (price min/max on Current Offers) keep working with the browser's own locale; check that
+   `200000` and `200.000` behave as expected.
+5. Update the specs' expected texts to the German formats (search for `€`).
+
+**Acceptance criteria.**
+- All prices show as `4.200 €`, decimals with a comma (`2,5 rooms`, `65,5 m²`), dates as `15.01.24, 10:00`
+  or `15.01.2024, 10:00:00`, the chart axis as `4.200 €` and `15. Jan.`.
+- No formatter in the app hard-codes a locale anymore; changing `LOCALE_ID` / `APP_LOCALE` switches all.
+- `ng test` passes with the updated expectations.
+
+**Tests.** Update the existing expectations; add one test per shared formatter (chart ticks, chips) that
+it follows `APP_LOCALE`.
+
+**Dependencies / risks.** Independent of the other stories. Risk: specs assert many formatted strings, so
+the change touches many spec files (mechanical).
+
+**Size.** S–M (option A), after the decision.
+
+### 3.4 Story: Offers as cards on small screens
+
+**Story.** As a user checking new flats on my phone, I want each offer as a readable card instead of a
+table that scrolls sideways, so that I can scan price, size and district without zooming.
+
+**Today.**
+- Current Offers is a 6-column table (District, Rooms, Price, Living area, Price/m², Source) in a
+  `.table-card` that scrolls horizontally on narrow screens and fills the window height
+  (`.table-card-fill`).
+- Sorting is done through the header buttons (`SortableHeaderComponent`), which a card list does not have.
+- Below `md` the filter toolbar already collapses behind "Filters (n)" (2.2).
+
+**Tasks.**
+1. Below `md` (768 px), render `offerRows` as a list of cards instead of the table (CSS `d-md-none` /
+   `d-none d-md-block`, or one `@if` on a `BreakpointObserver` signal so only one is in the DOM):
+   - title: district and rooms ("Südstadt · 3 rooms");
+   - price large, with the green price-drop pill (1.3);
+   - secondary line: living area and €/m²;
+   - the source pill with the link to the offer (1.4).
+2. A sort control for the cards: a small `<select>` "Sort by" with the same columns and a direction toggle,
+   driving the existing `TableSort` (`onSort`).
+3. The card list scrolls inside the remaining height like the table (reuse `.table-card-fill` or a
+   `.card-list-fill`), so the layout stays the same.
+4. The empty states and the skeleton (2.5) work unchanged; give the skeleton a card variant for small
+   screens.
+
+**Acceptance criteria.**
+- Below 768 px no horizontal scrolling on Current Offers; every offer is a card with all six values.
+- Sorting works on small screens through the sort control, with the same order as the table.
+- From 768 px the table is unchanged.
+- Cards are keyboard-reachable; the offer link has the same accessible name as in the table.
+
+**Tests.**
+- Offers tab: renders cards with district, rooms, price, discount pill, area, €/m², source link (test the
+  card template directly, independent of the screen width).
+- The sort control calls the same sorting as the header buttons.
+
+**Dependencies / risks.** None. If both table and cards stay in the DOM (pure CSS), the existing table specs
+keep working unchanged, but the DOM doubles; a `BreakpointObserver` (`@angular/cdk/layout`, new package)
+avoids that. Recommendation: CSS first (simpler), `BreakpointObserver` only if the list gets slow.
+
+**Size.** M.
+
+### 3.5 Story: Make the clickable Dashboard rows look clickable
+
+**Story.** As a user of the Dashboard tab, I want to see that a row of the aggregation table opens the
+matching offers, so that I discover the shortcut and can use it with the keyboard.
+
+**Today.**
+- Each row in the Dashboard table has `(click)` and `(keydown.enter)` → `openOffersForRow()` (opens Current
+  Offers with the row's district and rooms in a new browser tab), `tabindex="0"`, `role="button"` and the
+  title "Open matching current offers".
+- Nothing shows this: the cursor is the default arrow, there is no visual hint, and the focus outline is the
+  browser's default on a table row (barely visible).
+- `role="button"` on a `<tr>` removes the row's table semantics for screen readers.
+
+**Tasks.**
+1. A `.row-link` class on these rows (styles.scss): `cursor: pointer`, the existing hover background, and a
+   clear `:focus-visible` outline (`outline: 2px solid var(--bs-primary); outline-offset: -2px`).
+2. A last, narrow column with a muted `›` (or the icon from 1.7) that turns primary on row hover.
+3. Accessibility: drop `role="button"` from the `<tr>`; instead make the chevron cell contain a real link
+   (`<a>` to the offers URL, `target="_blank"`, accessible name "Open offers in Südstadt with 3 rooms"),
+   keep the row click as a mouse shortcut. Ctrl/middle click and "copy link" then work too, like
+   "Configure filters".
+4. Space should not scroll the page when the row is focused (only relevant if the row keeps a tabindex).
+
+**Acceptance criteria.**
+- Hovering a row shows a pointer and highlights the row and its chevron.
+- Tabbing reaches one link per row with a clearly visible focus outline; Enter opens the offers.
+- The link's accessible name says which offers it opens.
+- Clicking anywhere on the row still opens the offers in a new browser tab.
+- The table keeps its row/cell semantics (no `role="button"` on rows).
+
+**Tests.**
+- Overview tab: each row has a link with the offers URL (district and rooms query parameters, matching the
+  grouping), `target="_blank"`, `rel="noopener"` and the accessible name; the row click still opens it
+  (existing `openOffersForRow` tests).
+- Grouping off: the link leaves out district/rooms like today.
+
+**Dependencies / risks.** None; uses the chevron icon from 1.7 if that is done first.
+
+**Size.** S.
 
 ---
 
-## Suggested order
+## Status and suggested order
 
-1. 1.6 + 3.1 (clean base: Sass theme, no fixed colours)
-2. 1.1, 1.2, 1.3, 1.4, 1.5, 1.7 (header, tables, prices, icons)
-3. 2.1 + 2.2 (filters: the biggest UX gain)
-4. 2.3, 2.4, 2.5, 2.6 (dashboard feel)
-5. 2.7, 2.8, 3.5
-6. 3.2, 3.3, 3.4 when needed
+Done: 1.1–1.6 and 2.1–2.8.
 
-Each step changes how things look, not how they behave. Specs that query by CSS class or element
-(e.g. `select[multiple]` in the filter tests) must be updated together with 2.1 and 2.8.
+Open, in this order:
+1. **1.7 Icons** (S): small, and 3.2's theme toggle and 3.5's chevron can use the icons.
+2. **3.5 Clickable rows** (S): quick, improves discoverability and accessibility.
+3. **3.1 Sass theme** (M): the base for dark mode.
+4. **3.2 Dark mode** (M–L): after 3.1.
+5. **3.3 German formats** (S–M): once the format decision is made; independent of the others.
+6. **3.4 Offers as cards on small screens** (M): when the app is used on phones.
+
+Specs that query by CSS class or element must be updated together with the change (e.g. 3.3 changes
+many expected texts, 3.5 the row markup).
