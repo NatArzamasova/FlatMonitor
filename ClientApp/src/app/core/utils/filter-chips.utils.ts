@@ -1,3 +1,5 @@
+import { formatDecimal, formatEuro } from './locale.utils';
+
 /** An active filter shown as a removable chip under a tab's filter toolbar. */
 export type FilterChip =
   | { kind: 'district'; value: string; label: string }
@@ -11,11 +13,10 @@ export interface ActiveFilters {
   priceMax?: number | null;
 }
 
-const PRICE_FORMAT = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
 
-/** `1` → `1 room`, `2.5` → `2.5 rooms`. */
+/** `1` → `1 room`, `2.5` → `2,5 rooms` (numbers in the app locale). */
 export function roomsLabel(rooms: number): string {
-  return `${rooms} ${rooms === 1 ? 'room' : 'rooms'}`;
+  return `${formatDecimal(rooms)} ${rooms === 1 ? 'room' : 'rooms'}`;
 }
 
 /**
@@ -28,10 +29,10 @@ export function buildFilterChips(filters: ActiveFilters): FilterChip[] {
     ...(filters.rooms ?? []).map(value => ({ kind: 'rooms' as const, value, label: roomsLabel(value) }))
   ];
   if (filters.priceMin != null && filters.priceMin > 0) {
-    chips.push({ kind: 'priceMin', value: filters.priceMin, label: `from ${PRICE_FORMAT.format(filters.priceMin)}` });
+    chips.push({ kind: 'priceMin', value: filters.priceMin, label: `from ${formatEuro(filters.priceMin)}` });
   }
   if (filters.priceMax != null && filters.priceMax > 0) {
-    chips.push({ kind: 'priceMax', value: filters.priceMax, label: `up to ${PRICE_FORMAT.format(filters.priceMax)}` });
+    chips.push({ kind: 'priceMax', value: filters.priceMax, label: `up to ${formatEuro(filters.priceMax)}` });
   }
   return chips;
 }

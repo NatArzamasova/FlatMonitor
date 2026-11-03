@@ -11,7 +11,7 @@ describe('StatTileComponent', () => {
     await TestBed.configureTestingModule({ imports: [StatTileComponent] }).compileComponents();
     fixture = TestBed.createComponent(StatTileComponent);
     fixture.componentRef.setInput('label', 'Avg. price / m²');
-    fixture.componentRef.setInput('value', '€4,250');
+    fixture.componentRef.setInput('value', '4.250 €');
   });
 
   it('shows the label and the value in a card', () => {
@@ -19,8 +19,8 @@ describe('StatTileComponent', () => {
 
     expect(fixture.nativeElement.querySelector('.card')).not.toBeNull();
     expect(text('.stat-tile-label')).toBe('Avg. price / m²');
-    expect(text('.stat-tile-value')).toBe('€4,250');
-    expect(fixture.nativeElement.querySelector('.stat-tile-value').title).toBe('€4,250');
+    expect(text('.stat-tile-value')).toBe('4.250 €');
+    expect(fixture.nativeElement.querySelector('.stat-tile-value').title).toBe('4.250 €');
   });
 
   it('shows the hint only when there is one', () => {

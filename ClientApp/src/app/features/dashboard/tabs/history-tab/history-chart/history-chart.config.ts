@@ -1,5 +1,6 @@
 import { Chart, ChartConfiguration, ChartEvent, Plugin, TooltipItem } from 'chart.js';
 import { roundPriceToEuro } from '../../../../../core/utils/aggregation.utils';
+import { APP_LOCALE, formatEuro } from '../../../../../core/utils/locale.utils';
 
 export interface HistoryPoint {
   date: string;
@@ -57,8 +58,7 @@ export function readChartTheme(root: HTMLElement = document.documentElement): Ch
   };
 }
 
-const DATE_FORMAT = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', timeZone: 'UTC' });
-const PRICE_FORMAT = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+const DATE_FORMAT = new Intl.DateTimeFormat(APP_LOCALE, { day: '2-digit', month: 'short', timeZone: 'UTC' });
 
 export function seriesColor(index: number, dark = false): string {
   const palette = dark ? DARK_SERIES_COLORS : SERIES_COLORS;
@@ -76,7 +76,7 @@ export function seriesColorsByLabel(points: readonly HistoryPoint[], dark = fals
   return colors;
 }
 
-/** `2024-01-15` → `15 Jan`; anything unparsable is returned unchanged. */
+/** `2024-01-15` → `15. Jan.` (in the app locale); anything unparsable is returned unchanged. */
 export function formatHistoryDate(date: string): string {
   const parsedDate = new Date(`${date}T00:00:00Z`);
   return Number.isNaN(parsedDate.getTime()) ? date : DATE_FORMAT.format(parsedDate);
@@ -199,7 +199,7 @@ export function buildHistoryChartConfig(
           bodyFont: { family: theme.fontFamily },
           callbacks: {
             label: (context: TooltipItem<'line'>) =>
-              `${context.dataset.label}: €${roundPriceToEuro(Number(context.parsed.y))}/m²`
+              `${context.dataset.label}: ${formatEuro(roundPriceToEuro(Number(context.parsed.y)))}/m²`
           }
         }
       },
@@ -209,7 +209,7 @@ export function buildHistoryChartConfig(
           min: Math.max(0, minPrice - pricePadding),
           grid: { color: theme.gridColor },
           border: { display: false },
-          ticks: { ...text, callback: (value: string | number) => PRICE_FORMAT.format(Number(value)) },
+          ticks: { ...text, callback: (value: string | number) => formatEuro(Number(value)) },
           title: { display: true, text: 'Price per m²', ...text }
         },
         x: {

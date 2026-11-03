@@ -1,5 +1,6 @@
 import { Component, ElementRef, EventEmitter, HostListener, Input, Output, ViewChild, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { formatDecimal } from '../../core/utils/locale.utils';
 
 /** Lists with more options than this get a search box. */
 const SEARCH_THRESHOLD = 8;
@@ -73,7 +74,7 @@ const SEARCH_THRESHOLD = 8;
                   [checked]="isSelected(item.option)"
                   (change)="setOption(item.option, $any($event.target).checked)"
                 />
-                <span class="multi-select-option-label">{{ item.option }}</span>
+                <span class="multi-select-option-label">{{ optionLabel(item.option) }}</span>
               </label>
             } @empty {
               <div class="text-body-secondary small px-2 py-1">No matches</div>
@@ -178,7 +179,7 @@ export class MultiSelectFilterComponent<T> {
     if (chosen.length === 0) {
       return 'All';
     }
-    return chosen.length === 1 ? String(chosen[0]) : `${chosen.length} selected`;
+    return chosen.length === 1 ? this.optionLabel(chosen[0]) : `${chosen.length} selected`;
   }
 
   /** The options matching the search, with their index in `options` (stable ids while searching). */
@@ -186,7 +187,12 @@ export class MultiSelectFilterComponent<T> {
     const query = this.query.trim().toLocaleLowerCase();
     return this.options
       .map((option, index) => ({ option, index }))
-      .filter(({ option }) => !query || String(option).toLocaleLowerCase().includes(query));
+      .filter(({ option }) => !query || this.optionLabel(option).toLocaleLowerCase().includes(query));
+  }
+
+  /** How an option is shown: numbers in the app locale (`2,5`), anything else as it is. */
+  optionLabel(option: T): string {
+    return typeof option === 'number' ? formatDecimal(option) : String(option);
   }
 
   isSelected(option: T): boolean {

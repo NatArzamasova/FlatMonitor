@@ -330,7 +330,14 @@ read CSS variables itself.
 
 **Size.** M–L.
 
-### 3.3 Story: German number, currency and date formats
+### 3.3 Story: German number, currency and date formats ✅ done (option A)
+`core/utils/locale.utils.ts` holds `APP_LOCALE` (`de-DE`), `formatEuro()`, `formatDecimal()` and
+`provideAppLocale()` (`registerLocaleData`, `LOCALE_ID`, `DEFAULT_CURRENCY_CODE`), used in `main.ts` and by the specs
+that check formatted text. The chart (ticks, tooltip, x-axis dates `15. Jan.`), the filter chips, the
+multi-select's number options (`2,5`) and the History tab's "2,5 rooms" labels use them; no `Intl` formatter
+hard-codes a locale anymore. The templates keep `currency: 'EUR'` because they pass the digits argument.
+Open point from task 4: the price inputs are `type="number"`, which reads a dot as a decimal point, so typing
+`200.000` filters at 200 €, not 200 000 €. `200000` works. Fixing it means a text input with German parsing.
 
 **Story.** As a user in Karlsruhe, I want prices, areas and dates in the format I am used to (`4.200 €`,
 `65,5 m²`, `15.01.2024`), so that I can read the figures at a glance.
@@ -470,7 +477,7 @@ Open, in this order:
 2. **3.5 Clickable rows** (S): quick, improves discoverability and accessibility.
 3. ~~**3.1 Sass theme** (M): the base for dark mode.~~ ✅ done
 4. ~~**3.2 Dark mode** (M–L): after 3.1.~~ ✅ done
-5. **3.3 German formats** (S–M): once the format decision is made; independent of the others.
+5. ~~**3.3 German formats** (S–M): once the format decision is made; independent of the others.~~ ✅ done
 6. **3.4 Offers as cards on small screens** (M): when the app is used on phones.
 
 Specs that query by CSS class or element must be updated together with the change (e.g. 3.3 changes

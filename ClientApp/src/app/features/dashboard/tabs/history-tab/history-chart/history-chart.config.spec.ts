@@ -71,8 +71,8 @@ describe('history-chart.config', () => {
       const x = buildHistoryChartConfig(points, 'Title', lightTheme).options!.scales!['x']!;
       const callback = x.ticks!.callback as (value: number) => string;
 
-      expect(callback(0)).toBe('15 Jan');
-      expect(callback(2)).toBe('17 Jan');
+      expect(callback(0)).toBe('15. Jan.');
+      expect(callback(2)).toBe('17. Jan.');
     });
 
     it('shows tooltip prices rounded to whole euros', () => {
@@ -80,8 +80,8 @@ describe('history-chart.config', () => {
         (context: TooltipItem<'line'>) => string;
       const context = (y: number) => ({ dataset: { label: 'Mitte' }, parsed: { y } }) as unknown as TooltipItem<'line'>;
 
-      expect(label(context(12.49))).toBe('Mitte: €12/m²');
-      expect(label(context(12.5))).toBe('Mitte: €13/m²');
+      expect(label(context(12.49))).toBe('Mitte: 12 €/m²');
+      expect(label(context(12.5))).toBe('Mitte: 13 €/m²');
     });
 
     it('draws gently curved lines and a tooltip for the nearest line only', () => {
@@ -95,7 +95,7 @@ describe('history-chart.config', () => {
       const scales = buildHistoryChartConfig(points, 'Title', lightTheme).options!.scales!;
       const callback = scales['y']!.ticks!.callback as (value: number) => string;
 
-      expect(callback(4200)).toBe('€4,200');
+      expect(callback(4200)).toBe('4.200 €');
       expect(scales['x']!.grid!.display).toBe(false);
       expect(scales['y']!.grid!.color).toBe(lightTheme.gridColor);
     });
@@ -306,8 +306,8 @@ describe('history-chart.config', () => {
 
   describe('formatHistoryDate', () => {
     it('formats ISO dates as day and short month in UTC', () => {
-      expect(formatHistoryDate('2024-01-15')).toBe('15 Jan');
-      expect(formatHistoryDate('2024-12-31')).toBe('31 Dec');
+      expect(formatHistoryDate('2024-01-15')).toBe('15. Jan.');
+      expect(formatHistoryDate('2024-12-31')).toBe('31. Dez.');
     });
 
     it('returns unparsable values unchanged', () => {

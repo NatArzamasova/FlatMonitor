@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideAppLocale } from '../../../../core/utils/locale.utils';
 import { ActivatedRoute, convertToParamMap, Params } from '@angular/router';
 import { NEVER, of, Subject, throwError } from 'rxjs';
 import { OffersTabComponent } from './offers-tab.component';
@@ -69,6 +70,8 @@ describe('OffersTabComponent', () => {
     await TestBed.configureTestingModule({
       imports: [OffersTabComponent],
       providers: [
+        // Numbers, prices and dates as in the app (German formats).
+        provideAppLocale(),
         { provide: FlatsService, useValue: flatsServiceSpy },
         { provide: ActivatedRoute, useValue: activatedRouteStub },
         { provide: FilterPresetsService, useValue: presets.service },
@@ -351,7 +354,7 @@ describe('OffersTabComponent', () => {
 
       const roomCells = Array.from(fixture.nativeElement.querySelectorAll('tbody tr td:nth-child(2)'))
         .map(cell => (cell as HTMLElement).textContent?.trim());
-      expect(roomCells).toEqual(['2', '2.5', '3']);
+      expect(roomCells).toEqual(['2', '2,5', '3']);
     });
   });
 
@@ -449,9 +452,9 @@ describe('OffersTabComponent', () => {
       const unchangedPriceCell = rows[1].querySelectorAll('td')[2] as HTMLElement;
 
       const badge = discountedPriceCell.querySelector('.price-drop') as HTMLElement;
-      expect(badge.textContent!.trim()).toBe('−9.1 %');
+      expect(badge.textContent!.trim()).toBe('−9,1 %');
       expect(badge.classList).toContain('bg-success-subtle');
-      expect(badge.title).toBe('Was €2,200 when first listed');
+      expect(badge.title).toBe('Was 2.200 € when first listed');
       expect(unchangedPriceCell.querySelector('.price-drop')).toBeNull();
     });
   });
@@ -710,7 +713,7 @@ describe('OffersTabComponent', () => {
     });
 
     it('shows every active filter as a chip', () => {
-      expect(chipTexts()).toEqual(['Mitte', 'Charlottenburg', '2 rooms', 'from €1,000', 'up to €3,000']);
+      expect(chipTexts()).toEqual(['Mitte', 'Charlottenburg', '2 rooms', 'from 1.000 €', 'up to 3.000 €']);
       expect(component.filteredOffers.map(offer => offer.district)).toEqual(['Mitte']);
     });
 
@@ -720,8 +723,8 @@ describe('OffersTabComponent', () => {
       expect(component.filteredOffers.length).toBe(2);
 
       removeChip('Mitte');
-      removeChip('from €1,000');
-      removeChip('up to €3,000');
+      removeChip('from 1.000 €');
+      removeChip('up to 3.000 €');
 
       expect(component.selectedDistricts).toEqual(['Charlottenburg']);
       expect(component.priceRangeMin).toBeNull();

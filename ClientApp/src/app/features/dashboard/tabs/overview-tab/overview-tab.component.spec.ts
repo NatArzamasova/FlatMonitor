@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideAppLocale } from '../../../../core/utils/locale.utils';
 import { APP_BASE_HREF } from '@angular/common';
 import { provideRouter } from '@angular/router';
 import { NEVER, throwError, Subject } from 'rxjs';
@@ -50,6 +51,8 @@ describe('OverviewTabComponent', () => {
     await TestBed.configureTestingModule({
       imports: [OverviewTabComponent],
       providers: [
+        // Numbers, prices and dates as in the app (German formats).
+        provideAppLocale(),
         { provide: FlatsService, useValue: flatsServiceSpy },
         { provide: DataReloadService, useValue: { reload$ } },
         // Read by the empty state's "Start a scrape" button.
@@ -205,7 +208,7 @@ describe('OverviewTabComponent', () => {
 
       const prices = Array.from(fixture.nativeElement.querySelectorAll('tbody tr td:nth-child(4)'))
         .map(cell => (cell as HTMLElement).textContent!.trim());
-      expect(prices).toEqual(['€12', '€13', '€4,794']);
+      expect(prices).toEqual(['12 €', '13 €', '4.794 €']);
     });
 
     it('lists empty-free, distinct and sorted options, keeping zero rooms', async () => {
@@ -366,7 +369,7 @@ describe('OverviewTabComponent', () => {
       fixture.detectChanges();
 
       const roomCell = fixture.nativeElement.querySelector('tbody tr td:nth-child(2)') as HTMLElement;
-      expect(roomCell.textContent?.trim()).toBe('2.5');
+      expect(roomCell.textContent?.trim()).toBe('2,5');
     });
 
     it('should filter by single district', () => {
@@ -876,9 +879,9 @@ describe('OverviewTabComponent', () => {
     it('shows the flats, the average price and the cheapest and priciest district', () => {
       expect(tiles()).toEqual([
         { label: 'Flats on offer', value: '8', hint: 'in 2 districts' },
-        { label: 'Avg. price / m²', value: '€3,750', hint: undefined },
-        { label: 'Cheapest district', value: 'Durlach', hint: '€3,000 / m²' },
-        { label: 'Priciest district', value: 'Mitte', hint: '€4,500 / m²' }
+        { label: 'Avg. price / m²', value: '3.750 €', hint: undefined },
+        { label: 'Cheapest district', value: 'Durlach', hint: '3.000 € / m²' },
+        { label: 'Priciest district', value: 'Mitte', hint: '4.500 € / m²' }
       ]);
     });
 
@@ -888,7 +891,7 @@ describe('OverviewTabComponent', () => {
       component.applyFiltersAndGrouping();
       fixture.detectChanges();
 
-      expect(tiles().map(tile => tile.value)).toEqual(['7', '€3,429', 'Durlach', 'Mitte']);
+      expect(tiles().map(tile => tile.value)).toEqual(['7', '3.429 €', 'Durlach', 'Mitte']);
     });
 
     it('drop the priciest district when one district is left, and all tiles without flats', () => {

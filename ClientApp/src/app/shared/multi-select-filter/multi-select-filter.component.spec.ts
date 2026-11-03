@@ -100,7 +100,7 @@ describe('MultiSelectFilterComponent', () => {
 
       host.selected = [2.5];
       await render();
-      expect(toggle().textContent!.trim()).toBe('2.5');
+      expect(toggle().textContent!.trim()).toBe('2,5');
 
       host.selected = [1, 3];
       await render();
@@ -126,7 +126,7 @@ describe('MultiSelectFilterComponent', () => {
 
       expect(toggle().getAttribute('aria-expanded')).toBe('true');
       expect(toggle().getAttribute('aria-controls')).toBe('roomsSelect-menu');
-      expect(optionLabels()).toEqual(['1', '2.5', '3']);
+      expect(optionLabels()).toEqual(['1', '2,5', '3']);
       expect(checkboxes().map(box => box.checked)).toEqual([true, false, false]);
       expect(menu()!.querySelector('[role="group"]')!.getAttribute('aria-label')).toBe('Rooms');
     });

@@ -1,4 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { provideAppLocale } from '../../../core/utils/locale.utils';
 import { ToastService } from '../../../core/services/toast.service';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of, Subject, throwError } from 'rxjs';
@@ -57,6 +58,8 @@ describe('ScrapeControlComponent', () => {
     await TestBed.configureTestingModule({
       imports: [ScrapeControlComponent],
       providers: [
+        // Numbers, prices and dates as in the app (German formats).
+        provideAppLocale(),
         { provide: ScrapeStatusService, useValue: scrapeStatus },
         { provide: ToastService, useValue: toasts }
       ]
@@ -171,6 +174,15 @@ describe('ScrapeControlComponent', () => {
       expect(details()!.textContent).toContain('Finished');
       expect(details()!.textContent).toContain('246');
       expect(details()!.textContent).not.toContain('Last successful scrape');
+    });
+
+    it('shows the times in the German format', () => {
+      push(finished());
+      openDetails();
+
+      // `date: 'medium'` with de-DE: `15.01.2024, 10:00:00`
+      expect(details()!.textContent).toMatch(/\d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}:\d{2}/);
+      expect(details()!.textContent).not.toMatch(/AM|PM/);
     });
 
     it('adds the error and the last successful scrape when the last one did not succeed', () => {

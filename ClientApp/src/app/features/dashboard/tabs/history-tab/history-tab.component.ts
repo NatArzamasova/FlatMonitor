@@ -10,6 +10,7 @@ import { FilterPresetsService } from '../../../../core/services/filter-presets.s
 import { FlatHistory } from '../../../../core/models/flat-history.model';
 import { Aggregatable, mergeWeightedAverage, roundPriceToEuro } from '../../../../core/utils/aggregation.utils';
 import { normalizeRooms } from '../../../../core/utils/rooms.utils';
+import { formatDecimal } from '../../../../core/utils/locale.utils';
 import { filterByDistricts } from '../../../../core/utils/filter.utils';
 import { distinctSorted } from '../../../../core/utils/collection.utils';
 import { describeLoadError } from '../../../../core/utils/api-response.utils';
@@ -178,7 +179,7 @@ export class HistoryTabComponent implements OnInit {
   private aggregateByRooms(): void {
     this.aggregateByLabel(item => {
       const rooms = item.roomsCount ? normalizeRooms(item.roomsCount) : null;
-      return `${rooms?.toString() || 'Unknown'} rooms`;
+      return `${rooms ? formatDecimal(rooms) : 'Unknown'} rooms`;
     });
   }
 

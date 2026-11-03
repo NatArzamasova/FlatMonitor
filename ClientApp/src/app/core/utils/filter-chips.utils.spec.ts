@@ -5,7 +5,7 @@ describe('filter chips', () => {
     it('uses the singular for one room only', () => {
       expect(roomsLabel(1)).toBe('1 room');
       expect(roomsLabel(2)).toBe('2 rooms');
-      expect(roomsLabel(2.5)).toBe('2.5 rooms');
+      expect(roomsLabel(2.5)).toBe('2,5 rooms');
     });
   });
 
@@ -17,9 +17,9 @@ describe('filter chips', () => {
         { kind: 'district', value: 'Mitte', label: 'Mitte' },
         { kind: 'district', value: 'Südstadt', label: 'Südstadt' },
         { kind: 'rooms', value: 2, label: '2 rooms' },
-        { kind: 'rooms', value: 3.5, label: '3.5 rooms' },
-        { kind: 'priceMin', value: 200000, label: 'from €200,000' },
-        { kind: 'priceMax', value: 450000, label: 'up to €450,000' }
+        { kind: 'rooms', value: 3.5, label: '3,5 rooms' },
+        { kind: 'priceMin', value: 200000, label: 'from 200.000 €' },
+        { kind: 'priceMax', value: 450000, label: 'up to 450.000 €' }
       ]);
     });
 

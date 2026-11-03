@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideAppLocale } from '../../../../core/utils/locale.utils';
 import { By } from '@angular/platform-browser';
 import { NEVER, of, Subject, throwError } from 'rxjs';
 import { HistoryTabComponent } from './history-tab.component';
@@ -63,6 +64,8 @@ describe('HistoryTabComponent', () => {
     await TestBed.configureTestingModule({
       imports: [HistoryTabComponent],
       providers: [
+        // Numbers, prices and dates as in the app (German formats).
+        provideAppLocale(),
         { provide: FlatsService, useValue: flatsServiceSpy },
         { provide: FilterPresetsService, useValue: presets.service },
         { provide: DataReloadService, useValue: { reload$ } },
@@ -270,7 +273,7 @@ describe('HistoryTabComponent', () => {
       const rows = Array.from(fixture.nativeElement.querySelectorAll('table tbody tr')) as HTMLElement[];
       expect(heading.textContent).toContain('Latest averages (2024-01-16)');
       expect(rows.map(row => Array.from(row.querySelectorAll('td')).map(cell => cell.textContent!.trim())))
-        .toEqual([['Mitte', '€13']]);
+        .toEqual([['Mitte', '13 €']]);
     });
 
     it('computes the latest averages when the data changes, not on every change detection', () => {

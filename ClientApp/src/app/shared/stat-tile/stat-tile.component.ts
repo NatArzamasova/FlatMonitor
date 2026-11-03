@@ -1,7 +1,7 @@
 import { Component, Input } from '@angular/core';
 
 /**
- * A key figure in a small two-line card (label; value with an optional hint): `<app-stat-tile label="Avg. price / m²" value="€4,250" hint="in 12 districts">`.
+ * A key figure in a small two-line card (label; value with an optional hint): `<app-stat-tile label="Avg. price / m²" value="4.250 €" hint="in 12 districts">`.
  * The host fills its grid cell, so tiles in one row are equally high.
  */
 @Component({
