@@ -56,7 +56,10 @@ as "bad", but for a flat hunter a price drop is good news.
 - Show the discount as a small green badge: `<span class="badge text-bg-success-subtle text-success-emphasis">−5 %</span>`.
 - Show the original price muted (`text-body-secondary text-decoration-line-through`), not red.
 
-### 1.4 Source column
+### 1.4 Source column ✅ done
+Implemented with `sourceBadge()` (`core/utils/source.utils.ts`) and the `.source-*` classes in `styles.scss`.
+Offers without a usable URL show the pill without a link.
+
 `View (Immowelt)` buttons make the table wide and repetitive. Use a small coloured pill per source
 (e.g. IS24 orange, Immowelt yellow, ohne-makler green) plus an ↗ icon link. This also lets the user
 see at a glance which portal a flat comes from.

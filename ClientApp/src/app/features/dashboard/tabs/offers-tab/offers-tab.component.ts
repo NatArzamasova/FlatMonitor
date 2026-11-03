@@ -9,6 +9,7 @@ import { FilterPresetsService } from '../../../../core/services/filter-presets.s
 import { filterByDistricts, filterByPriceRange, filterByRooms } from '../../../../core/utils/filter.utils';
 import { FlatOffer } from '../../../../core/models/flat-offer.model';
 import { isHttpUrl } from '../../../../core/utils/url.utils';
+import { SourceBadge, sourceBadge } from '../../../../core/utils/source.utils';
 import { normalizeRooms } from '../../../../core/utils/rooms.utils';
 import { distinctSorted } from '../../../../core/utils/collection.utils';
 import { describeLoadError } from '../../../../core/utils/api-response.utils';
@@ -27,6 +28,7 @@ interface OfferRow {
   discountPercentage: number | null;
   priceChanged: boolean;
   hasLink: boolean;
+  source: SourceBadge;
 }
 
 @Component({
@@ -163,7 +165,8 @@ export class OffersTabComponent implements OnInit {
       offer,
       discountPercentage: this.getDiscountPercentage(offer),
       priceChanged: this.hasChangedPrice(offer),
-      hasLink: isHttpUrl(offer.url)
+      hasLink: isHttpUrl(offer.url),
+      source: sourceBadge(offer.source)
     }));
   }
 

@@ -631,14 +631,16 @@ describe('OffersTabComponent', () => {
       expect(link).toBeTruthy();
       expect(link.getAttribute('href')).toBe('https://example.com/flat1');
       expect(link.getAttribute('rel')).toBe('noopener noreferrer');
-      expect(link.textContent).toContain('View (OhneMakler)');
+      expect(link.querySelector('.source-badge')!.textContent!.trim()).toBe('ohne-makler');
+      expect(link.querySelector('.source-badge')!.classList).toContain('source-ohne-makler');
+      expect(link.title).toBe('Open the offer on OhneMakler');
     });
 
     it('does not render a link for javascript: offer URLs', () => {
       const cell = renderLinkCell('javascript:alert(1)');
 
       expect(cell.querySelector('a')).toBeNull();
-      expect(cell.textContent?.trim()).toBe('-');
+      expect(cell.querySelector('.source-badge')!.textContent!.trim()).toBe('ohne-makler');
     });
 
     it('does not render a link for non-http offer URLs', () => {
@@ -649,7 +651,7 @@ describe('OffersTabComponent', () => {
       const cell = renderLinkCell(undefined);
 
       expect(cell.querySelector('a')).toBeNull();
-      expect(cell.textContent?.trim()).toBe('-');
+      expect(cell.querySelector('.source-badge')!.textContent!.trim()).toBe('ohne-makler');
     });
   });
 

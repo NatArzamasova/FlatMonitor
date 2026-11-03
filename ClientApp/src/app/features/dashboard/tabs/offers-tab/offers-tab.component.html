@@ -65,7 +65,7 @@
             <th appSortableHeader class="text-end" [sort]="sort" column="originalPriceEur" sortLabel="Original Price" (sortRequested)="onSort($event)">Original price (€)</th>
             <th appSortableHeader class="text-end" [sort]="sort" column="livingAreaSqm" sortLabel="Living Area" (sortRequested)="onSort($event)">Living area (m²)</th>
             <th appSortableHeader class="text-end" [sort]="sort" column="pricePerMeter" sortLabel="Price per Square Meter" (sortRequested)="onSort($event)">Price/m² (€)</th>
-            <th appSortableHeader [sort]="sort" column="source" sortLabel="Source" (sortRequested)="onSort($event)">Link</th>
+            <th appSortableHeader [sort]="sort" column="source" sortLabel="Source" (sortRequested)="onSort($event)">Source</th>
           </tr>
         </thead>
         <tbody>
@@ -93,12 +93,15 @@
               <td class="text-end">{{ row.offer.livingAreaSqm ? (row.offer.livingAreaSqm | number: '1.0-1') : '-' }}</td>
               <td class="text-end">{{ row.offer.pricePerMeter ? (row.offer.pricePerMeter | number: '1.0-0') : '-' }}</td>
               <td>
+                <!-- The pill names the portal; with a usable URL the whole cell content opens the offer there. -->
                 @if (row.hasLink) {
-                  <a [href]="row.offer.url" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary">
-                    View ({{ row.offer.source }})
+                  <a [href]="row.offer.url" target="_blank" rel="noopener noreferrer" class="source-link"
+                    [title]="'Open the offer on ' + (row.offer.source || 'its portal')">
+                    <span class="badge rounded-pill source-badge" [class]="row.source.className">{{ row.source.label }}</span>
+                    <span aria-hidden="true">↗</span>
                   </a>
                 } @else {
-                  <span class="text-muted">-</span>
+                  <span class="badge rounded-pill source-badge" [class]="row.source.className">{{ row.source.label }}</span>
                 }
               </td>
             </tr>

@@ -92,6 +92,32 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* Source pills in the offers table: one colour per portal, `.source-other` for unknown ones. */
+.source-badge {
+  font-weight: 600;
+  background-color: var(--source-bg);
+  color: var(--source-fg);
+}
+
+.source-is24 { --source-bg: #fdebd3; --source-fg: #8a4500; }
+.source-immowelt { --source-bg: #fbf3c4; --source-fg: #665200; }
+.source-ohne-makler { --source-bg: #dcecfa; --source-fg: #0b4f80; }
+.source-other { --source-bg: var(--bs-secondary-bg); --source-fg: var(--bs-secondary-color); }
+
+.source-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--bs-secondary-color);
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--bs-emphasis-color);
+  }
+}
+
 /* Compact labels and inputs in the filter bars above the tables */
 .filter-label {
   font-size: 0.875rem;
