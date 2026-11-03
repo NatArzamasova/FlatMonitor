@@ -20,4 +20,7 @@ public class FlatOffer
 
     /// <summary>Monthly Hausgeld (service charge) in euros; from the detail page.</summary>
     public int? ServiceChargeEur { get; set; }
+
+    /// <summary>Buyer's commission (Provision) in percent of the price, e.g. 3.57; 0 = commission-free.</summary>
+    public double? CommissionPercent { get; set; }
 }

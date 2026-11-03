@@ -132,7 +132,8 @@ public sealed class FlatRepository : IFlatRepository
                     Source = s.Source,
                     Availability = s.Details == null ? null : s.Details.Availability,
                     EnergyEfficiencyClass = s.Details == null ? null : s.Details.EnergyEfficiencyClass,
-                    ServiceChargeEur = s.Details == null ? null : s.Details.ServiceChargeEur
+                    ServiceChargeEur = s.Details == null ? null : s.Details.ServiceChargeEur,
+                    CommissionPercent = s.CommissionPercent
                 })
                 .ToListAsync(ct);
     }

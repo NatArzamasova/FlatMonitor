@@ -13,4 +13,6 @@ export interface FlatOffer {
   energyEfficiencyClass?: string;
   /** Monthly Hausgeld (service charge) in whole euros. */
   serviceChargeEur?: number;
+  /** Buyer's commission (Provision) in percent of the price, e.g. `3.57`; `0` = commission-free. */
+  commissionPercent?: number;
 }

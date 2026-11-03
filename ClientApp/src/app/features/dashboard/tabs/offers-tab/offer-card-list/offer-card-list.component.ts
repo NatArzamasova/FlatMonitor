@@ -57,6 +57,12 @@ import { OFFER_SORT_COLUMNS, OfferRow, OfferSortColumn } from '../offer-row';
                   {{ row.offer.serviceChargeEur | currency: 'EUR': 'symbol': '1.0-0' }} / month
                 </div>
               }
+              @if (row.offer.commissionPercent != null) {
+                <div class="small mt-1 offer-card-commission">
+                  <!-- &ngsp; is a space Angular keeps; it removes whitespace-only text between two elements. -->
+                  <span class="text-body-secondary">Provision:</span>&ngsp;<span class="text-nowrap">{{ row.offer.commissionPercent | number: '1.0-3' }} %</span>
+                </div>
+              }
               @if (row.offer.availability) {
                 <div class="small mt-1 text-truncate offer-card-availability" [title]="row.offer.availability">
                   <span class="text-body-secondary">Available:</span> {{ row.offer.availability }}

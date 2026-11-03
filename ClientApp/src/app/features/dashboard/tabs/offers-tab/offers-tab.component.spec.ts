@@ -409,7 +409,7 @@ describe('OffersTabComponent', () => {
       fixture.detectChanges();
 
       const buttons = fixture.nativeElement.querySelectorAll('thead button[aria-label^="Sort by"]') as NodeListOf<HTMLButtonElement>;
-      expect(buttons.length).toBe(8);
+      expect(buttons.length).toBe(9);
       buttons[2].click();
       fixture.detectChanges();
 
@@ -744,8 +744,8 @@ describe('OffersTabComponent', () => {
 
       const headers = Array.from(fixture.nativeElement.querySelectorAll('thead th') as NodeListOf<HTMLElement>);
       expect(headers.map(header => header.textContent!.trim().replace(/[↑↓↕]/g, '').trim()))
-        .toEqual(['District', 'Rooms', 'Price (€)', 'Living area (m²)', 'Price/m² (€)', 'Hausgeld (€)', 'EE Class', 'Availability', 'Source']);
-      expect(headers[7].querySelector('button')).toBeNull();
+        .toEqual(['District', 'Rooms', 'Price (€)', 'Living area (m²)', 'Price/m² (€)', 'Hausgeld (€)', 'Provision', 'EE Class', 'Availability', 'Source']);
+      expect(headers[8].querySelector('button')).toBeNull();
     });
 
     it('shows the availability of each offer, with the full text as title, and - when it is missing', () => {
@@ -762,18 +762,18 @@ describe('OffersTabComponent', () => {
     it('aligns the header and the cells to the right', () => {
       renderOffers([{ district: 'Mitte', availability: 'sofort' }]);
 
-      const header = fixture.nativeElement.querySelectorAll('thead th')[7] as HTMLElement;
+      const header = fixture.nativeElement.querySelectorAll('thead th')[8] as HTMLElement;
       expect(header.classList).toContain('text-end');
       expect(availabilityCells()[0].classList).toContain('text-end');
       expect(getComputedStyle(header).textAlign).toMatch(/^(right|end)$/);
       expect(getComputedStyle(availabilityCells()[0]).textAlign).toMatch(/^(right|end)$/);
     });
 
-    it('renders nine skeleton columns while loading', () => {
+    it('renders ten skeleton columns while loading', () => {
       flatsService.getCurrentOffers.and.returnValue(NEVER);
       fixture.detectChanges();
 
-      expect(fixture.nativeElement.querySelectorAll('app-loading-skeleton thead th').length).toBe(9);
+      expect(fixture.nativeElement.querySelectorAll('app-loading-skeleton thead th').length).toBe(10);
     });
   });
 
@@ -819,18 +819,79 @@ describe('OffersTabComponent', () => {
     });
   });
 
+  describe('Provision column', () => {
+    const renderOffers = (offers: FlatOffer[]) => {
+      flatsService.getCurrentOffers.and.returnValue(apiResult({ success: true, data: offers, message: 'Success' }));
+      fixture.detectChanges();
+    };
+    const cells = (): HTMLElement[] => Array.from(fixture.nativeElement.querySelectorAll('tbody td.offer-commission'));
+
+    it('has a right-aligned, sortable "Provision" header after Hausgeld', () => {
+      renderOffers([{ district: 'Mitte', commissionPercent: 3.57 }]);
+
+      const header = fixture.nativeElement.querySelectorAll('thead th')[6] as HTMLElement;
+      expect(header.textContent!.trim()).toContain('Provision');
+      expect(header.classList).toContain('text-end');
+      expect(header.querySelector('abbr')!.title).toBe("Buyer's commission in percent of the price");
+      expect(header.querySelector('button')!.getAttribute('aria-label')).toBe('Sort by Provision');
+    });
+
+    it('shows the commission in percent with a decimal comma, 0 as 0 %, and - when it is missing', () => {
+      renderOffers([
+        { district: 'Mitte', priceEur: 1, commissionPercent: 3.57 },
+        { district: 'Mitte', priceEur: 2, commissionPercent: 2.975 },
+        { district: 'Mitte', priceEur: 3, commissionPercent: 0 },
+        { district: 'Mitte', priceEur: 4 }
+      ]);
+
+      expect(cells().map(cell => cell.textContent!.trim())).toEqual(['3,57 %', '2,975 %', '0 %', '-']);
+      expect(cells()[0].classList).toContain('text-nowrap');
+    });
+
+    it('sorts by commission, offers without one last', () => {
+      renderOffers([
+        { district: 'Mitte', commissionPercent: 3.57 },
+        { district: 'Mitte' },
+        { district: 'Mitte', commissionPercent: 0 }
+      ]);
+
+      component.onSort('commissionPercent');
+
+      expect(component.filteredOffers.map(offer => offer.commissionPercent)).toEqual([0, 3.57, undefined]);
+    });
+  });
+
+  describe('Column layout', () => {
+    it('has one cell per header in every row, in the header order', () => {
+      flatsService.getCurrentOffers.and.returnValue(apiResult({
+        success: true,
+        data: [{ district: 'Mitte', priceEur: 1000, serviceChargeEur: 250, commissionPercent: 3.57, availability: 'sofort', energyEfficiencyClass: 'B' }],
+        message: 'Success'
+      }));
+      fixture.detectChanges();
+
+      const headerCount = fixture.nativeElement.querySelectorAll('thead th').length;
+      const row = fixture.nativeElement.querySelector('tbody tr') as HTMLTableRowElement;
+      expect(row.cells.length).toBe(headerCount);
+      expect(row.cells[5].classList).toContain('offer-service-charge');
+      expect(row.cells[6].classList).toContain('offer-commission');
+      expect(row.cells[7].querySelector('.ee-badge')).not.toBeNull();
+      expect(row.cells[8].classList).toContain('offer-availability');
+    });
+  });
+
   describe('EE Class column', () => {
     const renderOffers = (offers: FlatOffer[]) => {
       flatsService.getCurrentOffers.and.returnValue(apiResult({ success: true, data: offers, message: 'Success' }));
       fixture.detectChanges();
     };
     const eeCells = (): HTMLElement[] =>
-      Array.from(fixture.nativeElement.querySelectorAll('tbody tr td:nth-child(7)'));
+      Array.from(fixture.nativeElement.querySelectorAll('tbody tr td:nth-child(8)'));
 
     it('has a centred, sortable "EE Class" header explained by an abbreviation', () => {
       renderOffers([{ district: 'Mitte', energyEfficiencyClass: 'B' }]);
 
-      const header = fixture.nativeElement.querySelectorAll('thead th')[6] as HTMLElement;
+      const header = fixture.nativeElement.querySelectorAll('thead th')[7] as HTMLElement;
       expect(header.classList).toContain('text-center');
       expect(header.querySelector('abbr')!.title).toBe('Energy efficiency class');
       expect(header.querySelector('button')!.getAttribute('aria-label')).toBe('Sort by Energy Efficiency Class');

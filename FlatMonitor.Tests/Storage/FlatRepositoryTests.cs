@@ -313,7 +313,7 @@ public class FlatRepositoryTests
             {
                 Source = "source", ListingId = "newer", ScrapedAtUtc = new DateTime(2026, 10, 21, 8, 0, 0, DateTimeKind.Utc),
                 District = "Zentrum", RoomsCount = 3, PriceEur = 1200, OriginalPriceEur = 1400,
-                PricePerMeter = 40, LivingAreaSqm = 72, Url = "new-url",
+                PricePerMeter = 40, LivingAreaSqm = 72, Url = "new-url", CommissionPercent = 3.57,
                 Details = new FlatDetails { Availability = "sofort", EnergyEfficiencyClass = "A_PLUS", ServiceChargeEur = 310 }
             };
             dbContext.FlatsSnapshots.AddRange(older, newer);
@@ -343,6 +343,8 @@ public class FlatRepositoryTests
         result[1].EnergyEfficiencyClass.Should().BeNull();
         result[0].ServiceChargeEur.Should().Be(310);
         result[1].ServiceChargeEur.Should().BeNull();
+        result[0].CommissionPercent.Should().Be(3.57);
+        result[1].CommissionPercent.Should().BeNull();
     }
 
     private DbContextOptions<FlatsDbContext> CreateSqliteOptions()

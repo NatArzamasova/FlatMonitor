@@ -123,6 +123,18 @@ describe('OfferCardListComponent', () => {
       expect(cards()[2].querySelector('.offer-card-service-charge')).toBeNull();
     });
 
+    it('shows the commission when the offer has one, also when it is 0', () => {
+      render([
+        row({ district: 'Mitte', commissionPercent: 3.57 }),
+        row({ district: 'Mitte', commissionPercent: 0 }),
+        row({ district: 'Weststadt' })
+      ]);
+
+      expect(text(cards()[0], '.offer-card-commission')).toBe('Provision: 3,57 %');
+      expect(text(cards()[1], '.offer-card-commission')).toBe('Provision: 0 %');
+      expect(cards()[2].querySelector('.offer-card-commission')).toBeNull();
+    });
+
     it('shows the energy class as a pill in its scale colour, and none without a class', () => {
       render([row({ district: 'Mitte', energyEfficiencyClass: 'A_PLUS' }), row({ district: 'Weststadt' })]);
 
