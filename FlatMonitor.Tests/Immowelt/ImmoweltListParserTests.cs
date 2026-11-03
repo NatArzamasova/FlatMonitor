@@ -185,4 +185,34 @@ public class ImmoweltListParserTests
         page.TotalCount.Should().Be(268);
         page.Flats.Should().BeEmpty();
     }
+
+    [Test]
+    public void Parse_ListPage_ReadsTheFirstGalleryPhotoAtPreviewSize()
+    {
+        var flat = ParseFixture().Flats.Single(f => f.ListingId == "25NJ8GP9B1XE");
+
+        flat.ImageUrl.Should().Be("https://mms.immowelt.de/b/f/7/8/bf7892eb-b5e0-47bc-b429-92ccd2e2c2a3.jpg?w=400&h=300");
+    }
+
+    [Test]
+    public void Parse_ListPage_GivesMostFlatsAPhoto()
+    {
+        ParseFixture().Flats.Should().OnlyContain(f => f.ImageUrl == null || f.ImageUrl.StartsWith("https://mms.immowelt.de/"))
+            .And.Contain(f => f.ImageUrl != null);
+    }
+
+    [TestCase("""{"gallery":{"images":[{"url":"https://mms.immowelt.de/a/b.jpg?w=626&h=470"},{"url":"https://mms.immowelt.de/c/d.jpg"}]}}""",
+        "https://mms.immowelt.de/a/b.jpg?w=400&h=300")]
+    [TestCase("""{"gallery":{"images":[{"key":"no-url"},{"url":"https://mms.immowelt.de/c/d.jpg"}]}}""",
+        "https://mms.immowelt.de/c/d.jpg?w=400&h=300")]
+    [TestCase("""{"gallery":{"images":[]}}""", null)]
+    [TestCase("""{"gallery":{"images":[{"url":"http://mms.immowelt.de/a/b.jpg"}]}}""", null)]
+    [TestCase("""{"gallery":{"images":[{"url":"/a/b.jpg"}]}}""", null)]
+    [TestCase("""{}""", null)]
+    public void PreviewImageUrl_TakesTheFirstHttpsPhotoAt400x300(string classifiedJson, string? expected)
+    {
+        using var classified = System.Text.Json.JsonDocument.Parse(classifiedJson);
+
+        ImmoweltListParser.PreviewImageUrl(classified.RootElement).Should().Be(expected);
+    }
 }

@@ -17,6 +17,8 @@ using static FakeFlatScraper;
 public class ScraperCoordinatorTests
 {
     private Mock<IFlatRepository> _mockRepository = null!;
+    private Mock<IFlatPreviewDownloader> _mockPreviews = null!;
+    private List<List<Flat>> _previewBatches = null!;
     private List<List<Flat>> _savedBatches = null!;
     private List<string> _runCalls = null!;
     private JsonlBackupWriter _backupWriter = null!;
@@ -28,6 +30,11 @@ public class ScraperCoordinatorTests
         _savedBatches = [];
         _runCalls = [];
         _mockRepository = new Mock<IFlatRepository>();
+        _previewBatches = [];
+        _mockPreviews = new Mock<IFlatPreviewDownloader>();
+        _mockPreviews.Setup(p => p.SavePreviewsAsync(It.IsAny<IReadOnlyCollection<Flat>>(), It.IsAny<CancellationToken>()))
+            .Callback<IReadOnlyCollection<Flat>, CancellationToken>((batch, _) => _previewBatches.Add([.. batch]))
+            .ReturnsAsync(0);
         _mockRepository.Setup(r => r.AddToRunAsync(It.IsAny<List<Flat>>(), It.IsAny<CancellationToken>()))
             .Callback<List<Flat>, CancellationToken>((batch, _) => _savedBatches.Add([.. batch]))
             .Returns(Task.CompletedTask);
@@ -57,7 +64,7 @@ public class ScraperCoordinatorTests
     private ListLogger<ScraperCoordinator> _logger = null!;
 
     private ScraperCoordinator CreateCoordinator(params IScraper[] scrapers) =>
-        new(scrapers, _mockRepository.Object, _backupWriter, _logger);
+        new(scrapers, _mockRepository.Object, _mockPreviews.Object, _backupWriter, _logger);
 
     private string[] SnapshotFiles(string source)
     {
@@ -548,31 +555,55 @@ public class ScraperCoordinatorTests
     }
 
     [Test]
+    public async Task ScrapeAllSourcesAsync_SavesThePreviewsOfEachSavedBatch()
+    {
+        // Arrange: 25 flats are two batches; flat 2 is outside the tracked districts
+        var flats = Enumerable.Range(1, 25)
+            .Select(i => CreateFlat(i.ToString(), i == 2 ? "Paris" : "Weststadt"))
+            .ToArray();
+
+        // Act
+        await CreateCoordinator(new StubScraper("OhneMakler", flats)).ScrapeAllSourcesAsync();
+
+        // Assert: the same flats as saved, batch by batch, so none of another district
+        _previewBatches.Should().HaveCount(2);
+        _previewBatches.Should().BeEquivalentTo(_savedBatches, options => options.WithStrictOrdering());
+        _previewBatches.SelectMany(b => b).Should().NotContain(flat => flat.ListingId == "2");
+    }
+
+    [Test]
     public void Constructor_WithNullScrapers_ThrowsArgumentNullException()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            new ScraperCoordinator(null!, _mockRepository.Object, _backupWriter, NullLogger<ScraperCoordinator>.Instance));
+            new ScraperCoordinator(null!, _mockRepository.Object, _mockPreviews.Object, _backupWriter, NullLogger<ScraperCoordinator>.Instance));
     }
 
     [Test]
     public void Constructor_WithNullRepository_ThrowsArgumentNullException()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            new ScraperCoordinator([new StubScraper("OhneMakler")], null!, _backupWriter, NullLogger<ScraperCoordinator>.Instance));
+            new ScraperCoordinator([new StubScraper("OhneMakler")], null!, _mockPreviews.Object, _backupWriter, NullLogger<ScraperCoordinator>.Instance));
+    }
+
+    [Test]
+    public void Constructor_WithNullPreviewDownloader_ThrowsArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            new ScraperCoordinator([new StubScraper("OhneMakler")], _mockRepository.Object, null!, _backupWriter, NullLogger<ScraperCoordinator>.Instance));
     }
 
     [Test]
     public void Constructor_WithNullBackupWriter_ThrowsArgumentNullException()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            new ScraperCoordinator([new StubScraper("OhneMakler")], _mockRepository.Object, null!, NullLogger<ScraperCoordinator>.Instance));
+            new ScraperCoordinator([new StubScraper("OhneMakler")], _mockRepository.Object, _mockPreviews.Object, null!, NullLogger<ScraperCoordinator>.Instance));
     }
 
     [Test]
     public void Constructor_WithNullLogger_ThrowsArgumentNullException()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            new ScraperCoordinator([new StubScraper("OhneMakler")], _mockRepository.Object, _backupWriter, null!));
+            new ScraperCoordinator([new StubScraper("OhneMakler")], _mockRepository.Object, _mockPreviews.Object, _backupWriter, null!));
     }
 
     [Test]

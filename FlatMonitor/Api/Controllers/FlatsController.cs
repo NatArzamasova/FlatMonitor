@@ -12,11 +12,32 @@ public class FlatsController : ApiControllerBase
 {
     private readonly IFlatRepository _flatRepository;
     private readonly IFlatAggregationRepository _aggregationRepository;
+    private readonly IFlatPreviewRepository _previewRepository;
 
-    public FlatsController(IFlatRepository flatRepository, IFlatAggregationRepository aggregationRepository)
+    public FlatsController(
+        IFlatRepository flatRepository,
+        IFlatAggregationRepository aggregationRepository,
+        IFlatPreviewRepository previewRepository)
     {
         _flatRepository = flatRepository;
         _aggregationRepository = aggregationRepository;
+        _previewRepository = previewRepository;
+    }
+
+    /// <summary>
+    /// The flat's title photo (an offer with <see cref="FlatOffer.HasPreview"/>): the image itself, not an
+    /// <see cref="ApiResponse{T}"/>; 404 without one. The browser may keep it for an hour.
+    /// </summary>
+    [HttpGet("{source}/{listingId}/preview")]
+    [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Client)]
+    public async Task<IActionResult> GetPreviewAsync(string source, string listingId, CancellationToken ct = default)
+    {
+        var preview = await _previewRepository.GetAsync(source, listingId, ct);
+        if (preview == null || !FlatPreview.ContentTypes.Contains(preview.ContentType))
+            return NotFound();
+
+        Response.Headers.XContentTypeOptions = "nosniff";
+        return File(preview.Data, preview.ContentType);
     }
 
     [HttpGet("history")]

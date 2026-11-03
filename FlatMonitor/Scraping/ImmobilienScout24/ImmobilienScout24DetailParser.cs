@@ -9,13 +9,15 @@ using HtmlAgilityPack;
 /// Everything the scraper takes from an ImmobilienScout24 expose page; <c>null</c> where the page has no value.
 /// <paramref name="IsDeactivated"/>: the listing is no longer offered (the page's <c>isDeactivated: true</c>); its
 /// expose metadata has no price or area then, and the card's price is unreliable.
+/// <paramref name="ImageUrl"/>: the title photo at preview size (<see cref="ImmobilienScout24DetailParser.PreviewImageUrl"/>).
 /// </summary>
 public sealed record ImmobilienScout24DetailPage(
     string? Title,
     ExposeMetadata? Metadata,
     int? OriginalPrice,
     FlatDetails? Details,
-    bool IsDeactivated = false)
+    bool IsDeactivated = false,
+    string? ImageUrl = null)
 {
     /// <summary>
     /// The card enriched with this page. Expose metadata replaces the card's values; where the page has none
@@ -36,6 +38,7 @@ public sealed record ImmobilienScout24DetailPage(
             LivingAreaSqm = Metadata?.LivingAreaSqm ?? card.LivingAreaSqm,
             CommissionPercent = Metadata?.CommissionPercent ?? card.CommissionPercent,
             Details = Details,
+            ImageUrl = ImageUrl ?? card.ImageUrl,
         };
     }
 }
@@ -71,8 +74,19 @@ public partial class ImmobilienScout24DetailParser
             Metadata: ExtractExposeMetadata(doc),
             OriginalPrice: ExtractOriginalPrice(doc),
             Details: ParseDetailFields(doc),
-            IsDeactivated: IsDeactivated(doc));
+            IsDeactivated: IsDeactivated(doc),
+            ImageUrl: PreviewImageUrl(DetailExtractors.ExtractOpenGraphImage(doc)));
     }
+
+    /// <summary>
+    /// The picture service scales to the size in the path. <c>og:image</c> is <c>.../ORIG/resize/540x540%3E/format/webp/...</c>
+    /// (about 30 KB); <c>resize/400x300%3E</c> fits the photo into 400×300 (about 11 KB). Other URLs stay as they are.
+    /// </summary>
+    public static string? PreviewImageUrl(string? imageUrl) =>
+        imageUrl == null ? null : ResizeSegment().Replace(imageUrl, "/resize/400x300", 1);
+
+    [GeneratedRegex(@"/resize/\d+x\d+")]
+    private static partial Regex ResizeSegment();
 
     private static bool IsDeactivated(HtmlDocument doc)
     {

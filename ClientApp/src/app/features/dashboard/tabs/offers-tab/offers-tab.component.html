@@ -1,6 +1,6 @@
 <div class="fill-column">
   @if (loading) {
-    <app-loading-skeleton [columns]="10" [cardsOnSmallScreens]="true"></app-loading-skeleton>
+    <app-loading-skeleton [columns]="11" [cardsOnSmallScreens]="true"></app-loading-skeleton>
   }
 
   @if (!loading && currentOffers.length > 0) {
@@ -63,6 +63,8 @@
       <table class="table table-hover table-sm data-table">
         <thead>
           <tr>
+            <!-- The title photo; hovering it shows it larger. -->
+            <th class="offer-photo-col"><span class="visually-hidden">Photo</span></th>
             <th appSortableHeader [sort]="sort" column="district" sortLabel="District" (sortRequested)="onSort($event)">District</th>
             <th appSortableHeader class="text-center" [sort]="sort" column="roomsCount" sortLabel="Rooms" (sortRequested)="onSort($event)">Rooms</th>
             <th appSortableHeader class="text-end" [sort]="sort" column="priceEur" sortLabel="Price" (sortRequested)="onSort($event)">Price (€)</th>
@@ -87,6 +89,7 @@
           <!-- The offer objects survive filtering and sorting, so their rows are moved instead of re-created. -->
           @for (row of offerRows; track row.offer) {
             <tr>
+              <td class="offer-photo"><app-offer-preview [src]="row.previewUrl"></app-offer-preview></td>
               <td>{{ row.offer.district || '-' }}</td>
               <td class="text-center">{{ row.offer.roomsCount ? (row.offer.roomsCount | number: '1.0-1') : '-' }}</td>
               <td class="text-end">

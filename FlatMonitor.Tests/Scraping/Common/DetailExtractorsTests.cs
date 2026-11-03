@@ -53,4 +53,30 @@ public class DetailExtractorsTests
 
         act.Should().Throw<Exception>();
     }
+
+    [Test]
+    public void ExtractOpenGraphImage_ReturnsTheOgImageUrl()
+    {
+        var doc = Doc("""<html><head><meta property="og:image" content=" https://media.example/pic/0/medium.jpg?a=1&amp;b=2 "></head></html>""");
+
+        DetailExtractors.ExtractOpenGraphImage(doc).Should().Be("https://media.example/pic/0/medium.jpg?a=1&b=2");
+    }
+
+    [Test]
+    public void ExtractOpenGraphImage_KeepsAnEscapedPath()
+    {
+        var doc = Doc("""<meta property="og:image" content="https://pictures.example/1.jpg/ORIG/resize/540x540%3E/format/webp">""");
+
+        DetailExtractors.ExtractOpenGraphImage(doc).Should().Be("https://pictures.example/1.jpg/ORIG/resize/540x540%3E/format/webp");
+    }
+
+    [TestCase("""<html><head><title>No image</title></head></html>""")]
+    [TestCase("""<meta property="og:image" content="">""")]
+    [TestCase("""<meta property="og:image" content="/immobilie/1/picture/0/medium.jpg">""")]
+    [TestCase("""<meta property="og:image" content="javascript:alert(1)">""")]
+    [TestCase("""<meta property="og:image" content="data:image/png;base64,AAAA">""")]
+    public void ExtractOpenGraphImage_WithoutAnAbsoluteHttpUrl_IsNull(string html)
+    {
+        DetailExtractors.ExtractOpenGraphImage(Doc(html)).Should().BeNull();
+    }
 }

@@ -141,6 +141,8 @@ dotnet test
      - When a source finishes with flats, its rows in `FlatsSnapshots` are replaced in one transaction; a source that
        fails or finds nothing keeps its rows of the previous run. `FlatsSnapshots` is never cleared
      - District names normalized during filtering (see [FILTERING.md](FILTERING.md))
+     - Each saved batch's title photos are downloaded into `FlatPreviews` (hover preview in Current Offers); a failed
+       photo only leaves that flat without one, and publishing a source deletes the previews of flats it no longer has
      - Each saved batch is appended to the source's snapshot file (debugging only)
      - Result: a `ScrapeSummary` (flats saved per source, errors of failed sources)
    

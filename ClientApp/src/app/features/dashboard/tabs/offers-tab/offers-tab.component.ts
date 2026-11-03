@@ -10,6 +10,7 @@ import { FilterPresetsService } from '../../../../core/services/filter-presets.s
 import { filterByDistricts, filterByPriceRange, filterByRooms } from '../../../../core/utils/filter.utils';
 import { FlatOffer } from '../../../../core/models/flat-offer.model';
 import { isHttpUrl } from '../../../../core/utils/url.utils';
+import { offerPreviewUrl } from '../../../../core/utils/preview.utils';
 import { sourceBadge } from '../../../../core/utils/source.utils';
 import { energyClassBadge, energyClassRank } from '../../../../core/utils/energy-class.utils';
 import { normalizeRooms } from '../../../../core/utils/rooms.utils';
@@ -26,6 +27,7 @@ import { FilterToolbarComponent } from '../../../../shared/filter-toolbar/filter
 import { FilterChip, buildFilterChips } from '../../../../core/utils/filter-chips.utils';
 import { FilterPresetBarComponent } from '../../../../shared/filter-preset-bar/filter-preset-bar.component';
 import { OfferCardListComponent } from './offer-card-list/offer-card-list.component';
+import { OfferPreviewComponent } from './offer-preview/offer-preview.component';
 import { OfferRow, OfferSortColumn } from './offer-row';
 
 
@@ -45,9 +47,24 @@ import { OfferRow, OfferSortColumn } from './offer-row';
     DismissibleAlertComponent,
     FilterPresetBarComponent,
     FilterToolbarComponent,
-    OfferCardListComponent
+    OfferCardListComponent,
+    OfferPreviewComponent
   ],
   templateUrl: './offers-tab.component.html',
+  styles: [`
+    /* The 30 px thumbnail with little padding keeps the rows about as high as rows of text. */
+    .data-table tbody td {
+      vertical-align: middle;
+    }
+    .offer-photo-col,
+    .offer-photo {
+      width: 1%;
+    }
+    .offer-photo {
+      padding-top: 0.125rem;
+      padding-bottom: 0.125rem;
+    }
+  `]
 })
 export class OffersTabComponent implements OnInit {
   private readonly flatsService = inject(FlatsService);
@@ -197,7 +214,8 @@ export class OffersTabComponent implements OnInit {
       discountPercentage: this.getDiscountPercentage(offer),
       hasLink: isHttpUrl(offer.url),
       source: sourceBadge(offer.source),
-      energyClass: energyClassBadge(offer.energyEfficiencyClass)
+      energyClass: energyClassBadge(offer.energyEfficiencyClass),
+      previewUrl: offerPreviewUrl(offer)
     }));
   }
 

@@ -15,6 +15,11 @@ public sealed class ListLogger<T> : ILogger<T>
 
     public bool IsEnabled(LogLevel logLevel) => true;
 
+    // Locked: some code under test logs from parallel tasks
     public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
-        => Entries.Add(new Entry(logLevel, formatter(state, exception), exception));
+    {
+        var entry = new Entry(logLevel, formatter(state, exception), exception);
+        lock (Entries)
+            Entries.Add(entry);
+    }
 }

@@ -90,10 +90,31 @@ public sealed class FlatRepository : IFlatRepository
             }
         }
         _dbContext.FlatsSnapshots.RemoveRange(removed.Values);
+        await RemoveStalePreviewsAsync(source, staged.Select(row => row.ListingId).ToHashSet(), ct);
 
         await _dbContext.SaveChangesAsync(ct);
         DetachFlatRows();
         return staged.Count;
+    }
+
+    /// <summary>
+    /// Marks the source's previews of flats not in the published run for deletion, in the publish's SaveChanges: those
+    /// of removed flats, and those a failed earlier run downloaded for flats it never published.
+    /// </summary>
+    private async Task RemoveStalePreviewsAsync(string source, HashSet<string> publishedIds, CancellationToken ct)
+    {
+        var previewIds = await _dbContext.FlatPreviews
+            .Where(p => p.Source == source)
+            .Select(p => p.ListingId)
+            .ToListAsync(ct);
+        var staleIds = previewIds.Where(id => !publishedIds.Contains(id)).ToList();
+        if (staleIds.Count == 0)
+            return;
+
+        var stale = await _dbContext.FlatPreviews
+            .Where(p => p.Source == source && staleIds.Contains(p.ListingId))
+            .ToListAsync(ct);
+        _dbContext.FlatPreviews.RemoveRange(stale);
     }
 
     private static void SetAuditDates(EntityEntry entry, DateTime now)
@@ -130,6 +151,8 @@ public sealed class FlatRepository : IFlatRepository
                     LivingAreaSqm = s.LivingAreaSqm,
                     Url = s.Url,
                     Source = s.Source,
+                    ListingId = s.ListingId,
+                    HasPreview = _dbContext.FlatPreviews.Any(p => p.Source == s.Source && p.ListingId == s.ListingId),
                     Availability = s.Details == null ? null : s.Details.Availability,
                     EnergyEfficiencyClass = s.Details == null ? null : s.Details.EnergyEfficiencyClass,
                     ServiceChargeEur = s.Details == null ? null : s.Details.ServiceChargeEur,

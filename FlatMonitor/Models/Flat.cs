@@ -15,6 +15,12 @@ public sealed record Flat
     public double? LivingAreaSqm { get; init; }
     public double? CommissionPercent { get; init; }
     public FlatDetails? Details { get; init; }
+
+    /// <summary>
+    /// The listing's title photo at preview size (about 400×300), as the portal serves it; downloaded into
+    /// FlatPreviews by <c>FlatPreviewDownloader</c>, not stored with the flat.
+    /// </summary>
+    public string? ImageUrl { get; init; }
     public required DateTime ScrapedAtUtc { get; init; }
     public required string Source { get; init; }
 

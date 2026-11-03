@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using NUnit.Framework;
 using FluentAssertions;
+using Moq;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -244,7 +245,7 @@ public class ScrapeBackgroundServiceTests
         else
             services.AddScoped<IFlatAggregationRepository, FlatAggregationRepository>();
         services.AddScoped(sp => new ScraperCoordinator(
-            scrapers, sp.GetRequiredService<IFlatRepository>(), new JsonlBackupWriter(new StorageOptions(_dataDir, "Data Source=:memory:")),
+            scrapers, sp.GetRequiredService<IFlatRepository>(), new Mock<IFlatPreviewDownloader>().Object, new JsonlBackupWriter(new StorageOptions(_dataDir, "Data Source=:memory:")),
             NullLogger<ScraperCoordinator>.Instance));
         services.AddScoped<ScrapeExecutionService>();
         services.AddScoped<ScrapeRunService>();

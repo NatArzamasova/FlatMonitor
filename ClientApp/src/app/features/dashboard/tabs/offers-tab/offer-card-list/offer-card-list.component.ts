@@ -4,6 +4,7 @@ import { FlatOffer } from '../../../../../core/models/flat-offer.model';
 import { TableSort } from '../../../../../core/utils/table-sort';
 import { roomsLabel } from '../../../../../core/utils/filter-chips.utils';
 import { OFFER_SORT_COLUMNS, OfferRow, OfferSortColumn } from '../offer-row';
+import { OfferPreviewComponent } from '../offer-preview/offer-preview.component';
 
 /**
  * The current offers as cards, for small screens where the table would scroll sideways:
@@ -15,7 +16,7 @@ import { OFFER_SORT_COLUMNS, OfferRow, OfferSortColumn } from '../offer-row';
 @Component({
   selector: 'app-offer-card-list',
   standalone: true,
-  imports: [CurrencyPipe, DecimalPipe],
+  imports: [CurrencyPipe, DecimalPipe, OfferPreviewComponent],
   template: `
     <div class="d-flex align-items-center gap-2 mb-2 offer-sort">
       <label for="offerCardSort" class="form-label mb-0 filter-label">Sort by:</label>
@@ -40,7 +41,9 @@ import { OFFER_SORT_COLUMNS, OfferRow, OfferSortColumn } from '../offer-row';
       @for (row of rows; track row.offer) {
         <li>
           <article class="card offer-card">
-            <div class="card-body py-2 px-3">
+            <div class="card-body py-2 px-3 d-flex gap-3">
+              <app-offer-preview class="flex-shrink-0 mt-1 offer-card-photo" [src]="row.previewUrl"></app-offer-preview>
+              <div class="flex-grow-1 offer-card-content">
               <h3 class="h6 mb-1 offer-card-title">{{ title(row.offer) }}</h3>
               <div class="d-flex align-items-baseline flex-wrap gap-1">
                 <span class="fs-5 fw-semibold offer-card-price">
@@ -91,6 +94,7 @@ import { OFFER_SORT_COLUMNS, OfferRow, OfferSortColumn } from '../offer-row';
                   <span class="badge rounded-pill source-badge" [class]="row.source.className">{{ row.source.label }}</span>
                 }
               </div>
+              </div>
             </div>
           </article>
         </li>
@@ -110,6 +114,15 @@ import { OFFER_SORT_COLUMNS, OfferRow, OfferSortColumn } from '../offer-row';
       flex: 1 1 0;
       min-height: 0;
       overflow-y: auto;
+    }
+    /* A card has room for a larger thumbnail than a table row. */
+    .offer-card-photo {
+      --offer-thumb-width: 64px;
+      --offer-thumb-height: 48px;
+    }
+    /* Lets the availability's text-truncate work next to the photo. */
+    .offer-card-content {
+      min-width: 0;
     }
     .offer-card-price {
       font-variant-numeric: tabular-nums;

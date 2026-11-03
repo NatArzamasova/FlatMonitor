@@ -47,6 +47,7 @@ public class ScrapeExecutionServiceTests
         _coordinator = new ScraperCoordinator(
             Array.Empty<IScraper>(),
             new Mock<IFlatRepository>().Object,
+            new Mock<IFlatPreviewDownloader>().Object,
             new JsonlBackupWriter(new StorageOptions(Path.GetTempPath(), "Data Source=:memory:")),
             NullLogger<ScraperCoordinator>.Instance);
     }
@@ -235,7 +236,7 @@ public class ScrapeExecutionServiceExecuteTests
     private ScrapeExecutionService CreateService(params IScraper[] scrapers)
     {
         var coordinator = new ScraperCoordinator(
-            scrapers, _mockFlatRepository.Object, new JsonlBackupWriter(new StorageOptions(_dataDir, "Data Source=:memory:")), NullLogger<ScraperCoordinator>.Instance);
+            scrapers, _mockFlatRepository.Object, new Mock<IFlatPreviewDownloader>().Object, new JsonlBackupWriter(new StorageOptions(_dataDir, "Data Source=:memory:")), NullLogger<ScraperCoordinator>.Instance);
         return new ScrapeExecutionService(_mockAggregationRepository.Object, coordinator, _logger);
     }
 }

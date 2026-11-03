@@ -21,6 +21,20 @@ public static class DetailExtractors
         return string.IsNullOrWhiteSpace(value) ? null : value;
     }
 
+    /// <summary>
+    /// The page's <c>og:image</c> meta tag: the listing's title photo on all three portals. <c>null</c> without one or
+    /// if it is no absolute http(s) URL.
+    /// </summary>
+    public static string? ExtractOpenGraphImage(HtmlDocument doc)
+    {
+        var content = ExtractAttribute(doc, "//meta[@property='og:image']", "content");
+        return content != null
+            && Uri.TryCreate(HtmlEntity.DeEntitize(content), UriKind.Absolute, out var uri)
+            && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp)
+                ? uri.AbsoluteUri
+                : null;
+    }
+
     public static bool HasNodes(HtmlDocument doc, string xpath)
         => doc.DocumentNode.SelectNodes(xpath)?.Count > 0;
 

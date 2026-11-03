@@ -812,4 +812,25 @@ public class ImmobilienScout24DetailParserTests
             </dl>
         </body></html>
         """;
+
+    [Test]
+    public void Parse_ReadsTheTitlePhotoAtPreviewSize()
+    {
+        var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
+
+        _parser.Parse(html).ImageUrl.Should().Be(
+            "https://pictures.immobilienscout24.de/listings/8e456bab-c9b2-4d34-940c-ca4b1a87e73c-1667807503.jpg/ORIG/resize/400x300%3E/format/webp/quality/73");
+    }
+
+    [TestCase(
+        "https://pictures.immobilienscout24.de/listings/a.jpg/ORIG/resize/540x540%3E/format/webp/quality/73",
+        "https://pictures.immobilienscout24.de/listings/a.jpg/ORIG/resize/400x300%3E/format/webp/quality/73")]
+    [TestCase(
+        "https://pictures.immobilienscout24.de/listings/a.jpg/ORIG/legacy_thumbnail/80x60/format/webp",
+        "https://pictures.immobilienscout24.de/listings/a.jpg/ORIG/legacy_thumbnail/80x60/format/webp")]
+    [TestCase(null, null)]
+    public void PreviewImageUrl_AsksThePictureServiceFor400x300(string? imageUrl, string? expected)
+    {
+        ImmobilienScout24DetailParser.PreviewImageUrl(imageUrl).Should().Be(expected);
+    }
 }

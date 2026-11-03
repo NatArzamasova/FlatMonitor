@@ -33,6 +33,7 @@ public static class ServiceRegistrationExtensions
         services.AddScoped<IFlatAggregationRepository, FlatAggregationRepository>();
         services.AddScoped<IScrapingHistoryRepository, ScrapingHistoryRepository>();
         services.AddScoped<IFilterPresetRepository, FilterPresetRepository>();
+        services.AddScoped<IFlatPreviewRepository, FlatPreviewRepository>();
         services.AddScoped<JsonlBackupWriter>();
 
         services.AddHttpClient<OhneMaklerScraper>(client =>
@@ -40,6 +41,13 @@ public static class ServiceRegistrationExtensions
             client.Timeout = TimeSpan.FromSeconds(30);
             client.DefaultRequestHeaders.Add("User-Agent", UserAgent);
         });
+        services.AddHttpClient<FlatPreviewDownloader>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(15);
+            client.DefaultRequestHeaders.Add("User-Agent", UserAgent);
+            client.DefaultRequestHeaders.Add("Accept", "image/webp,image/jpeg,image/*");
+        });
+        services.AddScoped<IFlatPreviewDownloader>(sp => sp.GetRequiredService<FlatPreviewDownloader>());
         services.AddSingleton(ImmobilienScout24Options.FromConfiguration(configuration));
         services.AddScoped<ImmobilienScout24Scraper>();
         services.AddSingleton(ImmoweltOptions.FromConfiguration(configuration));

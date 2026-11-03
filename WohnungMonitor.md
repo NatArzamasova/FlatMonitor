@@ -57,6 +57,11 @@ by implementing the `IScraper` interface.
    `FlatMonitor/appsettings.json`). Every scrape replaces the flats of the previous one
    (`FlatsSnapshots`), records the run (`ScrapingHistories`) and stores the day's
    aggregations (`FlatAggregations`). The web API reads only from here.
+   Title photos for the hover preview are kept in `FlatPreviews` (one ~10–30 KB BLOB per flat, keyed like
+   `FlatsSnapshots`): the parsers take each listing's photo URL at about 400×300 (`og:image` on OhneMakler and IS24,
+   the list card's gallery on Immowelt), `FlatPreviewDownloader` downloads it per saved batch with a plain
+   `HttpClient` (the picture servers are not behind the robot guards) and skips an unchanged URL. Publishing a source
+   deletes its previews of flats it no longer has. A photo that fails leaves only that flat without a preview.
 2. **Snapshot files (debugging backup, gitignored)** — each scrape appends the saved
    flats to `FlatMonitor/data/snapshots/{source}/{utc-timestamp}.jsonl`, one line per
    flat. Never used to rebuild or validate the database.
@@ -78,6 +83,8 @@ by implementing the `IScraper` interface.
 - `POST /api/scrape` — triggers an on-demand scrape (background or synchronous)
 - `GET/POST/PUT/DELETE /api/filter-presets` — named district filter presets, incl. `PUT /{id}/default` and `DELETE /default`
 - `GET /api/districts` — all tracked Karlsruhe districts, sorted
+- `GET /api/flats/{source}/{listingId}/preview` — the flat's title photo (the image itself, 404 without one); shown
+  as the thumbnail in the first column of Current Offers (offers with `hasPreview`), larger while hovered
 - All responses use standard JSON structure with proper HTTP status codes
 
 ### Multi-source architecture

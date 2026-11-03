@@ -4,6 +4,7 @@ using FlatMonitor.Models;
 using FlatMonitor.Storage;
 using FlatMonitor.Storage.ReadModels;
 using FluentAssertions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using NUnit.Framework;
@@ -15,6 +16,7 @@ public class FlatsControllerTests
 {
     private Mock<IFlatRepository> _flatRepository = null!;
     private Mock<IFlatAggregationRepository> _aggregationRepository = null!;
+    private Mock<IFlatPreviewRepository> _previewRepository = null!;
     private FlatsController _controller = null!;
 
     [SetUp]
@@ -22,7 +24,11 @@ public class FlatsControllerTests
     {
         _flatRepository = new Mock<IFlatRepository>();
         _aggregationRepository = new Mock<IFlatAggregationRepository>();
-        _controller = new FlatsController(_flatRepository.Object, _aggregationRepository.Object);
+        _previewRepository = new Mock<IFlatPreviewRepository>();
+        _controller = new FlatsController(_flatRepository.Object, _aggregationRepository.Object, _previewRepository.Object)
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
+        };
     }
 
     [Test]
@@ -98,6 +104,49 @@ public class FlatsControllerTests
         _aggregationRepository.Verify(r => r.GetLatestAsync(cts.Token), Times.Once);
         _flatRepository.Verify(r => r.GetCurrentOffersAsync(cts.Token), Times.Once);
     }
+
+    [Test]
+    public async Task GetPreviewAsync_ReturnsTheStoredImageWithItsContentType()
+    {
+        var data = new byte[] { 0xFF, 0xD8, 0xFF };
+        _previewRepository.Setup(r => r.GetAsync("ImmobilienScout24", "123", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Preview("image/jpeg", data));
+
+        var result = await _controller.GetPreviewAsync("ImmobilienScout24", "123");
+
+        var file = result.Should().BeOfType<FileContentResult>().Subject;
+        file.FileContents.Should().Equal(data);
+        file.ContentType.Should().Be("image/jpeg");
+        _controller.Response.Headers.XContentTypeOptions.ToString().Should().Be("nosniff");
+    }
+
+    [Test]
+    public async Task GetPreviewAsync_WithoutPreview_ReturnsNotFound()
+    {
+        _previewRepository.Setup(r => r.GetAsync("OhneMakler", "1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((FlatPreview?)null);
+
+        var result = await _controller.GetPreviewAsync("OhneMakler", "1");
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Test]
+    public async Task GetPreviewAsync_WithAStoredTypeThatIsNoPhoto_ReturnsNotFound()
+    {
+        // Script in an SVG would run on the API's origin
+        _previewRepository.Setup(r => r.GetAsync("OhneMakler", "1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Preview("image/svg+xml", [1]));
+
+        var result = await _controller.GetPreviewAsync("OhneMakler", "1");
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    private static FlatPreview Preview(string contentType, byte[] data) => new()
+    {
+        Source = "source", ListingId = "id", ImageUrl = "https://pictures.example/1.jpg", ContentType = contentType, Data = data,
+    };
 
     private static TResponse GetResponseValue<TResponse>(ActionResult<TResponse> result)
         where TResponse : class

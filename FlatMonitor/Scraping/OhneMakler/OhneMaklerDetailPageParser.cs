@@ -5,14 +5,18 @@ using FlatMonitor.Models;
 using FlatMonitor.Scraping.Common;
 using HtmlAgilityPack;
 
-/// <summary>Everything the scraper takes from an ohne-makler.net detail page; <c>null</c> where the page has no value.</summary>
+/// <summary>
+/// Everything the scraper takes from an ohne-makler.net detail page; <c>null</c> where the page has no value.
+/// <paramref name="ImageUrl"/>: the title photo, <c>og:image</c> (<c>/immobilie/{id}/picture/0/medium.jpg</c>, 265×199).
+/// </summary>
 public sealed record OhneMaklerDetailPage(
     string? Title,
     string? Address,
     double? Rooms,
     double? Area,
     int? Price,
-    FlatDetails? Details);
+    FlatDetails? Details,
+    string? ImageUrl = null);
 
 /// <summary>
 /// Parses ohne-makler.net detail pages, loading each page's HTML once.
@@ -32,7 +36,8 @@ public sealed partial class OhneMaklerDetailPageParser
             Rooms: ExtractRooms(doc),
             Area: ExtractArea(doc),
             Price: GermanNumberParser.ParseInteger(DetailExtractors.ExtractText(doc, OhneMaklerDetailSelectors.PriceXPath)),
-            Details: ParseDetailFields(doc));
+            Details: ParseDetailFields(doc),
+            ImageUrl: DetailExtractors.ExtractOpenGraphImage(doc));
     }
 
     private FlatDetails? ParseDetailFields(HtmlDocument doc)

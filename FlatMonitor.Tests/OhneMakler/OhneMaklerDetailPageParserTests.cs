@@ -453,4 +453,18 @@ public class OhneMaklerDetailPageParserTests
 
         details!.CurrentUse.Should().Be(expected);
     }
+
+    [Test]
+    public void Parse_ReadsTheTitlePhotoFromOgImage()
+    {
+        var html = File.ReadAllText(GetFixturePath("detail-page-sample.html"));
+
+        _parser.Parse(html).ImageUrl.Should().Be("https://www.ohne-makler.net/immobilie/502814/picture/0/medium.jpg");
+    }
+
+    [Test]
+    public void Parse_PageWithoutOgImage_HasNoImage()
+    {
+        _parser.Parse("<html><body><h1>Wohnung</h1></body></html>").ImageUrl.Should().BeNull();
+    }
 }

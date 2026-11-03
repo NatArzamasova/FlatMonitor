@@ -12,6 +12,12 @@ public class FlatOffer
     public string? Url { get; set; }
     public string? Source { get; set; }
 
+    /// <summary>The portal's id of the listing; with <see cref="Source"/> it names the flat, e.g. for its preview.</summary>
+    public string? ListingId { get; set; }
+
+    /// <summary>Whether FlatPreviews has the flat's title photo (<c>GET api/flats/{source}/{listingId}/preview</c>).</summary>
+    public bool HasPreview { get; set; }
+
     /// <summary>When the flat is free, as the portal words it ("sofort", "01.03.2027", "vermietet"); from the detail page.</summary>
     public string? Availability { get; set; }
 

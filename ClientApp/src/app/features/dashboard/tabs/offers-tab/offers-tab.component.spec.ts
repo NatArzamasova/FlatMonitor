@@ -352,7 +352,7 @@ describe('OffersTabComponent', () => {
     it('renders fractional room counts with one decimal', () => {
       fixture.detectChanges();
 
-      const roomCells = Array.from(fixture.nativeElement.querySelectorAll('tbody tr td:nth-child(2)'))
+      const roomCells = Array.from(fixture.nativeElement.querySelectorAll('tbody tr td:nth-child(3)'))
         .map(cell => (cell as HTMLElement).textContent?.trim());
       expect(roomCells).toEqual(['2', '2,5', '3']);
     });
@@ -413,7 +413,7 @@ describe('OffersTabComponent', () => {
       buttons[2].click();
       fixture.detectChanges();
 
-      expect(fixture.nativeElement.querySelector('thead th:nth-child(3)').getAttribute('aria-sort')).toBe('ascending');
+      expect(fixture.nativeElement.querySelector('thead th:nth-child(4)').getAttribute('aria-sort')).toBe('ascending');
       expect(component.filteredOffers[0].priceEur).toBe(2000);
     });
 
@@ -473,8 +473,8 @@ describe('OffersTabComponent', () => {
       fixture.detectChanges();
 
       const rows = fixture.nativeElement.querySelectorAll('tbody tr');
-      const discountedPriceCell = rows[0].querySelectorAll('td')[2] as HTMLElement;
-      const unchangedPriceCell = rows[1].querySelectorAll('td')[2] as HTMLElement;
+      const discountedPriceCell = rows[0].querySelectorAll('td')[3] as HTMLElement;
+      const unchangedPriceCell = rows[1].querySelectorAll('td')[3] as HTMLElement;
 
       const badge = discountedPriceCell.querySelector('.price-drop') as HTMLElement;
       expect(badge.textContent!.trim()).toBe('−9,1 %');
@@ -510,7 +510,7 @@ describe('OffersTabComponent', () => {
       component.onSort('priceEur');
       fixture.detectChanges();
 
-      const districts = Array.from(fixture.nativeElement.querySelectorAll('tbody tr td:first-child'))
+      const districts = Array.from(fixture.nativeElement.querySelectorAll('tbody tr td:nth-child(2)'))
         .map(cell => (cell as HTMLElement).textContent!.trim());
       expect(districts).toEqual(['Charlottenburg', 'Mitte']);
     });
@@ -690,6 +690,51 @@ describe('OffersTabComponent', () => {
     });
   });
 
+  describe('Photo column', () => {
+    beforeEach(() => {
+      flatsService.getCurrentOffers.and.returnValue(apiResult({
+        success: true,
+        data: [
+          { district: 'Mitte', priceEur: 2000, source: 'ImmobilienScout24', listingId: '161', hasPreview: true },
+          { district: 'Durlach', priceEur: 1000, source: 'OhneMakler', listingId: '7', hasPreview: false }
+        ],
+        message: 'Success'
+      }));
+      fixture.detectChanges();
+    });
+
+    const photoCells = (): HTMLElement[] => Array.from(fixture.nativeElement.querySelectorAll('tbody tr td:first-child'));
+
+    it('comes first, with a header only screen readers read', () => {
+      const header = fixture.nativeElement.querySelector('thead th') as HTMLElement;
+
+      expect(header.querySelector('.visually-hidden')!.textContent!.trim()).toBe('Photo');
+      expect(header.querySelector('button')).toBeNull();
+      expect(photoCells().every(cell => cell.classList.contains('offer-photo'))).toBeTrue();
+    });
+
+    it('shows the thumbnail of an offer with a photo and a placeholder for the others', () => {
+      const [withPhoto, withoutPhoto] = photoCells();
+
+      expect(withPhoto.querySelector('img.offer-thumb')!.getAttribute('src')).toBe('/api/flats/ImmobilienScout24/161/preview');
+      expect(withoutPhoto.querySelector('img')).toBeNull();
+      expect(withoutPhoto.querySelector('.offer-thumb-empty')).not.toBeNull();
+    });
+
+    it('shows the photo larger while the thumbnail is hovered', () => {
+      const button = photoCells()[0].querySelector('button')!;
+
+      button.dispatchEvent(new Event('mouseenter'));
+      fixture.detectChanges();
+      expect(photoCells()[0].querySelector('.offer-preview-popover img')!.getAttribute('src'))
+        .toBe('/api/flats/ImmobilienScout24/161/preview');
+
+      button.dispatchEvent(new Event('mouseleave'));
+      fixture.detectChanges();
+      expect(photoCells()[0].querySelector('.offer-preview-popover')).toBeNull();
+    });
+  });
+
   describe('Offer links', () => {
     const renderLinkCell = (url: string | undefined): HTMLElement => {
       flatsService.getCurrentOffers.and.returnValue(apiResult({
@@ -744,8 +789,8 @@ describe('OffersTabComponent', () => {
 
       const headers = Array.from(fixture.nativeElement.querySelectorAll('thead th') as NodeListOf<HTMLElement>);
       expect(headers.map(header => header.textContent!.trim().replace(/[↑↓↕]/g, '').trim()))
-        .toEqual(['District', 'Rooms', 'Price (€)', 'Living area (m²)', 'Price/m² (€)', 'Hausgeld (€)', 'Provision', 'EE Class', 'Availability', 'Source']);
-      expect(headers[8].querySelector('button')).toBeNull();
+        .toEqual(['Photo', 'District', 'Rooms', 'Price (€)', 'Living area (m²)', 'Price/m² (€)', 'Hausgeld (€)', 'Provision', 'EE Class', 'Availability', 'Source']);
+      expect(headers[9].querySelector('button')).toBeNull();
     });
 
     it('shows the availability of each offer, with the full text as title, and - when it is missing', () => {
@@ -762,18 +807,18 @@ describe('OffersTabComponent', () => {
     it('aligns the header and the cells to the right', () => {
       renderOffers([{ district: 'Mitte', availability: 'sofort' }]);
 
-      const header = fixture.nativeElement.querySelectorAll('thead th')[8] as HTMLElement;
+      const header = fixture.nativeElement.querySelectorAll('thead th')[9] as HTMLElement;
       expect(header.classList).toContain('text-end');
       expect(availabilityCells()[0].classList).toContain('text-end');
       expect(getComputedStyle(header).textAlign).toMatch(/^(right|end)$/);
       expect(getComputedStyle(availabilityCells()[0]).textAlign).toMatch(/^(right|end)$/);
     });
 
-    it('renders ten skeleton columns while loading', () => {
+    it('renders eleven skeleton columns while loading', () => {
       flatsService.getCurrentOffers.and.returnValue(NEVER);
       fixture.detectChanges();
 
-      expect(fixture.nativeElement.querySelectorAll('app-loading-skeleton thead th').length).toBe(10);
+      expect(fixture.nativeElement.querySelectorAll('app-loading-skeleton thead th').length).toBe(11);
     });
   });
 
@@ -789,7 +834,7 @@ describe('OffersTabComponent', () => {
     it('has a right-aligned, sortable "Hausgeld (€)" header after Price/m²', () => {
       renderOffers([{ district: 'Mitte', serviceChargeEur: 250 }]);
 
-      const header = fixture.nativeElement.querySelectorAll('thead th')[5] as HTMLElement;
+      const header = fixture.nativeElement.querySelectorAll('thead th')[6] as HTMLElement;
       expect(header.textContent).toContain('Hausgeld (€)');
       expect(header.classList).toContain('text-end');
       expect(header.querySelector('abbr')!.title).toBe('Monthly service charge');
@@ -829,7 +874,7 @@ describe('OffersTabComponent', () => {
     it('has a right-aligned, sortable "Provision" header after Hausgeld', () => {
       renderOffers([{ district: 'Mitte', commissionPercent: 3.57 }]);
 
-      const header = fixture.nativeElement.querySelectorAll('thead th')[6] as HTMLElement;
+      const header = fixture.nativeElement.querySelectorAll('thead th')[7] as HTMLElement;
       expect(header.textContent!.trim()).toContain('Provision');
       expect(header.classList).toContain('text-end');
       expect(header.querySelector('abbr')!.title).toBe("Buyer's commission in percent of the price");
@@ -891,10 +936,10 @@ describe('OffersTabComponent', () => {
       const headerCount = fixture.nativeElement.querySelectorAll('thead th').length;
       const row = fixture.nativeElement.querySelector('tbody tr') as HTMLTableRowElement;
       expect(row.cells.length).toBe(headerCount);
-      expect(row.cells[5].classList).toContain('offer-service-charge');
-      expect(row.cells[6].classList).toContain('offer-commission');
-      expect(row.cells[7].querySelector('.ee-badge')).not.toBeNull();
-      expect(row.cells[8].classList).toContain('offer-availability');
+      expect(row.cells[6].classList).toContain('offer-service-charge');
+      expect(row.cells[7].classList).toContain('offer-commission');
+      expect(row.cells[8].querySelector('.ee-badge')).not.toBeNull();
+      expect(row.cells[9].classList).toContain('offer-availability');
     });
   });
 
@@ -904,12 +949,12 @@ describe('OffersTabComponent', () => {
       fixture.detectChanges();
     };
     const eeCells = (): HTMLElement[] =>
-      Array.from(fixture.nativeElement.querySelectorAll('tbody tr td:nth-child(8)'));
+      Array.from(fixture.nativeElement.querySelectorAll('tbody tr td:nth-child(9)'));
 
     it('has a centred, sortable "EE Class" header explained by an abbreviation', () => {
       renderOffers([{ district: 'Mitte', energyEfficiencyClass: 'B' }]);
 
-      const header = fixture.nativeElement.querySelectorAll('thead th')[7] as HTMLElement;
+      const header = fixture.nativeElement.querySelectorAll('thead th')[8] as HTMLElement;
       expect(header.classList).toContain('text-center');
       expect(header.querySelector('abbr')!.title).toBe('Energy efficiency class');
       expect(header.querySelector('button')!.getAttribute('aria-label')).toBe('Sort by Energy Efficiency Class');
@@ -971,7 +1016,7 @@ describe('OffersTabComponent', () => {
 
       const cardPrices = Array.from(fixture.nativeElement.querySelectorAll('app-offer-card-list .offer-card-price'))
         .map(price => (price as HTMLElement).textContent!.trim());
-      const tablePrices = Array.from(fixture.nativeElement.querySelectorAll('tbody tr td:nth-child(3)'))
+      const tablePrices = Array.from(fixture.nativeElement.querySelectorAll('tbody tr td:nth-child(4)'))
         .map(cell => (cell as HTMLElement).firstChild!.textContent!.trim());
       expect(cardPrices).toEqual(tablePrices);
     });

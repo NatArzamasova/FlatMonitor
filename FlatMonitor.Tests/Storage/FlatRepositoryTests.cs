@@ -702,4 +702,59 @@ public class FlatRepositoryTests
         ScrapedAtUtc = DateTime.UtcNow,
         Source = source,
     };
+
+    // ==================== PREVIEWS ====================
+
+    [Test]
+    public async Task PublishSourceAsync_DeletesThePreviewsOfFlatsTheSourceNoLongerHas()
+    {
+        // Arrange: OhneMakler 1 and 2 published with previews; a failed run left a preview of 9, never published
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatRepository(repoContext);
+        await PublishAsync(repo, CreateFlat("1"), CreateFlat("2"), CreateFlat("1", source: "ImmobilienScout24"));
+        await new FlatPreviewRepository(repoContext).SaveAsync(
+            [Preview("OhneMakler", "1"), Preview("OhneMakler", "2"), Preview("OhneMakler", "9"), Preview("ImmobilienScout24", "1")]);
+
+        // Act: this run finds OhneMakler 2 and 3
+        await repo.BeginRunAsync();
+        await repo.AddToRunAsync([CreateFlat("2"), CreateFlat("3")]);
+        await repo.PublishSourceAsync("OhneMakler");
+
+        // Assert: the other source's previews stay
+        await using var dbContext = new FlatsDbContext(options);
+        var previews = await dbContext.FlatPreviews.Select(p => new { p.Source, p.ListingId }).ToListAsync();
+        previews.Select(p => (p.Source, p.ListingId)).Should().BeEquivalentTo([("OhneMakler", "2"), ("ImmobilienScout24", "1")]);
+        repoContext.ChangeTracker.Entries<FlatPreview>().Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task GetCurrentOffersAsync_OnSqlite_TellsWhichOffersHaveAPreview()
+    {
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatRepository(repoContext);
+        await PublishAsync(repo, CreateFlat("1"), CreateFlat("2"), CreateFlat("1", source: "ImmobilienScout24"));
+        await new FlatPreviewRepository(repoContext).SaveAsync([Preview("OhneMakler", "1")]);
+
+        var result = await repo.GetCurrentOffersAsync();
+
+        result.ToDictionary(offer => (offer.Source, offer.ListingId), offer => offer.HasPreview).Should().Equal(
+            new Dictionary<(string?, string?), bool>
+            {
+                [("OhneMakler", "1")] = true,
+                [("OhneMakler", "2")] = false,
+                [("ImmobilienScout24", "1")] = false,
+            });
+    }
+
+    private static FlatPreview Preview(string source, string listingId) => new()
+    {
+        Source = source,
+        ListingId = listingId,
+        ImageUrl = $"https://pictures.example/{source}/{listingId}.jpg",
+        ContentType = "image/jpeg",
+        Data = [1, 2, 3],
+        DownloadedAtUtc = DateTime.UtcNow,
+    };
 }

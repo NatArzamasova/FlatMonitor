@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 
 /// <summary>
 /// Runs every scraper in turn and owns everything after scraping: district filtering, saving in batches,
-/// progress reporting, and the JSONL backup file. Scrapers only produce flats.
+/// downloading the flats' title photos, progress reporting, and the JSONL backup file. Scrapers only produce flats.
 /// Batches go into the repository's staging table; a source replaces its rows in FlatsSnapshots only once it has
 /// finished with flats. Until then, and for good if it fails, the API keeps serving its rows of the previous run.
 /// </summary>
@@ -22,17 +22,20 @@ public sealed class ScraperCoordinator
 
     private readonly IEnumerable<IScraper> _scrapers;
     private readonly IFlatRepository _repository;
+    private readonly IFlatPreviewDownloader _previews;
     private readonly JsonlBackupWriter _backupWriter;
     private readonly ILogger<ScraperCoordinator> _logger;
 
     public ScraperCoordinator(
         IEnumerable<IScraper> scrapers,
         IFlatRepository repository,
+        IFlatPreviewDownloader previews,
         JsonlBackupWriter backupWriter,
         ILogger<ScraperCoordinator> logger)
     {
         _scrapers = scrapers ?? throw new ArgumentNullException(nameof(scrapers));
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+        _previews = previews ?? throw new ArgumentNullException(nameof(previews));
         _backupWriter = backupWriter ?? throw new ArgumentNullException(nameof(backupWriter));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -134,6 +137,8 @@ public sealed class ScraperCoordinator
                     continue;
 
                 await _repository.AddToRunAsync(filtered, ct);
+                // The title photos for the hover preview; a photo that fails leaves the flat without one
+                await _previews.SavePreviewsAsync(filtered, ct);
                 saved += filtered.Count;
                 health.Count(filtered);
                 countSaved(filtered.Count);

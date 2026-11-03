@@ -67,7 +67,9 @@ public class ImmobilienScout24DetailPageTests
             LivingAreaSqm = 104,
             CommissionPercent = 3.57,
             Details = page.Details,
+            ImageUrl = page.ImageUrl,
         });
+        flat.ImageUrl.Should().NotBeNull();
     }
 
     [Test]
@@ -126,5 +128,14 @@ public class ImmobilienScout24DetailPageTests
     {
         // A record: tests and callers can compare whole metadata values
         new ExposeMetadata { District = "Daxlanden", PriceEur = 1 }.Should().Be(new ExposeMetadata { District = "Daxlanden", PriceEur = 1 });
+    }
+
+    [Test]
+    public void ApplyTo_PageWithoutPhoto_KeepsTheCardsPhoto()
+    {
+        var page = new ImmobilienScout24DetailPage(Title: null, Metadata: null, OriginalPrice: null, Details: null);
+        var card = Card() with { ImageUrl = "https://pictures.example/card.jpg" };
+
+        page.ApplyTo(card).ImageUrl.Should().Be("https://pictures.example/card.jpg");
     }
 }

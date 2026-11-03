@@ -6,6 +6,7 @@ import { sourceBadge } from '../../../../../core/utils/source.utils';
 import { energyClassBadge } from '../../../../../core/utils/energy-class.utils';
 import { OfferRow, OfferSortColumn, OFFER_SORT_COLUMNS } from '../offer-row';
 import { OfferCardListComponent } from './offer-card-list.component';
+import { offerPreviewUrl } from '../../../../../core/utils/preview.utils';
 
 describe('OfferCardListComponent', () => {
   let fixture: ComponentFixture<OfferCardListComponent>;
@@ -14,7 +15,10 @@ describe('OfferCardListComponent', () => {
   let requested: OfferSortColumn[];
 
   const row = (offer: FlatOffer, discountPercentage: number | null = null, hasLink = true): OfferRow =>
-    ({ offer, discountPercentage, hasLink, source: sourceBadge(offer.source), energyClass: energyClassBadge(offer.energyEfficiencyClass) });
+    ({
+      offer, discountPercentage, hasLink, source: sourceBadge(offer.source), energyClass: energyClassBadge(offer.energyEfficiencyClass),
+      previewUrl: offerPreviewUrl(offer)
+    });
 
   const fullRow = row({
     district: 'Südstadt',
@@ -199,5 +203,20 @@ describe('OfferCardListComponent', () => {
 
       expect(requested).toEqual([]);
     });
+  });
+
+  it('shows the photo left of the text of the card, and a placeholder for an offer without one', () => {
+    render([
+      row({ district: 'Mitte', roomsCount: 1, source: 'OhneMakler', listingId: '42', hasPreview: true }),
+      row({ district: 'Durlach', roomsCount: 2, source: 'OhneMakler', listingId: '43', hasPreview: false })
+    ]);
+
+    const [withPhoto, withoutPhoto] = cards();
+    const body = withPhoto.querySelector('.card-body')!;
+    expect(body.firstElementChild!.tagName.toLowerCase()).toBe('app-offer-preview');
+    expect(withPhoto.querySelector('img.offer-thumb')!.getAttribute('src')).toBe('/api/flats/OhneMakler/42/preview');
+    expect(withoutPhoto.querySelector('img')).toBeNull();
+    expect(withoutPhoto.querySelector('.offer-thumb-empty')).not.toBeNull();
+    expect(text(withPhoto, '.offer-card-title')).toBe('Mitte · 1 room');
   });
 });

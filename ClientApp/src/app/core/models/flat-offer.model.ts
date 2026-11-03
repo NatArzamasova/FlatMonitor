@@ -7,6 +7,10 @@ export interface FlatOffer {
   livingAreaSqm?: number;
   url?: string;
   source?: string;
+  /** The portal's id of the listing; with `source` it names the flat. */
+  listingId?: string;
+  /** Whether the API has the flat's title photo; see `offerPreviewUrl()`. */
+  hasPreview?: boolean;
   /** When the flat is free, in the portal's words (`sofort`, `01.03.2027`, `vermietet`); from the detail page. */
   availability?: string;
   /** As the portal gives it: `A+` / `A_PLUS`, `A` … `H`; shown through `energyClassBadge()`. */

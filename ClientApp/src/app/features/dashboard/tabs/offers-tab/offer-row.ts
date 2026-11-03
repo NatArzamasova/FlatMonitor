@@ -13,6 +13,8 @@ export interface OfferRow {
   source: SourceBadge;
   /** `null` when the offer has no class. */
   energyClass: EnergyClassBadge | null;
+  /** The title photo shown by hovering over the ⓘ; `null` without one. */
+  previewUrl: string | null;
 }
 
 /** The sortable columns in table order, with the names used by the header buttons and the cards' sort control. */

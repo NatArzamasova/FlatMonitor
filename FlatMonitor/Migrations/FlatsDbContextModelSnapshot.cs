@@ -17,6 +17,39 @@ namespace FlatMonitor.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.1");
 
+            modelBuilder.Entity("FlatMonitor.Models.DailyFlatAggregation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal>("AvgPricePerMeter")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("District")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("RoomsCount")
+                        .HasColumnType("REAL");
+
+                    b.Property<DateOnly>("ScrapingDate")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ScrapingDate")
+                        .HasDatabaseName("idx_FlatAggregations_ScrapingDate");
+
+                    b.HasIndex("District", "RoomsCount")
+                        .HasDatabaseName("idx_FlatAggregations_District_RoomsCount");
+
+                    b.ToTable("FlatAggregations", (string)null);
+                });
+
             modelBuilder.Entity("FlatMonitor.Models.FilterPreset", b =>
                 {
                     b.Property<int>("Id")
@@ -55,37 +88,36 @@ namespace FlatMonitor.Migrations
                     b.ToTable("FilterPresets", (string)null);
                 });
 
-            modelBuilder.Entity("FlatMonitor.Models.DailyFlatAggregation", b =>
+            modelBuilder.Entity("FlatMonitor.Models.FlatPreview", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<decimal>("AvgPricePerMeter")
+                    b.Property<string>("Source")
+                        .HasMaxLength(50)
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("Count")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("ListingId")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
 
-                    b.Property<string>("District")
+                    b.Property<string>("ContentType")
+                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
-                    b.Property<double?>("RoomsCount")
-                        .HasColumnType("REAL");
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
 
-                    b.Property<DateOnly>("ScrapingDate")
+                    b.Property<DateTime>("DownloadedAtUtc")
                         .HasColumnType("TEXT");
 
-                    b.HasKey("Id");
+                    b.Property<string>("ImageUrl")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
 
-                    b.HasIndex("ScrapingDate")
-                        .HasDatabaseName("idx_FlatAggregations_ScrapingDate");
+                    b.HasKey("Source", "ListingId");
 
-                    b.HasIndex("District", "RoomsCount")
-                        .HasDatabaseName("idx_FlatAggregations_District_RoomsCount");
-
-                    b.ToTable("FlatAggregations", (string)null);
+                    b.ToTable("FlatPreviews", (string)null);
                 });
 
             modelBuilder.Entity("FlatMonitor.Models.PublishedFlat", b =>
@@ -264,10 +296,10 @@ namespace FlatMonitor.Migrations
                 {
                     b.OwnsOne("FlatMonitor.Models.FlatDetails", "Details", b1 =>
                         {
-                            b1.Property<string>("FlatSnapshotSource")
+                            b1.Property<string>("PublishedFlatSource")
                                 .HasColumnType("TEXT");
 
-                            b1.Property<string>("FlatSnapshotListingId")
+                            b1.Property<string>("PublishedFlatListingId")
                                 .HasColumnType("TEXT");
 
                             b1.Property<string>("Availability")
@@ -333,12 +365,12 @@ namespace FlatMonitor.Migrations
                                 .HasColumnType("INTEGER")
                                 .HasColumnName("ServiceChargeEur");
 
-                            b1.HasKey("FlatSnapshotSource", "FlatSnapshotListingId");
+                            b1.HasKey("PublishedFlatSource", "PublishedFlatListingId");
 
                             b1.ToTable("FlatsSnapshots");
 
                             b1.WithOwner()
-                                .HasForeignKey("FlatSnapshotSource", "FlatSnapshotListingId");
+                                .HasForeignKey("PublishedFlatSource", "PublishedFlatListingId");
                         });
 
                     b.Navigation("Details");
@@ -348,10 +380,10 @@ namespace FlatMonitor.Migrations
                 {
                     b.OwnsOne("FlatMonitor.Models.FlatDetails", "Details", b1 =>
                         {
-                            b1.Property<string>("StagedFlatSnapshotSource")
+                            b1.Property<string>("StagedFlatSource")
                                 .HasColumnType("TEXT");
 
-                            b1.Property<string>("StagedFlatSnapshotListingId")
+                            b1.Property<string>("StagedFlatListingId")
                                 .HasColumnType("TEXT");
 
                             b1.Property<string>("Availability")
@@ -417,12 +449,12 @@ namespace FlatMonitor.Migrations
                                 .HasColumnType("INTEGER")
                                 .HasColumnName("ServiceChargeEur");
 
-                            b1.HasKey("StagedFlatSnapshotSource", "StagedFlatSnapshotListingId");
+                            b1.HasKey("StagedFlatSource", "StagedFlatListingId");
 
                             b1.ToTable("FlatsSnapshots_Staging");
 
                             b1.WithOwner()
-                                .HasForeignKey("StagedFlatSnapshotSource", "StagedFlatSnapshotListingId");
+                                .HasForeignKey("StagedFlatSource", "StagedFlatListingId");
                         });
 
                     b.Navigation("Details");

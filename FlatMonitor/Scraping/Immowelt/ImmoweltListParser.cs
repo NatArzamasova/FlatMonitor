@@ -122,7 +122,24 @@ public sealed class ImmoweltListParser
             OriginalPriceEur = previousPrice ?? price,
             RoomsCount = Number(classified, "rawData", "nbroom"),
             LivingAreaSqm = Number(classified, "rawData", "surface", "main"),
+            ImageUrl = PreviewImageUrl(classified),
             ScrapedAtUtc = DateTime.UtcNow,
         };
+    }
+
+    /// <summary>
+    /// The first photo of <c>gallery.images</c> at preview size. The picture server scales to <c>?w=&amp;h=</c>: the full
+    /// photo is about 150 KB, 400×300 about 14 KB. The expose's data script has no photos, so this is the flat's only one.
+    /// </summary>
+    internal static string? PreviewImageUrl(JsonElement classified)
+    {
+        if (Element(classified, "gallery", "images") is not { ValueKind: JsonValueKind.Array } images)
+            return null;
+
+        var url = images.EnumerateArray().Select(image => Text(image, "url")).FirstOrDefault(url => url != null);
+        if (url == null || !Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
+            return null;
+
+        return new UriBuilder(uri) { Query = "w=400&h=300" }.Uri.AbsoluteUri;
     }
 }

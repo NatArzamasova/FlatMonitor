@@ -10,6 +10,7 @@ public class FlatsDbContext : DbContext
     public DbSet<ScrapingHistory> ScrapingHistories { get; set; }
     public DbSet<DailyFlatAggregation> FlatAggregations { get; set; }
     public DbSet<FilterPreset> FilterPresets { get; set; }
+    public DbSet<FlatPreview> FlatPreviews { get; set; }
 
     public FlatsDbContext(DbContextOptions<FlatsDbContext> options) : base(options)
     {
