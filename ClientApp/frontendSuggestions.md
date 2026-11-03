@@ -67,7 +67,11 @@ Offers without a usable URL show the pill without a link.
 (e.g. IS24 orange, Immowelt yellow, ohne-makler green) plus an ↗ icon link. This also lets the user
 see at a glance which portal a flat comes from.
 
-### 1.5 Consistent filter labels
+### 1.5 Consistent filter labels ✅ done
+All tabs now use "District:", "Rooms:", "Preset:" and a "Group by:" group with the options "District" /
+"Rooms" (checkboxes on the Dashboard tab, radios on History). The chart title and the "Latest averages"
+header say "Rooms" instead of "Room Number" / "Room count".
+
 The overview says "Filter District:" / "Filter Rooms:", the other tabs say "District:" / "Rooms:", and
 history says "Group By:" while overview uses checkboxes. Pick one wording ("District", "Rooms",
 "Group by") and use it on every tab.

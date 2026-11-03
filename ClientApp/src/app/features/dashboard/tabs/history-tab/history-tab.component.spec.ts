@@ -328,7 +328,7 @@ describe('HistoryTabComponent', () => {
       component.onGroupByChange();
       fixture.detectChanges();
 
-      expect(chartComponent()!.title).toBe('Price per m² Trend (by Room Number)');
+      expect(chartComponent()!.title).toBe('Price per m² Trend (by Rooms)');
       expect(chartComponent()!.points.map(point => point.label)).toContain('2 rooms');
     });
 
@@ -459,6 +459,8 @@ describe('HistoryTabComponent', () => {
       ]);
       expect(row('grouping').querySelector('#groupByDistrictRadio')).not.toBeNull();
       expect(row('grouping').querySelector('#groupByRoomsRadio')).not.toBeNull();
+      const group = row('grouping').querySelector('[role="radiogroup"]')!;
+      expect(fixture.nativeElement.querySelector('#' + group.getAttribute('aria-labelledby')).textContent.trim()).toBe('Group by:');
     });
   });
 });

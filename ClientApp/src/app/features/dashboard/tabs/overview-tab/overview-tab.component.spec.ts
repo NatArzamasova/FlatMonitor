@@ -173,7 +173,7 @@ describe('OverviewTabComponent', () => {
       await render();
 
       const label = fixture.nativeElement.querySelector('label[for="districtSelect"]') as HTMLLabelElement;
-      expect(label.textContent!.trim()).toBe('Filter District:');
+      expect(label.textContent!.trim()).toBe('District:');
       await chooseOption('districtSelect', 'Mitte');
 
       expect(component.selectedDistricts).toEqual(['Mitte']);
@@ -808,7 +808,17 @@ describe('OverviewTabComponent', () => {
         'app-filter-preset-bar#presetSelect'
       ]);
       expect(rowItems('other')).toEqual(['app-multi-select-filter#roomsSelect']);
-      expect(rowItems('grouping')).toEqual(['groupByDistrictToggle', 'groupByRoomsToggle']);
+      expect(rowItems('grouping')).toEqual(['groupByDistrictToggle']);
+    });
+
+    it('labels both grouping checkboxes with one "Group by:" group', () => {
+      const group = row('grouping').querySelector('[role="group"]')!;
+
+      expect(fixture.nativeElement.querySelector('#' + group.getAttribute('aria-labelledby')).textContent.trim()).toBe('Group by:');
+      expect(Array.from(group.querySelectorAll('input[type="checkbox"]')).map(input => input.id))
+        .toEqual(['groupByDistrictToggle', 'groupByRoomsToggle']);
+      expect(Array.from(group.querySelectorAll('.form-check-label')).map(label => label.textContent!.trim()))
+        .toEqual(['District', 'Rooms']);
     });
   });
 });

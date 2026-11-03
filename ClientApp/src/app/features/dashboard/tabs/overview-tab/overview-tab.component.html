@@ -30,7 +30,7 @@
     <div class="mb-3 d-flex flex-column gap-2">
       <div class="d-flex gap-3 align-items-center flex-wrap" data-filter-row="districts">
         <app-multi-select-filter
-          label="Filter District:"
+          label="District:"
           inputId="districtSelect"
           [options]="availableDistricts"
           [(selected)]="selectedDistricts"
@@ -42,7 +42,7 @@
 
       <div class="d-flex gap-3 align-items-center flex-wrap" data-filter-row="other">
         <app-multi-select-filter
-          label="Filter Rooms:"
+          label="Rooms:"
           inputId="roomsSelect"
           [options]="availableRooms"
           [(selected)]="selectedRooms"
@@ -52,30 +52,28 @@
       </div>
 
       <div class="d-flex gap-3 align-items-center flex-wrap" data-filter-row="grouping">
-        <div class="form-check">
-          <input
-            class="form-check-input"
-            type="checkbox"
-            id="groupByDistrictToggle"
-            [(ngModel)]="groupByDistrict"
-            (change)="applyFiltersAndGrouping()"
-          />
-          <label class="form-check-label" for="groupByDistrictToggle">
-            Group by District
-          </label>
-        </div>
-
-        <div class="form-check">
-          <input
-            class="form-check-input"
-            type="checkbox"
-            id="groupByRoomsToggle"
-            [(ngModel)]="groupByRooms"
-            (change)="applyFiltersAndGrouping()"
-          />
-          <label class="form-check-label" for="groupByRoomsToggle">
-            Group by Rooms
-          </label>
+        <div class="d-flex align-items-center gap-2" role="group" aria-labelledby="overviewGroupByLabel">
+          <span id="overviewGroupByLabel" class="filter-label">Group by:</span>
+          <div class="form-check form-check-inline mb-0">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="groupByDistrictToggle"
+              [(ngModel)]="groupByDistrict"
+              (change)="applyFiltersAndGrouping()"
+            />
+            <label class="form-check-label" for="groupByDistrictToggle">District</label>
+          </div>
+          <div class="form-check form-check-inline mb-0">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="groupByRoomsToggle"
+              [(ngModel)]="groupByRooms"
+              (change)="applyFiltersAndGrouping()"
+            />
+            <label class="form-check-label" for="groupByRoomsToggle">Rooms</label>
+          </div>
         </div>
       </div>
     </div>

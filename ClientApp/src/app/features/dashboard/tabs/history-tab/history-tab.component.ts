@@ -51,7 +51,7 @@ export class HistoryTabComponent implements OnInit {
   latestAverageData: { label: string; price: number }[] = [];
 
   get chartTitle(): string {
-    return `Price per m² Trend (${this.groupBy === 'district' ? 'by District' : 'by Room Number'})`;
+    return `Price per m² Trend (${this.groupBy === 'district' ? 'by District' : 'by Rooms'})`;
   }
 
   ngOnInit(): void {

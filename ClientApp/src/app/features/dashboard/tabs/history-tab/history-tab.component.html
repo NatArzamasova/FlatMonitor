@@ -18,9 +18,9 @@
       </div>
 
       <div class="d-flex gap-3 align-items-center flex-wrap" data-filter-row="grouping">
-        <div>
-          <label class="form-label mb-0 me-2">Group By:</label>
-          <div class="form-check form-check-inline">
+        <div class="d-flex align-items-center gap-2" role="radiogroup" aria-labelledby="historyGroupByLabel">
+          <span id="historyGroupByLabel" class="filter-label">Group by:</span>
+          <div class="form-check form-check-inline mb-0">
             <input
               class="form-check-input"
               type="radio"
@@ -34,7 +34,7 @@
               District
             </label>
           </div>
-          <div class="form-check form-check-inline">
+          <div class="form-check form-check-inline mb-0">
             <input
               class="form-check-input"
               type="radio"
@@ -45,7 +45,7 @@
               (change)="onGroupByChange()"
             />
             <label class="form-check-label" for="groupByRoomsRadio">
-              Room Number
+              Rooms
             </label>
           </div>
         </div>
@@ -65,7 +65,7 @@
           <table class="table table-sm data-table">
             <thead>
               <tr>
-                <th scope="col">{{ groupBy === 'district' ? 'District' : 'Room count' }}</th>
+                <th scope="col">{{ groupBy === 'district' ? 'District' : 'Rooms' }}</th>
                 <th scope="col" class="text-end">Avg. price/m²</th>
               </tr>
             </thead>
