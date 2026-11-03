@@ -463,4 +463,46 @@ describe('HistoryTabComponent', () => {
       expect(fixture.nativeElement.querySelector('#' + group.getAttribute('aria-labelledby')).textContent.trim()).toBe('Group by:');
     });
   });
+
+  describe('Active filter chips', () => {
+    const chipTexts = (): string[] =>
+      Array.from(fixture.nativeElement.querySelectorAll('.filter-chip') as NodeListOf<HTMLElement>)
+        .map(chip => chip.firstChild!.textContent!.trim());
+    const removeChip = (label: string) => {
+      (fixture.nativeElement.querySelector(`[aria-label="Remove filter ${label}"]`) as HTMLButtonElement).click();
+      fixture.detectChanges();
+    };
+    const reset = () => {
+      (fixture.nativeElement.querySelector('.filter-reset') as HTMLButtonElement).click();
+      fixture.detectChanges();
+    };
+
+    beforeEach(() => {
+      flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
+      fixture.detectChanges();
+      component.selectedDistricts = ['Mitte'];
+      component.onDistrictFilterChange();
+      fixture.detectChanges();
+    });
+
+    it('shows the district filter as chips', () => {
+      expect(chipTexts()).toEqual(['Mitte']);
+      expect(component.chartData.every(point => point.label === 'Mitte')).toBe(true);
+    });
+
+    it('removes a district with its chip and updates the chart', () => {
+      removeChip('Mitte');
+
+      expect(component.selectedDistricts).toEqual([]);
+      expect(component.chartData.some(point => point.label === 'Charlottenburg')).toBe(true);
+      expect(chipTexts()).toEqual([]);
+    });
+
+    it('resets the districts and the preset', () => {
+      reset();
+
+      expect(component.selectedDistricts).toEqual([]);
+      expect(presets.service.selectPreset).toHaveBeenCalledWith(null);
+    });
+  });
 });

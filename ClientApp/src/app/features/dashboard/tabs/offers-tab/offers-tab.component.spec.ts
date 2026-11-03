@@ -676,4 +676,61 @@ describe('OffersTabComponent', () => {
       expect(rowItems('other')).toEqual(['app-multi-select-filter#offerRoomsSelect', 'priceMin', 'priceMax']);
     });
   });
+
+  describe('Active filter chips', () => {
+    const chipTexts = (): string[] =>
+      Array.from(fixture.nativeElement.querySelectorAll('.filter-chip') as NodeListOf<HTMLElement>)
+        .map(chip => chip.firstChild!.textContent!.trim());
+    const removeChip = (label: string) => {
+      (fixture.nativeElement.querySelector(`[aria-label="Remove filter ${label}"]`) as HTMLButtonElement).click();
+      fixture.detectChanges();
+    };
+    const reset = () => {
+      (fixture.nativeElement.querySelector('.filter-reset') as HTMLButtonElement).click();
+      fixture.detectChanges();
+    };
+
+    beforeEach(() => {
+      flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
+      fixture.detectChanges();
+      component.selectedDistricts = ['Mitte', 'Charlottenburg'];
+      component.selectedRooms = [2];
+      component.priceRangeMin = 1000;
+      component.priceRangeMax = 3000;
+      component.applyFilters();
+      fixture.detectChanges();
+    });
+
+    it('shows every active filter as a chip', () => {
+      expect(chipTexts()).toEqual(['Mitte', 'Charlottenburg', '2 rooms', 'from €1,000', 'up to €3,000']);
+      expect(component.filteredOffers.map(offer => offer.district)).toEqual(['Mitte']);
+    });
+
+    it('removes one filter per chip and filters again', () => {
+      removeChip('2 rooms');
+      expect(component.selectedRooms).toEqual([]);
+      expect(component.filteredOffers.length).toBe(2);
+
+      removeChip('Mitte');
+      removeChip('from €1,000');
+      removeChip('up to €3,000');
+
+      expect(component.selectedDistricts).toEqual(['Charlottenburg']);
+      expect(component.priceRangeMin).toBeNull();
+      expect(component.priceRangeMax).toBeNull();
+      expect(chipTexts()).toEqual(['Charlottenburg']);
+    });
+
+    it('resets every filter and the preset', () => {
+      reset();
+
+      expect(component.selectedDistricts).toEqual([]);
+      expect(component.selectedRooms).toEqual([]);
+      expect(component.priceRangeMin).toBeNull();
+      expect(component.priceRangeMax).toBeNull();
+      expect(presets.service.selectPreset).toHaveBeenCalledWith(null);
+      expect(component.filteredOffers.length).toBe(2);
+      expect(chipTexts()).toEqual([]);
+    });
+  });
 });

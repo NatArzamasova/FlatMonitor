@@ -19,6 +19,8 @@ import { SortableHeaderComponent } from '../../../../shared/sortable-header/sort
 import { MultiSelectFilterComponent } from '../../../../shared/multi-select-filter/multi-select-filter.component';
 import { LoadingSpinnerComponent } from '../../../../shared/loading-spinner/loading-spinner.component';
 import { DismissibleAlertComponent } from '../../../../shared/dismissible-alert/dismissible-alert.component';
+import { FilterToolbarComponent } from '../../../../shared/filter-toolbar/filter-toolbar.component';
+import { FilterChip, buildFilterChips } from '../../../../core/utils/filter-chips.utils';
 import { FilterPresetBarComponent } from '../../../../shared/filter-preset-bar/filter-preset-bar.component';
 
 type AggregationSortColumn = 'district' | 'roomsCount' | 'count' | 'avgPricePerMeter';
@@ -37,7 +39,8 @@ type AggregationSortColumn = 'district' | 'roomsCount' | 'count' | 'avgPricePerM
     MultiSelectFilterComponent,
     LoadingSpinnerComponent,
     DismissibleAlertComponent,
-    FilterPresetBarComponent
+    FilterPresetBarComponent,
+    FilterToolbarComponent
   ],
   templateUrl: './overview-tab.component.html',
 })
@@ -64,6 +67,8 @@ export class OverviewTabComponent implements OnInit {
 
   availableDistricts: string[] = [];
   availableRooms: number[] = [];
+  /** The active filters as chips, updated with the table. */
+  filterChips: FilterChip[] = [];
 
   ngOnInit(): void {
     this.followActivePreset();
@@ -119,10 +124,28 @@ export class OverviewTabComponent implements OnInit {
     let filtered = this.rawData;
     filtered = filterByDistricts(filtered, this.selectedDistricts, item => item.district);
     filtered = filterByRooms(filtered, this.selectedRooms, item => normalizeRooms(item.roomsCount));
+    this.filterChips = buildFilterChips({ districts: this.selectedDistricts, rooms: this.selectedRooms });
 
     // Backend rows are already one per district + rooms combination.
     this.aggregatedData = this.groupByDistrict && this.groupByRooms ? filtered : this.aggregate(filtered);
     this.applySort();
+  }
+
+  removeFilterChip(chip: FilterChip): void {
+    if (chip.kind === 'district') {
+      this.selectedDistricts = this.selectedDistricts.filter(district => district !== chip.value);
+    } else if (chip.kind === 'rooms') {
+      this.selectedRooms = this.selectedRooms.filter(rooms => rooms !== chip.value);
+    }
+    this.applyFiltersAndGrouping();
+  }
+
+  /** Clears every filter and the preset (keeping a preset whose districts were all removed would only show it as modified). */
+  resetFilters(): void {
+    this.selectedDistricts = [];
+    this.selectedRooms = [];
+    this.filterPresets.selectPreset(null);
+    this.applyFiltersAndGrouping();
   }
 
   onSort(column: AggregationSortColumn): void {

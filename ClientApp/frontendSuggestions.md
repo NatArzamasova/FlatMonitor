@@ -114,7 +114,11 @@ Bootstrap dropdown with checkboxes:
 Bootstrap's dropdown needs Popper/JS. Toggling a `show` class from Angular plus a click-outside
 listener is enough. Alternatively use `@ng-bootstrap/ng-bootstrap` (`NgbDropdown`).
 
-### 2.2 Filter toolbar as a card + active-filter chips
+### 2.2 Filter toolbar as a card + active-filter chips ✅ done
+Implemented as the shared `FilterToolbarComponent` (`shared/filter-toolbar/`) with chips built by
+`buildFilterChips()` (`core/utils/filter-chips.utils.ts`), on all three tabs. "Reset filters" also
+deselects the preset. Below md the card collapses behind "Filters (n)"; the chips stay visible.
+
 Put the filter rows of each tab into one `card` with a `card-body py-2` "toolbar". Below it, show
 the active filters as removable chips (`Südstadt ✕`, `3 rooms ✕`, `≤ 400 000 € ✕`) and a
 "Reset filters" link. On small screens collapse the toolbar behind a "Filters (3)" button.

@@ -4,7 +4,7 @@
   }
 
   @if (!loading && currentOffers.length > 0) {
-    <div class="mb-3 d-flex flex-column gap-2">
+    <app-filter-toolbar [chips]="filterChips" (chipRemoved)="removeFilterChip($event)" (reset)="resetFilters()">
       <div class="d-flex gap-3 align-items-center flex-wrap" data-filter-row="districts">
         <app-multi-select-filter
           label="District:"
@@ -51,7 +51,7 @@
           />
         </div>
       </div>
-    </div>
+    </app-filter-toolbar>
   }
 
   @if (!loading && filteredOffers.length > 0) {

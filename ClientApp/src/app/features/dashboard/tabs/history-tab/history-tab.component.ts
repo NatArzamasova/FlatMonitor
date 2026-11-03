@@ -16,6 +16,8 @@ import { HistoryPoint } from './history-chart/history-chart.config';
 import { LoadingSpinnerComponent } from '../../../../shared/loading-spinner/loading-spinner.component';
 import { DismissibleAlertComponent } from '../../../../shared/dismissible-alert/dismissible-alert.component';
 import { MultiSelectFilterComponent } from '../../../../shared/multi-select-filter/multi-select-filter.component';
+import { FilterToolbarComponent } from '../../../../shared/filter-toolbar/filter-toolbar.component';
+import { FilterChip, buildFilterChips } from '../../../../core/utils/filter-chips.utils';
 import { FilterPresetBarComponent } from '../../../../shared/filter-preset-bar/filter-preset-bar.component';
 
 @Component({
@@ -29,7 +31,8 @@ import { FilterPresetBarComponent } from '../../../../shared/filter-preset-bar/f
     LoadingSpinnerComponent,
     DismissibleAlertComponent,
     MultiSelectFilterComponent,
-    FilterPresetBarComponent
+    FilterPresetBarComponent,
+    FilterToolbarComponent
   ],
   templateUrl: './history-tab.component.html',
 })
@@ -45,6 +48,8 @@ export class HistoryTabComponent implements OnInit {
   /** Applied before grouping, so it also narrows the room-number trends. Empty = all districts. */
   selectedDistricts: string[] = [];
   availableDistricts: string[] = [];
+  /** The active filters as chips, updated with the chart. */
+  filterChips: FilterChip[] = [];
   chartData: HistoryPoint[] = [];
   // Derived from chartData in updateChartData(), so the table is not recomputed on every change detection.
   latestAverageDate = '';
@@ -89,6 +94,20 @@ export class HistoryTabComponent implements OnInit {
       });
   }
 
+  removeFilterChip(chip: FilterChip): void {
+    if (chip.kind === 'district') {
+      this.selectedDistricts = this.selectedDistricts.filter(district => district !== chip.value);
+    }
+    this.updateChartData();
+  }
+
+  /** Clears every filter and the preset (keeping a preset whose districts were all removed would only show it as modified). */
+  resetFilters(): void {
+    this.selectedDistricts = [];
+    this.filterPresets.selectPreset(null);
+    this.updateChartData();
+  }
+
   onGroupByChange(): void {
     this.updateChartData();
   }
@@ -103,6 +122,7 @@ export class HistoryTabComponent implements OnInit {
   }
 
   private updateChartData(): void {
+    this.filterChips = buildFilterChips({ districts: this.selectedDistricts });
     if (this.groupBy === 'district') {
       this.aggregateByDistrict();
     } else {

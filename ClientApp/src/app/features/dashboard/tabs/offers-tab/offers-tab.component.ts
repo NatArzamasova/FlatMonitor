@@ -18,6 +18,8 @@ import { SortableHeaderComponent } from '../../../../shared/sortable-header/sort
 import { MultiSelectFilterComponent } from '../../../../shared/multi-select-filter/multi-select-filter.component';
 import { LoadingSpinnerComponent } from '../../../../shared/loading-spinner/loading-spinner.component';
 import { DismissibleAlertComponent } from '../../../../shared/dismissible-alert/dismissible-alert.component';
+import { FilterToolbarComponent } from '../../../../shared/filter-toolbar/filter-toolbar.component';
+import { FilterChip, buildFilterChips } from '../../../../core/utils/filter-chips.utils';
 import { FilterPresetBarComponent } from '../../../../shared/filter-preset-bar/filter-preset-bar.component';
 
 type OfferSortColumn =
@@ -42,7 +44,8 @@ interface OfferRow {
     MultiSelectFilterComponent,
     LoadingSpinnerComponent,
     DismissibleAlertComponent,
-    FilterPresetBarComponent
+    FilterPresetBarComponent,
+    FilterToolbarComponent
   ],
   templateUrl: './offers-tab.component.html',
 })
@@ -67,6 +70,8 @@ export class OffersTabComponent implements OnInit {
   priceRangeMax: number | null = null;
   availableDistricts: string[] = [];
   availableRooms: number[] = [];
+  /** The active filters as chips, updated with the table. */
+  filterChips: FilterChip[] = [];
 
   ngOnInit(): void {
     const districtsFromUrl = this.loadInitialFiltersFromUrl();
@@ -160,12 +165,46 @@ export class OffersTabComponent implements OnInit {
     );
 
     this.filteredOffers = this.sort.apply(filtered);
+    this.filterChips = buildFilterChips({
+      districts: this.selectedDistricts,
+      rooms: this.selectedRooms,
+      priceMin: this.priceRangeMin,
+      priceMax: this.priceRangeMax
+    });
     this.offerRows = this.filteredOffers.map(offer => ({
       offer,
       discountPercentage: this.getDiscountPercentage(offer),
       hasLink: isHttpUrl(offer.url),
       source: sourceBadge(offer.source)
     }));
+  }
+
+  removeFilterChip(chip: FilterChip): void {
+    switch (chip.kind) {
+      case 'district':
+        this.selectedDistricts = this.selectedDistricts.filter(district => district !== chip.value);
+        break;
+      case 'rooms':
+        this.selectedRooms = this.selectedRooms.filter(rooms => rooms !== chip.value);
+        break;
+      case 'priceMin':
+        this.priceRangeMin = null;
+        break;
+      case 'priceMax':
+        this.priceRangeMax = null;
+        break;
+    }
+    this.applyFilters();
+  }
+
+  /** Clears every filter and the preset (keeping a preset whose districts were all removed would only show it as modified). */
+  resetFilters(): void {
+    this.selectedDistricts = [];
+    this.selectedRooms = [];
+    this.priceRangeMin = null;
+    this.priceRangeMax = null;
+    this.filterPresets.selectPreset(null);
+    this.applyFilters();
   }
 
   onSort(column: OfferSortColumn): void {

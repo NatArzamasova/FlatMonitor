@@ -825,4 +825,50 @@ describe('OverviewTabComponent', () => {
         .toEqual(['District', 'Rooms']);
     });
   });
+
+  describe('Active filter chips', () => {
+    const chipTexts = (): string[] =>
+      Array.from(fixture.nativeElement.querySelectorAll('.filter-chip') as NodeListOf<HTMLElement>)
+        .map(chip => chip.firstChild!.textContent!.trim());
+    const removeChip = (label: string) => {
+      (fixture.nativeElement.querySelector(`[aria-label="Remove filter ${label}"]`) as HTMLButtonElement).click();
+      fixture.detectChanges();
+    };
+    const reset = () => {
+      (fixture.nativeElement.querySelector('.filter-reset') as HTMLButtonElement).click();
+      fixture.detectChanges();
+    };
+
+    beforeEach(() => {
+      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
+      fixture.detectChanges();
+      component.selectedDistricts = ['Mitte'];
+      component.selectedRooms = [3];
+      component.applyFiltersAndGrouping();
+      fixture.detectChanges();
+    });
+
+    it('shows the district and rooms filters as chips', () => {
+      expect(chipTexts()).toEqual(['Mitte', '3 rooms']);
+      expect(component.aggregatedData).toEqual([]);
+    });
+
+    it('removes one filter per chip and aggregates again', () => {
+      removeChip('3 rooms');
+
+      expect(component.selectedRooms).toEqual([]);
+      expect(component.aggregatedData.map(row => row.district)).toEqual(['Mitte']);
+      expect(chipTexts()).toEqual(['Mitte']);
+    });
+
+    it('resets the filters and the preset', () => {
+      reset();
+
+      expect(component.selectedDistricts).toEqual([]);
+      expect(component.selectedRooms).toEqual([]);
+      expect(presets.service.selectPreset).toHaveBeenCalledWith(null);
+      expect(component.aggregatedData.length).toBe(2);
+      expect(chipTexts()).toEqual([]);
+    });
+  });
 });
