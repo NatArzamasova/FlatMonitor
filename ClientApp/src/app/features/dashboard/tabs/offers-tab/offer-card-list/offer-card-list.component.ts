@@ -51,11 +51,22 @@ import { OFFER_SORT_COLUMNS, OfferRow, OfferSortColumn } from '../offer-row';
                     [title]="'Was ' + (row.offer.originalPriceEur | currency: 'EUR': 'symbol': '1.0-0') + ' when first listed'">−{{ row.discountPercentage | number: '1.0-1' }} %</span>
                 }
               </div>
+              @if (row.offer.availability) {
+                <div class="small mt-1 text-truncate offer-card-availability" [title]="row.offer.availability">
+                  <span class="text-body-secondary">Available:</span> {{ row.offer.availability }}
+                </div>
+              }
               <div class="d-flex align-items-center justify-content-between gap-2 mt-1">
+                <span class="d-flex align-items-center gap-2">
+                @if (row.energyClass; as energyClass) {
+                  <span class="badge ee-badge" [class]="energyClass.className"
+                    [title]="'Energy efficiency class ' + energyClass.label">{{ energyClass.label }}</span>
+                }
                 <span class="text-body-secondary small offer-card-details">
                   {{ row.offer.livingAreaSqm ? (row.offer.livingAreaSqm | number: '1.0-1') + ' m²' : '- m²' }}
                   ·
                   {{ row.offer.pricePerMeter ? (row.offer.pricePerMeter | currency: 'EUR': 'symbol': '1.0-0') + ' / m²' : '- / m²' }}
+                </span>
                 </span>
                 <!-- Same markup as the table's source cell, so the link has the same accessible name. -->
                 @if (row.hasLink) {

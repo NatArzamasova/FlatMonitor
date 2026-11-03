@@ -1,6 +1,6 @@
 <div class="fill-column">
   @if (loading) {
-    <app-loading-skeleton [columns]="6" [cardsOnSmallScreens]="true"></app-loading-skeleton>
+    <app-loading-skeleton [columns]="8" [cardsOnSmallScreens]="true"></app-loading-skeleton>
   }
 
   @if (!loading && currentOffers.length > 0) {
@@ -68,6 +68,12 @@
             <th appSortableHeader class="text-end" [sort]="sort" column="priceEur" sortLabel="Price" (sortRequested)="onSort($event)">Price (€)</th>
             <th appSortableHeader class="text-end" [sort]="sort" column="livingAreaSqm" sortLabel="Living Area" (sortRequested)="onSort($event)">Living area (m²)</th>
             <th appSortableHeader class="text-end" [sort]="sort" column="pricePerMeter" sortLabel="Price per Square Meter" (sortRequested)="onSort($event)">Price/m² (€)</th>
+            <th appSortableHeader class="text-center" [sort]="sort" column="energyEfficiencyClass"
+              sortLabel="Energy Efficiency Class" (sortRequested)="onSort($event)">
+              <abbr title="Energy efficiency class">EE Class</abbr>
+            </th>
+            <!-- Not sortable: free text such as "sofort" or "01.03.2027" has no meaningful order. -->
+            <th class="text-end">Availability</th>
             <th appSortableHeader [sort]="sort" column="source" sortLabel="Source" (sortRequested)="onSort($event)">Source</th>
           </tr>
         </thead>
@@ -87,6 +93,15 @@
               </td>
               <td class="text-end">{{ row.offer.livingAreaSqm ? (row.offer.livingAreaSqm | number: '1.0-1') : '-' }}</td>
               <td class="text-end">{{ row.offer.pricePerMeter ? (row.offer.pricePerMeter | number: '1.0-0') : '-' }}</td>
+              <td class="text-center">
+                @if (row.energyClass; as energyClass) {
+                  <span class="badge ee-badge" [class]="energyClass.className"
+                    [title]="'Energy efficiency class ' + energyClass.label">{{ energyClass.label }}</span>
+                } @else {
+                  -
+                }
+              </td>
+              <td class="text-end offer-availability" [title]="row.offer.availability ?? ''">{{ row.offer.availability || '-' }}</td>
               <td>
                 <!-- The pill names the portal; with a usable URL the whole cell content opens the offer there. -->
                 @if (row.hasLink) {

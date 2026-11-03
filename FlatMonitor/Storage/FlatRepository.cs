@@ -129,7 +129,9 @@ public sealed class FlatRepository : IFlatRepository
                     PricePerMeter = s.PricePerMeter,
                     LivingAreaSqm = s.LivingAreaSqm,
                     Url = s.Url,
-                    Source = s.Source
+                    Source = s.Source,
+                    Availability = s.Details == null ? null : s.Details.Availability,
+                    EnergyEfficiencyClass = s.Details == null ? null : s.Details.EnergyEfficiencyClass
                 })
                 .ToListAsync(ct);
     }

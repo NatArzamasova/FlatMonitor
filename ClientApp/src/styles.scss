@@ -123,6 +123,36 @@ body {
   }
 }
 
+/* Free-text availability in the offers table ("sofort", "01.03.2027", longer notes are cut off; full text as title). */
+.offer-availability {
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*
+ * Energy efficiency class pills, coloured like the German energy certificate scale (dark green A+ … red H).
+ * The same in both themes: the colours are the scale's, and each text colour has ≥ 4.5:1 on its background.
+ */
+.ee-badge {
+  min-width: 2.25rem;
+  font-weight: 600;
+  background-color: var(--ee-bg);
+  color: var(--ee-fg);
+}
+
+.ee-a-plus { --ee-bg: #006b32; --ee-fg: #ffffff; }
+.ee-a { --ee-bg: #00843d; --ee-fg: #ffffff; }
+.ee-b { --ee-bg: #8cc63f; --ee-fg: #1a1a1a; }
+.ee-c { --ee-bg: #c8d400; --ee-fg: #1a1a1a; }
+.ee-d { --ee-bg: #fff200; --ee-fg: #1a1a1a; }
+.ee-e { --ee-bg: #fdb913; --ee-fg: #1a1a1a; }
+.ee-f { --ee-bg: #f37021; --ee-fg: #1a1a1a; }
+.ee-g { --ee-bg: #d42019; --ee-fg: #ffffff; }
+.ee-h { --ee-bg: #b51f24; --ee-fg: #ffffff; }
+.ee-other { --ee-bg: var(--bs-secondary-bg); --ee-fg: var(--bs-secondary-color); }
+
 /* Colour dot of a chart line, e.g. in the History tab's "Latest averages" table. */
 .series-dot {
   display: inline-block;

@@ -313,7 +313,8 @@ public class FlatRepositoryTests
             {
                 Source = "source", ListingId = "newer", ScrapedAtUtc = new DateTime(2026, 10, 21, 8, 0, 0, DateTimeKind.Utc),
                 District = "Zentrum", RoomsCount = 3, PriceEur = 1200, OriginalPriceEur = 1400,
-                PricePerMeter = 40, LivingAreaSqm = 72, Url = "new-url"
+                PricePerMeter = 40, LivingAreaSqm = 72, Url = "new-url",
+                Details = new FlatDetails { Availability = "sofort", EnergyEfficiencyClass = "A_PLUS" }
             };
             dbContext.FlatsSnapshots.AddRange(older, newer);
             var createdAt = DateTime.UtcNow;
@@ -336,6 +337,10 @@ public class FlatRepositoryTests
         result[0].LivingAreaSqm.Should().Be(72);
         result[0].Url.Should().Be("new-url");
         result[0].Source.Should().Be("source");
+        result[0].Availability.Should().Be("sofort");
+        result[1].Availability.Should().BeNull("the older flat has no details");
+        result[0].EnergyEfficiencyClass.Should().Be("A_PLUS");
+        result[1].EnergyEfficiencyClass.Should().BeNull();
     }
 
     private DbContextOptions<FlatsDbContext> CreateSqliteOptions()
@@ -344,6 +349,41 @@ public class FlatRepositoryTests
         return new DbContextOptionsBuilder<FlatsDbContext>()
             .UseSqlite($"Data Source={dbPath}")
             .Options;
+    }
+
+    [Test]
+    public async Task GetCurrentOffersAsync_OnSqlite_ReadsAvailabilityAndEnergyClassFromTheDetailsColumns()
+    {
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatRepository(repoContext);
+
+        await using (var dbContext = new FlatsDbContext(options))
+        {
+            var withDetails = new PublishedFlat
+            {
+                Source = "source", ListingId = "with-details", ScrapedAtUtc = new DateTime(2026, 10, 21, 8, 0, 0, DateTimeKind.Utc),
+                District = "Zentrum", Details = new FlatDetails { Availability = "01.03.2027", EnergyEfficiencyClass = "C" }
+            };
+            var withoutDetails = new PublishedFlat
+            {
+                Source = "source", ListingId = "without-details", ScrapedAtUtc = new DateTime(2026, 10, 20, 8, 0, 0, DateTimeKind.Utc),
+                District = "Innenstadt"
+            };
+            dbContext.FlatsSnapshots.AddRange(withDetails, withoutDetails);
+            var createdAt = DateTime.UtcNow;
+            foreach (var snapshot in new[] { withDetails, withoutDetails })
+            {
+                dbContext.Entry(snapshot).Property<DateTime>("CreatedAtUtc").CurrentValue = createdAt;
+                dbContext.Entry(snapshot).Property<DateTime>("UpdatedAtUtc").CurrentValue = createdAt;
+            }
+            await dbContext.SaveChangesAsync();
+        }
+
+        var result = await repo.GetCurrentOffersAsync();
+
+        result.Select(offer => offer.Availability).Should().Equal("01.03.2027", null);
+        result.Select(offer => offer.EnergyEfficiencyClass).Should().Equal("C", null);
     }
 
     [Test]

@@ -11,6 +11,7 @@ import { filterByDistricts, filterByPriceRange, filterByRooms } from '../../../.
 import { FlatOffer } from '../../../../core/models/flat-offer.model';
 import { isHttpUrl } from '../../../../core/utils/url.utils';
 import { sourceBadge } from '../../../../core/utils/source.utils';
+import { energyClassBadge, energyClassRank } from '../../../../core/utils/energy-class.utils';
 import { normalizeRooms } from '../../../../core/utils/rooms.utils';
 import { distinctSorted } from '../../../../core/utils/collection.utils';
 import { describeLoadError } from '../../../../core/utils/api-response.utils';
@@ -55,7 +56,10 @@ export class OffersTabComponent implements OnInit {
   private readonly filterPresets = inject(FilterPresetsService);
   private readonly destroyRef = inject(DestroyRef);
 
-  readonly sort = new TableSort<FlatOffer, OfferSortColumn>();
+  // Energy classes sort by the scale (A+ first), not alphabetically; unknown ones last.
+  readonly sort = new TableSort<FlatOffer, OfferSortColumn>({
+    energyEfficiencyClass: offer => energyClassRank(offer.energyEfficiencyClass)
+  });
 
   currentOffers: FlatOffer[] = [];
   filteredOffers: FlatOffer[] = [];
@@ -192,7 +196,8 @@ export class OffersTabComponent implements OnInit {
       offer,
       discountPercentage: this.getDiscountPercentage(offer),
       hasLink: isHttpUrl(offer.url),
-      source: sourceBadge(offer.source)
+      source: sourceBadge(offer.source),
+      energyClass: energyClassBadge(offer.energyEfficiencyClass)
     }));
   }
 

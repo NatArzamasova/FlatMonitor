@@ -3,6 +3,7 @@ import { provideAppLocale } from '../../../../../core/utils/locale.utils';
 import { FlatOffer } from '../../../../../core/models/flat-offer.model';
 import { TableSort } from '../../../../../core/utils/table-sort';
 import { sourceBadge } from '../../../../../core/utils/source.utils';
+import { energyClassBadge } from '../../../../../core/utils/energy-class.utils';
 import { OfferRow, OfferSortColumn, OFFER_SORT_COLUMNS } from '../offer-row';
 import { OfferCardListComponent } from './offer-card-list.component';
 
@@ -13,7 +14,7 @@ describe('OfferCardListComponent', () => {
   let requested: OfferSortColumn[];
 
   const row = (offer: FlatOffer, discountPercentage: number | null = null, hasLink = true): OfferRow =>
-    ({ offer, discountPercentage, hasLink, source: sourceBadge(offer.source) });
+    ({ offer, discountPercentage, hasLink, source: sourceBadge(offer.source), energyClass: energyClassBadge(offer.energyEfficiencyClass) });
 
   const fullRow = row({
     district: 'Südstadt',
@@ -100,6 +101,24 @@ describe('OfferCardListComponent', () => {
       expect(text(card, '.offer-card-price')).toBe('-');
       expect(text(card, '.offer-card-details')).toBe('- m² · - / m²');
       expect(card.querySelector('.price-drop')).toBeNull();
+    });
+
+    it('shows the availability when the offer has one', () => {
+      render([row({ district: 'Mitte', availability: 'sofort' }), row({ district: 'Weststadt' })]);
+
+      expect(text(cards()[0], '.offer-card-availability')).toBe('Available: sofort');
+      expect(cards()[0].querySelector('.offer-card-availability')!.getAttribute('title')).toBe('sofort');
+      expect(cards()[1].querySelector('.offer-card-availability')).toBeNull();
+    });
+
+    it('shows the energy class as a pill in its scale colour, and none without a class', () => {
+      render([row({ district: 'Mitte', energyEfficiencyClass: 'A_PLUS' }), row({ district: 'Weststadt' })]);
+
+      const pill = cards()[0].querySelector('.ee-badge') as HTMLElement;
+      expect(pill.textContent!.trim()).toBe('A+');
+      expect(pill.classList).toContain('ee-a-plus');
+      expect(pill.title).toBe('Energy efficiency class A+');
+      expect(cards()[1].querySelector('.ee-badge')).toBeNull();
     });
 
     it('leaves the rooms out of the title when they are unknown', () => {

@@ -3,11 +3,14 @@ export type SortDirection = 'asc' | 'desc';
 /**
  * Click-to-sort state for a table: the first click on a column sorts ascending, the next one toggles.
  * Missing values always sort last; numbers compare numerically, everything else with a
- * case-insensitive, digit-aware `localeCompare`.
+ * case-insensitive, digit-aware `localeCompare`. A column whose raw values do not sort meaningfully can get its own
+ * sort value: `new TableSort<Offer, Column>({ energyClass: offer => rank(offer.energyClass) })`.
  */
 export class TableSort<T, K extends keyof T = keyof T> {
   column: K | null = null;
   direction: SortDirection = 'asc';
+
+  constructor(private readonly sortValues: Partial<Record<K, (row: T) => unknown>> = {}) {}
 
   toggle(column: K): void {
     if (this.column === column) {
@@ -36,9 +39,10 @@ export class TableSort<T, K extends keyof T = keyof T> {
     }
 
     const direction = this.direction === 'asc' ? 1 : -1;
+    const valueOf = this.sortValues[column] ?? ((row: T) => row[column]);
     return [...rows].sort((left, right) => {
-      const leftValue = left[column];
-      const rightValue = right[column];
+      const leftValue = valueOf(left);
+      const rightValue = valueOf(right);
       if (leftValue == null) return rightValue == null ? 0 : 1;
       if (rightValue == null) return -1;
       const comparison = typeof leftValue === 'number' && typeof rightValue === 'number'

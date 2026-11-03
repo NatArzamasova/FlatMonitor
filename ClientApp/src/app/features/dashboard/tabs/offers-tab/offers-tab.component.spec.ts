@@ -409,7 +409,7 @@ describe('OffersTabComponent', () => {
       fixture.detectChanges();
 
       const buttons = fixture.nativeElement.querySelectorAll('thead button[aria-label^="Sort by"]') as NodeListOf<HTMLButtonElement>;
-      expect(buttons.length).toBe(6);
+      expect(buttons.length).toBe(7);
       buttons[2].click();
       fixture.detectChanges();
 
@@ -729,6 +729,101 @@ describe('OffersTabComponent', () => {
 
       expect(cell.querySelector('a')).toBeNull();
       expect(cell.querySelector('.source-badge')!.textContent!.trim()).toBe('ohne-makler');
+    });
+  });
+
+  describe('Availability column', () => {
+    const renderOffers = (offers: FlatOffer[]) => {
+      flatsService.getCurrentOffers.and.returnValue(apiResult({ success: true, data: offers, message: 'Success' }));
+      fixture.detectChanges();
+    };
+    const availabilityCells = (): HTMLElement[] => Array.from(fixture.nativeElement.querySelectorAll('tbody td.offer-availability'));
+
+    it('has an Availability header after Price/m², without sorting', () => {
+      renderOffers([{ district: 'Mitte', availability: 'sofort' }]);
+
+      const headers = Array.from(fixture.nativeElement.querySelectorAll('thead th') as NodeListOf<HTMLElement>);
+      expect(headers.map(header => header.textContent!.trim().replace(/[↑↓↕]/g, '').trim()))
+        .toEqual(['District', 'Rooms', 'Price (€)', 'Living area (m²)', 'Price/m² (€)', 'EE Class', 'Availability', 'Source']);
+      expect(headers[6].querySelector('button')).toBeNull();
+    });
+
+    it('shows the availability of each offer, with the full text as title, and - when it is missing', () => {
+      renderOffers([
+        { district: 'Mitte', priceEur: 1000, availability: '01.03.2027' },
+        { district: 'Weststadt', priceEur: 2000 }
+      ]);
+
+      expect(availabilityCells().map(cell => cell.textContent!.trim())).toEqual(['01.03.2027', '-']);
+      expect(availabilityCells()[0].title).toBe('01.03.2027');
+      expect(availabilityCells()[1].title).toBe('');
+    });
+
+    it('aligns the header and the cells to the right', () => {
+      renderOffers([{ district: 'Mitte', availability: 'sofort' }]);
+
+      const header = fixture.nativeElement.querySelectorAll('thead th')[6] as HTMLElement;
+      expect(header.classList).toContain('text-end');
+      expect(availabilityCells()[0].classList).toContain('text-end');
+      expect(getComputedStyle(header).textAlign).toMatch(/^(right|end)$/);
+      expect(getComputedStyle(availabilityCells()[0]).textAlign).toMatch(/^(right|end)$/);
+    });
+
+    it('renders eight skeleton columns while loading', () => {
+      flatsService.getCurrentOffers.and.returnValue(NEVER);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelectorAll('app-loading-skeleton thead th').length).toBe(8);
+    });
+  });
+
+  describe('EE Class column', () => {
+    const renderOffers = (offers: FlatOffer[]) => {
+      flatsService.getCurrentOffers.and.returnValue(apiResult({ success: true, data: offers, message: 'Success' }));
+      fixture.detectChanges();
+    };
+    const eeCells = (): HTMLElement[] =>
+      Array.from(fixture.nativeElement.querySelectorAll('tbody tr td:nth-child(6)'));
+
+    it('has a centred, sortable "EE Class" header explained by an abbreviation', () => {
+      renderOffers([{ district: 'Mitte', energyEfficiencyClass: 'B' }]);
+
+      const header = fixture.nativeElement.querySelectorAll('thead th')[5] as HTMLElement;
+      expect(header.classList).toContain('text-center');
+      expect(header.querySelector('abbr')!.title).toBe('Energy efficiency class');
+      expect(header.querySelector('button')!.getAttribute('aria-label')).toBe('Sort by Energy Efficiency Class');
+    });
+
+    it('shows each class as a pill in its scale colour, A_PLUS as A+, and - without a class', () => {
+      renderOffers([
+        { district: 'Mitte', priceEur: 1, energyEfficiencyClass: 'A_PLUS' },
+        { district: 'Mitte', priceEur: 2, energyEfficiencyClass: 'G' },
+        { district: 'Mitte', priceEur: 3 }
+      ]);
+
+      const pills = eeCells().map(cell => cell.querySelector('.ee-badge') as HTMLElement | null);
+      expect(pills[0]!.textContent!.trim()).toBe('A+');
+      expect(pills[0]!.classList).toContain('ee-a-plus');
+      expect(pills[1]!.classList).toContain('ee-g');
+      expect(pills[1]!.title).toBe('Energy efficiency class G');
+      expect(pills[2]).toBeNull();
+      expect(eeCells()[2].textContent!.trim()).toBe('-');
+    });
+
+    it('sorts by the scale (A+ first), not alphabetically, with offers without a class last', () => {
+      renderOffers([
+        { district: 'Mitte', energyEfficiencyClass: 'C' },
+        { district: 'Mitte' },
+        { district: 'Mitte', energyEfficiencyClass: 'A' },
+        { district: 'Mitte', energyEfficiencyClass: 'A_PLUS' },
+        { district: 'Mitte', energyEfficiencyClass: 'H' }
+      ]);
+
+      component.onSort('energyEfficiencyClass');
+      expect(component.filteredOffers.map(offer => offer.energyEfficiencyClass)).toEqual(['A_PLUS', 'A', 'C', 'H', undefined]);
+
+      component.onSort('energyEfficiencyClass');
+      expect(component.filteredOffers.map(offer => offer.energyEfficiencyClass)).toEqual(['H', 'C', 'A', 'A_PLUS', undefined]);
     });
   });
 

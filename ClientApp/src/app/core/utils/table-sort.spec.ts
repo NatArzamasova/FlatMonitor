@@ -110,4 +110,26 @@ describe('TableSort', () => {
       expect(rows).toEqual(snapshot);
     });
   });
+
+  describe('custom sort values', () => {
+    it('sorts a column by its own sort value, missing values last in both directions', () => {
+      const order: Record<string, number> = { low: 0, mid: 1, high: 2 };
+      const levels: Row[] = [{ name: 'high' }, { name: 'unknown' }, { name: 'low' }, { name: 'mid' }];
+      const sort = new TableSort<Row>({ name: row => order[row.name ?? ''] });
+
+      sort.toggle('name');
+      expect(sort.apply(levels).map(row => row.name)).toEqual(['low', 'mid', 'high', 'unknown']);
+
+      sort.toggle('name');
+      expect(sort.apply(levels).map(row => row.name)).toEqual(['high', 'mid', 'low', 'unknown']);
+    });
+
+    it('sorts the other columns by their raw values', () => {
+      const sort = new TableSort<Row>({ name: () => 0 });
+
+      sort.toggle('size');
+
+      expect(sort.apply(rows).map(row => row.size)).toEqual([1, 2, 10, undefined]);
+    });
+  });
 });
