@@ -190,7 +190,7 @@ applies districts by subscribing to `activePreset$` (step 8):
 - Input: `selected: string[]` (the tab's current district selection), optional `inputId`.
 - UI (Bootstrap, `form-select-sm` / `btn-sm`):
   - **Preset dropdown**: all presets by name, the default marked with ★, plus "— none —". Picking one calls `selectPreset`.
-    "— none —" detaches from the preset and keeps the current districts.
+    "— none —" detaches from the preset and shows all districts in every tab.
   - **Save**: overwrite the chosen preset's districts with `selected`. Disabled when no preset is chosen or nothing changed (same set).
   - **Save as new…**: small inline name input + confirm; creates a preset from `selected` and selects it.
   - **Rename**: inline name input for the chosen preset.
@@ -218,7 +218,7 @@ Not yet used by any tab; that is step 8.
 ### 8. Tabs ✅ DONE
 **Offers tab** (`offers-tab.component.ts`)
 - Subscribe to `activePreset$` (`takeUntilDestroyed`). On each non-null emission: `selectedDistricts = preset.districts; applyFilters()`.
-  A `null` emission keeps the current selection.
+  A `null` emission clears the selection (all districts).
 - URL wins: if `params.getAll('district')` is non-empty, use it and **skip the first** `activePreset$` emission
   (later emissions, e.g. picking a preset in the bar, apply normally).
 - The presets request and `getCurrentOffers()` run in parallel. `applyFilters()` works with whatever has arrived,

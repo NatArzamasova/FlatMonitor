@@ -2,10 +2,9 @@ import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { CurrencyPipe } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { filter, finalize } from 'rxjs/operators';
+import { finalize } from 'rxjs/operators';
 import { FlatsService } from '../../../../core/services/flats.service';
 import { FilterPresetsService } from '../../../../core/services/filter-presets.service';
-import { FilterPreset } from '../../../../core/models/filter-preset.model';
 import { FlatHistory } from '../../../../core/models/flat-history.model';
 import { Aggregatable, mergeWeightedAverage, roundPriceToEuro } from '../../../../core/utils/aggregation.utils';
 import { normalizeRooms } from '../../../../core/utils/rooms.utils';
@@ -59,15 +58,14 @@ export class HistoryTabComponent implements OnInit {
     this.loadHistory();
   }
 
-  /** Applies the active preset's districts now and whenever another preset is chosen; `null` keeps the selection. */
+  /** Applies the active preset's districts now and whenever another preset is chosen; no preset (`null`) shows all districts. */
   private followActivePreset(): void {
     this.filterPresets.activePreset$
       .pipe(
-        filter((preset): preset is FilterPreset => preset !== null),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe(preset => {
-        this.selectedDistricts = [...preset.districts];
+        this.selectedDistricts = [...(preset?.districts ?? [])];
         this.updateDistrictOptions();
         this.updateChartData();
       });

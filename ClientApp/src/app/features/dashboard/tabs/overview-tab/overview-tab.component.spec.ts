@@ -741,14 +741,15 @@ describe('OverviewTabComponent', () => {
       expect(component.aggregatedData.map(row => row.district)).toEqual(['Prenzlauer Berg']);
     });
 
-    it('keeps the current selection when the active preset becomes null', () => {
+    it('shows all districts when the active preset becomes null', () => {
       presets.activePreset$.next(mitte);
       flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
       fixture.detectChanges();
 
       presets.activePreset$.next(null);
 
-      expect(component.selectedDistricts).toEqual(['Mitte']);
+      expect(component.selectedDistricts).toEqual([]);
+      expect(component.aggregatedData.length).toBe(2);
     });
 
     it('keeps a manually changed selection when the data reloads after a scrape', () => {

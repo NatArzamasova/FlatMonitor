@@ -3,10 +3,9 @@ import { CurrencyPipe, DecimalPipe } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { filter, finalize, skip } from 'rxjs/operators';
+import { finalize, skip } from 'rxjs/operators';
 import { FlatsService } from '../../../../core/services/flats.service';
 import { FilterPresetsService } from '../../../../core/services/filter-presets.service';
-import { FilterPreset } from '../../../../core/models/filter-preset.model';
 import { filterByDistricts, filterByPriceRange, filterByRooms } from '../../../../core/utils/filter.utils';
 import { FlatOffer } from '../../../../core/models/flat-offer.model';
 import { isHttpUrl } from '../../../../core/utils/url.utils';
@@ -100,17 +99,17 @@ export class OffersTabComponent implements OnInit {
 
   /**
    * Applies the active preset's districts now and whenever another preset is chosen. Districts from the URL win
-   * over the preset that is active when the tab opens; a `null` preset keeps the current selection.
+   * over the preset that is active when the tab opens; no preset (`null`) shows all
+   * districts.
    */
   private followActivePreset(districtsFromUrl: boolean): void {
     this.filterPresets.activePreset$
       .pipe(
         skip(districtsFromUrl ? 1 : 0),
-        filter((preset): preset is FilterPreset => preset !== null),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe(preset => {
-        this.selectedDistricts = [...preset.districts];
+        this.selectedDistricts = [...(preset?.districts ?? [])];
         this.updateDistrictOptions();
         this.applyFilters();
       });

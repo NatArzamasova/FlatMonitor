@@ -401,14 +401,15 @@ describe('HistoryTabComponent', () => {
       expect(labels()).toEqual(['Charlottenburg']);
     });
 
-    it('keeps the current selection when the active preset becomes null', () => {
+    it('shows all districts when the active preset becomes null', () => {
       presets.activePreset$.next(filterPreset(1, 'Center', ['Mitte']));
       flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
       fixture.detectChanges();
 
       presets.activePreset$.next(null);
 
-      expect(component.selectedDistricts).toEqual(['Mitte']);
+      expect(component.selectedDistricts).toEqual([]);
+      expect(labels()).toEqual(['Charlottenburg', 'Mitte']);
     });
 
     it('offers preset districts without history, and says when nothing matches', () => {

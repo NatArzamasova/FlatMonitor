@@ -62,7 +62,7 @@ export class FilterPresetsService {
       .subscribe(() => this.reloadAfterRemoteChange());
   }
 
-  /** Makes a preset the active one in all tabs; `null` detaches from any preset and keeps the current selection. */
+  /** Makes a preset the active one in all tabs; `null` = no preset, the tabs show all districts. */
   selectPreset(id: number | null): void {
     this.chosenPresetId.next(id);
   }
@@ -134,7 +134,7 @@ export class FilterPresetsService {
 
   /**
    * Another browser tab changed the presets. Same rules as a local write: the active preset doesn't jump when
-   * the default changes, and a deleted chosen preset becomes "no preset" (the tabs keep their selection).
+   * the default changes, and a deleted chosen preset becomes "no preset" (the tabs show all districts).
    */
   private reloadAfterRemoteChange(): void {
     if (this.presetsState.value === null) {

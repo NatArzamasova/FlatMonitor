@@ -65,7 +65,7 @@ Without this, a preset saved in the `/presets` tab would not appear in the dashb
   - call `pinActivePreset()` first, so a remote default change does not swap the districts the user is looking at
     (same rule as a local `setDefault`);
   - if the chosen preset no longer exists (deleted remotely), set `chosenPresetId` to `null`.
-    The tabs then keep their current selection (existing behaviour for a `null` active preset).
+    The tabs then show all districts (behaviour for a `null` active preset).
   - if the active preset's districts were edited remotely, `activePreset$` re-emits and the tabs apply the new
     districts (same as a local Save today).
 - Specs in `filter-presets.service.spec.ts`: posts after each write, not after a failed write;

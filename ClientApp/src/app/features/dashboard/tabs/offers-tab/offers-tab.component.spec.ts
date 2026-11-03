@@ -548,14 +548,15 @@ describe('OffersTabComponent', () => {
       expect(component.filteredOffers.map(offer => offer.district)).toEqual(['Mitte']);
     });
 
-    it('keeps the current selection when the active preset becomes null', () => {
+    it('shows all districts when the active preset becomes null', () => {
       presets.activePreset$.next(east);
       flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
       fixture.detectChanges();
 
       presets.activePreset$.next(null);
 
-      expect(component.selectedDistricts).toEqual(['Mitte']);
+      expect(component.selectedDistricts).toEqual([]);
+      expect(component.filteredOffers.length).toBe(2);
     });
 
     it('lets URL districts win over the preset active when the tab opens', () => {
