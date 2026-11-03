@@ -1,6 +1,6 @@
 import { TooltipItem } from 'chart.js';
 import { Chart } from 'chart.js';
-import { buildHistoryChartConfig, formatHistoryDate, highlightSeries, HistoryPoint, seriesColor, seriesColorsByLabel } from './history-chart.config';
+import { buildHistoryChartConfig, formatHistoryDate, highlightSeries, HistoryPoint, nearestSeriesHighlighter, seriesColor, seriesColorsByLabel } from './history-chart.config';
 
 describe('history-chart.config', () => {
   const points: HistoryPoint[] = [
@@ -128,6 +128,67 @@ describe('history-chart.config', () => {
       expect(Array.from(colors)).toEqual([['Mitte', seriesColor(0)], ['Weststadt', seriesColor(1)]]);
       expect(buildHistoryChartConfig(points, 'Title').data.datasets.map(dataset => dataset.borderColor))
         .toEqual([colors.get('Mitte'), colors.get('Weststadt')]);
+    });
+  });
+
+  describe('nearestSeriesHighlighter', () => {
+    const colors = [seriesColor(0), seriesColor(1)];
+    type AfterEvent = (chart: unknown, args: { event: { type: string; native: Event | null }; inChartArea?: boolean }) => void;
+
+    const setUp = (nearestDataset: number | undefined) => {
+      const config = buildHistoryChartConfig(points, 'Title');
+      const chart = {
+        data: config.data,
+        update: jasmine.createSpy('update'),
+        getElementsAtEventForMode: jasmine.createSpy('getElementsAtEventForMode')
+          .and.returnValue(nearestDataset === undefined ? [] : [{ datasetIndex: nearestDataset }])
+      };
+      const afterEvent = nearestSeriesHighlighter(colors).afterEvent as unknown as AfterEvent;
+      const borderColors = () => chart.data.datasets.map(dataset => dataset.borderColor);
+      return { chart, afterEvent, borderColors, config };
+    };
+    const move = { type: 'mousemove', native: new MouseEvent('mousemove') };
+
+    it('is part of the chart config', () => {
+      const { config } = setUp(undefined);
+
+      expect(config.plugins!.map(plugin => plugin.id)).toEqual(['nearestSeriesHighlighter']);
+    });
+
+    it('highlights the nearest line while the mouse is over the plot area', () => {
+      const { chart, afterEvent, borderColors } = setUp(1);
+
+      afterEvent(chart, { event: move, inChartArea: true });
+
+      expect(borderColors()).toEqual([colors[0] + '33', colors[1]]);
+    });
+
+    it('shows all lines normally again when the mouse leaves the canvas', () => {
+      const { chart, afterEvent, borderColors } = setUp(1);
+      afterEvent(chart, { event: move, inChartArea: true });
+
+      afterEvent(chart, { event: { type: 'mouseout', native: new MouseEvent('mouseout') }, inChartArea: false });
+
+      expect(borderColors()).toEqual(colors);
+    });
+
+    it('shows all lines normally again when the mouse moves onto the axes', () => {
+      const { chart, afterEvent, borderColors } = setUp(1);
+      afterEvent(chart, { event: move, inChartArea: true });
+
+      afterEvent(chart, { event: move, inChartArea: false });
+
+      expect(borderColors()).toEqual(colors);
+      expect(chart.getElementsAtEventForMode).toHaveBeenCalledTimes(1);
+    });
+
+    it('leaves a single line alone', () => {
+      const { chart } = setUp(0);
+      const afterEvent = nearestSeriesHighlighter([colors[0]]).afterEvent as unknown as AfterEvent;
+
+      afterEvent(chart, { event: move, inChartArea: true });
+
+      expect(chart.update).not.toHaveBeenCalled();
     });
   });
 

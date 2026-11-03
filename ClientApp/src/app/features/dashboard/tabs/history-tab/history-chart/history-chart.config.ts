@@ -1,4 +1,4 @@
-import { ActiveElement, Chart, ChartConfiguration, ChartEvent, TooltipItem } from 'chart.js';
+import { Chart, ChartConfiguration, ChartEvent, Plugin, TooltipItem } from 'chart.js';
 import { roundPriceToEuro } from '../../../../../core/utils/aggregation.utils';
 
 export interface HistoryPoint {
@@ -69,6 +69,27 @@ export function highlightSeries(chart: HistoryChart, index: number | null, color
 }
 
 /**
+ * Highlights the line nearest to the mouse while it is over the plot area, and shows all lines normally again as
+ * soon as it leaves it (onto the axes or out of the canvas). A plugin, because Chart.js calls `onHover` only inside
+ * the plot area, so leaving the chart would keep the last line highlighted.
+ */
+export function nearestSeriesHighlighter(colors: readonly string[]): Plugin<'line'> {
+  return {
+    id: 'nearestSeriesHighlighter',
+    afterEvent: (chart, args: { event: ChartEvent; inChartArea?: boolean }) => {
+      if (colors.length < 2) {
+        return;
+      }
+      const { event } = args;
+      const nearest = event.type !== 'mouseout' && args.inChartArea && event.native
+        ? chart.getElementsAtEventForMode(event.native, 'nearest', { intersect: false }, false)[0]
+        : undefined;
+      highlightSeries(chart as HistoryChart, nearest?.datasetIndex ?? null, colors);
+    }
+  };
+}
+
+/**
  * One line per label over all dates (gaps as `null`), with the latest point of each line enlarged. The legend is
  * only shown when a line has no point on the latest date: the "Latest averages" table next to the chart names the
  * others, with the same colours.
@@ -116,6 +137,7 @@ export function buildHistoryChartConfig(points: readonly HistoryPoint[], title: 
   return {
     type: 'line',
     data: { labels: dates, datasets },
+    plugins: [nearestSeriesHighlighter(colors)],
     options: {
       // The canvas is sized from its wrapper, and HistoryChartComponent resizes it when the wrapper changes.
       // Letting Chart.js own the sizing makes its resize observer fight the surrounding layout and lock the main thread.
@@ -125,15 +147,6 @@ export function buildHistoryChartConfig(points: readonly HistoryPoint[], title: 
       // The tooltip shows only the line nearest to the mouse (the highlighted one), not every line of that date;
       // the mouse does not have to be exactly on a point.
       interaction: { mode: 'nearest', intersect: false },
-      onHover: (event: ChartEvent, _elements: ActiveElement[], chart: Chart) => {
-        if (datasets.length < 2) {
-          return;
-        }
-        const nearest = event.native
-          ? chart.getElementsAtEventForMode(event.native, 'nearest', { intersect: false }, false)[0]
-          : undefined;
-        highlightSeries(chart as HistoryChart, nearest?.datasetIndex ?? null, colors);
-      },
       plugins: {
         legend: {
           display: someLineEndsEarly,
