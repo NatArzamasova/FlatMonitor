@@ -377,7 +377,6 @@ describe('OffersTabComponent', () => {
         { column: 'district' as const, firstValue: 'Aachen' },
         { column: 'roomsCount' as const, firstValue: 1 },
         { column: 'priceEur' as const, firstValue: 1000 },
-        { column: 'originalPriceEur' as const, firstValue: 1200 },
         { column: 'livingAreaSqm' as const, firstValue: 40 },
         { column: 'pricePerMeter' as const, firstValue: 10 },
         { column: 'source' as const, firstValue: 'ASource' }
@@ -397,7 +396,7 @@ describe('OffersTabComponent', () => {
       fixture.detectChanges();
 
       const buttons = fixture.nativeElement.querySelectorAll('thead button[aria-label^="Sort by"]') as NodeListOf<HTMLButtonElement>;
-      expect(buttons.length).toBe(7);
+      expect(buttons.length).toBe(6);
       buttons[2].click();
       fixture.detectChanges();
 
@@ -430,26 +429,20 @@ describe('OffersTabComponent', () => {
       expect(component.getDiscountPercentage(mockOffersResponse.data![1])).toBeNull();
     });
 
-    it('renders the discount as a green badge and the original price muted and struck through', () => {
+    it('renders the discount as a green badge with the original price in its tooltip', () => {
       flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
 
       fixture.detectChanges();
 
       const rows = fixture.nativeElement.querySelectorAll('tbody tr');
       const discountedPriceCell = rows[0].querySelectorAll('td')[2] as HTMLElement;
-      const originalPrice = rows[0].querySelectorAll('td')[3].querySelector('span') as HTMLElement;
       const unchangedPriceCell = rows[1].querySelectorAll('td')[2] as HTMLElement;
-      const unchangedOriginalPrice = rows[1].querySelectorAll('td')[3].querySelector('span') as HTMLElement;
 
       const badge = discountedPriceCell.querySelector('.price-drop') as HTMLElement;
       expect(badge.textContent!.trim()).toBe('−9.1 %');
       expect(badge.classList).toContain('bg-success-subtle');
-      expect(originalPrice.classList.contains('text-body-secondary')).toBe(true);
-      expect(originalPrice.classList.contains('text-danger')).toBe(false);
-      expect(originalPrice.classList.contains('text-decoration-line-through')).toBe(true);
+      expect(badge.title).toBe('Was €2,200 when first listed');
       expect(unchangedPriceCell.querySelector('.price-drop')).toBeNull();
-      expect(unchangedOriginalPrice.classList.contains('text-body-secondary')).toBe(false);
-      expect(unchangedOriginalPrice.classList.contains('text-decoration-line-through')).toBe(false);
     });
   });
 

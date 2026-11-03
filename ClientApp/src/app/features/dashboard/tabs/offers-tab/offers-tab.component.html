@@ -62,7 +62,6 @@
             <th appSortableHeader [sort]="sort" column="district" sortLabel="District" (sortRequested)="onSort($event)">District</th>
             <th appSortableHeader class="text-center" [sort]="sort" column="roomsCount" sortLabel="Rooms" (sortRequested)="onSort($event)">Rooms</th>
             <th appSortableHeader class="text-end" [sort]="sort" column="priceEur" sortLabel="Price" (sortRequested)="onSort($event)">Price (€)</th>
-            <th appSortableHeader class="text-end" [sort]="sort" column="originalPriceEur" sortLabel="Original Price" (sortRequested)="onSort($event)">Original price (€)</th>
             <th appSortableHeader class="text-end" [sort]="sort" column="livingAreaSqm" sortLabel="Living Area" (sortRequested)="onSort($event)">Living area (m²)</th>
             <th appSortableHeader class="text-end" [sort]="sort" column="pricePerMeter" sortLabel="Price per Square Meter" (sortRequested)="onSort($event)">Price/m² (€)</th>
             <th appSortableHeader [sort]="sort" column="source" sortLabel="Source" (sortRequested)="onSort($event)">Source</th>
@@ -79,16 +78,8 @@
                 <!-- A price drop is good news for a buyer, so it is green. -->
                 @if (row.discountPercentage !== null) {
                   <span class="badge rounded-pill bg-success-subtle text-success-emphasis ms-1 price-drop"
-                    title="Price dropped since the flat was first listed">−{{ row.discountPercentage | number: '1.0-1' }} %</span>
+                    [title]="'Was ' + (row.offer.originalPriceEur | currency: 'EUR': 'symbol': '1.0-0') + ' when first listed'">−{{ row.discountPercentage | number: '1.0-1' }} %</span>
                 }
-              </td>
-              <td class="text-end">
-                <span
-                  [class.text-body-secondary]="row.priceChanged"
-                  [class.text-decoration-line-through]="row.priceChanged"
-                >
-                  {{ row.offer.originalPriceEur ? (row.offer.originalPriceEur | currency: 'EUR': 'symbol': '1.0-0') : '-' }}
-                </span>
               </td>
               <td class="text-end">{{ row.offer.livingAreaSqm ? (row.offer.livingAreaSqm | number: '1.0-1') : '-' }}</td>
               <td class="text-end">{{ row.offer.pricePerMeter ? (row.offer.pricePerMeter | number: '1.0-0') : '-' }}</td>

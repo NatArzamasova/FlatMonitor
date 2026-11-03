@@ -21,12 +21,11 @@ import { DismissibleAlertComponent } from '../../../../shared/dismissible-alert/
 import { FilterPresetBarComponent } from '../../../../shared/filter-preset-bar/filter-preset-bar.component';
 
 type OfferSortColumn =
-  'district' | 'roomsCount' | 'priceEur' | 'originalPriceEur' | 'livingAreaSqm' | 'pricePerMeter' | 'source';
+  'district' | 'roomsCount' | 'priceEur' | 'livingAreaSqm' | 'pricePerMeter' | 'source';
 
 interface OfferRow {
   offer: FlatOffer;
   discountPercentage: number | null;
-  priceChanged: boolean;
   hasLink: boolean;
   source: SourceBadge;
 }
@@ -164,7 +163,6 @@ export class OffersTabComponent implements OnInit {
     this.offerRows = this.filteredOffers.map(offer => ({
       offer,
       discountPercentage: this.getDiscountPercentage(offer),
-      priceChanged: this.hasChangedPrice(offer),
       hasLink: isHttpUrl(offer.url),
       source: sourceBadge(offer.source)
     }));
