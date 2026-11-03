@@ -215,7 +215,13 @@ done through the toasts of 2.6.
 Each item below is written as a story: what it is for, where the code stands today, what to do, and when
 it is done. Sizes: S = up to half a day, M = about a day, L = several days.
 
-### 3.1 Story: Theme the app through Bootstrap's Sass variables
+### 3.1 Story: Theme the app through Bootstrap's Sass variables ✅ done
+`styles.scss` sets the theme variables and imports `bootstrap/scss/bootstrap`; `angular.json` no longer loads
+`bootstrap.min.css`. Inter comes from `@fontsource/inter` (400/500/600). The heading, button and badge weights,
+the badge padding and the alert radius are Sass variables now. `$card-border-color` is
+`rgba(var(--bs-emphasis-color-rgb), .08)` instead of a fixed black, so it also works in dark mode, and `.table-card`
+uses it too. No silencing of Sass deprecations needed: the installed Sass (1.77) does not warn about `@import` yet.
+The history chart still uses Chart.js' own font; 3.2 reads the chart's styling from the CSS variables anyway.
 
 **Story.** As a user of FlatMonitor, I want one consistent look (brand colour, font, corner radius, card
 borders) on every page, so that the app feels like one product and not like plain Bootstrap with patches.
@@ -454,7 +460,7 @@ Done: 1.1–1.6 and 2.1–2.8.
 Open, in this order:
 1. **1.7 Icons** (S): small, and 3.2's theme toggle and 3.5's chevron can use the icons.
 2. **3.5 Clickable rows** (S): quick, improves discoverability and accessibility.
-3. **3.1 Sass theme** (M): the base for dark mode.
+3. ~~**3.1 Sass theme** (M): the base for dark mode.~~ ✅ done
 4. **3.2 Dark mode** (M–L): after 3.1.
 5. **3.3 German formats** (S–M): once the format decision is made; independent of the others.
 6. **3.4 Offers as cards on small screens** (M): when the app is used on phones.

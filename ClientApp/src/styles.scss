@@ -1,28 +1,38 @@
 /*
- * Global styles. Colours come from Bootstrap's CSS variables (`--bs-*`), not fixed values, so that they follow
- * Bootstrap's colour mode (a later dark mode only has to switch `data-bs-theme`). Font and colours of the body,
- * headings and buttons are Bootstrap's defaults.
+ * Global styles. Bootstrap is compiled from its Sass sources here, so the theme (brand colour, font, radii, weights)
+ * is set once in the variables below and reaches every component through Bootstrap's CSS variables (`--bs-*`).
+ * Components must not repeat these values; they use the CSS variables, which also follow Bootstrap's colour mode
+ * (a later dark mode only has to switch `data-bs-theme`).
  */
+
+/* Inter, self-hosted from the npm package (no requests to a font CDN). */
+@import '@fontsource/inter/400';
+@import '@fontsource/inter/500';
+@import '@fontsource/inter/600';
+
+/* ---- Theme ---- */
+$primary: #2f6fde;
+$font-family-sans-serif: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+$border-radius: .5rem;
+$border-radius-lg: .75rem;
+$enable-shadows: false;
+
+$headings-font-weight: 600;
+$btn-font-weight: 500;
+$badge-font-weight: 500;
+$badge-padding-y: .4rem;
+$badge-padding-x: .6rem;
+$alert-border-radius: $border-radius-lg;
+
+/* A faint border for cards and table cards; built on the emphasis colour so it also works in dark mode. */
+$card-border-color: rgba(var(--bs-emphasis-color-rgb), .08);
+
+@import 'bootstrap/scss/bootstrap';
+
+/* ---- App styles ---- */
 body {
   /* A light grey behind the white cards and the header (a dark grey in dark mode). */
   background-color: var(--bs-tertiary-bg);
-}
-
-h1, h2, h3, h4, h5, h6 {
-  font-weight: 600;
-}
-
-.btn {
-  font-weight: 500;
-}
-
-.badge {
-  padding: 0.4rem 0.6rem;
-  font-weight: 500;
-}
-
-.alert {
-  --bs-alert-border-radius: var(--bs-border-radius-lg);
 }
 
 /*
@@ -134,7 +144,7 @@ h1, h2, h3, h4, h5, h6 {
  */
 .table-card {
   background-color: var(--bs-body-bg);
-  border: var(--bs-border-width) solid var(--bs-border-color-translucent);
+  border: var(--bs-border-width) solid $card-border-color;
   border-radius: var(--bs-border-radius-lg);
   overflow: auto;
 
