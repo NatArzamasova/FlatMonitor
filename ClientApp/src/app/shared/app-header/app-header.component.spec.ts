@@ -50,4 +50,11 @@ describe('AppHeaderComponent', () => {
     expect(nav.previousElementSibling!.classList).toContain('navbar-brand');
     expect(actions.querySelector('button')!.textContent).toBe('Action');
   });
+
+  it('ends the actions with the theme toggle', () => {
+    const actions = header().querySelector('.ms-auto')!;
+
+    expect(actions.lastElementChild!.tagName.toLowerCase()).toBe('app-theme-toggle');
+    expect(actions.querySelector('app-theme-toggle button[aria-label^="Theme:"]')).toBeTruthy();
+  });
 });

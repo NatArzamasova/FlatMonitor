@@ -1,6 +1,16 @@
 import { TooltipItem } from 'chart.js';
 import { Chart } from 'chart.js';
-import { buildHistoryChartConfig, formatHistoryDate, highlightSeries, HistoryPoint, nearestSeriesHighlighter, seriesColor, seriesColorsByLabel } from './history-chart.config';
+import {
+  buildHistoryChartConfig,
+  ChartTheme,
+  formatHistoryDate,
+  highlightSeries,
+  HistoryPoint,
+  nearestSeriesHighlighter,
+  readChartTheme,
+  seriesColor,
+  seriesColorsByLabel
+} from './history-chart.config';
 
 describe('history-chart.config', () => {
   const points: HistoryPoint[] = [
@@ -9,16 +19,18 @@ describe('history-chart.config', () => {
     { date: '2024-01-15', price: 20, label: 'Weststadt' },
     { date: '2024-01-17', price: 14, label: 'Mitte' }
   ];
+  const lightTheme: ChartTheme = { dark: false, textColor: '#111111', gridColor: 'rgba(1, 2, 3, 0.08)', fontFamily: 'Test Sans' };
+  const darkTheme: ChartTheme = { dark: true, textColor: '#eeeeee', gridColor: 'rgba(4, 5, 6, 0.08)', fontFamily: 'Test Sans' };
 
   describe('buildHistoryChartConfig', () => {
     it('uses the sorted unique dates as x labels', () => {
-      const config = buildHistoryChartConfig(points, 'Title');
+      const config = buildHistoryChartConfig(points, 'Title', lightTheme);
 
       expect(config.data.labels).toEqual(['2024-01-15', '2024-01-16', '2024-01-17']);
     });
 
     it('creates one dataset per label in first-appearance order, with null for missing dates', () => {
-      const config = buildHistoryChartConfig(points, 'Title');
+      const config = buildHistoryChartConfig(points, 'Title', lightTheme);
 
       expect(config.data.datasets.map(dataset => dataset.label)).toEqual(['Mitte', 'Weststadt']);
       expect(config.data.datasets[0].data).toEqual([12, 13, 14]);
@@ -26,14 +38,14 @@ describe('history-chart.config', () => {
     });
 
     it('enlarges the latest existing point of each line', () => {
-      const config = buildHistoryChartConfig(points, 'Title');
+      const config = buildHistoryChartConfig(points, 'Title', lightTheme);
 
       expect(config.data.datasets[0].pointRadius).toEqual([3, 3, 6]);
       expect(config.data.datasets[1].pointRadius).toEqual([6, 3, 3]);
     });
 
     it('colours the datasets from the palette', () => {
-      const config = buildHistoryChartConfig(points, 'Title');
+      const config = buildHistoryChartConfig(points, 'Title', lightTheme);
 
       expect(config.data.datasets[0].borderColor).toBe(seriesColor(0));
       expect(config.data.datasets[1].borderColor).toBe(seriesColor(1));
@@ -46,7 +58,8 @@ describe('history-chart.config', () => {
           { date: '2024-01-15', price: 12.5, label: 'Mitte' },
           { date: '2024-01-16', price: 13.25, label: 'Mitte' }
         ],
-        'Title'
+        'Title',
+        lightTheme
       ).options!.scales!['y']!;
 
       expect((y as { beginAtZero?: boolean }).beginAtZero).toBe(false);
@@ -55,7 +68,7 @@ describe('history-chart.config', () => {
     });
 
     it('formats x ticks as short dates', () => {
-      const x = buildHistoryChartConfig(points, 'Title').options!.scales!['x']!;
+      const x = buildHistoryChartConfig(points, 'Title', lightTheme).options!.scales!['x']!;
       const callback = x.ticks!.callback as (value: number) => string;
 
       expect(callback(0)).toBe('15 Jan');
@@ -63,7 +76,7 @@ describe('history-chart.config', () => {
     });
 
     it('shows tooltip prices rounded to whole euros', () => {
-      const label = buildHistoryChartConfig(points, 'Title').options!.plugins!.tooltip!.callbacks!.label! as
+      const label = buildHistoryChartConfig(points, 'Title', lightTheme).options!.plugins!.tooltip!.callbacks!.label! as
         (context: TooltipItem<'line'>) => string;
       const context = (y: number) => ({ dataset: { label: 'Mitte' }, parsed: { y } }) as unknown as TooltipItem<'line'>;
 
@@ -72,23 +85,44 @@ describe('history-chart.config', () => {
     });
 
     it('draws gently curved lines and a tooltip for the nearest line only', () => {
-      const config = buildHistoryChartConfig(points, 'Title');
+      const config = buildHistoryChartConfig(points, 'Title', lightTheme);
 
       expect(config.data.datasets.every(dataset => dataset.tension === 0.2)).toBe(true);
       expect(config.options!.interaction).toEqual({ mode: 'nearest', intersect: false });
     });
 
     it('formats price ticks as whole euros and keeps only a subtle horizontal grid', () => {
-      const scales = buildHistoryChartConfig(points, 'Title').options!.scales!;
+      const scales = buildHistoryChartConfig(points, 'Title', lightTheme).options!.scales!;
       const callback = scales['y']!.ticks!.callback as (value: number) => string;
 
       expect(callback(4200)).toBe('€4,200');
       expect(scales['x']!.grid!.display).toBe(false);
-      expect(scales['y']!.grid!.color).toBe('rgba(0, 0, 0, 0.06)');
+      expect(scales['y']!.grid!.color).toBe(lightTheme.gridColor);
+    });
+
+    it('takes the text and grid colours and the font from its theme input', () => {
+      const options = buildHistoryChartConfig(points, 'Title', darkTheme).options!;
+      const { x, y } = options.scales! as Record<string, { ticks: { color: string; font: { family: string } }; title: { color: string }; grid: { color: string } }>;
+
+      expect(y.grid.color).toBe(darkTheme.gridColor);
+      expect(y.ticks.color).toBe('#eeeeee');
+      expect(x.ticks.color).toBe('#eeeeee');
+      expect(y.title.color).toBe('#eeeeee');
+      expect(x.title.color).toBe('#eeeeee');
+      expect(y.ticks.font.family).toBe('Test Sans');
+      expect(options.plugins!.title!.color).toBe('#eeeeee');
+      expect(options.plugins!.legend!.labels!.color).toBe('#eeeeee');
+      expect(options.plugins!.tooltip!.bodyFont).toEqual({ family: 'Test Sans' });
+    });
+
+    it('uses the dark palette in the dark theme', () => {
+      const config = buildHistoryChartConfig(points, 'Title', darkTheme);
+
+      expect(config.data.datasets.map(dataset => dataset.borderColor)).toEqual([seriesColor(0, true), seriesColor(1, true)]);
     });
 
     it('hides the legend when every line reaches the latest date, and shows it at the bottom otherwise', () => {
-      const legend = (chartPoints: HistoryPoint[]) => buildHistoryChartConfig(chartPoints, 'Title').options!.plugins!.legend!;
+      const legend = (chartPoints: HistoryPoint[]) => buildHistoryChartConfig(chartPoints, 'Title', lightTheme).options!.plugins!.legend!;
 
       expect(legend(points).display).toBe(true);
       expect(legend(points).position).toBe('bottom');
@@ -96,9 +130,9 @@ describe('history-chart.config', () => {
     });
 
     it('uses the given title and keeps Chart.js from resizing the canvas itself', () => {
-      const config = buildHistoryChartConfig(points, 'Price per m² Trend (by District)');
+      const config = buildHistoryChartConfig(points, 'Price per m² Trend (by District)', lightTheme);
 
-      expect(config.options!.plugins!.title!.text).toBe('Price per m² Trend (by District)');
+      expect(config.options!.plugins!.title!.text).toBe('Price per m² Trend (by District)', lightTheme);
       expect(config.options!.responsive).toBe(false);
       expect(config.options!.animation).toBe(false);
     });
@@ -119,14 +153,52 @@ describe('history-chart.config', () => {
       expect(palette).not.toContain('#000000');
       expect(new Set(palette).size).toBe(10);
     });
+
+    it('has a dark palette of ten distinct colours with at least 3:1 contrast on the dark background', () => {
+      const darkPalette = Array.from({ length: 10 }, (_, index) => seriesColor(index, true));
+
+      expect(new Set(darkPalette).size).toBe(10);
+      expect(seriesColor(10, true)).toBe(seriesColor(0, true));
+      // Bootstrap's dark body background
+      darkPalette.forEach(color => expect(contrastRatio(color, '#212529')).withContext(color).toBeGreaterThanOrEqual(3));
+    });
+  });
+
+  describe('readChartTheme', () => {
+    afterEach(() => document.documentElement.removeAttribute('data-bs-theme'));
+
+    it('reads light colours from the Bootstrap CSS variables', () => {
+      document.documentElement.setAttribute('data-bs-theme', 'light');
+
+      const theme = readChartTheme();
+
+      expect(theme.dark).toBe(false);
+      expect(theme.textColor).toBe(getComputedStyle(document.documentElement).getPropertyValue('--bs-secondary-color').trim());
+      expect(theme.textColor).not.toBe('');
+      expect(theme.gridColor).toBe('rgba(0, 0, 0, 0.08)');
+      expect(theme.fontFamily).toContain('Inter');
+    });
+
+    it('reads dark colours when data-bs-theme is dark', () => {
+      document.documentElement.setAttribute('data-bs-theme', 'dark');
+
+      const theme = readChartTheme();
+
+      expect(theme.dark).toBe(true);
+      expect(theme.gridColor).toBe('rgba(255, 255, 255, 0.08)');
+    });
   });
 
   describe('seriesColorsByLabel', () => {
+    it('takes the dark palette when asked', () => {
+      expect(seriesColorsByLabel(points, true).get('Mitte')).toBe(seriesColor(0, true));
+    });
+
     it('gives the labels the palette in first-appearance order, like the datasets', () => {
       const colors = seriesColorsByLabel(points);
 
       expect(Array.from(colors)).toEqual([['Mitte', seriesColor(0)], ['Weststadt', seriesColor(1)]]);
-      expect(buildHistoryChartConfig(points, 'Title').data.datasets.map(dataset => dataset.borderColor))
+      expect(buildHistoryChartConfig(points, 'Title', lightTheme).data.datasets.map(dataset => dataset.borderColor))
         .toEqual([colors.get('Mitte'), colors.get('Weststadt')]);
     });
   });
@@ -136,7 +208,7 @@ describe('history-chart.config', () => {
     type AfterEvent = (chart: unknown, args: { event: { type: string; native: Event | null }; inChartArea?: boolean }) => void;
 
     const setUp = (nearestDataset: number | undefined) => {
-      const config = buildHistoryChartConfig(points, 'Title');
+      const config = buildHistoryChartConfig(points, 'Title', lightTheme);
       const chart = {
         data: config.data,
         update: jasmine.createSpy('update'),
@@ -194,7 +266,7 @@ describe('history-chart.config', () => {
 
   describe('highlightSeries', () => {
     const fakeChart = () => {
-      const config = buildHistoryChartConfig(points, 'Title');
+      const config = buildHistoryChartConfig(points, 'Title', lightTheme);
       const chart = { data: config.data, update: jasmine.createSpy('update') };
       return chart as unknown as Chart<'line', (number | null)[], string> & { update: jasmine.Spy };
     };
@@ -243,3 +315,14 @@ describe('history-chart.config', () => {
     });
   });
 });
+
+function contrastRatio(foreground: string, background: string): number {
+  const luminance = (hex: string) => {
+    const [red, green, blue] = [1, 3, 5]
+      .map(start => parseInt(hex.slice(start, start + 2), 16) / 255)
+      .map(channel => channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  };
+  const [lighter, darker] = [luminance(foreground), luminance(background)].sort((left, right) => right - left);
+  return (lighter + 0.05) / (darker + 0.05);
+}

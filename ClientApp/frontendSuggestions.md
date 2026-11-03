@@ -270,7 +270,15 @@ values; the manual check (task 5) covers it.
 
 **Size.** M.
 
-### 3.2 Story: Dark mode
+### 3.2 Story: Dark mode ✅ done
+`ThemeService` (`core/services/theme.service.ts`) stores `system | light | dark` under `flatmonitor.theme`, sets
+`data-bs-theme` on `<html>` and follows `prefers-color-scheme` live in system mode. An inline script in `index.html`
+sets the theme before the styles load (no white flash). `ThemeToggleComponent` sits at the end of the app header on
+both pages (inline SVG icons, since 1.7 is not done; `aria-label` "Theme: System (switch to Light)"). The source pills
+have dark variants (contrast ≥ 8:1). The chart takes a `ChartTheme` (text and grid colour, font, dark flag) read
+from Bootstrap's CSS variables by `readChartTheme()` and is rebuilt on a theme change; it now also uses Inter. The
+dark palette lightens the four colours below 3:1 on the dark background (`#0072B2`, `#332288`, `#117733`,
+`#882255`); the "Latest averages" dots switch with it.
 
 **Story.** As a user who works in the evening, I want a dark theme that follows my system setting and that I
 can switch myself, so that the dashboard is easy on the eyes and fits my other apps.
@@ -461,7 +469,7 @@ Open, in this order:
 1. **1.7 Icons** (S): small, and 3.2's theme toggle and 3.5's chevron can use the icons.
 2. **3.5 Clickable rows** (S): quick, improves discoverability and accessibility.
 3. ~~**3.1 Sass theme** (M): the base for dark mode.~~ ✅ done
-4. **3.2 Dark mode** (M–L): after 3.1.
+4. ~~**3.2 Dark mode** (M–L): after 3.1.~~ ✅ done
 5. **3.3 German formats** (S–M): once the format decision is made; independent of the others.
 6. **3.4 Offers as cards on small screens** (M): when the app is used on phones.
 

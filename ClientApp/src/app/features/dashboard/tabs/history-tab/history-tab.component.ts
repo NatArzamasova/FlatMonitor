@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs/operators';
 import { FlatsService } from '../../../../core/services/flats.service';
 import { DataReloadService } from '../../../../core/services/data-reload.service';
+import { ThemeService } from '../../../../core/services/theme.service';
 import { FilterPresetsService } from '../../../../core/services/filter-presets.service';
 import { FlatHistory } from '../../../../core/models/flat-history.model';
 import { Aggregatable, mergeWeightedAverage, roundPriceToEuro } from '../../../../core/utils/aggregation.utils';
@@ -45,6 +46,7 @@ export class HistoryTabComponent implements OnInit {
   private readonly flatsService = inject(FlatsService);
   private readonly dataReload = inject(DataReloadService);
   private readonly filterPresets = inject(FilterPresetsService);
+  private readonly themeService = inject(ThemeService);
   private readonly destroyRef = inject(DestroyRef);
 
   historyData: FlatHistory[] = [];
@@ -62,6 +64,8 @@ export class HistoryTabComponent implements OnInit {
   latestAverageData: { label: string; price: number }[] = [];
   /** The chart's line colour per label, for the dots in the "Latest averages" table. */
   seriesColors = new Map<string, string>();
+  /** The dark theme has a lighter line palette, so the dots follow the theme like the chart. */
+  private darkTheme = false;
 
   get chartTitle(): string {
     return `Price per m² Trend (${this.groupBy === 'district' ? 'by District' : 'by Rooms'})`;
@@ -69,12 +73,22 @@ export class HistoryTabComponent implements OnInit {
 
   ngOnInit(): void {
     this.followActivePreset();
+    this.followTheme();
     this.loadHistory();
 
     // The header's refresh button and finished scrapes.
     this.dataReload.reload$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.loadHistory());
+  }
+
+  private followTheme(): void {
+    this.themeService.theme$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(theme => {
+        this.darkTheme = theme === 'dark';
+        this.seriesColors = seriesColorsByLabel(this.chartData, this.darkTheme);
+      });
   }
 
   /** Applies the active preset's districts now and whenever another preset is chosen; no preset (`null`) shows all districts. */
@@ -150,7 +164,7 @@ export class HistoryTabComponent implements OnInit {
       ''
     );
     this.latestAverageDate = latestDate;
-    this.seriesColors = seriesColorsByLabel(this.chartData);
+    this.seriesColors = seriesColorsByLabel(this.chartData, this.darkTheme);
     this.latestAverageData = this.chartData
       .filter(item => item.date === latestDate)
       .map(({ label, price }) => ({ label, price }))

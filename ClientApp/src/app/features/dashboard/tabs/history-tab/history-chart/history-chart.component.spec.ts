@@ -1,7 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Chart } from 'chart.js';
 import { HistoryChartComponent } from './history-chart.component';
-import { HistoryPoint } from './history-chart.config';
+import { HistoryPoint, seriesColor } from './history-chart.config';
+import { THEME_STORAGE_KEY, ThemeService } from '../../../../../core/services/theme.service';
 
 describe('HistoryChartComponent', () => {
   let fixture: ComponentFixture<HistoryChartComponent>;
@@ -62,6 +63,31 @@ describe('HistoryChartComponent', () => {
     expect(component.chart).not.toBe(firstChart);
     expect(component.chart!.data.datasets.map(dataset => dataset.label)).toEqual(['2 rooms']);
     expect(component.chart!.options.plugins!.title!.text).toBe('By Room Number');
+  });
+
+  describe('theme', () => {
+    afterEach(() => {
+      localStorage.removeItem(THEME_STORAGE_KEY);
+      document.documentElement.removeAttribute('data-bs-theme');
+    });
+
+    it('rebuilds the chart with the dark colours when the theme changes', () => {
+      const themeService = TestBed.inject(ThemeService);
+      themeService.setMode('light');
+      fixture.componentRef.setInput('points', points);
+      fixture.componentRef.setInput('title', 'Trend');
+      fixture.detectChanges();
+      const lightChart = component.chart!;
+      const lightGrid = (lightChart.options.scales!['y']!.grid as { color: string }).color;
+
+      themeService.setMode('dark');
+
+      expect(component.chart).not.toBe(lightChart);
+      expect(component.chart!.data.datasets[0].borderColor).toBe(seriesColor(0, true));
+      expect((component.chart!.options.scales!['y']!.grid as { color: string }).color).not.toBe(lightGrid);
+      expect(component.chart!.options.plugins!.title!.color)
+        .toBe(getComputedStyle(document.documentElement).getPropertyValue('--bs-secondary-color').trim());
+    });
   });
 
   it('does not draw a chart without points', () => {

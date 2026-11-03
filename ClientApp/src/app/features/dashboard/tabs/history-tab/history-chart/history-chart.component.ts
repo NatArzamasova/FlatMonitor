@@ -1,4 +1,5 @@
-import { AfterViewInit, Component, ElementRef, Input, OnChanges, OnDestroy, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, DestroyRef, ElementRef, Input, OnChanges, OnDestroy, ViewChild, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   CategoryScale,
   Chart,
@@ -10,14 +11,16 @@ import {
   Title,
   Tooltip
 } from 'chart.js';
-import { buildHistoryChartConfig, HistoryPoint } from './history-chart.config';
+import { buildHistoryChartConfig, HistoryPoint, readChartTheme } from './history-chart.config';
+import { ThemeService } from '../../../../../core/services/theme.service';
 
 // Register only what the line chart uses, so the rest of Chart.js can be tree-shaken.
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Legend, Title, Tooltip);
 
 /**
  * Line chart of the price history. Its size comes from the host element (600 px high by default; set `height` or
- * a flex size on `app-history-chart` to change it) and follows it when the host is resized.
+ * a flex size on `app-history-chart` to change it) and follows it when the host is resized. Text, grid and line colours
+ * follow the light/dark theme: the chart is rebuilt when it changes.
  */
 @Component({
   selector: 'app-history-chart',
@@ -47,13 +50,19 @@ export class HistoryChartComponent implements AfterViewInit, OnChanges, OnDestro
 
   @ViewChild('canvas', { static: true }) private canvasRef!: ElementRef<HTMLCanvasElement>;
 
+  private readonly themeService = inject(ThemeService);
+  private readonly destroyRef = inject(DestroyRef);
+
   chart: Chart<'line', (number | null)[], string> | undefined;
   private viewReady = false;
   private resizeObserver: ResizeObserver | undefined;
 
   ngAfterViewInit(): void {
     this.viewReady = true;
-    this.render();
+    // Emits the current theme at once (first render), then on every change.
+    this.themeService.theme$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.render());
     this.resizeObserver = new ResizeObserver(() => this.resizeToWrapper());
     this.resizeObserver.observe(this.canvasRef.nativeElement.parentElement!);
   }
@@ -80,7 +89,7 @@ export class HistoryChartComponent implements AfterViewInit, OnChanges, OnDestro
     canvas.width = wrapper?.clientWidth || canvas.clientWidth;
     canvas.height = wrapper?.clientHeight || canvas.clientHeight;
 
-    this.chart = new Chart(canvas, buildHistoryChartConfig(this.points, this.title));
+    this.chart = new Chart(canvas, buildHistoryChartConfig(this.points, this.title, readChartTheme()));
   }
 
   /** Chart.js' own resizing is off (`responsive: false`), so the chart follows its wrapper from here. */

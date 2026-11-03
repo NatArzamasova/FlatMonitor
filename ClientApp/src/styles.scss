@@ -102,6 +102,13 @@ body {
 .source-ohne-makler { --source-bg: #dcecfa; --source-fg: #0b4f80; }
 .source-other { --source-bg: var(--bs-secondary-bg); --source-fg: var(--bs-secondary-color); }
 
+/* Dark mode: dark tinted backgrounds with light text (contrast ≥ 8:1). */
+[data-bs-theme="dark"] {
+  .source-is24 { --source-bg: #4a2c0c; --source-fg: #ffc98f; }
+  .source-immowelt { --source-bg: #45390a; --source-fg: #f5df7a; }
+  .source-ohne-makler { --source-bg: #0f324f; --source-fg: #a9d4f5; }
+}
+
 .source-link {
   display: inline-flex;
   align-items: center;

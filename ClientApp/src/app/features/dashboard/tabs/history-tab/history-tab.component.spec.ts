@@ -10,6 +10,8 @@ import { apiResult } from '../../../../core/testing/api-response.testing';
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { FlatHistory } from '../../../../core/models/flat-history.model';
 import { FilterPresetsService } from '../../../../core/services/filter-presets.service';
+import { THEME_STORAGE_KEY, ThemeService } from '../../../../core/services/theme.service';
+import { seriesColor } from './history-chart/history-chart.config';
 import {
   createFilterPresetsServiceStub,
   filterPreset,
@@ -590,6 +592,22 @@ describe('HistoryTabComponent', () => {
         expect(dot.style.backgroundColor).not.toBe('');
         expect(component.seriesColors.has(label)).toBe(true);
       }
+    });
+
+    it('switches the dots to the dark palette with the theme', () => {
+      const themeService = TestBed.inject(ThemeService);
+      themeService.setMode('light');
+      flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
+      fixture.detectChanges();
+      const label = component.latestAverageData[0].label;
+      const colorIndex = Array.from(component.seriesColors.keys()).indexOf(label);
+      expect(component.seriesColors.get(label)).toBe(seriesColor(colorIndex));
+
+      themeService.setMode('dark');
+
+      expect(component.seriesColors.get(label)).toBe(seriesColor(colorIndex, true));
+      localStorage.removeItem(THEME_STORAGE_KEY);
+      document.documentElement.removeAttribute('data-bs-theme');
     });
   });
 });

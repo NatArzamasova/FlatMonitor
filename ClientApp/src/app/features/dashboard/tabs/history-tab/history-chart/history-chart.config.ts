@@ -19,23 +19,58 @@ const SERIES_COLORS = [
   '#56B4E9', '#332288', '#117733', '#882255', '#999933'
 ];
 
+/**
+ * The same palette for the dark theme: the four colours below 3:1 contrast on Bootstrap's dark background
+ * (`#0072B2`, `#332288`, `#117733`, `#882255`) are lightened, the others stay.
+ */
+const DARK_SERIES_COLORS = [
+  '#3388DD', '#E69F00', '#009E73', '#D55E00', '#CC79A7',
+  '#56B4E9', '#8877DD', '#55AA44', '#DD5588', '#999933'
+];
+
 /** Alpha suffix for the lines that are not hovered. */
 const DIMMED_ALPHA = '33';
-const GRID_COLOR = 'rgba(0, 0, 0, 0.06)';
+
+/**
+ * Colours and font of the chart's text and grid. Chart.js does not read CSS variables, so they are taken from
+ * Bootstrap's variables when the chart is built (`readChartTheme()`), and the chart is rebuilt when the theme changes.
+ */
+export interface ChartTheme {
+  dark: boolean;
+  textColor: string;
+  gridColor: string;
+  fontFamily: string;
+}
+
+/** Reads the chart theme from Bootstrap's CSS variables on `<html>` (`data-bs-theme` decides light or dark). */
+export function readChartTheme(root: HTMLElement = document.documentElement): ChartTheme {
+  const style = getComputedStyle(root);
+  const variable = (name: string, fallback: string) => style.getPropertyValue(name).trim() || fallback;
+  const emphasisRgb = variable('--bs-emphasis-color-rgb', '0, 0, 0');
+
+  return {
+    dark: root.getAttribute('data-bs-theme') === 'dark',
+    textColor: variable('--bs-secondary-color', '#6c757d'),
+    // Faint, like the card borders ($card-border-color in styles.scss).
+    gridColor: `rgba(${emphasisRgb}, 0.08)`,
+    fontFamily: variable('--bs-body-font-family', 'system-ui, sans-serif')
+  };
+}
 
 const DATE_FORMAT = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', timeZone: 'UTC' });
 const PRICE_FORMAT = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
 
-export function seriesColor(index: number): string {
-  return SERIES_COLORS[index % SERIES_COLORS.length];
+export function seriesColor(index: number, dark = false): string {
+  const palette = dark ? DARK_SERIES_COLORS : SERIES_COLORS;
+  return palette[index % palette.length];
 }
 
 /** Each label's line colour: labels in first-appearance order take the palette in turn (as the datasets do). */
-export function seriesColorsByLabel(points: readonly HistoryPoint[]): Map<string, string> {
+export function seriesColorsByLabel(points: readonly HistoryPoint[], dark = false): Map<string, string> {
   const colors = new Map<string, string>();
   for (const { label } of points) {
     if (!colors.has(label)) {
-      colors.set(label, seriesColor(colors.size));
+      colors.set(label, seriesColor(colors.size, dark));
     }
   }
   return colors;
@@ -94,7 +129,11 @@ export function nearestSeriesHighlighter(colors: readonly string[]): Plugin<'lin
  * only shown when a line has no point on the latest date: the "Latest averages" table next to the chart names the
  * others, with the same colours.
  */
-export function buildHistoryChartConfig(points: readonly HistoryPoint[], title: string): HistoryChartConfig {
+export function buildHistoryChartConfig(
+  points: readonly HistoryPoint[],
+  title: string,
+  theme: ChartTheme
+): HistoryChartConfig {
   const dates = Array.from(new Set(points.map(point => point.date))).sort();
   const priceByLabelAndDate = new Map<string, Map<string, number>>();
   for (const { label, date, price } of points) {
@@ -103,7 +142,8 @@ export function buildHistoryChartConfig(points: readonly HistoryPoint[], title: 
     }
     priceByLabelAndDate.get(label)!.set(date, price);
   }
-  const colorByLabel = seriesColorsByLabel(points);
+  const colorByLabel = seriesColorsByLabel(points, theme.dark);
+  const text = { color: theme.textColor, font: { family: theme.fontFamily } };
 
   const prices = points.map(point => point.price);
   const minPrice = Math.min(...prices);
@@ -151,10 +191,12 @@ export function buildHistoryChartConfig(points: readonly HistoryPoint[], title: 
         legend: {
           display: someLineEndsEarly,
           position: 'bottom',
-          labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8 }
+          labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8, ...text }
         },
-        title: { display: true, text: title },
+        title: { display: true, text: title, ...text },
         tooltip: {
+          titleFont: { family: theme.fontFamily },
+          bodyFont: { family: theme.fontFamily },
           callbacks: {
             label: (context: TooltipItem<'line'>) =>
               `${context.dataset.label}: €${roundPriceToEuro(Number(context.parsed.y))}/m²`
@@ -165,17 +207,18 @@ export function buildHistoryChartConfig(points: readonly HistoryPoint[], title: 
         y: {
           beginAtZero: false,
           min: Math.max(0, minPrice - pricePadding),
-          grid: { color: GRID_COLOR },
+          grid: { color: theme.gridColor },
           border: { display: false },
-          ticks: { callback: (value: string | number) => PRICE_FORMAT.format(Number(value)) },
-          title: { display: true, text: 'Price per m²' }
+          ticks: { ...text, callback: (value: string | number) => PRICE_FORMAT.format(Number(value)) },
+          title: { display: true, text: 'Price per m²', ...text }
         },
         x: {
           grid: { display: false },
           ticks: {
+            ...text,
             callback: (value: string | number) => formatHistoryDate(dates[Number(value)])
           },
-          title: { display: true, text: 'Date' }
+          title: { display: true, text: 'Date', ...text }
         }
       }
     }
