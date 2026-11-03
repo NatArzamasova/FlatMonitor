@@ -409,7 +409,7 @@ describe('OffersTabComponent', () => {
       fixture.detectChanges();
 
       const buttons = fixture.nativeElement.querySelectorAll('thead button[aria-label^="Sort by"]') as NodeListOf<HTMLButtonElement>;
-      expect(buttons.length).toBe(7);
+      expect(buttons.length).toBe(8);
       buttons[2].click();
       fixture.detectChanges();
 
@@ -744,8 +744,8 @@ describe('OffersTabComponent', () => {
 
       const headers = Array.from(fixture.nativeElement.querySelectorAll('thead th') as NodeListOf<HTMLElement>);
       expect(headers.map(header => header.textContent!.trim().replace(/[↑↓↕]/g, '').trim()))
-        .toEqual(['District', 'Rooms', 'Price (€)', 'Living area (m²)', 'Price/m² (€)', 'EE Class', 'Availability', 'Source']);
-      expect(headers[6].querySelector('button')).toBeNull();
+        .toEqual(['District', 'Rooms', 'Price (€)', 'Living area (m²)', 'Price/m² (€)', 'Hausgeld (€)', 'EE Class', 'Availability', 'Source']);
+      expect(headers[7].querySelector('button')).toBeNull();
     });
 
     it('shows the availability of each offer, with the full text as title, and - when it is missing', () => {
@@ -762,18 +762,60 @@ describe('OffersTabComponent', () => {
     it('aligns the header and the cells to the right', () => {
       renderOffers([{ district: 'Mitte', availability: 'sofort' }]);
 
-      const header = fixture.nativeElement.querySelectorAll('thead th')[6] as HTMLElement;
+      const header = fixture.nativeElement.querySelectorAll('thead th')[7] as HTMLElement;
       expect(header.classList).toContain('text-end');
       expect(availabilityCells()[0].classList).toContain('text-end');
       expect(getComputedStyle(header).textAlign).toMatch(/^(right|end)$/);
       expect(getComputedStyle(availabilityCells()[0]).textAlign).toMatch(/^(right|end)$/);
     });
 
-    it('renders eight skeleton columns while loading', () => {
+    it('renders nine skeleton columns while loading', () => {
       flatsService.getCurrentOffers.and.returnValue(NEVER);
       fixture.detectChanges();
 
-      expect(fixture.nativeElement.querySelectorAll('app-loading-skeleton thead th').length).toBe(8);
+      expect(fixture.nativeElement.querySelectorAll('app-loading-skeleton thead th').length).toBe(9);
+    });
+  });
+
+  describe('Hausgeld column', () => {
+    const renderOffers = (offers: FlatOffer[]) => {
+      flatsService.getCurrentOffers.and.returnValue(apiResult({ success: true, data: offers, message: 'Success' }));
+      fixture.detectChanges();
+    };
+    const cells = (): string[] =>
+      Array.from(fixture.nativeElement.querySelectorAll('tbody td.offer-service-charge') as NodeListOf<HTMLElement>)
+        .map(cell => cell.textContent!.trim());
+
+    it('has a right-aligned, sortable "Hausgeld (€)" header after Price/m²', () => {
+      renderOffers([{ district: 'Mitte', serviceChargeEur: 250 }]);
+
+      const header = fixture.nativeElement.querySelectorAll('thead th')[5] as HTMLElement;
+      expect(header.textContent).toContain('Hausgeld (€)');
+      expect(header.classList).toContain('text-end');
+      expect(header.querySelector('abbr')!.title).toBe('Monthly service charge');
+      expect(header.querySelector('button')!.getAttribute('aria-label')).toBe('Sort by Hausgeld');
+    });
+
+    it('shows the monthly Hausgeld in euros in German format, 0 as 0 €, and - when it is missing', () => {
+      renderOffers([
+        { district: 'Mitte', priceEur: 1, serviceChargeEur: 1245 },
+        { district: 'Mitte', priceEur: 2, serviceChargeEur: 0 },
+        { district: 'Mitte', priceEur: 3 }
+      ]);
+
+      expect(cells()).toEqual(['1.245 €', '0 €', '-']);
+    });
+
+    it('sorts by Hausgeld, offers without one last', () => {
+      renderOffers([
+        { district: 'Mitte', serviceChargeEur: 400 },
+        { district: 'Mitte' },
+        { district: 'Mitte', serviceChargeEur: 150 }
+      ]);
+
+      component.onSort('serviceChargeEur');
+
+      expect(component.filteredOffers.map(offer => offer.serviceChargeEur)).toEqual([150, 400, undefined]);
     });
   });
 
@@ -783,12 +825,12 @@ describe('OffersTabComponent', () => {
       fixture.detectChanges();
     };
     const eeCells = (): HTMLElement[] =>
-      Array.from(fixture.nativeElement.querySelectorAll('tbody tr td:nth-child(6)'));
+      Array.from(fixture.nativeElement.querySelectorAll('tbody tr td:nth-child(7)'));
 
     it('has a centred, sortable "EE Class" header explained by an abbreviation', () => {
       renderOffers([{ district: 'Mitte', energyEfficiencyClass: 'B' }]);
 
-      const header = fixture.nativeElement.querySelectorAll('thead th')[5] as HTMLElement;
+      const header = fixture.nativeElement.querySelectorAll('thead th')[6] as HTMLElement;
       expect(header.classList).toContain('text-center');
       expect(header.querySelector('abbr')!.title).toBe('Energy efficiency class');
       expect(header.querySelector('button')!.getAttribute('aria-label')).toBe('Sort by Energy Efficiency Class');

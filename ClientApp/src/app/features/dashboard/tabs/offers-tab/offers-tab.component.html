@@ -1,6 +1,6 @@
 <div class="fill-column">
   @if (loading) {
-    <app-loading-skeleton [columns]="8" [cardsOnSmallScreens]="true"></app-loading-skeleton>
+    <app-loading-skeleton [columns]="9" [cardsOnSmallScreens]="true"></app-loading-skeleton>
   }
 
   @if (!loading && currentOffers.length > 0) {
@@ -68,6 +68,9 @@
             <th appSortableHeader class="text-end" [sort]="sort" column="priceEur" sortLabel="Price" (sortRequested)="onSort($event)">Price (€)</th>
             <th appSortableHeader class="text-end" [sort]="sort" column="livingAreaSqm" sortLabel="Living Area" (sortRequested)="onSort($event)">Living area (m²)</th>
             <th appSortableHeader class="text-end" [sort]="sort" column="pricePerMeter" sortLabel="Price per Square Meter" (sortRequested)="onSort($event)">Price/m² (€)</th>
+            <th appSortableHeader class="text-end" [sort]="sort" column="serviceChargeEur" sortLabel="Hausgeld" (sortRequested)="onSort($event)">
+              <abbr title="Monthly service charge">Hausgeld (€)</abbr>
+            </th>
             <th appSortableHeader class="text-center" [sort]="sort" column="energyEfficiencyClass"
               sortLabel="Energy Efficiency Class" (sortRequested)="onSort($event)">
               <abbr title="Energy efficiency class">EE Class</abbr>
@@ -93,6 +96,7 @@
               </td>
               <td class="text-end">{{ row.offer.livingAreaSqm ? (row.offer.livingAreaSqm | number: '1.0-1') : '-' }}</td>
               <td class="text-end">{{ row.offer.pricePerMeter ? (row.offer.pricePerMeter | number: '1.0-0') : '-' }}</td>
+              <td class="text-end offer-service-charge">{{ row.offer.serviceChargeEur != null ? (row.offer.serviceChargeEur | currency: 'EUR': 'symbol': '1.0-0') : '-' }}</td>
               <td class="text-center">
                 @if (row.energyClass; as energyClass) {
                   <span class="badge ee-badge" [class]="energyClass.className"

@@ -314,7 +314,7 @@ public class FlatRepositoryTests
                 Source = "source", ListingId = "newer", ScrapedAtUtc = new DateTime(2026, 10, 21, 8, 0, 0, DateTimeKind.Utc),
                 District = "Zentrum", RoomsCount = 3, PriceEur = 1200, OriginalPriceEur = 1400,
                 PricePerMeter = 40, LivingAreaSqm = 72, Url = "new-url",
-                Details = new FlatDetails { Availability = "sofort", EnergyEfficiencyClass = "A_PLUS" }
+                Details = new FlatDetails { Availability = "sofort", EnergyEfficiencyClass = "A_PLUS", ServiceChargeEur = 310 }
             };
             dbContext.FlatsSnapshots.AddRange(older, newer);
             var createdAt = DateTime.UtcNow;
@@ -341,6 +341,8 @@ public class FlatRepositoryTests
         result[1].Availability.Should().BeNull("the older flat has no details");
         result[0].EnergyEfficiencyClass.Should().Be("A_PLUS");
         result[1].EnergyEfficiencyClass.Should().BeNull();
+        result[0].ServiceChargeEur.Should().Be(310);
+        result[1].ServiceChargeEur.Should().BeNull();
     }
 
     private DbContextOptions<FlatsDbContext> CreateSqliteOptions()
@@ -352,7 +354,7 @@ public class FlatRepositoryTests
     }
 
     [Test]
-    public async Task GetCurrentOffersAsync_OnSqlite_ReadsAvailabilityAndEnergyClassFromTheDetailsColumns()
+    public async Task GetCurrentOffersAsync_OnSqlite_ReadsTheOfferDetailsFromTheDetailsColumns()
     {
         var options = CreateSqliteOptions();
         await using var repoContext = await CreateContextAsync(options);
@@ -363,7 +365,7 @@ public class FlatRepositoryTests
             var withDetails = new PublishedFlat
             {
                 Source = "source", ListingId = "with-details", ScrapedAtUtc = new DateTime(2026, 10, 21, 8, 0, 0, DateTimeKind.Utc),
-                District = "Zentrum", Details = new FlatDetails { Availability = "01.03.2027", EnergyEfficiencyClass = "C" }
+                District = "Zentrum", Details = new FlatDetails { Availability = "01.03.2027", EnergyEfficiencyClass = "C", ServiceChargeEur = 245 }
             };
             var withoutDetails = new PublishedFlat
             {
@@ -384,6 +386,7 @@ public class FlatRepositoryTests
 
         result.Select(offer => offer.Availability).Should().Equal("01.03.2027", null);
         result.Select(offer => offer.EnergyEfficiencyClass).Should().Equal("C", null);
+        result.Select(offer => offer.ServiceChargeEur).Should().Equal(245, null);
     }
 
     [Test]

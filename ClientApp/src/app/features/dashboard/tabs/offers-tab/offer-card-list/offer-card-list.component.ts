@@ -51,6 +51,12 @@ import { OFFER_SORT_COLUMNS, OfferRow, OfferSortColumn } from '../offer-row';
                     [title]="'Was ' + (row.offer.originalPriceEur | currency: 'EUR': 'symbol': '1.0-0') + ' when first listed'">−{{ row.discountPercentage | number: '1.0-1' }} %</span>
                 }
               </div>
+              @if (row.offer.serviceChargeEur != null) {
+                <div class="small mt-1 offer-card-service-charge">
+                  <span class="text-body-secondary">Hausgeld:</span>
+                  {{ row.offer.serviceChargeEur | currency: 'EUR': 'symbol': '1.0-0' }} / month
+                </div>
+              }
               @if (row.offer.availability) {
                 <div class="small mt-1 text-truncate offer-card-availability" [title]="row.offer.availability">
                   <span class="text-body-secondary">Available:</span> {{ row.offer.availability }}

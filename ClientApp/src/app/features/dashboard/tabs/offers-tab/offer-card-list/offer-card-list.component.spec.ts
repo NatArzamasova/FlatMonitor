@@ -111,6 +111,18 @@ describe('OfferCardListComponent', () => {
       expect(cards()[1].querySelector('.offer-card-availability')).toBeNull();
     });
 
+    it('shows the monthly Hausgeld when the offer has one, also when it is 0', () => {
+      render([
+        row({ district: 'Mitte', serviceChargeEur: 310 }),
+        row({ district: 'Mitte', serviceChargeEur: 0 }),
+        row({ district: 'Weststadt' })
+      ]);
+
+      expect(text(cards()[0], '.offer-card-service-charge')).toBe('Hausgeld: 310 € / month');
+      expect(text(cards()[1], '.offer-card-service-charge')).toBe('Hausgeld: 0 € / month');
+      expect(cards()[2].querySelector('.offer-card-service-charge')).toBeNull();
+    });
+
     it('shows the energy class as a pill in its scale colour, and none without a class', () => {
       render([row({ district: 'Mitte', energyEfficiencyClass: 'A_PLUS' }), row({ district: 'Weststadt' })]);
 

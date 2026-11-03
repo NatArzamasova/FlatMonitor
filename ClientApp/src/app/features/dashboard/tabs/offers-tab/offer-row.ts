@@ -3,7 +3,7 @@ import { SourceBadge } from '../../../../core/utils/source.utils';
 import { EnergyClassBadge } from '../../../../core/utils/energy-class.utils';
 
 export type OfferSortColumn =
-  'district' | 'roomsCount' | 'priceEur' | 'livingAreaSqm' | 'pricePerMeter' | 'energyEfficiencyClass' | 'source';
+  'district' | 'roomsCount' | 'priceEur' | 'livingAreaSqm' | 'pricePerMeter' | 'serviceChargeEur' | 'energyEfficiencyClass' | 'source';
 
 /** An offer with its display state, shared by the table and the cards of the Current Offers tab. */
 export interface OfferRow {
@@ -22,6 +22,7 @@ export const OFFER_SORT_COLUMNS: readonly { column: OfferSortColumn; label: stri
   { column: 'priceEur', label: 'Price' },
   { column: 'livingAreaSqm', label: 'Living Area' },
   { column: 'pricePerMeter', label: 'Price per Square Meter' },
+  { column: 'serviceChargeEur', label: 'Hausgeld' },
   { column: 'energyEfficiencyClass', label: 'Energy Efficiency Class' },
   { column: 'source', label: 'Source' }
 ];

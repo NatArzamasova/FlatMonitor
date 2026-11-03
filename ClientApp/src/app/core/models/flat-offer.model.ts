@@ -11,4 +11,6 @@ export interface FlatOffer {
   availability?: string;
   /** As the portal gives it: `A+` / `A_PLUS`, `A` … `H`; shown through `energyClassBadge()`. */
   energyEfficiencyClass?: string;
+  /** Monthly Hausgeld (service charge) in whole euros. */
+  serviceChargeEur?: number;
 }

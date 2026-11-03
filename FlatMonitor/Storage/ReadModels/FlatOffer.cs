@@ -17,4 +17,7 @@ public class FlatOffer
 
     /// <summary>Energy efficiency class as the portal gives it ("A+" / "A_PLUS", "A" … "H"); from the detail page.</summary>
     public string? EnergyEfficiencyClass { get; set; }
+
+    /// <summary>Monthly Hausgeld (service charge) in euros; from the detail page.</summary>
+    public int? ServiceChargeEur { get; set; }
 }
