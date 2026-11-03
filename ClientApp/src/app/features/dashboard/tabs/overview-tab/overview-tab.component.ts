@@ -11,6 +11,7 @@ import { DataReloadService } from '../../../../core/services/data-reload.service
 import { FlatAggregation } from '../../../../core/models/flat-aggregation.model';
 import { groupWeighted } from '../../../../core/utils/aggregation.utils';
 import { normalizeRooms } from '../../../../core/utils/rooms.utils';
+import { roomsLabel } from '../../../../core/utils/filter-chips.utils';
 import { distinctSorted } from '../../../../core/utils/collection.utils';
 import { describeLoadError } from '../../../../core/utils/api-response.utils';
 import { TableSort } from '../../../../core/utils/table-sort';
@@ -27,6 +28,12 @@ import { FilterChip, buildFilterChips } from '../../../../core/utils/filter-chip
 import { FilterPresetBarComponent } from '../../../../shared/filter-preset-bar/filter-preset-bar.component';
 
 type AggregationSortColumn = 'district' | 'roomsCount' | 'count' | 'avgPricePerMeter';
+
+/** Where a Dashboard row's link leads and how it is announced. */
+interface OffersLink {
+  url: string;
+  label: string;
+}
 
 @Component({
   selector: 'app-overview-tab',
@@ -57,6 +64,7 @@ export class OverviewTabComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
 
   readonly sort = new TableSort<FlatAggregation, AggregationSortColumn>();
+  private readonly offersLinks = new Map<FlatAggregation, OffersLink>();
 
   aggregatedData: FlatAggregation[] = [];
   rawData: FlatAggregation[] = [];
@@ -160,6 +168,7 @@ export class OverviewTabComponent implements OnInit {
 
   private applySort(): void {
     this.aggregatedData = this.sort.apply(this.aggregatedData);
+    this.offersLinks.clear();
   }
 
   /** Merges rows by the selected dimension (or into one row when none is selected). */
@@ -188,19 +197,61 @@ export class OverviewTabComponent implements OnInit {
     return rows;
   }
 
-  openOffersForRow(item: FlatAggregation): void {
-    const queryParams: Params = {};
-
-    if (this.groupByDistrict && item.district) {
-      queryParams['district'] = item.district;
+  /**
+   * The link of a row to its matching current offers: URL and accessible name. Computed once per row after each
+   * filter, grouping or sort change (`applySort` clears the cache), not on every change detection.
+   */
+  offersLink(item: FlatAggregation): OffersLink {
+    let link = this.offersLinks.get(item);
+    if (!link) {
+      link = { url: this.offersUrl(item), label: this.offersLinkLabel(item) };
+      this.offersLinks.set(item, link);
     }
+    return link;
+  }
 
-    const roomsCount = normalizeRooms(item.roomsCount);
-    if (this.groupByRooms && roomsCount !== undefined) {
+  /** A click anywhere on a row opens its offers; a click on the row's own link is left to the link. */
+  onRowClick(item: FlatAggregation, event: MouseEvent): void {
+    if ((event.target as Element | null)?.closest('a')) {
+      return;
+    }
+    this.openOffersForRow(item);
+  }
+
+  openOffersForRow(item: FlatAggregation): void {
+    window.open(this.offersUrl(item), '_blank', 'noopener,noreferrer');
+  }
+
+  /** `Open offers in Südstadt with 3 rooms`, leaving out what the grouping does not show. */
+  private offersLinkLabel(item: FlatAggregation): string {
+    const { district, roomsCount } = this.offersQueryParams(item);
+    if (!district && roomsCount === undefined) {
+      return 'Open all current offers';
+    }
+    const where = district ? ` in ${district}` : '';
+    const rooms = roomsCount !== undefined ? ` with ${roomsLabel(roomsCount)}` : '';
+    return `Open offers${where}${rooms}`;
+  }
+
+  private offersUrl(item: FlatAggregation): string {
+    const { district, roomsCount } = this.offersQueryParams(item);
+    const queryParams: Params = {};
+    if (district) {
+      queryParams['district'] = district;
+    }
+    if (roomsCount !== undefined) {
       queryParams['rooms'] = String(roomsCount);
     }
-
     const offersUrl = this.router.serializeUrl(this.router.createUrlTree(['/offers'], { queryParams }));
-    window.open(this.location.prepareExternalUrl(offersUrl), '_blank', 'noopener,noreferrer');
+    return this.location.prepareExternalUrl(offersUrl);
+  }
+
+  /** The row's district and rooms, as far as the grouping shows them. */
+  private offersQueryParams(item: FlatAggregation): { district?: string; roomsCount?: number } {
+    const roomsCount = normalizeRooms(item.roomsCount);
+    return {
+      district: this.groupByDistrict && item.district ? item.district : undefined,
+      roomsCount: this.groupByRooms ? roomsCount : undefined
+    };
   }
 }

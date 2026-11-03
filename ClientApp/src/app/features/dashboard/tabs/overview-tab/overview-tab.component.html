@@ -4,7 +4,7 @@
   }
 
   @if (loading) {
-    <app-loading-skeleton [columns]="4"></app-loading-skeleton>
+    <app-loading-skeleton [columns]="5"></app-loading-skeleton>
   }
 
   @if (!loading && rawData.length > 0) {
@@ -105,23 +105,24 @@
             <th appSortableHeader [sort]="sort" column="roomsCount" sortLabel="Rooms" (sortRequested)="onSort($event)">Rooms</th>
             <th appSortableHeader class="text-end" [sort]="sort" column="count" sortLabel="Count" (sortRequested)="onSort($event)">Count</th>
             <th appSortableHeader class="text-end" [sort]="sort" column="avgPricePerMeter" sortLabel="Average Price per Square Meter" (sortRequested)="onSort($event)">Avg Price/m²</th>
+            <th class="row-link-cell"><span class="visually-hidden">Offers</span></th>
           </tr>
         </thead>
         <tbody>
           <!-- District + rooms identifies a row in every grouping mode. -->
+          <!-- The row stays a table row for screen readers; its last cell holds the real link (Tab, Enter, ctrl/middle
+               click, "copy link"). A click anywhere else on the row is a mouse shortcut to the same offers. -->
           @for (item of aggregatedData; track item.district + '|' + item.roomsCount) {
-            <tr
-              (click)="openOffersForRow(item)"
-              (keydown.enter)="openOffersForRow(item)"
-              tabindex="0"
-              role="button"
-              title="Open matching current offers"
-            >
+            <tr class="row-link" (click)="onRowClick(item, $event)" title="Open matching current offers">
               <td>{{ groupByDistrict ? (item.district || '-') : '-' }}</td>
               <td>{{ groupByRooms && item.roomsCount ? (item.roomsCount | number: '1.0-1') : '-' }}</td>
               <td class="text-end"><span class="badge bg-info">{{ item.count }}</span></td>
               <td class="text-end">
                 <strong>{{ item.avgPricePerMeter | currency: 'EUR': 'symbol': '1.0-0' }}</strong>
+              </td>
+              <td class="row-link-cell">
+                <a class="row-link-chevron" [href]="offersLink(item).url" target="_blank" rel="noopener"
+                  [attr.aria-label]="offersLink(item).label"><span aria-hidden="true">›</span></a>
               </td>
             </tr>
           }

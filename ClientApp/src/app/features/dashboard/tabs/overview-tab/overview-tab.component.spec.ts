@@ -696,6 +696,106 @@ describe('OverviewTabComponent', () => {
     });
   });
 
+  describe('Row links', () => {
+    const rows = (): HTMLTableRowElement[] => Array.from(fixture.nativeElement.querySelectorAll('tbody tr'));
+    const link = (row: HTMLTableRowElement) => row.querySelector('td.row-link-cell a.row-link-chevron') as HTMLAnchorElement;
+    const render = (groupByDistrict = true, groupByRooms = true) => {
+      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
+      fixture.detectChanges();
+      component.groupByDistrict = groupByDistrict;
+      component.groupByRooms = groupByRooms;
+      component.applyFiltersAndGrouping();
+      fixture.detectChanges();
+    };
+
+    it('gives every row a link to its offers in a new browser tab, named after them', () => {
+      render();
+
+      const mitte = link(rows().find(row => row.textContent!.includes('Mitte'))!);
+      expect(mitte.getAttribute('href')).toBe('/offers?district=Mitte&rooms=2');
+      expect(mitte.target).toBe('_blank');
+      expect(mitte.getAttribute('rel')).toBe('noopener');
+      expect(mitte.getAttribute('aria-label')).toBe('Open offers in Mitte with 2 rooms');
+      expect(mitte.querySelector('[aria-hidden="true"]')!.textContent).toBe('›');
+      expect(rows().every(row => link(row) !== null)).toBeTrue();
+    });
+
+    it('has a header cell for the link column, named for screen readers only', () => {
+      render();
+
+      const header = fixture.nativeElement.querySelector('thead th:last-child') as HTMLElement;
+      expect(header.classList).toContain('row-link-cell');
+      expect(header.querySelector('.visually-hidden')!.textContent).toBe('Offers');
+    });
+
+    it('keeps the rows as table rows: no button role and no tab stop of their own', () => {
+      render();
+
+      for (const row of rows()) {
+        expect(row.classList).toContain('row-link');
+        expect(row.getAttribute('role')).toBeNull();
+        expect(row.getAttribute('tabindex')).toBeNull();
+      }
+    });
+
+    it('leaves out the rooms when grouping only by district', () => {
+      render(true, false);
+
+      const mitte = link(rows().find(row => row.textContent!.includes('Mitte'))!);
+      expect(mitte.getAttribute('href')).toBe('/offers?district=Mitte');
+      expect(mitte.getAttribute('aria-label')).toBe('Open offers in Mitte');
+    });
+
+    it('leaves out the district when grouping only by rooms', () => {
+      render(false, true);
+
+      const twoRooms = link(rows().find(row => row.querySelector('td:nth-child(2)')!.textContent!.trim() === '2')!);
+      expect(twoRooms.getAttribute('href')).toBe('/offers?rooms=2');
+      expect(twoRooms.getAttribute('aria-label')).toBe('Open offers with 2 rooms');
+    });
+
+    it('links to all offers without grouping', () => {
+      render(false, false);
+
+      expect(rows().length).toBe(1);
+      expect(link(rows()[0]).getAttribute('href')).toBe('/offers');
+      expect(link(rows()[0]).getAttribute('aria-label')).toBe('Open all current offers');
+    });
+
+    it('updates the links when the grouping changes', () => {
+      render();
+      expect(link(rows()[0]).getAttribute('href')).toContain('rooms=');
+
+      component.groupByRooms = false;
+      component.applyFiltersAndGrouping();
+      fixture.detectChanges();
+
+      expect(link(rows()[0]).getAttribute('href')).not.toContain('rooms=');
+    });
+
+    it('opens the offers when the row is clicked anywhere else', () => {
+      const openSpy = spyOn(window, 'open');
+      render();
+      const mitte = rows().find(row => row.textContent!.includes('Mitte'))!;
+
+      (mitte.querySelector('td:nth-child(4)') as HTMLElement).click();
+
+      expect(openSpy).toHaveBeenCalledOnceWith('/offers?district=Mitte&rooms=2', '_blank', 'noopener,noreferrer');
+    });
+
+    it('leaves a click on the link to the link, so the offers do not open twice', () => {
+      const openSpy = spyOn(window, 'open');
+      render();
+      const chevron = link(rows()[0]);
+      // Keep the test page where it is.
+      chevron.addEventListener('click', event => event.preventDefault());
+
+      chevron.querySelector('span')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+      expect(openSpy).not.toHaveBeenCalled();
+    });
+  });
+
   describe('Filter presets', () => {
     const mitte = filterPreset(1, 'Center', ['Mitte']);
 

@@ -433,7 +433,14 @@ avoids that. Recommendation: CSS first (simpler), `BreakpointObserver` only if t
 
 **Size.** M.
 
-### 3.5 Story: Make the clickable Dashboard rows look clickable
+### 3.5 Story: Make the clickable Dashboard rows look clickable ✅ done
+Each row ends with a `.row-link-cell` holding a real link (`›`, `target="_blank"`, `rel="noopener"`, accessible name
+"Open offers in Südstadt with 3 rooms" / "… in Südstadt" / "… with 3 rooms" / "Open all current offers" depending on
+the grouping); the header cell is named "Offers" for screen readers only. The rows lost `role="button"`, `tabindex`
+and the Enter handler (the link does that now, so task 4 is moot); a click elsewhere on the row still opens the
+offers, a click on the link is left to the link. `.row-link` (styles.scss): pointer cursor, chevron turns primary on
+row hover, and the row gets a primary outline while its link has keyboard focus (`:has(:focus-visible)`). The links
+are computed once per filter/grouping/sort change (`offersLink()`). The chevron is a text glyph until 1.7 adds icons.
 
 **Story.** As a user of the Dashboard tab, I want to see that a row of the aggregation table opens the
 matching offers, so that I discover the shortcut and can use it with the keyboard.
@@ -481,7 +488,7 @@ Done: 1.1–1.6 and 2.1–2.8.
 
 Open, in this order:
 1. **1.7 Icons** (S): small, and 3.2's theme toggle and 3.5's chevron can use the icons.
-2. **3.5 Clickable rows** (S): quick, improves discoverability and accessibility.
+2. ~~**3.5 Clickable rows** (S): quick, improves discoverability and accessibility.~~ ✅ done
 3. ~~**3.1 Sass theme** (M): the base for dark mode.~~ ✅ done
 4. ~~**3.2 Dark mode** (M–L): after 3.1.~~ ✅ done
 5. ~~**3.3 German formats** (S–M): once the format decision is made; independent of the others.~~ ✅ done

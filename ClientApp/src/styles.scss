@@ -197,3 +197,38 @@ body {
     border-bottom-width: 0;
   }
 }
+
+/*
+ * A table row that opens something: `<tr class="row-link">` with a last `.row-link-cell` holding the real
+ * `<a class="row-link-chevron">` (keyboard, ctrl/middle click, "copy link"); a click elsewhere on the row is a mouse
+ * shortcut. The hover background comes from `table-hover`.
+ */
+.row-link {
+  cursor: pointer;
+
+  /* The link is small, so the whole row shows where the focus is. */
+  &:has(.row-link-chevron:focus-visible) {
+    outline: 2px solid var(--bs-primary);
+    outline-offset: -2px;
+  }
+}
+
+.row-link-cell {
+  width: 2.5rem;
+  text-align: center;
+}
+
+.row-link-chevron {
+  display: inline-block;
+  padding: 0 0.5rem;
+  color: var(--bs-secondary-color);
+  font-size: 1.25rem;
+  line-height: 1;
+  text-decoration: none;
+  border-radius: var(--bs-border-radius-sm);
+
+  .row-link:hover &,
+  &:focus-visible {
+    color: var(--bs-primary);
+  }
+}
