@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { finalize, skip } from 'rxjs/operators';
 import { FlatsService } from '../../../../core/services/flats.service';
+import { DataReloadService } from '../../../../core/services/data-reload.service';
 import { FilterPresetsService } from '../../../../core/services/filter-presets.service';
 import { filterByDistricts, filterByPriceRange, filterByRooms } from '../../../../core/utils/filter.utils';
 import { FlatOffer } from '../../../../core/models/flat-offer.model';
@@ -16,7 +17,9 @@ import { describeLoadError } from '../../../../core/utils/api-response.utils';
 import { TableSort } from '../../../../core/utils/table-sort';
 import { SortableHeaderComponent } from '../../../../shared/sortable-header/sortable-header.component';
 import { MultiSelectFilterComponent } from '../../../../shared/multi-select-filter/multi-select-filter.component';
-import { LoadingSpinnerComponent } from '../../../../shared/loading-spinner/loading-spinner.component';
+import { LoadingSkeletonComponent } from '../../../../shared/loading-skeleton/loading-skeleton.component';
+import { EmptyStateComponent } from '../../../../shared/empty-state/empty-state.component';
+import { StartScrapeButtonComponent } from '../../start-scrape-button/start-scrape-button.component';
 import { DismissibleAlertComponent } from '../../../../shared/dismissible-alert/dismissible-alert.component';
 import { FilterToolbarComponent } from '../../../../shared/filter-toolbar/filter-toolbar.component';
 import { FilterChip, buildFilterChips } from '../../../../core/utils/filter-chips.utils';
@@ -42,7 +45,9 @@ interface OfferRow {
     FormsModule,
     SortableHeaderComponent,
     MultiSelectFilterComponent,
-    LoadingSpinnerComponent,
+    LoadingSkeletonComponent,
+    EmptyStateComponent,
+    StartScrapeButtonComponent,
     DismissibleAlertComponent,
     FilterPresetBarComponent,
     FilterToolbarComponent
@@ -51,6 +56,7 @@ interface OfferRow {
 })
 export class OffersTabComponent implements OnInit {
   private readonly flatsService = inject(FlatsService);
+  private readonly dataReload = inject(DataReloadService);
   private readonly route = inject(ActivatedRoute);
   private readonly filterPresets = inject(FilterPresetsService);
   private readonly destroyRef = inject(DestroyRef);
@@ -77,6 +83,11 @@ export class OffersTabComponent implements OnInit {
     const districtsFromUrl = this.loadInitialFiltersFromUrl();
     this.followActivePreset(districtsFromUrl);
     this.loadCurrentOffers();
+
+    // The header's refresh button and finished scrapes.
+    this.dataReload.reload$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.loadCurrentOffers());
   }
 
   hasChangedPrice(offer: FlatOffer): boolean {

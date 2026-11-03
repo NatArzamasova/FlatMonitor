@@ -1,9 +1,11 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { NEVER, of, throwError } from 'rxjs';
+import { NEVER, of, Subject, throwError } from 'rxjs';
 import { HistoryTabComponent } from './history-tab.component';
 import { HistoryChartComponent } from './history-chart/history-chart.component';
 import { FlatsService } from '../../../../core/services/flats.service';
+import { DataReloadService } from '../../../../core/services/data-reload.service';
+import { ScrapeStatusService } from '../../../../core/services/scrape-status.service';
 import { apiResult } from '../../../../core/testing/api-response.testing';
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { FlatHistory } from '../../../../core/models/flat-history.model';
@@ -19,6 +21,7 @@ describe('HistoryTabComponent', () => {
   let fixture: ComponentFixture<HistoryTabComponent>;
   let flatsService: jasmine.SpyObj<FlatsService>;
   let presets: FilterPresetsServiceStub;
+  let reload$: Subject<void>;
 
   const mockHistoryResponse: ApiResponse<FlatHistory[]> = {
     success: true,
@@ -53,12 +56,16 @@ describe('HistoryTabComponent', () => {
       'getHistory'
     ]);
     presets = createFilterPresetsServiceStub();
+    reload$ = new Subject<void>();
 
     await TestBed.configureTestingModule({
       imports: [HistoryTabComponent],
       providers: [
         { provide: FlatsService, useValue: flatsServiceSpy },
-        { provide: FilterPresetsService, useValue: presets.service }
+        { provide: FilterPresetsService, useValue: presets.service },
+        { provide: DataReloadService, useValue: { reload$ } },
+        // Read by the empty state's "Start a scrape" button.
+        { provide: ScrapeStatusService, useValue: jasmine.createSpyObj('ScrapeStatusService', ['triggerScrape'], { status$: NEVER }) }
       ]
     }).compileComponents();
 
@@ -282,13 +289,14 @@ describe('HistoryTabComponent', () => {
   });
 
   describe('Spinner and alerts (DOM)', () => {
-    it('shows a loading spinner while history is loading', () => {
+    it('shows a loading skeleton while history is loading', () => {
       flatsService.getHistory.and.returnValue(NEVER);
       fixture.detectChanges();
 
-      const spinner = fixture.nativeElement.querySelector('.spinner-border.text-primary') as HTMLElement;
-      expect(spinner).toBeTruthy();
-      expect(spinner.textContent).toContain('Loading...');
+      const skeleton = fixture.nativeElement.querySelector('app-loading-skeleton [role=\"status\"]') as HTMLElement;
+      expect(skeleton).toBeTruthy();
+      expect(skeleton.textContent).toContain('Loading…');
+      expect(fixture.nativeElement.querySelector('app-empty-state')).toBeNull();
     });
 
     it('shows load errors in an alert that can be dismissed', () => {
@@ -503,6 +511,68 @@ describe('HistoryTabComponent', () => {
 
       expect(component.selectedDistricts).toEqual([]);
       expect(presets.service.selectPreset).toHaveBeenCalledWith(null);
+    });
+  });
+
+  describe('Reloading', () => {
+    it('loads the history again on each reload request (refresh button, finished scrape)', () => {
+      flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
+      fixture.detectChanges();
+      const initialLoads = flatsService.getHistory.calls.count();
+
+      reload$.next();
+      reload$.next();
+
+      expect(flatsService.getHistory.calls.count()).toBe(initialLoads + 2);
+    });
+
+    it('stops listening for reload requests when destroyed', () => {
+      flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
+      fixture.detectChanges();
+
+      fixture.destroy();
+
+      expect(reload$.observed).toBe(false);
+    });
+  });
+
+  describe('Empty states', () => {
+    const emptyState = (): HTMLElement | null => fixture.nativeElement.querySelector('app-empty-state');
+    const heading = (): string | undefined => emptyState()?.querySelector('h2')!.textContent!.trim();
+    const clickReset = () => {
+      (emptyState()!.querySelector('button') as HTMLButtonElement).click();
+      fixture.detectChanges();
+    };
+
+    it('offers to start a scrape when there is no history yet', () => {
+      flatsService.getHistory.and.returnValue(apiResult({ success: true, data: [], message: 'Success' }));
+      fixture.detectChanges();
+
+      expect(heading()).toBe('No history yet');
+      expect(emptyState()!.querySelector('app-start-scrape-button')).not.toBeNull();
+    });
+
+    it('offers to reset the districts when they have no history, and resets them', () => {
+      flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
+      fixture.detectChanges();
+      component.selectedDistricts = ['Durlach'];
+      component.onDistrictFilterChange();
+      fixture.detectChanges();
+
+      expect(heading()).toBe('No history data for the selected districts.');
+      clickReset();
+
+      expect(component.selectedDistricts).toEqual([]);
+      expect(component.chartData.length).toBeGreaterThan(0);
+      expect(emptyState()).toBeNull();
+    });
+
+    it('shows only the error when loading failed', () => {
+      flatsService.getHistory.and.returnValue(throwError(() => new Error('Network error')));
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.alert-danger')).not.toBeNull();
+      expect(emptyState()).toBeNull();
     });
   });
 });

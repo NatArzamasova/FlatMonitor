@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
-import { of } from 'rxjs';
+import { NEVER, of } from 'rxjs';
 import { routes } from '../../app.routes';
 import { OffersTabComponent } from './tabs/offers-tab/offers-tab.component';
 import { FlatsService } from '../../core/services/flats.service';
@@ -10,6 +10,8 @@ import { apiResult } from '../../core/testing/api-response.testing';
 import { FilterPresetsService } from '../../core/services/filter-presets.service';
 import { createFilterPresetsServiceStub } from '../../core/testing/filter-presets.testing';
 import { DistrictsService } from '../../core/services/districts.service';
+import { DataReloadService } from '../../core/services/data-reload.service';
+import { ScrapeStatusService } from '../../core/services/scrape-status.service';
 
 describe('DashboardComponent (Shell) routing', () => {
   let harness: RouterTestingHarness;
@@ -32,6 +34,8 @@ describe('DashboardComponent (Shell) routing', () => {
     TestBed.configureTestingModule({
       providers: [
         provideRouter(routes),
+        // The header polls the scrape status every 2 s; that timer would keep the zone from ever becoming stable.
+        { provide: ScrapeStatusService, useValue: { status$: NEVER, scrapeFinished$: NEVER } },
         { provide: FlatsService, useValue: flatsServiceSpy },
         { provide: FilterPresetsService, useValue: createFilterPresetsServiceStub().service },
         { provide: DistrictsService, useValue: { districts$: of([]) } }
@@ -109,6 +113,23 @@ describe('DashboardComponent (Shell) routing', () => {
 
     expect(router.url).toBe('/history');
     expect(rendered('app-history-tab')).toBeTruthy();
+  });
+
+  it('shows the scrape control and a reload button in the header, not on the Dashboard tab', async () => {
+    await harness.navigateByUrl('/overview');
+
+    expect(rendered('app-header app-scrape-control')).toBeTruthy();
+    expect(rendered('app-overview-tab app-scrape-control')).toBeNull();
+    expect(rendered('app-header button[aria-label="Reload data"]')).toBeTruthy();
+  });
+
+  it('asks the open tab to load its data again from the reload button', async () => {
+    await harness.navigateByUrl('/offers');
+    const reloads = spyOn(TestBed.inject(DataReloadService), 'requestReload').and.callThrough();
+
+    (rendered('app-header button[aria-label="Reload data"]') as HTMLButtonElement).click();
+
+    expect(reloads).toHaveBeenCalled();
   });
 
   it('links to the presets page in a new browser tab from the header', async () => {

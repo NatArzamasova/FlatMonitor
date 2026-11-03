@@ -1,6 +1,6 @@
 <div class="fill-column">
   @if (loading) {
-    <app-loading-spinner></app-loading-spinner>
+    <app-loading-skeleton variant="chart"></app-loading-skeleton>
   }
 
   @if (!loading && historyData.length > 0) {
@@ -84,13 +84,17 @@
   }
 
   @if (!loading && historyData.length > 0 && chartData.length === 0) {
-    <div class="alert alert-info">No history data for the selected districts.</div>
+    <app-empty-state icon="search" heading="No history data for the selected districts."
+      message="Remove some districts or reset the filters.">
+      <button type="button" class="btn btn-outline-primary" (click)="resetFilters()">Reset filters</button>
+    </app-empty-state>
   }
 
-  @if (!loading && historyData.length === 0) {
-    <div class="alert alert-info">
-      No history data available yet. Historical data will be collected after multiple scrapes.
-    </div>
+  @if (!loading && !error && historyData.length === 0) {
+    <app-empty-state icon="chart" heading="No history yet"
+      message="Every scrape adds a data point; the trends appear after a few scrapes.">
+      <app-start-scrape-button></app-start-scrape-button>
+    </app-empty-state>
   }
 
   @if (error) {

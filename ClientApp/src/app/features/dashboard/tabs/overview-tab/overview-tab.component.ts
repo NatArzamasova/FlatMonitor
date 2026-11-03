@@ -1,5 +1,5 @@
 import { Component, DestroyRef, OnInit, inject } from '@angular/core';
-import { CurrencyPipe, DatePipe, DecimalPipe, Location } from '@angular/common';
+import { CurrencyPipe, DecimalPipe, Location } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Params, Router } from '@angular/router';
@@ -7,17 +7,18 @@ import { finalize } from 'rxjs/operators';
 import { FlatsService } from '../../../../core/services/flats.service';
 import { FilterPresetsService } from '../../../../core/services/filter-presets.service';
 import { filterByDistricts, filterByRooms } from '../../../../core/utils/filter.utils';
-import { ScrapeStatusService } from '../../../../core/services/scrape-status.service';
+import { DataReloadService } from '../../../../core/services/data-reload.service';
 import { FlatAggregation } from '../../../../core/models/flat-aggregation.model';
 import { groupWeighted } from '../../../../core/utils/aggregation.utils';
 import { normalizeRooms } from '../../../../core/utils/rooms.utils';
 import { distinctSorted } from '../../../../core/utils/collection.utils';
 import { describeLoadError } from '../../../../core/utils/api-response.utils';
-import { ScrapingStatusComponent } from '../../scraping-status/scraping-status.component';
 import { TableSort } from '../../../../core/utils/table-sort';
 import { SortableHeaderComponent } from '../../../../shared/sortable-header/sortable-header.component';
 import { MultiSelectFilterComponent } from '../../../../shared/multi-select-filter/multi-select-filter.component';
-import { LoadingSpinnerComponent } from '../../../../shared/loading-spinner/loading-spinner.component';
+import { LoadingSkeletonComponent } from '../../../../shared/loading-skeleton/loading-skeleton.component';
+import { EmptyStateComponent } from '../../../../shared/empty-state/empty-state.component';
+import { StartScrapeButtonComponent } from '../../start-scrape-button/start-scrape-button.component';
 import { DismissibleAlertComponent } from '../../../../shared/dismissible-alert/dismissible-alert.component';
 import { StatTileComponent } from '../../../../shared/stat-tile/stat-tile.component';
 import { OverviewKpis, computeOverviewKpis } from '../../../../core/utils/overview-kpis.utils';
@@ -33,13 +34,13 @@ type AggregationSortColumn = 'district' | 'roomsCount' | 'count' | 'avgPricePerM
   host: { class: 'fill-column' },
   imports: [
     CurrencyPipe,
-    DatePipe,
     DecimalPipe,
     FormsModule,
-    ScrapingStatusComponent,
     SortableHeaderComponent,
     MultiSelectFilterComponent,
-    LoadingSpinnerComponent,
+    LoadingSkeletonComponent,
+    EmptyStateComponent,
+    StartScrapeButtonComponent,
     DismissibleAlertComponent,
     FilterPresetBarComponent,
     FilterToolbarComponent,
@@ -49,7 +50,7 @@ type AggregationSortColumn = 'district' | 'roomsCount' | 'count' | 'avgPricePerM
 })
 export class OverviewTabComponent implements OnInit {
   private readonly flatsService = inject(FlatsService);
-  private readonly scrapeStatus = inject(ScrapeStatusService);
+  private readonly dataReload = inject(DataReloadService);
   private readonly filterPresets = inject(FilterPresetsService);
   private readonly router = inject(Router);
   private readonly location = inject(Location);
@@ -61,7 +62,6 @@ export class OverviewTabComponent implements OnInit {
   rawData: FlatAggregation[] = [];
   loading = false;
   error: string | null = null;
-  lastUpdated: Date | null = null;
 
   selectedDistricts: string[] = [];
   selectedRooms: number[] = [];
@@ -79,7 +79,7 @@ export class OverviewTabComponent implements OnInit {
     this.followActivePreset();
     this.loadAggregatedData();
 
-    this.scrapeStatus.scrapeFinished$
+    this.dataReload.reload$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.loadAggregatedData());
   }
@@ -107,7 +107,6 @@ export class OverviewTabComponent implements OnInit {
           this.rawData = data;
           this.updateAvailableFilters();
           this.applyFiltersAndGrouping();
-          this.lastUpdated = new Date();
         },
         error: (err) => {
           this.error = describeLoadError(err, 'Failed to load data', 'Error loading data');
@@ -187,10 +186,6 @@ export class OverviewTabComponent implements OnInit {
       return rows.sort((a, b) => (a.roomsCount ?? -1) - (b.roomsCount ?? -1));
     }
     return rows;
-  }
-
-  refresh(): void {
-    this.loadAggregatedData();
   }
 
   openOffersForRow(item: FlatAggregation): void {

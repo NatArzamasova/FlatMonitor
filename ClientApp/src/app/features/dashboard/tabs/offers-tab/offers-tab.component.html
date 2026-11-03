@@ -1,6 +1,6 @@
 <div class="fill-column">
   @if (loading) {
-    <app-loading-spinner></app-loading-spinner>
+    <app-loading-skeleton [columns]="6"></app-loading-skeleton>
   }
 
   @if (!loading && currentOffers.length > 0) {
@@ -103,15 +103,16 @@
   }
 
   @if (!loading && currentOffers.length > 0 && filteredOffers.length === 0) {
-    <div class="alert alert-info">
-      No offers match the selected filters.
-    </div>
+    <app-empty-state icon="search" heading="No offers match the filters" message="Remove some filters or reset them.">
+      <button type="button" class="btn btn-outline-primary" (click)="resetFilters()">Reset filters</button>
+    </app-empty-state>
   }
 
-  @if (!loading && currentOffers.length === 0) {
-    <div class="alert alert-info">
-      No current offers available. Try clicking "Manual Scrape" on the Dashboard tab to fetch data.
-    </div>
+  @if (!loading && !error && currentOffers.length === 0) {
+    <app-empty-state icon="inbox" heading="No current offers yet"
+      message="Start a scrape to fetch the current flats from all sources.">
+      <app-start-scrape-button></app-start-scrape-button>
+    </app-empty-state>
   }
 
   @if (error) {

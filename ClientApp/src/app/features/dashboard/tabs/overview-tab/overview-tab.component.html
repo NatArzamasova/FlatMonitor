@@ -1,29 +1,10 @@
 <div class="fill-column">
-  <app-scraping-status>
-    @if (lastUpdated) {
-      <p scrapingStatusInfo class="mb-1">
-        Data last updated: {{ lastUpdated | date: 'short' }}
-      </p>
-    }
-    <button
-      scrapingStatusActions
-      class="btn btn-primary"
-      (click)="refresh()"
-      [disabled]="loading"
-    >
-      @if (loading) {
-        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-      }
-      Refresh Data
-    </button>
-  </app-scraping-status>
-
   @if (error) {
     <app-dismissible-alert type="danger" (dismissed)="error = null">{{ error }}</app-dismissible-alert>
   }
 
   @if (loading) {
-    <app-loading-spinner></app-loading-spinner>
+    <app-loading-skeleton [columns]="4"></app-loading-skeleton>
   }
 
   @if (!loading && rawData.length > 0) {
@@ -149,9 +130,16 @@
     </div>
   }
 
-  @if (!loading && aggregatedData.length === 0) {
-    <div class="alert alert-info">
-      No data available. Try clicking "Manual Scrape" to fetch data from sources.
-    </div>
+  @if (!loading && !error && rawData.length === 0) {
+    <app-empty-state icon="inbox" heading="No data yet"
+      message="Start a scrape to fetch the current flats from all sources.">
+      <app-start-scrape-button></app-start-scrape-button>
+    </app-empty-state>
+  }
+
+  @if (!loading && rawData.length > 0 && aggregatedData.length === 0) {
+    <app-empty-state icon="search" heading="No flats match the filters" message="Remove some filters or reset them.">
+      <button type="button" class="btn btn-outline-primary" (click)="resetFilters()">Reset filters</button>
+    </app-empty-state>
   }
 </div>

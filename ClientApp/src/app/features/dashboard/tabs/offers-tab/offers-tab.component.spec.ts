@@ -1,8 +1,10 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, Params } from '@angular/router';
-import { NEVER, of, throwError } from 'rxjs';
+import { NEVER, of, Subject, throwError } from 'rxjs';
 import { OffersTabComponent } from './offers-tab.component';
 import { FlatsService } from '../../../../core/services/flats.service';
+import { DataReloadService } from '../../../../core/services/data-reload.service';
+import { ScrapeStatusService } from '../../../../core/services/scrape-status.service';
 import { apiResult } from '../../../../core/testing/api-response.testing';
 import { ApiResponse } from '../../../../core/models/api-response.model';
 import { FlatOffer } from '../../../../core/models/flat-offer.model';
@@ -19,6 +21,7 @@ describe('OffersTabComponent', () => {
   let flatsService: jasmine.SpyObj<FlatsService>;
   let queryParams: Params;
   let presets: FilterPresetsServiceStub;
+  let reload$: Subject<void>;
 
   const mockOffersResponse: ApiResponse<FlatOffer[]> = {
     success: true,
@@ -54,6 +57,7 @@ describe('OffersTabComponent', () => {
 
     queryParams = {};
     presets = createFilterPresetsServiceStub();
+    reload$ = new Subject<void>();
     const activatedRouteStub = {
       snapshot: {
         get queryParamMap() {
@@ -67,7 +71,10 @@ describe('OffersTabComponent', () => {
       providers: [
         { provide: FlatsService, useValue: flatsServiceSpy },
         { provide: ActivatedRoute, useValue: activatedRouteStub },
-        { provide: FilterPresetsService, useValue: presets.service }
+        { provide: FilterPresetsService, useValue: presets.service },
+        { provide: DataReloadService, useValue: { reload$ } },
+        // Read by the empty state's "Start a scrape" button.
+        { provide: ScrapeStatusService, useValue: jasmine.createSpyObj('ScrapeStatusService', ['triggerScrape'], { status$: NEVER }) }
       ]
     }).compileComponents();
 
@@ -276,13 +283,14 @@ describe('OffersTabComponent', () => {
       expect(component.filteredOffers.map(offer => offer.priceEur)).toEqual([2000]);
     });
 
-    it('shows a loading spinner while offers are loading', () => {
+    it('shows a loading skeleton while offers are loading', () => {
       flatsService.getCurrentOffers.and.returnValue(NEVER);
       fixture.detectChanges();
 
-      const spinner = fixture.nativeElement.querySelector('.spinner-border.text-primary') as HTMLElement;
-      expect(spinner).toBeTruthy();
-      expect(spinner.textContent).toContain('Loading...');
+      const skeleton = fixture.nativeElement.querySelector('app-loading-skeleton [role=\"status\"]') as HTMLElement;
+      expect(skeleton).toBeTruthy();
+      expect(skeleton.textContent).toContain('Loading…');
+      expect(fixture.nativeElement.querySelector('app-empty-state')).toBeNull();
     });
 
     it('shows load errors in an alert that can be dismissed', () => {
@@ -731,6 +739,68 @@ describe('OffersTabComponent', () => {
       expect(presets.service.selectPreset).toHaveBeenCalledWith(null);
       expect(component.filteredOffers.length).toBe(2);
       expect(chipTexts()).toEqual([]);
+    });
+  });
+
+  describe('Reloading', () => {
+    it('loads the offers again on each reload request (refresh button, finished scrape)', () => {
+      flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
+      fixture.detectChanges();
+      const initialLoads = flatsService.getCurrentOffers.calls.count();
+
+      reload$.next();
+      reload$.next();
+
+      expect(flatsService.getCurrentOffers.calls.count()).toBe(initialLoads + 2);
+    });
+
+    it('stops listening for reload requests when destroyed', () => {
+      flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
+      fixture.detectChanges();
+
+      fixture.destroy();
+
+      expect(reload$.observed).toBe(false);
+    });
+  });
+
+  describe('Empty states', () => {
+    const emptyState = (): HTMLElement | null => fixture.nativeElement.querySelector('app-empty-state');
+    const heading = (): string | undefined => emptyState()?.querySelector('h2')!.textContent!.trim();
+    const clickReset = () => {
+      (emptyState()!.querySelector('button') as HTMLButtonElement).click();
+      fixture.detectChanges();
+    };
+
+    it('offers to start a scrape when there are no offers yet', () => {
+      flatsService.getCurrentOffers.and.returnValue(apiResult({ success: true, data: [], message: 'Success' }));
+      fixture.detectChanges();
+
+      expect(heading()).toBe('No current offers yet');
+      expect(emptyState()!.querySelector('app-start-scrape-button')).not.toBeNull();
+    });
+
+    it('offers to reset the filters when they match nothing, and resets them', () => {
+      flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
+      fixture.detectChanges();
+      component.priceRangeMax = 100;
+      component.applyFilters();
+      fixture.detectChanges();
+
+      expect(heading()).toBe('No offers match the filters');
+      clickReset();
+
+      expect(component.priceRangeMax).toBeNull();
+      expect(component.filteredOffers.length).toBe(2);
+      expect(emptyState()).toBeNull();
+    });
+
+    it('shows only the error when loading failed', () => {
+      flatsService.getCurrentOffers.and.returnValue(throwError(() => new Error('Network error')));
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.alert-danger')).not.toBeNull();
+      expect(emptyState()).toBeNull();
     });
   });
 });

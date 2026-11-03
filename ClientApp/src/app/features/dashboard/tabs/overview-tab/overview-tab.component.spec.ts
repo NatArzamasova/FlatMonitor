@@ -4,6 +4,7 @@ import { provideRouter } from '@angular/router';
 import { NEVER, throwError, Subject } from 'rxjs';
 import { OverviewTabComponent } from './overview-tab.component';
 import { FlatsService } from '../../../../core/services/flats.service';
+import { DataReloadService } from '../../../../core/services/data-reload.service';
 import { ScrapeStatusService } from '../../../../core/services/scrape-status.service';
 import { apiResult } from '../../../../core/testing/api-response.testing';
 import { ApiResponse } from '../../../../core/models/api-response.model';
@@ -19,7 +20,7 @@ describe('OverviewTabComponent', () => {
   let component: OverviewTabComponent;
   let fixture: ComponentFixture<OverviewTabComponent>;
   let flatsService: jasmine.SpyObj<FlatsService>;
-  let scrapeFinished$: Subject<void>;
+  let reload$: Subject<void>;
   let presets: FilterPresetsServiceStub;
 
   const mockAggregatedResponse: ApiResponse<FlatAggregation[]> = {
@@ -43,15 +44,16 @@ describe('OverviewTabComponent', () => {
 
   beforeEach(async () => {
     const flatsServiceSpy = jasmine.createSpyObj('FlatsService', ['getAggregated']);
-    scrapeFinished$ = new Subject<void>();
+    reload$ = new Subject<void>();
     presets = createFilterPresetsServiceStub();
-    const scrapeStatusStub = { status$: NEVER, scrapeFinished$ };
 
     await TestBed.configureTestingModule({
       imports: [OverviewTabComponent],
       providers: [
         { provide: FlatsService, useValue: flatsServiceSpy },
-        { provide: ScrapeStatusService, useValue: scrapeStatusStub },
+        { provide: DataReloadService, useValue: { reload$ } },
+        // Read by the empty state's "Start a scrape" button.
+        { provide: ScrapeStatusService, useValue: jasmine.createSpyObj('ScrapeStatusService', ['triggerScrape'], { status$: NEVER }) },
         { provide: FilterPresetsService, useValue: presets.service },
         provideRouter([]),
         { provide: APP_BASE_HREF, useValue: '/' }
@@ -78,7 +80,6 @@ describe('OverviewTabComponent', () => {
       expect(component.aggregatedData).toEqual([]);
       expect(component.loading).toBe(false);
       expect(component.error).toBeNull();
-      expect(component.lastUpdated).toBeNull();
     });
 
     it('should load aggregated data on init', () => {
@@ -88,7 +89,6 @@ describe('OverviewTabComponent', () => {
 
       expect(flatsService.getAggregated).toHaveBeenCalled();
       expect(component.aggregatedData).toEqual(mockAggregatedResponse.data!);
-      expect(component.lastUpdated).toBeTruthy();
     });
   });
 
@@ -102,7 +102,6 @@ describe('OverviewTabComponent', () => {
       expect(component.error).toBeNull();
       expect(component.aggregatedData.length).toBe(2);
       expect(component.aggregatedData[0].district).toBe('Mitte');
-      expect(component.lastUpdated).toBeTruthy();
     });
 
     it('should set loading flag after data fetch', () => {
@@ -241,13 +240,14 @@ describe('OverviewTabComponent', () => {
       expect(optionTexts('roomsSelect')).toEqual(['2', '3']);
     });
 
-    it('shows a loading spinner while data is loading', () => {
+    it('shows a loading skeleton while data is loading', () => {
       flatsService.getAggregated.and.returnValue(NEVER);
       fixture.detectChanges();
 
-      const spinner = fixture.nativeElement.querySelector('.spinner-border.text-primary') as HTMLElement;
-      expect(spinner).toBeTruthy();
-      expect(spinner.textContent).toContain('Loading...');
+      const skeleton = fixture.nativeElement.querySelector('app-loading-skeleton [role=\"status\"]') as HTMLElement;
+      expect(skeleton).toBeTruthy();
+      expect(skeleton.textContent).toContain('Loading…');
+      expect(fixture.nativeElement.querySelector('app-empty-state')).toBeNull();
     });
 
     it('shows load errors in an alert that can be dismissed', () => {
@@ -266,49 +266,28 @@ describe('OverviewTabComponent', () => {
   });
 
   describe('Scrape lifecycle', () => {
-    it('reloads aggregated data each time a scrape finishes', () => {
+    it('reloads aggregated data on each reload request (refresh button, finished scrape)', () => {
       flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
       fixture.detectChanges();
       const initialLoadCount = flatsService.getAggregated.calls.count();
 
-      scrapeFinished$.next();
-      scrapeFinished$.next();
+      reload$.next();
+      reload$.next();
 
       expect(flatsService.getAggregated.calls.count()).toBe(initialLoadCount + 2);
     });
 
-    it('stops listening for finished scrapes when destroyed', () => {
+    it('stops listening for reload requests when destroyed', () => {
       flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
       fixture.detectChanges();
 
       fixture.destroy();
 
-      expect(scrapeFinished$.observed).toBe(false);
+      expect(reload$.observed).toBe(false);
     });
 
-    it('renders the scraping status with the data timestamp and Refresh button in the same row', () => {
-      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
-      fixture.detectChanges();
-
-      const status = fixture.nativeElement.querySelector('app-scraping-status') as HTMLElement;
-      expect(status).toBeTruthy();
-      expect(status.querySelector('.text-body-secondary')?.textContent).toContain('Data last updated:');
-      const buttons = Array.from(status.querySelectorAll('.col-auto button')) as HTMLElement[];
-      expect(buttons.map(button => button.textContent!.trim())).toEqual(['Refresh Data', 'Manual Scrape']);
-    });
   });
 
-  describe('refresh', () => {
-    it('should reload aggregated data', () => {
-      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
-
-      const initialCallCount = flatsService.getAggregated.calls.count();
-
-      component.refresh();
-
-      expect(flatsService.getAggregated.calls.count()).toBe(initialCallCount + 1);
-    });
-  });
 
   describe('Error handling edge cases', () => {
     it('should handle response with success=true but no data field', () => {
@@ -756,14 +735,14 @@ describe('OverviewTabComponent', () => {
       expect(component.aggregatedData.length).toBe(2);
     });
 
-    it('keeps a manually changed selection when the data reloads after a scrape', () => {
+    it('keeps a manually changed selection when the data reloads', () => {
       presets.activePreset$.next(mitte);
       flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
       fixture.detectChanges();
       component.selectedDistricts = ['Prenzlauer Berg'];
       component.applyFiltersAndGrouping();
 
-      scrapeFinished$.next();
+      reload$.next();
 
       expect(flatsService.getAggregated).toHaveBeenCalledTimes(2);
       expect(component.selectedDistricts).toEqual(['Prenzlauer Berg']);
@@ -923,6 +902,47 @@ describe('OverviewTabComponent', () => {
       component.applyFiltersAndGrouping();
       fixture.detectChanges();
       expect(fixture.nativeElement.querySelector('[data-test="kpis"]')).toBeNull();
+    });
+  });
+
+  describe('Empty states', () => {
+    const emptyState = (): HTMLElement | null => fixture.nativeElement.querySelector('app-empty-state');
+    const heading = (): string | undefined => emptyState()?.querySelector('h2')!.textContent!.trim();
+    const clickReset = () => {
+      (emptyState()!.querySelector('button') as HTMLButtonElement).click();
+      fixture.detectChanges();
+    };
+
+    it('offers to start a scrape when there is no data yet', () => {
+      flatsService.getAggregated.and.returnValue(apiResult({ success: true, data: [], message: 'Success' }));
+      fixture.detectChanges();
+
+      expect(heading()).toBe('No data yet');
+      expect(emptyState()!.querySelector('app-start-scrape-button')).not.toBeNull();
+    });
+
+    it('offers to reset the filters when they match nothing, and resets them', () => {
+      flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
+      fixture.detectChanges();
+      component.selectedDistricts = ['Mitte'];
+      component.selectedRooms = [3];
+      component.applyFiltersAndGrouping();
+      fixture.detectChanges();
+
+      expect(heading()).toBe('No flats match the filters');
+      clickReset();
+
+      expect(component.selectedRooms).toEqual([]);
+      expect(component.aggregatedData.length).toBe(2);
+      expect(emptyState()).toBeNull();
+    });
+
+    it('shows only the error when loading failed', () => {
+      flatsService.getAggregated.and.returnValue(throwError(() => new Error('Network error')));
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.alert-danger')).not.toBeNull();
+      expect(emptyState()).toBeNull();
     });
   });
 });

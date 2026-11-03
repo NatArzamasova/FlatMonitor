@@ -4,6 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs/operators';
 import { FlatsService } from '../../../../core/services/flats.service';
+import { DataReloadService } from '../../../../core/services/data-reload.service';
 import { FilterPresetsService } from '../../../../core/services/filter-presets.service';
 import { FlatHistory } from '../../../../core/models/flat-history.model';
 import { Aggregatable, mergeWeightedAverage, roundPriceToEuro } from '../../../../core/utils/aggregation.utils';
@@ -13,7 +14,9 @@ import { distinctSorted } from '../../../../core/utils/collection.utils';
 import { describeLoadError } from '../../../../core/utils/api-response.utils';
 import { HistoryChartComponent } from './history-chart/history-chart.component';
 import { HistoryPoint } from './history-chart/history-chart.config';
-import { LoadingSpinnerComponent } from '../../../../shared/loading-spinner/loading-spinner.component';
+import { LoadingSkeletonComponent } from '../../../../shared/loading-skeleton/loading-skeleton.component';
+import { EmptyStateComponent } from '../../../../shared/empty-state/empty-state.component';
+import { StartScrapeButtonComponent } from '../../start-scrape-button/start-scrape-button.component';
 import { DismissibleAlertComponent } from '../../../../shared/dismissible-alert/dismissible-alert.component';
 import { MultiSelectFilterComponent } from '../../../../shared/multi-select-filter/multi-select-filter.component';
 import { FilterToolbarComponent } from '../../../../shared/filter-toolbar/filter-toolbar.component';
@@ -28,7 +31,9 @@ import { FilterPresetBarComponent } from '../../../../shared/filter-preset-bar/f
     CurrencyPipe,
     FormsModule,
     HistoryChartComponent,
-    LoadingSpinnerComponent,
+    LoadingSkeletonComponent,
+    EmptyStateComponent,
+    StartScrapeButtonComponent,
     DismissibleAlertComponent,
     MultiSelectFilterComponent,
     FilterPresetBarComponent,
@@ -38,6 +43,7 @@ import { FilterPresetBarComponent } from '../../../../shared/filter-preset-bar/f
 })
 export class HistoryTabComponent implements OnInit {
   private readonly flatsService = inject(FlatsService);
+  private readonly dataReload = inject(DataReloadService);
   private readonly filterPresets = inject(FilterPresetsService);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -62,6 +68,11 @@ export class HistoryTabComponent implements OnInit {
   ngOnInit(): void {
     this.followActivePreset();
     this.loadHistory();
+
+    // The header's refresh button and finished scrapes.
+    this.dataReload.reload$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.loadHistory());
   }
 
   /** Applies the active preset's districts now and whenever another preset is chosen; no preset (`null`) shows all districts. */

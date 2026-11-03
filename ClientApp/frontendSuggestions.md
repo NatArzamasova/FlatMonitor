@@ -147,14 +147,27 @@ Above the aggregation table, show 3–4 stat tiles computed from the data the ta
 </div>
 ```
 
-### 2.4 Compact scraping-status bar
+### 2.4 Compact scraping-status bar ✅ done
+Moved into the app header instead of the Dashboard tab: `ScrapeControlComponent`
+(`features/dashboard/scrape-control/`) shows a status dot with "Last scrape 2 h ago · 246 flats" (details
+panel on click), "Scrape now" / "Cancel", inline errors and a progress bar along the header's bottom edge
+while a scrape runs. It replaces `ScrapingStatusComponent`. "Refresh Data" became a ↻ button in the header;
+it and every finished scrape reload the open tab through `DataReloadService` (before, only the Dashboard
+tab reloaded after a scrape). The empty states now point to "Scrape now" at the top.
+
 `ScrapingStatusComponent` shows two paragraphs of text with badges. Turn it into one line:
 a coloured status dot + "Last scrape 2 h ago · 246 flats" (with a tooltip for the exact time) and the
 Refresh / Scrape buttons on the right. Relative times ("2 h ago") are easier to read than `short` dates.
 During a scrape, show a thin progress bar (`progress` with `progress-bar-striped progress-bar-animated`)
 below the navbar instead of only changing the button.
 
-### 2.5 Empty and loading states
+### 2.5 Empty and loading states ✅ done
+`EmptyStateComponent` (icon, heading, text, actions) replaces the `alert-info` boxes on all tabs: "no data yet"
+offers "Start a scrape" (`StartScrapeButtonComponent`), "filters match nothing" offers "Reset filters". After
+a load error only the error shows. `LoadingSkeletonComponent` (toolbar + table or chart placeholders)
+replaces `LoadingSpinnerComponent`, which is removed. The header and the start button share the scrape error
+wording (`describeScrapeStartError()`).
+
 - Replace `alert-info` empty states with a centred empty state: muted icon, one line of text,
   and a primary button ("Start a scrape"), instead of telling the user to click a button on another tab.
 - Replace the full-page spinner with skeleton rows (`placeholder-glow` + `placeholder` in table

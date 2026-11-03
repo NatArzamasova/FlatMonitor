@@ -12,6 +12,9 @@
       </li>
     </ul>
   </nav>
+  <app-scrape-control headerActions></app-scrape-control>
+  <button headerActions type="button" class="btn btn-sm btn-outline-secondary" (click)="reloadData()"
+    title="Reload the data of this tab" aria-label="Reload data">↻</button>
   <!-- A link, not a button, so ctrl/middle click and "copy link" work too. -->
   <a headerActions class="btn btn-sm btn-outline-secondary" routerLink="/presets" target="_blank" rel="noopener"
     title="Manage filter presets in a new browser tab">⚙ Configure filters</a>
