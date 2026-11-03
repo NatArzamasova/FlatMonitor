@@ -861,6 +861,24 @@ describe('OffersTabComponent', () => {
     });
   });
 
+  describe('Price per m² column', () => {
+    it('shows the price per m² in euros in German format, and - when it is missing', () => {
+      flatsService.getCurrentOffers.and.returnValue(apiResult({
+        success: true,
+        data: [
+          { district: 'Mitte', priceEur: 1, pricePerMeter: 4250 },
+          { district: 'Mitte', priceEur: 2 }
+        ],
+        message: 'Success'
+      }));
+      fixture.detectChanges();
+
+      const cells = Array.from(fixture.nativeElement.querySelectorAll('tbody td.offer-price-per-meter') as NodeListOf<HTMLElement>)
+        .map(cell => cell.textContent!.trim());
+      expect(cells).toEqual(['4.250 €', '-']);
+    });
+  });
+
   describe('Column layout', () => {
     it('has one cell per header in every row, in the header order', () => {
       flatsService.getCurrentOffers.and.returnValue(apiResult({

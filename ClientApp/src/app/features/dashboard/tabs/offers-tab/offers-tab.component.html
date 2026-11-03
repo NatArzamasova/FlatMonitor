@@ -98,7 +98,7 @@
                 }
               </td>
               <td class="text-end">{{ row.offer.livingAreaSqm ? (row.offer.livingAreaSqm | number: '1.0-1') : '-' }}</td>
-              <td class="text-end">{{ row.offer.pricePerMeter ? (row.offer.pricePerMeter | number: '1.0-0') : '-' }}</td>
+              <td class="text-end offer-price-per-meter">{{ row.offer.pricePerMeter ? (row.offer.pricePerMeter | currency: 'EUR': 'symbol': '1.0-0') : '-' }}</td>
               <td class="text-end offer-service-charge">{{ row.offer.serviceChargeEur != null ? (row.offer.serviceChargeEur | currency: 'EUR': 'symbol': '1.0-0') : '-' }}</td>
               <td class="text-end text-nowrap offer-commission">{{ row.offer.commissionPercent != null ? (row.offer.commissionPercent | number: '1.0-3') + ' %' : '-' }}</td>
               <td class="text-center">
