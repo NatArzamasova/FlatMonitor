@@ -35,17 +35,61 @@ describe('HistoryChartComponent', () => {
     expect(canvas().width).toBeGreaterThan(0);
   });
 
-  it('resizes the chart when its host is resized', async () => {
-    fixture.componentRef.setInput('points', points);
-    fixture.componentRef.setInput('title', 'Trend');
-    fixture.detectChanges();
-    const chart = component.chart!;
+  describe('resizing', () => {
+    // A stand-in ResizeObserver whose callback the test calls itself. The browser's one reports only when the page
+    // renders a frame, and Chrome renders none in a tab it does not show (Karma's headless tab, at times): waiting for
+    // it made this test time out now and then, locally and in CI.
+    const realResizeObserver = window.ResizeObserver;
+    let observed: Element[];
+    let notifyResize: () => void;
 
-    (fixture.nativeElement as HTMLElement).style.height = '400px';
-    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    beforeEach(() => {
+      observed = [];
+      window.ResizeObserver = class {
+        constructor(callback: ResizeObserverCallback) {
+          notifyResize = () => callback([], this as unknown as ResizeObserver);
+        }
+        observe(target: Element) {
+          observed.push(target);
+        }
+        unobserve() {}
+        disconnect() {}
+      } as unknown as typeof ResizeObserver;
+    });
 
-    expect(component.chart).toBe(chart);
-    expect(chart.height).toBe(400);
+    afterEach(() => {
+      fixture.destroy();
+      window.ResizeObserver = realResizeObserver;
+    });
+
+    it('watches the canvas wrapper and resizes the same chart to it', () => {
+      fixture.componentRef.setInput('points', points);
+      fixture.componentRef.setInput('title', 'Trend');
+      fixture.detectChanges();
+      const chart = component.chart!;
+      expect(observed).toEqual([canvas().parentElement!]);
+
+      (fixture.nativeElement as HTMLElement).style.height = '400px';
+      notifyResize();
+
+      expect(component.chart).toBe(chart);
+      expect(chart.height).toBe(400);
+    });
+
+    it('ignores a resize to nothing, e.g. while its tab is hidden', () => {
+      fixture.componentRef.setInput('points', points);
+      fixture.componentRef.setInput('title', 'Trend');
+      fixture.detectChanges();
+      const chart = component.chart!;
+      const height = chart.height;
+      spyOn(chart, 'resize').and.callThrough();
+
+      (fixture.nativeElement as HTMLElement).style.display = 'none';
+      notifyResize();
+
+      expect(chart.resize).not.toHaveBeenCalled();
+      expect(chart.height).toBe(height);
+    });
   });
 
   it('replaces the chart when the inputs change', () => {
