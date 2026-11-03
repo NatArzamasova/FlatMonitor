@@ -430,7 +430,7 @@ describe('OffersTabComponent', () => {
       expect(component.getDiscountPercentage(mockOffersResponse.data![1])).toBeNull();
     });
 
-    it('renders the discount and red strikethrough original price', () => {
+    it('renders the discount as a green badge and the original price muted and struck through', () => {
       flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
 
       fixture.detectChanges();
@@ -441,11 +441,14 @@ describe('OffersTabComponent', () => {
       const unchangedPriceCell = rows[1].querySelectorAll('td')[2] as HTMLElement;
       const unchangedOriginalPrice = rows[1].querySelectorAll('td')[3].querySelector('span') as HTMLElement;
 
-      expect(discountedPriceCell.textContent).toContain('(- 9.1%)');
-      expect(originalPrice.classList.contains('text-danger')).toBe(true);
+      const badge = discountedPriceCell.querySelector('.price-drop') as HTMLElement;
+      expect(badge.textContent!.trim()).toBe('−9.1 %');
+      expect(badge.classList).toContain('bg-success-subtle');
+      expect(originalPrice.classList.contains('text-body-secondary')).toBe(true);
+      expect(originalPrice.classList.contains('text-danger')).toBe(false);
       expect(originalPrice.classList.contains('text-decoration-line-through')).toBe(true);
-      expect(unchangedPriceCell.textContent).not.toContain('(-');
-      expect(unchangedOriginalPrice.classList.contains('text-danger')).toBe(false);
+      expect(unchangedPriceCell.querySelector('.price-drop')).toBeNull();
+      expect(unchangedOriginalPrice.classList.contains('text-body-secondary')).toBe(false);
       expect(unchangedOriginalPrice.classList.contains('text-decoration-line-through')).toBe(false);
     });
   });

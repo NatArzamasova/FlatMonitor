@@ -50,7 +50,7 @@ its size through a `ResizeObserver`. This also covers the "fixed 600 px chart he
 - `SortableHeaderComponent` uses `link-light`. With a light header switch it to `link-body-emphasis`
   and show a muted ↕ on unsorted columns, so it is clear that columns can be sorted.
 
-### 1.3 Better price-drop display (offers tab)
+### 1.3 Better price-drop display (offers tab) ✅ done
 Right now a drop shows as `€4,200 (- 5%)` and the original price is **red** and struck through. Red reads
 as "bad", but for a flat hunter a price drop is good news.
 - Show the discount as a small green badge: `<span class="badge text-bg-success-subtle text-success-emphasis">−5 %</span>`.
