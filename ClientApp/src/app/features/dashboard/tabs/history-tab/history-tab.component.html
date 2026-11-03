@@ -72,7 +72,10 @@
             <tbody>
               @for (item of latestAverageData; track item.label) {
                 <tr>
-                  <td>{{ item.label }}</td>
+                  <td>
+                    <span class="series-dot" [style.background-color]="seriesColors.get(item.label)" aria-hidden="true"></span>
+                    {{ item.label }}
+                  </td>
                   <td class="text-end">{{ item.price | currency: 'EUR': 'symbol': '1.0-0' }}</td>
                 </tr>
               }

@@ -181,7 +181,13 @@ set or unset as default, deleted. Errors stay inline.
 "Scrape started" etc. currently push the page down as an alert. Use a Bootstrap toast in the corner
 for success/info (auto-hide after 4 s) and keep inline alerts only for errors.
 
-### 2.7 History chart polish (`history-chart.config.ts`)
+### 2.7 History chart polish (`history-chart.config.ts`) ✅ done
+10-colour palette without yellow, light grey and black; hovering highlights the nearest line, dims the others
+and shows a tooltip for that line only (not every line of the date); `tension: 0.2`; subtle horizontal
+grid, no vertical grid, y ticks as `€4,200`. Colour dots in the "Latest averages" table replace the legend,
+which is only shown (small, at the bottom) when a line has no point on the latest date. The height was done
+with 1.2.
+
 - **Palette:** `#F0E442` (yellow), `#BBBBBB` and `#DDCC77` have very low contrast on white, and `#000000`
   will disappear in dark mode. Drop them and keep 8–10 distinct colours. When more series are selected,
   highlight the hovered series and dim the others instead of using 28 colours.

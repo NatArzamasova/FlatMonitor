@@ -106,6 +106,16 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* Colour dot of a chart line, e.g. in the History tab's "Latest averages" table. */
+.series-dot {
+  display: inline-block;
+  width: 0.625rem;
+  height: 0.625rem;
+  margin-right: 0.375rem;
+  border-radius: 50%;
+  vertical-align: baseline;
+}
+
 /* Compact labels and inputs in the filter bars above the tables */
 .filter-label {
   font-size: 0.875rem;

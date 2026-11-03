@@ -575,4 +575,21 @@ describe('HistoryTabComponent', () => {
       expect(emptyState()).toBeNull();
     });
   });
+
+  describe('Line colours in the table', () => {
+    it('marks each row of the latest averages with the colour of its chart line', () => {
+      flatsService.getHistory.and.returnValue(apiResult(mockHistoryResponse));
+      fixture.detectChanges();
+
+      const rows = Array.from(fixture.nativeElement.querySelectorAll('.table-card tbody tr') as NodeListOf<HTMLElement>);
+      expect(rows.length).toBeGreaterThan(0);
+      for (const row of rows) {
+        const label = row.querySelector('td')!.textContent!.trim();
+        const dot = row.querySelector('.series-dot') as HTMLElement;
+        expect(dot.getAttribute('aria-hidden')).toBe('true');
+        expect(dot.style.backgroundColor).not.toBe('');
+        expect(component.seriesColors.has(label)).toBe(true);
+      }
+    });
+  });
 });

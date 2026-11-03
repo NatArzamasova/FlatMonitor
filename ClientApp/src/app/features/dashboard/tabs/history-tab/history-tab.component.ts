@@ -13,7 +13,7 @@ import { filterByDistricts } from '../../../../core/utils/filter.utils';
 import { distinctSorted } from '../../../../core/utils/collection.utils';
 import { describeLoadError } from '../../../../core/utils/api-response.utils';
 import { HistoryChartComponent } from './history-chart/history-chart.component';
-import { HistoryPoint } from './history-chart/history-chart.config';
+import { HistoryPoint, seriesColorsByLabel } from './history-chart/history-chart.config';
 import { LoadingSkeletonComponent } from '../../../../shared/loading-skeleton/loading-skeleton.component';
 import { EmptyStateComponent } from '../../../../shared/empty-state/empty-state.component';
 import { StartScrapeButtonComponent } from '../../start-scrape-button/start-scrape-button.component';
@@ -60,6 +60,8 @@ export class HistoryTabComponent implements OnInit {
   // Derived from chartData in updateChartData(), so the table is not recomputed on every change detection.
   latestAverageDate = '';
   latestAverageData: { label: string; price: number }[] = [];
+  /** The chart's line colour per label, for the dots in the "Latest averages" table. */
+  seriesColors = new Map<string, string>();
 
   get chartTitle(): string {
     return `Price per m² Trend (${this.groupBy === 'district' ? 'by District' : 'by Rooms'})`;
@@ -148,6 +150,7 @@ export class HistoryTabComponent implements OnInit {
       ''
     );
     this.latestAverageDate = latestDate;
+    this.seriesColors = seriesColorsByLabel(this.chartData);
     this.latestAverageData = this.chartData
       .filter(item => item.date === latestDate)
       .map(({ label, price }) => ({ label, price }))

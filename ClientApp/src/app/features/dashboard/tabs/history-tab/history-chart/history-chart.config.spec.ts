@@ -1,5 +1,6 @@
 import { TooltipItem } from 'chart.js';
-import { buildHistoryChartConfig, formatHistoryDate, HistoryPoint, seriesColor } from './history-chart.config';
+import { Chart } from 'chart.js';
+import { buildHistoryChartConfig, formatHistoryDate, highlightSeries, HistoryPoint, seriesColor, seriesColorsByLabel } from './history-chart.config';
 
 describe('history-chart.config', () => {
   const points: HistoryPoint[] = [
@@ -70,6 +71,30 @@ describe('history-chart.config', () => {
       expect(label(context(12.5))).toBe('Mitte: €13/m²');
     });
 
+    it('draws gently curved lines and a tooltip for the nearest line only', () => {
+      const config = buildHistoryChartConfig(points, 'Title');
+
+      expect(config.data.datasets.every(dataset => dataset.tension === 0.2)).toBe(true);
+      expect(config.options!.interaction).toEqual({ mode: 'nearest', intersect: false });
+    });
+
+    it('formats price ticks as whole euros and keeps only a subtle horizontal grid', () => {
+      const scales = buildHistoryChartConfig(points, 'Title').options!.scales!;
+      const callback = scales['y']!.ticks!.callback as (value: number) => string;
+
+      expect(callback(4200)).toBe('€4,200');
+      expect(scales['x']!.grid!.display).toBe(false);
+      expect(scales['y']!.grid!.color).toBe('rgba(0, 0, 0, 0.06)');
+    });
+
+    it('hides the legend when every line reaches the latest date, and shows it at the bottom otherwise', () => {
+      const legend = (chartPoints: HistoryPoint[]) => buildHistoryChartConfig(chartPoints, 'Title').options!.plugins!.legend!;
+
+      expect(legend(points).display).toBe(true);
+      expect(legend(points).position).toBe('bottom');
+      expect(legend([...points, { date: '2024-01-17', price: 21, label: 'Weststadt' }]).display).toBe(false);
+    });
+
     it('uses the given title and keeps Chart.js from resizing the canvas itself', () => {
       const config = buildHistoryChartConfig(points, 'Price per m² Trend (by District)');
 
@@ -82,7 +107,67 @@ describe('history-chart.config', () => {
   describe('seriesColor', () => {
     it('cycles through the palette', () => {
       expect(seriesColor(0)).toBe('#0072B2');
-      expect(seriesColor(28)).toBe(seriesColor(0));
+      expect(seriesColor(10)).toBe(seriesColor(0));
+    });
+
+    it('has no colours that are hard to see on white', () => {
+      const palette = Array.from({ length: 10 }, (_, index) => seriesColor(index));
+
+      expect(palette).not.toContain('#F0E442');
+      expect(palette).not.toContain('#BBBBBB');
+      expect(palette).not.toContain('#DDCC77');
+      expect(palette).not.toContain('#000000');
+      expect(new Set(palette).size).toBe(10);
+    });
+  });
+
+  describe('seriesColorsByLabel', () => {
+    it('gives the labels the palette in first-appearance order, like the datasets', () => {
+      const colors = seriesColorsByLabel(points);
+
+      expect(Array.from(colors)).toEqual([['Mitte', seriesColor(0)], ['Weststadt', seriesColor(1)]]);
+      expect(buildHistoryChartConfig(points, 'Title').data.datasets.map(dataset => dataset.borderColor))
+        .toEqual([colors.get('Mitte'), colors.get('Weststadt')]);
+    });
+  });
+
+  describe('highlightSeries', () => {
+    const fakeChart = () => {
+      const config = buildHistoryChartConfig(points, 'Title');
+      const chart = { data: config.data, update: jasmine.createSpy('update') };
+      return chart as unknown as Chart<'line', (number | null)[], string> & { update: jasmine.Spy };
+    };
+    const colors = [seriesColor(0), seriesColor(1)];
+
+    it('dims every line but the highlighted one', () => {
+      const chart = fakeChart();
+
+      highlightSeries(chart, 1, colors);
+
+      expect(chart.data.datasets.map(dataset => dataset.borderColor)).toEqual([colors[0] + '33', colors[1]]);
+      expect(chart.data.datasets.map(dataset => dataset.borderWidth)).toEqual([2, 3]);
+      expect(chart.update).toHaveBeenCalledWith('none');
+    });
+
+    it('shows all lines normally again without a highlight', () => {
+      const chart = fakeChart();
+      highlightSeries(chart, 0, colors);
+
+      highlightSeries(chart, null, colors);
+
+      expect(chart.data.datasets.map(dataset => dataset.borderColor)).toEqual(colors);
+      expect(chart.data.datasets.map(dataset => dataset.borderWidth)).toEqual([2, 2]);
+    });
+
+    it('redraws only when the highlighted line changes', () => {
+      const chart = fakeChart();
+
+      highlightSeries(chart, 0, colors);
+      highlightSeries(chart, 0, colors);
+      highlightSeries(chart, null, colors);
+      highlightSeries(chart, null, colors);
+
+      expect(chart.update).toHaveBeenCalledTimes(2);
     });
   });
 
