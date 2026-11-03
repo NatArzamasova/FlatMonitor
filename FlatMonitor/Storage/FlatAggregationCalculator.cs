@@ -31,18 +31,17 @@ public static class FlatAggregationCalculator
     }
 
     /// <summary>
-    /// Flats with the same title (see <see cref="NormalizeTitle"/>) and postal code but from different sources are
-    /// taken as one flat listed on several portals: agents give it the same title everywhere. Not the district: the
-    /// portals put the same flat in different districts (Innenstadt-West / Weststadt). Within one source they stay
-    /// different flats (an agent reuses a title for several units), so such a group keeps as many flats as its source
-    /// with the most of them: the flats of that source (on a tie, the first source by name), which also decides the
-    /// district and rooms the flat is counted in. A flat without a title is never a duplicate.
+    /// Flats with the same district, price, living area and title (see <see cref="NormalizeTitle"/>) but from
+    /// different sources are taken as one flat listed on several portals. Within one source they stay different
+    /// flats (identical units in a new building, with a reused title), so such a group keeps as many flats as its
+    /// source with the most of them: the flats of that source (on a tie, the first source by name), which also
+    /// decides the rooms group. A flat without a title is never a duplicate.
     /// </summary>
     private static IEnumerable<PublishedFlat> RemoveCrossSourceDuplicates(IEnumerable<PublishedFlat> flats)
     {
         return flats
             .GroupBy(f => NormalizeTitle(f.Title) is { Length: > 0 } title
-                ? $"{title}|{f.PostalCode}"
+                ? $"{f.District}|{f.PriceEur}|{f.LivingAreaSqm}|{title}"
                 : $"no title|{f.Source}|{f.ListingId}")
             .SelectMany(g => g
                 .GroupBy(f => f.Source)

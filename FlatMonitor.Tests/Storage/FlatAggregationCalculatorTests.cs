@@ -236,63 +236,60 @@ public class FlatAggregationCalculatorTests
     }
 
     [Test]
-    public void Compute_SameTitleInDifferentPostalCodes_AreDifferentFlats()
+    public void Compute_SameTitleInDifferentDistricts_AreDifferentFlats()
     {
-        // a generic title, e.g. Immowelt's "Über diese Immobilie"
         var flats = new List<PublishedFlat>
         {
-            Flat("ImmobilienScout24", "is-1", "Über diese Immobilie", postalCode: "76133"),
-            Flat("Immowelt", "iw-1", "Über diese Immobilie", postalCode: "76185"),
+            Flat("ImmobilienScout24", "is-1", "Helle Wohnung", district: "Innenstadt-West"),
+            Flat("Immowelt", "iw-1", "Helle Wohnung", district: "Hagsfeld"),
+        };
+
+        var result = FlatAggregationCalculator.Compute(flats);
+
+        result.Should().HaveCount(2);
+        result.Should().OnlyContain(a => a.Count == 1);
+    }
+
+    [Test]
+    public void Compute_SameTitleWithDifferentPrice_AreDifferentFlats()
+    {
+        var flats = new List<PublishedFlat>
+        {
+            Flat("ImmobilienScout24", "is-1", "Top Lage mit Balkon", price: 265000, area: 50),
+            Flat("Immowelt", "iw-1", "Top Lage mit Balkon", price: 250000, area: 50),
+        };
+
+        var aggregation = FlatAggregationCalculator.Compute(flats).Should().ContainSingle().Subject;
+
+        aggregation.Count.Should().Be(2);
+        aggregation.AvgPricePerMeter.Should().Be(5150m);
+    }
+
+    [Test]
+    public void Compute_SameTitleWithDifferentLivingArea_AreDifferentFlats()
+    {
+        var flats = new List<PublishedFlat>
+        {
+            Flat("ImmobilienScout24", "is-1", "Helle Wohnung", area: 80),
+            Flat("Immowelt", "iw-1", "Helle Wohnung", area: 80.5),
         };
 
         FlatAggregationCalculator.Compute(flats).Should().ContainSingle().Which.Count.Should().Be(2);
     }
 
     [Test]
-    public void Compute_SameTitleInDifferentDistricts_IsCountedOnceInTheDistrictOfTheKeptSource()
-    {
-        // seen in the database: IS24 says Innenstadt-West, Immowelt Weststadt (same postal code).
-        // On a tie the first source by name is kept: ImmobilienScout24
-        var flats = new List<PublishedFlat>
-        {
-            Flat("Immowelt", "iw-1", "Bezugsfreie 3-Zimmer-Wohnung", district: "Weststadt"),
-            Flat("ImmobilienScout24", "is-1", "Bezugsfreie 3-Zimmer-Wohnung", district: "Innenstadt-West"),
-        };
-
-        var aggregation = FlatAggregationCalculator.Compute(flats).Should().ContainSingle().Subject;
-
-        aggregation.District.Should().Be("Innenstadt-West");
-        aggregation.Count.Should().Be(1);
-    }
-
-    [Test]
-    public void Compute_SameTitleWithDifferentPrice_IsCountedOnceWithThePriceOfTheKeptSource()
-    {
-        // the price changed on one portal only
-        var flats = new List<PublishedFlat>
-        {
-            Flat("Immowelt", "iw-1", "Top Lage mit Balkon", price: 265000, area: 50),
-            Flat("ImmobilienScout24", "is-1", "Top Lage mit Balkon", price: 250000, area: 50),
-        };
-
-        var aggregation = FlatAggregationCalculator.Compute(flats).Should().ContainSingle().Subject;
-
-        aggregation.Count.Should().Be(1);
-        aggregation.AvgPricePerMeter.Should().Be(5000m);
-    }
-
-    [Test]
     public void Compute_SameTitleWithDifferentRooms_IsCountedInTheRoomsGroupOfTheKeptSource()
     {
+        // on a tie the first source by name is kept: ImmobilienScout24
         var flats = new List<PublishedFlat>
         {
-            Flat("Immowelt", "iw-1", "Helle Wohnung", rooms: 2.5),
-            Flat("ImmobilienScout24", "is-1", "Helle Wohnung", rooms: 3),
+            Flat("Immowelt", "iw-1", "Helle Wohnung", rooms: 3),
+            Flat("ImmobilienScout24", "is-1", "Helle Wohnung", rooms: 2.5),
         };
 
         var aggregation = FlatAggregationCalculator.Compute(flats).Should().ContainSingle().Subject;
 
-        aggregation.RoomsCount.Should().Be(3);
+        aggregation.RoomsCount.Should().Be(2.5);
         aggregation.Count.Should().Be(1);
     }
 

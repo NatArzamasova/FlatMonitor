@@ -21,19 +21,21 @@ Steps:
 3. Implement with tests, recompute today's aggregations, compare before/after per district.
 
 **Done (2026-11-03), a first version:** deduplicated when the aggregations are computed; the `FlatsSnapshots` rows stay
-per source. `FlatAggregationCalculator` groups the flats by normalized title (HTML entities, dashes, punctuation, case
-and spaces removed) + postal code; flats of different sources in a group are one flat, flats of the same source stay
-different. A group keeps the flats of the source with the most of them (tie: first source by name), which decides the
-district and rooms group.
+per source. `FlatAggregationCalculator` groups the flats by district + price + living area (exact) + normalized title
+(HTML entities, dashes, punctuation, case and spaces removed); flats of different sources in a group are one flat,
+flats of the same source stay different. A group keeps the flats of the source with the most of them (tie: first source
+by name), which decides the rooms group. A flat without a title is never a duplicate.
 
-Measured on the database of 2026-11-03 (789 flats with price and area): 236 cross-source pairs with the same
-normalized title, none of them more than 1 m² or a postal code apart, one 6 % apart in price (a price change on one
-portal). 18 of them are in different districts (IS24 "Innenstadt-West" / Immowelt "Weststadt"), which a district key
-would miss. Missed: about 45 pairs that match on postal code, area ± 1 m² and price ± 3 % but have different titles
-(reworded or cut off on one portal, mostly OhneMakler). Not used: rooms (the portals count them differently).
+Measured on the database of 2026-11-03 (777 flats with a price per m²): 588 flats after deduplication (title + postal
+code alone would give 570, district + price + area alone 582). Missed on purpose (strict match):
+- a price changed on one portal only, or the area rounded differently (79.78 / 80 m²)
+- a title reworded or cut off on one portal (mostly OhneMakler)
+- the same flat in different districts: for a flat with a hidden street address IS24 publishes "Innenstadt-West"
+  whatever the postal code (e.g. a Hagsfeld flat with the typo postal code 71639; our parser reads it correctly, it
+  is IS24's own value). Such a flat is counted in both districts.
 
-Still open: recompute and compare today's aggregations per district, the dashboard hint ("also on IS24"); IS24 titles
-are saved with HTML entities (`&amp;`), which the parser could decode.
+Still open: test it in the dashboard, recompute and compare today's aggregations per district, the dashboard hint
+("also on IS24"); IS24 titles are saved with HTML entities (`&amp;`), which the parser could decode.
 
 Background: open question 2 in [FlatMonitor/immowelt.md](FlatMonitor/immowelt.md); design note "Cross-source
 duplicates" in [CLAUDE.md](CLAUDE.md).
