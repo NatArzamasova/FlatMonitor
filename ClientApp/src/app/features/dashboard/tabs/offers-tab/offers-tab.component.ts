@@ -32,6 +32,7 @@ interface OfferRow {
 @Component({
   selector: 'app-offers-tab',
   standalone: true,
+  host: { class: 'fill-column' },
   imports: [
     CurrencyPipe,
     DecimalPipe,

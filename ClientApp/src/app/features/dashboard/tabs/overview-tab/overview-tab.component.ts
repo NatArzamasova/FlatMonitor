@@ -26,6 +26,7 @@ type AggregationSortColumn = 'district' | 'roomsCount' | 'count' | 'avgPricePerM
 @Component({
   selector: 'app-overview-tab',
   standalone: true,
+  host: { class: 'fill-column' },
   imports: [
     CurrencyPipe,
     DatePipe,

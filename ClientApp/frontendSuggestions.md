@@ -31,7 +31,15 @@ Implemented as the shared `AppHeaderComponent` (`src/app/shared/app-header/`), u
 ```
 `nav-underline` (Bootstrap 5.3) looks more modern than `nav-tabs`.
 
-### 1.2 Lighter tables
+### 1.2 Lighter tables ✅ done
+Implemented as `.table-card` (wrapper, replaces `.table-responsive`) and `.data-table` in `styles.scss`.
+On the Dashboard and Current Offers tabs the table fills the window height left below the filters
+(`.app-shell` / `.fill-column` / `.table-card-fill`) and scrolls inside its card, so its header stays visible.
+This replaces `top: <navbar height>`, because sticky cells do not stick to the page inside a horizontally
+scrolling wrapper. On the History tab the chart and the "Latest averages" table fill that height together
+(`.history-layout`, from the lg breakpoint; stacked below it with a 360 px chart), and the chart follows
+its size through a `ResizeObserver`. This also covers the "fixed 600 px chart height" point of 2.7.
+
 - `thead.table-dark` is visually heavy. Use a light header (`table-light`, or a custom
   `--bs-table-bg` with uppercase, small, muted header text) and drop `table-striped`, keeping
   `table-hover`.

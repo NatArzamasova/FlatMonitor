@@ -1,4 +1,4 @@
-<div>
+<div class="fill-column">
   @if (loading) {
     <app-loading-spinner></app-loading-spinner>
   }
@@ -54,15 +54,15 @@
   }
 
   @if (!loading && chartData.length > 0) {
-    <div class="row g-3 mb-3 align-items-stretch">
+    <div class="row g-3 history-layout">
       <div class="col-12 col-lg-8">
-        <app-history-chart [points]="chartData" [title]="chartTitle"></app-history-chart>
+        <app-history-chart class="history-chart" [points]="chartData" [title]="chartTitle"></app-history-chart>
       </div>
 
       <div class="col-12 col-lg-4">
         <h2 class="h5">Latest averages ({{ latestAverageDate }})</h2>
-        <div class="table-responsive">
-          <table class="table table-sm table-striped">
+        <div class="table-card">
+          <table class="table table-sm data-table">
             <thead>
               <tr>
                 <th scope="col">{{ groupBy === 'district' ? 'District' : 'Room count' }}</th>

@@ -42,7 +42,7 @@ describe('SortableHeaderComponent', () => {
   });
 
   it('renders the projected label inside a sort button with an accessible name', () => {
-    expect(button(0).textContent!.trim()).toBe('Name');
+    expect(button(0).textContent).toContain('Name');
     expect(button(0).getAttribute('aria-label')).toBe('Sort by Name');
     expect(button(1).getAttribute('aria-label')).toBe('Sort by Price per Square Meter');
   });
@@ -56,6 +56,21 @@ describe('SortableHeaderComponent', () => {
 
     expect(host.requested).toEqual(['price']);
     expect(host.sort.column).toBeNull();
+  });
+
+  it('shows a muted, hidden-from-screen-readers hint on unsorted columns', () => {
+    const hint = button(0).querySelector('.sort-hint')!;
+
+    expect(hint.textContent).toBe('↕');
+    expect(hint.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('replaces the hint with the arrow on the sorted column', () => {
+    host.sort.toggle('price');
+    fixture.detectChanges();
+
+    expect(button(1).querySelector('.sort-hint')).toBeNull();
+    expect(button(0).querySelector('.sort-hint')).not.toBeNull();
   });
 
   it('shows the sort state of its own column only', () => {

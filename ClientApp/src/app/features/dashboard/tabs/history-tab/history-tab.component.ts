@@ -21,6 +21,7 @@ import { FilterPresetBarComponent } from '../../../../shared/filter-preset-bar/f
 @Component({
   selector: 'app-history-tab',
   standalone: true,
+  host: { class: 'fill-column' },
   imports: [
     CurrencyPipe,
     FormsModule,

@@ -72,8 +72,8 @@ export function buildHistoryChartConfig(points: readonly HistoryPoint[], title: 
     type: 'line',
     data: { labels: dates, datasets },
     options: {
-      // The canvas is sized from its wrapper. Letting Chart.js own the sizing makes its resize
-      // observer fight the surrounding layout and lock the main thread.
+      // The canvas is sized from its wrapper, and HistoryChartComponent resizes it when the wrapper changes.
+      // Letting Chart.js own the sizing makes its resize observer fight the surrounding layout and lock the main thread.
       responsive: false,
       maintainAspectRatio: false,
       animation: false,

@@ -34,6 +34,19 @@ describe('HistoryChartComponent', () => {
     expect(canvas().width).toBeGreaterThan(0);
   });
 
+  it('resizes the chart when its host is resized', async () => {
+    fixture.componentRef.setInput('points', points);
+    fixture.componentRef.setInput('title', 'Trend');
+    fixture.detectChanges();
+    const chart = component.chart!;
+
+    (fixture.nativeElement as HTMLElement).style.height = '400px';
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+    expect(component.chart).toBe(chart);
+    expect(chart.height).toBe(400);
+  });
+
   it('replaces the chart when the inputs change', () => {
     fixture.componentRef.setInput('points', points);
     fixture.componentRef.setInput('title', 'By District');

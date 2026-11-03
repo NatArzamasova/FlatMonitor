@@ -6,6 +6,7 @@ import { AppHeaderComponent } from '../../shared/app-header/app-header.component
   selector: 'app-dashboard',
   standalone: true,
   imports: [AppHeaderComponent, RouterLink, RouterLinkActive, RouterOutlet],
+  host: { class: 'app-shell' },
   templateUrl: './dashboard.component.html'
 })
 export class DashboardComponent {}
