@@ -12,6 +12,7 @@ import { FlatAggregation } from '../../../../core/models/flat-aggregation.model'
 import { groupWeighted } from '../../../../core/utils/aggregation.utils';
 import { normalizeRooms } from '../../../../core/utils/rooms.utils';
 import { roomsLabel } from '../../../../core/utils/filter-chips.utils';
+import { formatDecimal } from '../../../../core/utils/locale.utils';
 import { distinctSorted } from '../../../../core/utils/collection.utils';
 import { describeLoadError } from '../../../../core/utils/api-response.utils';
 import { TableSort } from '../../../../core/utils/table-sort';
@@ -73,6 +74,8 @@ export class OverviewTabComponent implements OnInit {
 
   selectedDistricts: string[] = [];
   selectedRooms: number[] = [];
+  /** The active preset (`null` = none), passed on to Current Offers by the row links. */
+  activePresetId: number | null = null;
   groupByDistrict = true;
   groupByRooms = true;
 
@@ -99,6 +102,7 @@ export class OverviewTabComponent implements OnInit {
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe(preset => {
+        this.activePresetId = preset?.id ?? null;
         this.selectedDistricts = [...(preset?.districts ?? [])];
         this.updateDistrictOptions();
         this.applyFiltersAndGrouping();
@@ -222,36 +226,48 @@ export class OverviewTabComponent implements OnInit {
     window.open(this.offersUrl(item), '_blank', 'noopener,noreferrer');
   }
 
-  /** `Open offers in Südstadt with 3 rooms`, leaving out what the grouping does not show. */
+  /** `Open offers in Südstadt with 3 rooms`, `Open offers in 4 districts`, `Open all current offers`, … */
   private offersLinkLabel(item: FlatAggregation): string {
-    const { district, roomsCount } = this.offersQueryParams(item);
-    if (!district && roomsCount === undefined) {
+    const { districts, rooms } = this.offersFilters(item);
+    if (districts.length === 0 && rooms.length === 0) {
       return 'Open all current offers';
     }
-    const where = district ? ` in ${district}` : '';
-    const rooms = roomsCount !== undefined ? ` with ${roomsLabel(roomsCount)}` : '';
-    return `Open offers${where}${rooms}`;
+    const where = districts.length === 0 ? '' : ` in ${districts.length === 1 ? districts[0] : `${districts.length} districts`}`;
+    const withRooms = rooms.length === 0 ? ''
+      : ` with ${rooms.length === 1 ? roomsLabel(rooms[0]) : `${rooms.map(formatDecimal).join(', ')} rooms`}`;
+    return `Open offers${where}${withRooms}`;
   }
 
+  /**
+   * `/offers?district=…&rooms=…&preset=<id>|none`. The preset is passed because the offers open in a new browser
+   * tab, whose app would otherwise apply the default preset instead of the one chosen here.
+   */
   private offersUrl(item: FlatAggregation): string {
-    const { district, roomsCount } = this.offersQueryParams(item);
+    const { districts, rooms, presetId } = this.offersFilters(item);
     const queryParams: Params = {};
-    if (district) {
-      queryParams['district'] = district;
+    if (districts.length > 0) {
+      queryParams['district'] = districts;
     }
-    if (roomsCount !== undefined) {
-      queryParams['rooms'] = String(roomsCount);
+    if (rooms.length > 0) {
+      queryParams['rooms'] = rooms.map(String);
     }
+    queryParams['preset'] = presetId ?? 'none';
     const offersUrl = this.router.serializeUrl(this.router.createUrlTree(['/offers'], { queryParams }));
     return this.location.prepareExternalUrl(offersUrl);
   }
 
-  /** The row's district and rooms, as far as the grouping shows them. */
-  private offersQueryParams(item: FlatAggregation): { district?: string; roomsCount?: number } {
-    const roomsCount = normalizeRooms(item.roomsCount);
+  /**
+   * The filters of the offers behind a row: the row's own district and rooms where the grouping shows them,
+   * otherwise this tab's filters (the row's figures were computed over them). A row's single district is not the
+   * preset, so then no preset is passed on.
+   */
+  private offersFilters(item: FlatAggregation): { districts: string[]; rooms: number[]; presetId: number | null } {
+    const rowDistrict = this.groupByDistrict && item.district ? item.district : undefined;
+    const rowRooms = this.groupByRooms ? normalizeRooms(item.roomsCount) : undefined;
     return {
-      district: this.groupByDistrict && item.district ? item.district : undefined,
-      roomsCount: this.groupByRooms ? roomsCount : undefined
+      districts: rowDistrict !== undefined ? [rowDistrict] : [...this.selectedDistricts],
+      rooms: rowRooms !== undefined ? [rowRooms] : [...this.selectedRooms],
+      presetId: rowDistrict !== undefined ? null : this.activePresetId
     };
   }
 }

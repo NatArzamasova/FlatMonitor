@@ -441,6 +441,10 @@ and the Enter handler (the link does that now, so task 4 is moot); a click elsew
 offers, a click on the link is left to the link. `.row-link` (styles.scss): pointer cursor, chevron turns primary on
 row hover, and the row gets a primary outline while its link has keyboard focus (`:has(:focus-visible)`). The links
 are computed once per filter/grouping/sort change (`offersLink()`). The chevron is a text glyph until 1.7 adds icons.
+Fix: the offers open in a new browser tab, whose app applied the default preset (shown as "modified" next to the
+row's district). The link now carries the Dashboard's filter state: the row's district/rooms where grouped, else the
+Dashboard's selected districts/rooms, plus `preset=<id>|none` (`none` for a district row). Current Offers selects
+that preset when the URL has districts or a `preset` (an old link with only districts: no preset).
 
 **Story.** As a user of the Dashboard tab, I want to see that a row of the aggregation table opens the
 matching offers, so that I discover the shortcut and can use it with the keyboard.

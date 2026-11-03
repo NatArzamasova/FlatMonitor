@@ -99,19 +99,31 @@ export class OffersTabComponent implements OnInit {
     return discountPercentage > 0 ? discountPercentage : null;
   }
 
-  /** Returns whether the URL set the districts. */
+  /**
+   * Reads the filters a link brought along (`?district=…&rooms=…&preset=<id>|none`, see the Dashboard's row links).
+   * Such a tab is usually a new browser tab, whose app does not know the preset chosen where the link was clicked,
+   * so it would fall back to the default preset. With districts or a `preset` in the URL, the URL's preset
+   * (`none` when it names none) becomes the active one instead, and the URL's districts are the selection.
+   * Returns whether the URL set the districts.
+   */
   private loadInitialFiltersFromUrl(): boolean {
     const params = this.route.snapshot.queryParamMap;
     this.selectedDistricts = params.getAll('district');
     this.selectedRooms = params.getAll('rooms')
       .map(value => normalizeRooms(Number(value)))
       .filter((value): value is number => value !== undefined);
-    return this.selectedDistricts.length > 0;
+
+    const presetParam = params.get('preset');
+    const districtsFromUrl = this.selectedDistricts.length > 0 || presetParam !== null;
+    if (districtsFromUrl) {
+      this.filterPresets.selectPreset(parsePresetParam(presetParam));
+    }
+    return districtsFromUrl;
   }
 
   /**
    * Applies the active preset's districts now and whenever another preset is chosen. Districts from the URL win
-   * over the preset that is active when the tab opens; no preset (`null`) shows all
+   * over the preset that is active when the tab opens (its first emission is skipped); no preset (`null`) shows all
    * districts.
    */
   private followActivePreset(districtsFromUrl: boolean): void {
@@ -216,4 +228,10 @@ export class OffersTabComponent implements OnInit {
     this.sort.toggle(column);
     this.applyFilters();
   }
+}
+
+/** `preset=12` → 12; `none`, a missing or an invalid value → `null` (no preset). */
+function parsePresetParam(value: string | null): number | null {
+  const id = Number(value);
+  return value !== null && Number.isInteger(id) && id > 0 ? id : null;
 }

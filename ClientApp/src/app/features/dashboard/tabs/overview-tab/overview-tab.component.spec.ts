@@ -656,7 +656,7 @@ describe('OverviewTabComponent', () => {
       });
 
       expect(openSpy).toHaveBeenCalledWith(
-        '/offers?district=Mitte&rooms=2',
+        '/offers?district=Mitte&rooms=2&preset=none',
         '_blank',
         'noopener,noreferrer'
       );
@@ -670,7 +670,7 @@ describe('OverviewTabComponent', () => {
       component.openOffersForRow({ roomsCount: 2.54, count: 5, avgPricePerMeter: 12.5 });
 
       expect(openSpy).toHaveBeenCalledWith(
-        '/offers?rooms=2.5',
+        '/offers?rooms=2.5&preset=none',
         '_blank',
         'noopener,noreferrer'
       );
@@ -689,7 +689,7 @@ describe('OverviewTabComponent', () => {
       });
 
       expect(openSpy).toHaveBeenCalledWith(
-        '/offers?district=Mitte',
+        '/offers?district=Mitte&preset=none',
         '_blank',
         'noopener,noreferrer'
       );
@@ -712,7 +712,7 @@ describe('OverviewTabComponent', () => {
       render();
 
       const mitte = link(rows().find(row => row.textContent!.includes('Mitte'))!);
-      expect(mitte.getAttribute('href')).toBe('/offers?district=Mitte&rooms=2');
+      expect(mitte.getAttribute('href')).toBe('/offers?district=Mitte&rooms=2&preset=none');
       expect(mitte.target).toBe('_blank');
       expect(mitte.getAttribute('rel')).toBe('noopener');
       expect(mitte.getAttribute('aria-label')).toBe('Open offers in Mitte with 2 rooms');
@@ -742,7 +742,7 @@ describe('OverviewTabComponent', () => {
       render(true, false);
 
       const mitte = link(rows().find(row => row.textContent!.includes('Mitte'))!);
-      expect(mitte.getAttribute('href')).toBe('/offers?district=Mitte');
+      expect(mitte.getAttribute('href')).toBe('/offers?district=Mitte&preset=none');
       expect(mitte.getAttribute('aria-label')).toBe('Open offers in Mitte');
     });
 
@@ -750,7 +750,7 @@ describe('OverviewTabComponent', () => {
       render(false, true);
 
       const twoRooms = link(rows().find(row => row.querySelector('td:nth-child(2)')!.textContent!.trim() === '2')!);
-      expect(twoRooms.getAttribute('href')).toBe('/offers?rooms=2');
+      expect(twoRooms.getAttribute('href')).toBe('/offers?rooms=2&preset=none');
       expect(twoRooms.getAttribute('aria-label')).toBe('Open offers with 2 rooms');
     });
 
@@ -758,7 +758,7 @@ describe('OverviewTabComponent', () => {
       render(false, false);
 
       expect(rows().length).toBe(1);
-      expect(link(rows()[0]).getAttribute('href')).toBe('/offers');
+      expect(link(rows()[0]).getAttribute('href')).toBe('/offers?preset=none');
       expect(link(rows()[0]).getAttribute('aria-label')).toBe('Open all current offers');
     });
 
@@ -773,6 +773,40 @@ describe('OverviewTabComponent', () => {
       expect(link(rows()[0]).getAttribute('href')).not.toContain('rooms=');
     });
 
+    it('passes no preset for a district row, so the offers do not show the default preset as modified', () => {
+      presets.activePreset$.next(filterPreset(7, 'West', ['Mitte'], true));
+      render();
+
+      expect(link(rows()[0]).getAttribute('href')).toBe('/offers?district=Mitte&rooms=2&preset=none');
+    });
+
+    it('passes the districts and preset of this tab when the rows are not grouped by district', () => {
+      presets.activePreset$.next(filterPreset(7, 'Center', ['Mitte', 'Prenzlauer Berg']));
+      render(false, true);
+
+      const twoRooms = link(rows().find(row => row.querySelector('td:nth-child(2)')!.textContent!.trim() === '2')!);
+      expect(twoRooms.getAttribute('href'))
+        .toBe('/offers?district=Mitte&district=Prenzlauer%20Berg&rooms=2&preset=7');
+      expect(twoRooms.getAttribute('aria-label')).toBe('Open offers in 2 districts with 2 rooms');
+    });
+
+    it('passes the room filter of this tab when the rows are not grouped by rooms', () => {
+      render(true, false);
+      component.selectedRooms = [2, 3];
+      component.applyFiltersAndGrouping();
+      fixture.detectChanges();
+
+      const mitte = link(rows().find(row => row.textContent!.includes('Mitte'))!);
+      expect(mitte.getAttribute('href')).toBe('/offers?district=Mitte&rooms=2&rooms=3&preset=none');
+      expect(mitte.getAttribute('aria-label')).toBe('Open offers in Mitte with 2, 3 rooms');
+    });
+
+    it('passes "no preset" with all districts when none is chosen and nothing is grouped', () => {
+      render(false, false);
+
+      expect(link(rows()[0]).getAttribute('href')).toBe('/offers?preset=none');
+    });
+
     it('opens the offers when the row is clicked anywhere else', () => {
       const openSpy = spyOn(window, 'open');
       render();
@@ -780,7 +814,7 @@ describe('OverviewTabComponent', () => {
 
       (mitte.querySelector('td:nth-child(4)') as HTMLElement).click();
 
-      expect(openSpy).toHaveBeenCalledOnceWith('/offers?district=Mitte&rooms=2', '_blank', 'noopener,noreferrer');
+      expect(openSpy).toHaveBeenCalledOnceWith('/offers?district=Mitte&rooms=2&preset=none', '_blank', 'noopener,noreferrer');
     });
 
     it('leaves a click on the link to the link, so the offers do not open twice', () => {

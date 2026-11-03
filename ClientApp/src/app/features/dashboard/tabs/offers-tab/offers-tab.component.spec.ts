@@ -517,6 +517,8 @@ describe('OffersTabComponent', () => {
   });
 
   describe('Initial URL filters', () => {
+    beforeEach(() => flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse)));
+
     it('loads district and room filters from the URL', () => {
       queryParams = { district: 'Mitte', rooms: '2' };
       flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
@@ -526,6 +528,50 @@ describe('OffersTabComponent', () => {
       expect(component.selectedDistricts).toEqual(['Mitte']);
       expect(component.selectedRooms).toEqual([2]);
       expect(component.filteredOffers.map(offer => offer.district)).toEqual(['Mitte']);
+    });
+
+    it('selects no preset when the URL has districts but names no preset (no default preset shown as modified)', () => {
+      queryParams = { district: 'Daxlagen' };
+
+      component.ngOnInit();
+
+      expect(presets.service.selectPreset).toHaveBeenCalledOnceWith(null);
+      expect(component.selectedDistricts).toEqual(['Daxlagen']);
+    });
+
+    it('selects the preset named in the URL and keeps the URL districts as the selection', () => {
+      queryParams = { district: ['Mitte', 'Charlottenburg'], preset: '7' };
+
+      component.ngOnInit();
+
+      expect(presets.service.selectPreset).toHaveBeenCalledOnceWith(7);
+      expect(component.selectedDistricts).toEqual(['Mitte', 'Charlottenburg']);
+    });
+
+    it('shows all districts without a preset for preset=none and no districts', () => {
+      queryParams = { preset: 'none' };
+      presets.activePreset$.next(filterPreset(1, 'Default', ['Mitte'], true));
+
+      component.ngOnInit();
+
+      expect(presets.service.selectPreset).toHaveBeenCalledOnceWith(null);
+      expect(component.selectedDistricts).toEqual([]);
+    });
+
+    it('treats an invalid preset id as no preset', () => {
+      queryParams = { preset: 'abc' };
+
+      component.ngOnInit();
+
+      expect(presets.service.selectPreset).toHaveBeenCalledOnceWith(null);
+    });
+
+    it('leaves the preset alone when the URL has no filters', () => {
+      queryParams = {};
+
+      component.ngOnInit();
+
+      expect(presets.service.selectPreset).not.toHaveBeenCalled();
     });
 
     it('loads repeated district parameters and ignores invalid room values', () => {
