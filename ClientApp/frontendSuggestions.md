@@ -96,7 +96,14 @@ font and CSS, no JS) and use `bi-gear`, `bi-star-fill`, `bi-arrow-clockwise`, `b
 
 ## 2. Medium effort (component changes)
 
-### 2.1 Replace the native `<select multiple size="1">`
+### 2.1 Replace the native `<select multiple size="1">` ✅ done
+`MultiSelectFilterComponent` is now a button ("All" / the one option / "3 selected") with a menu of
+checkboxes, "Select all", "Clear", and a search box for lists with more than 8 options. Plain Angular with
+Bootstrap's dropdown CSS (no Popper, no ng-bootstrap); closes on Escape and on a click outside.
+Styled as a menu: whole-row options with a hover background, ticked rows tinted in the primary colour,
+small rounded checkboxes, a divider under the search/Select all/Clear header with the selected count, a
+shadow, and a tinted toggle button while the filter is active.
+
 `MultiSelectFilterComponent` renders a one-line native multi-select. It is hard to use: you need
 Ctrl+click, you cannot see what is selected, and it looks different in each browser. Replace it with a
 Bootstrap dropdown with checkboxes:

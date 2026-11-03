@@ -153,11 +153,13 @@ describe('OverviewTabComponent', () => {
   });
 
   describe('Filter controls, spinner and alerts (DOM)', () => {
+    /** Opens the multi-select filter `selectId` and ticks the option `optionText`. */
     const chooseOption = async (selectId: string, optionText: string) => {
-      const select = fixture.nativeElement.querySelector(`#${selectId}`) as HTMLSelectElement;
-      const option = Array.from(select.options).find(o => o.textContent!.trim() === optionText)!;
-      option.selected = true;
-      select.dispatchEvent(new Event('change'));
+      (fixture.nativeElement.querySelector(`#${selectId}`) as HTMLButtonElement).click();
+      fixture.detectChanges();
+      const rows = Array.from(fixture.nativeElement.querySelectorAll(`#${selectId}-menu .multi-select-option`)) as HTMLLabelElement[];
+      const row = rows.find(candidate => candidate.textContent!.trim() === optionText)!;
+      row.querySelector('input')!.click();
       fixture.detectChanges();
       await fixture.whenStable();
     };
@@ -229,10 +231,12 @@ describe('OverviewTabComponent', () => {
       flatsService.getAggregated.and.returnValue(apiResult(mockAggregatedResponse));
       await render();
 
-      const optionTexts = (id: string) =>
-        (Array.from((fixture.nativeElement.querySelector(`#${id}`) as HTMLSelectElement).options) as HTMLOptionElement[])
-          .filter(option => !option.hidden)
-          .map(option => option.textContent!.trim());
+      const optionTexts = (id: string) => {
+        (fixture.nativeElement.querySelector(`#${id}`) as HTMLButtonElement).click();
+        fixture.detectChanges();
+        return (Array.from(fixture.nativeElement.querySelectorAll(`#${id}-menu .multi-select-option`)) as HTMLLabelElement[])
+          .map(label => label.textContent!.trim());
+      };
       expect(optionTexts('districtSelect')).toEqual(['Mitte', 'Prenzlauer Berg']);
       expect(optionTexts('roomsSelect')).toEqual(['2', '3']);
     });
@@ -793,7 +797,7 @@ describe('OverviewTabComponent', () => {
     const rowItems = (name: string): string[] =>
       Array.from(row(name).children).map(child =>
         child.tagName.toLowerCase().startsWith('app-')
-          ? `${child.tagName.toLowerCase()}#${child.querySelector('select, input')?.id ?? ''}`
+          ? `${child.tagName.toLowerCase()}#${child.querySelector('select, input, button[id]')?.id ?? ''}`
           : child.querySelector('select, input')?.id ?? child.tagName.toLowerCase());
 
     beforeEach(() => {

@@ -228,11 +228,13 @@ describe('OffersTabComponent', () => {
       fixture.detectChanges();
     };
 
+    /** Opens the multi-select filter `selectId` and ticks the option `optionText`. */
     const chooseOption = async (selectId: string, optionText: string) => {
-      const select = fixture.nativeElement.querySelector(`#${selectId}`) as HTMLSelectElement;
-      const option = Array.from(select.options).find(o => o.textContent!.trim() === optionText)!;
-      option.selected = true;
-      select.dispatchEvent(new Event('change'));
+      (fixture.nativeElement.querySelector(`#${selectId}`) as HTMLButtonElement).click();
+      fixture.detectChanges();
+      const rows = Array.from(fixture.nativeElement.querySelectorAll(`#${selectId}-menu .multi-select-option`)) as HTMLLabelElement[];
+      const row = rows.find(candidate => candidate.textContent!.trim() === optionText)!;
+      row.querySelector('input')!.click();
       fixture.detectChanges();
       await fixture.whenStable();
     };
@@ -657,7 +659,7 @@ describe('OffersTabComponent', () => {
     const rowItems = (name: string): string[] =>
       Array.from(row(name).children).map(child =>
         child.tagName.toLowerCase().startsWith('app-')
-          ? `${child.tagName.toLowerCase()}#${child.querySelector('select, input')?.id ?? ''}`
+          ? `${child.tagName.toLowerCase()}#${child.querySelector('select, input, button[id]')?.id ?? ''}`
           : child.querySelector('select, input')?.id ?? child.tagName.toLowerCase());
 
     beforeEach(() => {

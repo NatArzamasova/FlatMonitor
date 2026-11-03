@@ -443,7 +443,7 @@ describe('HistoryTabComponent', () => {
     const rowItems = (name: string): string[] =>
       Array.from(row(name).children).map(child =>
         child.tagName.toLowerCase().startsWith('app-')
-          ? `${child.tagName.toLowerCase()}#${child.querySelector('select, input')?.id ?? ''}`
+          ? `${child.tagName.toLowerCase()}#${child.querySelector('select, input, button[id]')?.id ?? ''}`
           : child.querySelector('select, input')?.id ?? child.tagName.toLowerCase());
 
     beforeEach(() => {
