@@ -35,10 +35,13 @@ public class ImmoweltFlatsPageFetcherTests
             .ReturnsAsync((IResponse?)null);
         _page.Setup(p => p.ContentAsync())
             .ReturnsAsync(() => _htmlByUrl.GetValueOrDefault(_openedUrls[^1], ListPage));
+        _page.Setup(p => p.IsClosed).Returns(false);
+        _page.Setup(p => p.BringToFrontAsync()).Returns(Task.CompletedTask);
     }
 
     private ImmoweltFlatsPageFetcher CreateFetcher() =>
-        new(_page.Object, new ImmoweltOptions { SearchUrl = SearchUrl, PauseBetweenPagesMs = 0 }, NullLogger.Instance);
+        new(_page.Object, new ImmoweltOptions { SearchUrl = SearchUrl, PauseBetweenPagesMs = 0, RobotCheckWaitSeconds = 0 },
+            NullLogger.Instance);
 
     private static string PageUrl(int page) => ImmoweltPages.PageUrl(SearchUrl, page);
 
@@ -69,8 +72,24 @@ public class ImmoweltFlatsPageFetcherTests
         var act = () => CreateFetcher().FetchAllPagesAsync().ToListAsync().AsTask();
 
         (await act.Should().ThrowAsync<InvalidOperationException>())
-            .WithMessage("*page 1*DataDome*robot check*SaveDebugPages*");
+            .WithMessage("*page 1*DataDome*robot check was not passed*RobotCheckWaitSeconds*SaveDebugPages*");
         _openedUrls.Should().ContainSingle();
+    }
+
+    [Test]
+    public async Task FetchAllPagesAsync_RobotCheckPassedInTheTab_GoesOnWithAllPages()
+    {
+        var options = new ImmoweltOptions { SearchUrl = SearchUrl, PauseBetweenPagesMs = 0, RobotCheckWaitSeconds = 10 };
+        var fetcher = new ImmoweltFlatsPageFetcher(_page.Object, options, NullLogger.Instance,
+            new ImmoweltRobotCheck(_page.Object, options, NullLogger.Instance, TimeSpan.FromMilliseconds(1)));
+        var reads = 0;
+        _page.Setup(p => p.ContentAsync()).ReturnsAsync(() => ++reads <= 3 ? DataDomePage : ListPage);
+
+        var pages = await fetcher.FetchAllPagesAsync().ToListAsync();
+
+        pages.Should().HaveCount(9);
+        _openedUrls.Should().Equal(Enumerable.Range(1, 9).Select(PageUrl), "page 1 is read in the tab after the check");
+        _page.Verify(p => p.BringToFrontAsync(), Times.Once);
     }
 
     [Test]

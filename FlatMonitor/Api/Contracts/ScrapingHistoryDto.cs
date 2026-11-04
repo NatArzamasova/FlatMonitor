@@ -12,9 +12,11 @@ public sealed record ScrapingHistoryDto(
     DateTime? EndTimeUtc,
     ScrapingStatus Status,
     string? ErrorMessage,
-    int FlatsScrapedCount)
+    int FlatsScrapedCount,
+    IReadOnlyList<string>? Sources)
 {
     public static ScrapingHistoryDto? From(ScrapingHistory? history) => history is null
         ? null
-        : new(history.Id, history.StartTimeUtc, history.EndTimeUtc, history.Status, history.ErrorMessage, history.FlatsScrapedCount);
+        : new(history.Id, history.StartTimeUtc, history.EndTimeUtc, history.Status, history.ErrorMessage, history.FlatsScrapedCount,
+            history.SourceList);
 }

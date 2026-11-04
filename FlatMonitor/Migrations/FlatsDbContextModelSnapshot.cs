@@ -213,6 +213,10 @@ namespace FlatMonitor.Migrations
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(0);
 
+                    b.Property<string>("Sources")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime>("StartTimeUtc")
                         .HasColumnType("TEXT");
 

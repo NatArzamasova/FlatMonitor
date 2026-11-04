@@ -35,7 +35,7 @@ describe('DashboardComponent (Shell) routing', () => {
       providers: [
         provideRouter(routes),
         // The header polls the scrape status every 2 s; that timer would keep the zone from ever becoming stable.
-        { provide: ScrapeStatusService, useValue: { status$: NEVER, scrapeFinished$: NEVER } },
+        { provide: ScrapeStatusService, useValue: { status$: NEVER, scrapeFinished$: NEVER, sources$: NEVER } },
         { provide: FlatsService, useValue: flatsServiceSpy },
         { provide: FilterPresetsService, useValue: createFilterPresetsServiceStub().service },
         { provide: DistrictsService, useValue: { districts$: of([]) } }

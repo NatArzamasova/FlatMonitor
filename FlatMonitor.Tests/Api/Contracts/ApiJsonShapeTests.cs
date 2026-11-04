@@ -29,11 +29,16 @@ public class ApiJsonShapeTests
             Status = ScrapingStatus.PartialFailed,
             ErrorMessage = "ImmobilienScout24: Login failed",
             FlatsScrapedCount = 575,
+            Sources = "OhneMakler,ImmobilienScout24",
         };
+        // The entity's fields as before, except the sources: a list instead of the stored comma-separated text
+        var expected = ToJson(history)!.AsObject();
+        expected.Remove("sourceList");
+        expected["sources"] = new JsonArray("OhneMakler", "ImmobilienScout24");
 
         var dto = ToJson(ScrapingHistoryDto.From(history));
 
-        JsonNode.DeepEquals(dto, ToJson(history)).Should().BeTrue($"the DTO gave {dto}");
+        JsonNode.DeepEquals(dto, expected).Should().BeTrue($"the DTO gave {dto}");
         dto!["status"]!.GetValue<string>().Should().Be("PartialFailed");
     }
 

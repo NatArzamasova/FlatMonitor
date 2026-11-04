@@ -39,8 +39,9 @@ describe('Filter presets across tabs', () => {
 
   beforeEach(async () => {
     const flatsService = jasmine.createSpyObj<FlatsService>('FlatsService', [
-      'getAggregated', 'getCurrentOffers', 'getHistory', 'getScrapeStatus', 'triggerScrape', 'cancelScrape'
+      'getAggregated', 'getCurrentOffers', 'getHistory', 'getScrapeStatus', 'getScrapeSources', 'triggerScrape', 'cancelScrape'
     ]);
+    flatsService.getScrapeSources.and.returnValue(of(['OhneMakler']));
     flatsService.getScrapeStatus.and.returnValue(of({ isScrapingInProgress: false } as ScrapingStatusResponse));
     flatsService.getAggregated.and.returnValue(ok([
       { district: 'Durlach', roomsCount: 2, count: 1, avgPricePerMeter: 4000 },

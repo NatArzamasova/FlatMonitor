@@ -11,7 +11,10 @@ using System.Threading.Channels;
 /// </summary>
 public class ScrapeJobService
 {
-    public record ScrapeJob(int Id, Guid JobId, DateTime CreatedAtUtc, ScrapeJobStatus Status = ScrapeJobStatus.Queued);
+    /// <param name="Sources">The sources to scrape; <c>null</c>: all.</param>
+    public record ScrapeJob(
+        int Id, Guid JobId, DateTime CreatedAtUtc, ScrapeJobStatus Status = ScrapeJobStatus.Queued,
+        IReadOnlyList<string>? Sources = null);
 
     /// <summary>Serialized by name ("Queued", "Running", ...), like <see cref="Models.ScrapingStatus"/>.</summary>
     [JsonConverter(typeof(JsonStringEnumConverter<ScrapeJobStatus>))]
@@ -26,8 +29,11 @@ public class ScrapeJobService
     private int _jobCounter;
     private CancellationTokenSource? _currentJobCts;
 
-    /// <summary>Queues a new job, unless one is already queued or running.</summary>
-    public bool TryQueueJob([NotNullWhen(true)] out ScrapeJob? job)
+    /// <summary>Queues a new job of all sources, unless one is already queued or running.</summary>
+    public bool TryQueueJob([NotNullWhen(true)] out ScrapeJob? job) => TryQueueJob(null, out job);
+
+    /// <summary>Queues a new job of <paramref name="sources"/> (<c>null</c>: all), unless one is already queued or running.</summary>
+    public bool TryQueueJob(IReadOnlyList<string>? sources, [NotNullWhen(true)] out ScrapeJob? job)
     {
         lock (_lock)
         {
@@ -37,7 +43,7 @@ public class ScrapeJobService
                 return false;
             }
 
-            job = new ScrapeJob(++_jobCounter, Guid.NewGuid(), DateTime.UtcNow);
+            job = new ScrapeJob(++_jobCounter, Guid.NewGuid(), DateTime.UtcNow, Sources: sources);
             _jobTracker[job.JobId] = job;
             ForgetOldestFinishedJobs();
             _queue.Writer.TryWrite(job);

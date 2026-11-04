@@ -21,21 +21,24 @@ internal sealed class ImmoweltFlatsPageFetcher
     private readonly IPage _page;
     private readonly ImmoweltOptions _options;
     private readonly ImmoweltListParser _parser;
+    private readonly ImmoweltRobotCheck _robotCheck;
     private readonly ILogger _logger;
 
-    public ImmoweltFlatsPageFetcher(IPage page, ImmoweltOptions options, ILogger logger)
+    public ImmoweltFlatsPageFetcher(IPage page, ImmoweltOptions options, ILogger logger, ImmoweltRobotCheck? robotCheck = null)
     {
         _page = page ?? throw new ArgumentNullException(nameof(page));
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _parser = new ImmoweltListParser(logger);
+        _robotCheck = robotCheck ?? new ImmoweltRobotCheck(page, options, logger);
     }
 
     /// <summary>
     /// Yields results page 1, then pages 2..⌈totalCount / <see cref="PageSize"/>⌉ (at most <see cref="MaxPages"/>),
-    /// with <see cref="ImmoweltOptions.PauseBetweenPagesMs"/> between two pages. A page without search data (the
-    /// DataDome guard, a changed page) throws, on page 1 as on a later page: stopping early would look like a
-    /// successful scrape with fewer flats.
+    /// with <see cref="ImmoweltOptions.PauseBetweenPagesMs"/> between two pages. On DataDome's robot check it waits for
+    /// the user to pass it (<see cref="ImmoweltRobotCheck"/>). A page without search data (the check not passed, a
+    /// changed page) throws, on page 1 as on a later page: stopping early would look like a successful scrape with
+    /// fewer flats.
     /// </summary>
     public async IAsyncEnumerable<ImmoweltListPage> FetchAllPagesAsync([EnumeratorCancellation] CancellationToken ct = default)
     {
@@ -65,16 +68,21 @@ internal sealed class ImmoweltFlatsPageFetcher
         _logger.LogDebug("Immowelt: opening results page {Page}: {Url}", pageNumber, url);
 
         // The data script is in the server-rendered HTML: no need to wait for the page's scripts and trackers
-        var response = await _page.GotoAsync(url,
-            new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded, Timeout = NavigationTimeoutMs });
+        var gotoOptions = new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded, Timeout = NavigationTimeoutMs };
+        var response = await _page.GotoAsync(url, gotoOptions);
         ct.ThrowIfCancellationRequested();
 
         var html = await _page.ContentAsync();
         var page = _parser.Parse(html);
+        var blocked = page == null && ImmoweltPageInspection.Inspect(html).IsDataDomeGuard;
+        if (blocked)
+            page = (await _robotCheck.WaitForPassAsync(url, _parser.Parse, gotoOptions, ct))?.Data;
+
         if (page == null)
         {
-            var reason = ImmoweltPageInspection.Inspect(html).IsDataDomeGuard
-                ? "blocked by DataDome: pass the robot check in the attached Chrome"
+            var reason = blocked
+                ? "blocked by DataDome, the robot check was not passed in the attached Chrome " +
+                  $"(waited {_options.RobotCheckWaitSeconds} s, {ImmoweltOptions.SectionName}:{nameof(ImmoweltOptions.RobotCheckWaitSeconds)})"
                 : "no search data, has the page changed?";
             throw new InvalidOperationException(
                 $"Immowelt results page {pageNumber} (HTTP {response?.Status.ToString() ?? "?"}): {reason}; " +

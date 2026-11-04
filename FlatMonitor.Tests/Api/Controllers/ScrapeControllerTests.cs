@@ -7,12 +7,15 @@ using FlatMonitor.Api.Controllers;
 using FlatMonitor.Storage;
 using FlatMonitor.Api.Contracts;
 using FlatMonitor.Models;
+using FlatMonitor.Scraping;
 
 namespace FlatMonitor.Tests.Api.Controllers;
 
 [TestFixture]
 public class ScrapeControllerTests
 {
+    private static readonly AvailableScraperSources Sources = new(["OhneMakler", "ImmobilienScout24", "Immowelt"]);
+
     private ScrapeController _controller = null!;
     private ScrapeJobService _jobService = null!;
     private Mock<IScrapingHistoryRepository> _mockHistoryRepository = null!;
@@ -23,7 +26,7 @@ public class ScrapeControllerTests
         _jobService = new ScrapeJobService();
         _mockHistoryRepository = new Mock<IScrapingHistoryRepository>();
 
-        _controller = new ScrapeController(_jobService, _mockHistoryRepository.Object);
+        _controller = new ScrapeController(_jobService, _mockHistoryRepository.Object, Sources);
     }
 
     private static ApiResponse<T> Body<T>(ActionResult<ApiResponse<T>> result, Type resultType)
@@ -44,6 +47,44 @@ public class ScrapeControllerTests
         job.Should().NotBeNull();
         response.Data.QueuedAtUtc.Should().Be(job!.CreatedAtUtc);
         result.Result.As<AcceptedResult>().Location.Should().Be($"api/scrape/status/{job.JobId}");
+    }
+
+    [Test]
+    public void GetSources_ReturnsTheAvailableSources()
+    {
+        var result = _controller.GetSources();
+
+        Body(result, typeof(OkObjectResult)).Data.Should().Equal("OhneMakler", "ImmobilienScout24", "Immowelt");
+    }
+
+    [Test]
+    public void TriggerScrape_WithoutSources_QueuesAJobOfAllSources()
+    {
+        var result = _controller.TriggerScrape(new ScrapeRequest());
+
+        var response = Body(result, typeof(AcceptedResult));
+        _jobService.GetJobStatus(response.Data!.JobId)!.Sources.Should().BeNull();
+    }
+
+    [Test]
+    public void TriggerScrape_WithSources_QueuesAJobOfThoseInTheirUsualOrder()
+    {
+        var result = _controller.TriggerScrape(new ScrapeRequest { Sources = ["immobilienscout24", "OhneMakler"] });
+
+        var response = Body(result, typeof(AcceptedResult));
+        _jobService.GetJobStatus(response.Data!.JobId)!.Sources.Should().Equal("OhneMakler", "ImmobilienScout24");
+    }
+
+    [TestCase(new string[0], "*at least one source*")]
+    [TestCase(new[] { "Immowelt", "Kleinanzeigen" }, "*'Kleinanzeigen'*")]
+    public void TriggerScrape_WithNoOrAnUnknownSource_ReturnsBadRequestWithoutQueueing(string[] sources, string message)
+    {
+        var result = _controller.TriggerScrape(new ScrapeRequest { Sources = [.. sources] });
+
+        var response = Body(result, typeof(BadRequestObjectResult));
+        response.Success.Should().BeFalse();
+        response.Message.Should().Match(message);
+        _jobService.IsScrapingInProgress().Should().BeFalse();
     }
 
     [Test]
@@ -115,7 +156,8 @@ public class ScrapeControllerTests
             Id = 2,
             StartTimeUtc = DateTime.UtcNow,
             Status = ScrapingStatus.Failed,
-            FlatsScrapedCount = 1
+            FlatsScrapedCount = 1,
+            Sources = "OhneMakler,ImmobilienScout24"
         };
         var latestSuccessful = new ScrapingHistory
         {
@@ -134,7 +176,9 @@ public class ScrapeControllerTests
         var response = Body(result, typeof(OkObjectResult));
         response.Success.Should().BeTrue();
         response.Data!.IsScrapingInProgress.Should().BeTrue();
-        response.Data.LastScrapingHistory.Should().Be(ScrapingHistoryDto.From(latest));
+        // The sources are a list, compared by content rather than by reference
+        response.Data.LastScrapingHistory.Should().BeEquivalentTo(ScrapingHistoryDto.From(latest));
+        response.Data.LastScrapingHistory!.Sources.Should().Equal("OhneMakler", "ImmobilienScout24");
         response.Data.LastSuccessfulScrapingHistory.Should().Be(ScrapingHistoryDto.From(latestSuccessful));
         _mockHistoryRepository.Verify(r => r.GetLatestAsync(cts.Token), Times.Once);
     }

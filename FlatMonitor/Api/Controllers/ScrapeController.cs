@@ -2,6 +2,8 @@ namespace FlatMonitor.Api.Controllers;
 
 using FlatMonitor.Api.Contracts;
 using FlatMonitor.Api.Services;
+using FlatMonitor.Scraping;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using FlatMonitor.Storage;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,18 +13,41 @@ public class ScrapeController : ApiControllerBase
 {
     private readonly ScrapeJobService _jobService;
     private readonly IScrapingHistoryRepository _historyRepository;
+    private readonly AvailableScraperSources _sources;
 
-    public ScrapeController(ScrapeJobService jobService, IScrapingHistoryRepository historyRepository)
+    public ScrapeController(
+        ScrapeJobService jobService, IScrapingHistoryRepository historyRepository, AvailableScraperSources sources)
     {
         _jobService = jobService;
         _historyRepository = historyRepository;
+        _sources = sources;
     }
 
-    /// <summary>Queues a scrape; 409 Conflict while another one is queued or running.</summary>
+    /// <summary>The sources a scrape can run, in the order they are reported.</summary>
+    [HttpGet("sources")]
+    public ActionResult<ApiResponse<IReadOnlyList<string>>> GetSources() =>
+        Ok(Success(_sources.Names, "Scrape sources fetched successfully"));
+
+    /// <summary>
+    /// Queues a scrape of the <paramref name="request"/>'s sources (no body: all); the sources left out keep their
+    /// flats. 400 Bad Request for no or an unknown source, 409 Conflict while another scrape is queued or running.
+    /// </summary>
     [HttpPost]
-    public ActionResult<ApiResponse<ScrapeQueuedResponse>> TriggerScrape()
+    public ActionResult<ApiResponse<ScrapeQueuedResponse>> TriggerScrape(
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] ScrapeRequest? request = null)
     {
-        if (!_jobService.TryQueueJob(out var job))
+        IReadOnlyList<string>? sources;
+        try
+        {
+            // All available ones stay null: the job then runs whatever the run service has
+            sources = request?.Sources == null ? null : _sources.Select(request.Sources);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(Failure<ScrapeQueuedResponse>(ex.Message));
+        }
+
+        if (!_jobService.TryQueueJob(sources, out var job))
             return Conflict(Failure<ScrapeQueuedResponse>("A scrape is already queued or running"));
 
         var queued = new ScrapeQueuedResponse { JobId = job.JobId, QueuedAtUtc = job.CreatedAtUtc };

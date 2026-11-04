@@ -28,7 +28,7 @@ Built 2026-11-02; plan, page findings and decisions in [FlatMonitor/immowelt.md]
   JSON, not markup: price, previous price, rooms, area, postal code, district; on the expose commission, Hausgeld,
   build year, condition, heating, energy certificate, floor.
 - Units of a new-build project link to the project page; each still has its own expose (`/expose/{legacyId}`).
-- 3 s between pages (faster looks like a robot; 5 s passed a full run, 3 s is being tried): ~15 minutes for ~250 flats.
+- 5 s between pages (faster looks like a robot; 3 s got the exposes blocked): ~25 minutes for ~250 flats.
 - Many flats are also listed on ImmobilienScout24 (same agent): 188 of 246 in the first run. The aggregations count
   them once per source; cross-source deduplication is open.
 

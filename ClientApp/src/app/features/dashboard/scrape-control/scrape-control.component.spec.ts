@@ -2,8 +2,8 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { provideAppLocale } from '../../../core/utils/locale.utils';
 import { ToastService } from '../../../core/services/toast.service';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { of, Subject, throwError } from 'rxjs';
-import { ScrapeControlComponent } from './scrape-control.component';
+import { BehaviorSubject, of, Subject, throwError } from 'rxjs';
+import { EXCLUDED_SCRAPE_SOURCES_KEY, ScrapeControlComponent } from './scrape-control.component';
 import { ScrapeStatusService } from '../../../core/services/scrape-status.service';
 import { ScrapeResponse } from '../../../core/models/scrape-response.model';
 import { ScrapingStatus, ScrapingStatusResponse } from '../../../core/models/scraping-status-response.model';
@@ -12,6 +12,7 @@ describe('ScrapeControlComponent', () => {
   let fixture: ComponentFixture<ScrapeControlComponent>;
   let component: ScrapeControlComponent;
   let status$: Subject<ScrapingStatusResponse>;
+  let sources$: BehaviorSubject<string[]>;
   let scrapeStatus: jasmine.SpyObj<ScrapeStatusService>;
   let toasts: jasmine.SpyObj<ToastService>;
 
@@ -50,9 +51,13 @@ describe('ScrapeControlComponent', () => {
     fixture.detectChanges();
   };
 
+  afterEach(() => localStorage.removeItem(EXCLUDED_SCRAPE_SOURCES_KEY));
+
   beforeEach(async () => {
     status$ = new Subject<ScrapingStatusResponse>();
-    scrapeStatus = jasmine.createSpyObj('ScrapeStatusService', ['triggerScrape', 'cancelScrape'], { status$ });
+    sources$ = new BehaviorSubject<string[]>(['OhneMakler', 'ImmobilienScout24', 'Immowelt']);
+    localStorage.removeItem(EXCLUDED_SCRAPE_SOURCES_KEY);
+    scrapeStatus = jasmine.createSpyObj('ScrapeStatusService', ['triggerScrape', 'cancelScrape'], { status$, sources$ });
     toasts = jasmine.createSpyObj<ToastService>('ToastService', ['show']);
 
     await TestBed.configureTestingModule({
@@ -198,6 +203,28 @@ describe('ScrapeControlComponent', () => {
       expect(details()!.textContent).toContain('1 day ago');
     });
 
+    it('shows the sources of the last scrape and of the last successful one', () => {
+      push(finished('PartialFailed', {
+        lastScrapingHistory: {
+          id: 2, startTimeUtc: hoursAgo(2), status: 'PartialFailed', flatsScrapedCount: 100, sources: ['OhneMakler', 'ImmobilienScout24']
+        },
+        lastSuccessfulScrapingHistory: {
+          id: 1, startTimeUtc: hoursAgo(26), status: 'Successful', flatsScrapedCount: 240, sources: ['Immowelt']
+        }
+      }));
+      openDetails();
+
+      expect(details()!.querySelector('.scrape-run-sources')!.textContent).toBe('ohne-makler, IS24');
+      expect(details()!.textContent).toContain('Immowelt');
+    });
+
+    it('leaves the sources out for runs from before they were recorded', () => {
+      push(finished());
+      openDetails();
+
+      expect(details()!.textContent).not.toContain('Sources');
+    });
+
     it('closes on a second click, on Escape and on a click outside', () => {
       push(finished());
       openDetails();
@@ -223,7 +250,7 @@ describe('ScrapeControlComponent', () => {
       actionButton().click();
       fixture.detectChanges();
 
-      expect(scrapeStatus.triggerScrape).toHaveBeenCalled();
+      expect(scrapeStatus.triggerScrape).toHaveBeenCalledWith(undefined);
       expect(component.scraping).toBe(true);
       expect(actionButton().textContent!.trim()).toBe('Cancel');
       expect(component.busy).toBe(false);
@@ -273,6 +300,82 @@ describe('ScrapeControlComponent', () => {
       component.triggerScrape();
 
       expect(component.error).toBeNull();
+    });
+  });
+
+  describe('choosing the sources', () => {
+    const toggle = (): HTMLButtonElement | null => element().querySelector('.scrape-sources-toggle');
+    const menu = (): HTMLElement | null => element().querySelector('#scrape-sources');
+    const checkbox = (source: string): HTMLInputElement => element().querySelector(`#scrape-source-${source}`)!;
+    const openMenu = () => {
+      toggle()!.click();
+      fixture.detectChanges();
+    };
+    const untick = (source: string) => {
+      checkbox(source).click();
+      fixture.detectChanges();
+    };
+
+    it('lists every source, all ticked', () => {
+      openMenu();
+
+      const labels = Array.from(menu()!.querySelectorAll('label')).map(label => label.textContent!.trim());
+      expect(labels).toEqual(['ohne-makler', 'IS24', 'Immowelt']);
+      expect(Array.from(menu()!.querySelectorAll('input')).every(input => (input as HTMLInputElement).checked)).toBe(true);
+      expect(element().querySelector('.scrape-sources-count')).toBeNull();
+    });
+
+    it('scrapes only the ticked sources and says so', () => {
+      scrapeStatus.triggerScrape.and.returnValue(of(queued));
+      openMenu();
+      untick('Immowelt');
+
+      expect(element().querySelector('.scrape-sources-count')!.textContent).toBe('2/3');
+      actionButton().click();
+      fixture.detectChanges();
+
+      expect(scrapeStatus.triggerScrape).toHaveBeenCalledWith(['OhneMakler', 'ImmobilienScout24']);
+      expect(toasts.show).toHaveBeenCalledWith('Scrape started: ohne-makler, IS24', 'info');
+      expect(menu()).toBeNull();
+    });
+
+    it('cannot scrape without a source', () => {
+      openMenu();
+      untick('OhneMakler');
+      untick('ImmobilienScout24');
+      untick('Immowelt');
+
+      expect(actionButton().disabled).toBe(true);
+      expect(actionButton().title).toBe('Choose at least one source to scrape');
+    });
+
+    it('remembers the sources left out in this browser', () => {
+      openMenu();
+      untick('Immowelt');
+
+      const another = TestBed.createComponent(ScrapeControlComponent);
+      another.detectChanges();
+
+      expect(another.componentInstance.selectedSources).toEqual(['OhneMakler', 'ImmobilienScout24']);
+    });
+
+    it('offers no choice with a single source', () => {
+      sources$.next(['OhneMakler']);
+      fixture.detectChanges();
+
+      expect(toggle()).toBeNull();
+    });
+
+    it('closes on Escape and on a click outside', () => {
+      openMenu();
+      menu()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      fixture.detectChanges();
+      expect(menu()).toBeNull();
+
+      openMenu();
+      document.body.click();
+      fixture.detectChanges();
+      expect(menu()).toBeNull();
     });
   });
 

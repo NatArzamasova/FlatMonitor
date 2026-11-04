@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { EMPTY, merge, Observable, Subject, timer } from 'rxjs';
+import { defer, EMPTY, merge, Observable, of, Subject, timer } from 'rxjs';
 import { catchError, filter, map, pairwise, shareReplay, switchMap, tap } from 'rxjs/operators';
 import { FlatsService } from './flats.service';
 import { CancelScrapeResponse, ScrapeResponse } from '../models/scrape-response.model';
@@ -39,13 +39,23 @@ export class ScrapeStatusService {
     map(() => undefined)
   );
 
+  /** The sources a scrape can run, loaded once; none if they cannot be loaded (a scrape of all sources still works). */
+  readonly sources$: Observable<string[]> = defer(() => this.flatsService.getScrapeSources()).pipe(
+    catchError((err) => {
+      console.error('Failed to load the scrape sources:', err);
+      return of([]);
+    }),
+    shareReplay({ bufferSize: 1, refCount: false })
+  );
+
   /** Polls once now instead of waiting for the next tick. */
   refresh(): void {
     this.refresh$.next();
   }
 
-  triggerScrape(): Observable<ScrapeResponse> {
-    return this.flatsService.triggerScrape().pipe(
+  /** Starts a scrape of `sources`; without them, of all sources. */
+  triggerScrape(sources?: readonly string[]): Observable<ScrapeResponse> {
+    return this.flatsService.triggerScrape(sources).pipe(
       tap(response => {
         if (response.success) {
           this.refresh();

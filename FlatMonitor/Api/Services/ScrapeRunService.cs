@@ -30,12 +30,22 @@ public sealed class ScrapeRunService
     /// Runs the scrape. Never throws for a failed or canceled scrape: the result says how it ended. Canceled
     /// before the history row was saved, nothing ran and nothing is recorded.
     /// </summary>
-    public async Task<ScrapeRunResult> RunAsync(CancellationToken ct = default)
+    public Task<ScrapeRunResult> RunAsync(CancellationToken ct = default) => RunAsync(null, ct);
+
+    /// <summary>
+    /// Runs the scrape for <paramref name="sources"/> (<c>null</c>: all); the sources left out keep their flats. The
+    /// history row records the sources scraped. Otherwise as <see cref="RunAsync(CancellationToken)"/>.
+    /// </summary>
+    public async Task<ScrapeRunResult> RunAsync(IReadOnlyCollection<string>? sources, CancellationToken ct = default)
     {
+        var selected = sources == null
+            ? _execution.Sources
+            : _execution.Sources.Where(source => sources.Contains(source, StringComparer.OrdinalIgnoreCase)).ToList();
+
         int runId;
         try
         {
-            runId = await _history.StartAsync(ct);
+            runId = await _history.StartAsync(selected, ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -43,13 +53,13 @@ public sealed class ScrapeRunService
             return new ScrapeRunResult(ScrapingStatus.Canceled);
         }
 
-        _logger.LogInformation("Scrape run {RunId} started", runId);
+        _logger.LogInformation("Scrape run {RunId} started for {Sources}", runId, string.Join(", ", selected));
 
         // Held for the whole run, every source: Windows' sleep after inactivity would cut the browser connections
         using var awake = KeepSystemAwake.Start($"FlatMonitor scrape run {runId}", _logger);
         try
         {
-            var summary = await _execution.ExecuteAsync(flats => _history.AddProgressAsync(runId, flats, ct), ct);
+            var summary = await _execution.ExecuteAsync(flats => _history.AddProgressAsync(runId, flats, ct), ct, selected);
 
             if (summary.Success)
             {

@@ -32,9 +32,14 @@ public sealed class ScrapingHistoryRepository : IScrapingHistoryRepository
                 .SetProperty(h => h.Status, ScrapingStatus.Canceled)
                 .SetProperty(h => h.ErrorMessage, reason), cancellationToken);
 
-    public async Task<int> StartAsync(CancellationToken cancellationToken = default)
+    public async Task<int> StartAsync(IReadOnlyCollection<string> sources, CancellationToken cancellationToken = default)
     {
-        var run = new ScrapingHistory { StartTimeUtc = DateTime.UtcNow, Status = ScrapingStatus.Running };
+        var run = new ScrapingHistory
+        {
+            StartTimeUtc = DateTime.UtcNow,
+            Status = ScrapingStatus.Running,
+            Sources = string.Join(",", sources),
+        };
         _dbContext.ScrapingHistories.Add(run);
         await _dbContext.SaveChangesAsync(cancellationToken);
 

@@ -61,6 +61,7 @@ public static class ServiceRegistrationExtensions
             services.AddScoped<IScraper>(sp => sp.GetRequiredService<ImmobilienScout24Scraper>());
         if (sources.Contains(ImmoweltPages.SourceName))
             services.AddScoped<IScraper>(sp => sp.GetRequiredService<ImmoweltScraper>());
+        services.AddSingleton(new AvailableScraperSources(ScraperSources.All.Where(sources.Contains).ToList()));
 
         services.AddScoped<ScraperCoordinator>();
         services.AddScoped<ScrapeExecutionService>();

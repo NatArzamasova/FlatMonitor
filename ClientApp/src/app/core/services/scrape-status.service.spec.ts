@@ -13,7 +13,7 @@ describe('ScrapeStatusService', () => {
   const running: ScrapingStatusResponse = { isScrapingInProgress: true };
 
   beforeEach(() => {
-    flatsService = jasmine.createSpyObj('FlatsService', ['getScrapeStatus', 'triggerScrape', 'cancelScrape']);
+    flatsService = jasmine.createSpyObj('FlatsService', ['getScrapeStatus', 'getScrapeSources', 'triggerScrape', 'cancelScrape']);
     TestBed.configureTestingModule({
       providers: [{ provide: FlatsService, useValue: flatsService }]
     });
@@ -138,6 +138,29 @@ describe('ScrapeStatusService', () => {
 
       subscription.unsubscribe();
     }));
+  });
+
+  describe('sources$', () => {
+    it('loads the sources once for all subscribers', () => {
+      flatsService.getScrapeSources.and.returnValue(of(['OhneMakler', 'Immowelt']));
+      const received: string[][] = [];
+
+      service.sources$.subscribe(sources => received.push(sources));
+      service.sources$.subscribe(sources => received.push(sources));
+
+      expect(received).toEqual([['OhneMakler', 'Immowelt'], ['OhneMakler', 'Immowelt']]);
+      expect(flatsService.getScrapeSources).toHaveBeenCalledTimes(1);
+    });
+
+    it('gives no sources when they cannot be loaded', () => {
+      spyOn(console, 'error');
+      flatsService.getScrapeSources.and.returnValue(throwError(() => new Error('offline')));
+      let sources: string[] | undefined;
+
+      service.sources$.subscribe(result => sources = result);
+
+      expect(sources).toEqual([]);
+    });
   });
 
   describe('triggerScrape', () => {

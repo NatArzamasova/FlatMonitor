@@ -80,7 +80,7 @@ public class ScrapeBackgroundService : BackgroundService
         {
             _logger.LogInformation("Starting scrape job {JobId}", job.JobId);
             await using var scope = _scopeFactory.CreateAsyncScope();
-            var result = await scope.ServiceProvider.GetRequiredService<ScrapeRunService>().RunAsync(jobCt);
+            var result = await scope.ServiceProvider.GetRequiredService<ScrapeRunService>().RunAsync(job.Sources, jobCt);
             finalStatus = result.Status switch
             {
                 ScrapingStatus.Successful or ScrapingStatus.PartialFailed => ScrapeJobStatus.Completed,

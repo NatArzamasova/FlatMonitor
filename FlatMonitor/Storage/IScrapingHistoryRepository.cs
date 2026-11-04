@@ -12,8 +12,8 @@ public interface IScrapingHistoryRepository
     /// </summary>
     Task<int> CancelUnfinishedRunsAsync(string reason, CancellationToken cancellationToken = default);
 
-    /// <summary>Records a new run as <see cref="ScrapingStatus.Running"/>, started now. Returns its id.</summary>
-    Task<int> StartAsync(CancellationToken cancellationToken = default);
+    /// <summary>Records a new run of <paramref name="sources"/> as <see cref="ScrapingStatus.Running"/>, started now. Returns its id.</summary>
+    Task<int> StartAsync(IReadOnlyCollection<string> sources, CancellationToken cancellationToken = default);
 
     /// <summary>Adds <paramref name="flats"/> to the run's scraped count.</summary>
     Task AddProgressAsync(int runId, int flats, CancellationToken cancellationToken = default);

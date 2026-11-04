@@ -8,6 +8,10 @@ import { parseUtcDate } from '../../../core/utils/date.utils';
 import { formatTimeAgo } from '../../../core/utils/relative-time.utils';
 import { describeScrapeStartError } from '../../../core/utils/scrape-error.utils';
 import { ToastService, ToastTone } from '../../../core/services/toast.service';
+import { sourceBadge } from '../../../core/utils/source.utils';
+
+/** Where the sources left out of "Scrape now" are remembered (the excluded ones, so a new source starts included). */
+export const EXCLUDED_SCRAPE_SOURCES_KEY = 'flatMonitor.scrapeSources.excluded';
 
 /** A scrape run as shown in the header and its details panel. */
 export interface ScrapeRun {
@@ -19,6 +23,8 @@ export interface ScrapeRun {
   timeAgo: string;
   flats: number;
   errorMessage: string | null;
+  /** Labels of the sources the run scraped, e.g. "ohne-makler, IS24"; null for runs from before it was recorded. */
+  sources: string | null;
 }
 
 const STATUS_LABEL: Record<ScrapingStatus, string> = {
@@ -65,7 +71,7 @@ const STATUS_TONE: Record<ScrapingStatus, string> = {
         [attr.aria-expanded]="detailsOpen"
         aria-controls="scrape-details"
         title="Show the details of the last scrape"
-        (click)="detailsOpen = !detailsOpen"
+        (click)="detailsOpen = !detailsOpen; sourcesOpen = false"
       >
         <span class="scrape-dot" [class]="'bg-' + (scraping ? 'info' : (lastRun?.tone ?? 'secondary'))"
           [class.scrape-dot-pulse]="scraping" aria-hidden="true"></span>
@@ -88,6 +94,10 @@ const STATUS_TONE: Record<ScrapingStatus, string> = {
               }
               <dt>Flats</dt>
               <dd>{{ run.flats }}</dd>
+              @if (run.sources) {
+                <dt>Sources</dt>
+                <dd class="scrape-run-sources">{{ run.sources }}</dd>
+              }
               @if (run.errorMessage) {
                 <dt>Error</dt>
                 <dd class="text-danger scrape-error-message">{{ run.errorMessage }}</dd>
@@ -101,6 +111,10 @@ const STATUS_TONE: Record<ScrapingStatus, string> = {
                 <dd>{{ lastSuccessfulRun.start | date: 'medium' }} ({{ lastSuccessfulRun.timeAgo }})</dd>
                 <dt>Flats</dt>
                 <dd>{{ lastSuccessfulRun.flats }}</dd>
+                @if (lastSuccessfulRun.sources) {
+                  <dt>Sources</dt>
+                  <dd>{{ lastSuccessfulRun.sources }}</dd>
+                }
               </dl>
             }
           } @else {
@@ -116,8 +130,41 @@ const STATUS_TONE: Record<ScrapingStatus, string> = {
         Cancel
       </button>
     } @else {
-      <button type="button" class="btn btn-sm btn-success text-nowrap" (click)="triggerScrape()" [disabled]="busy"
-        title="Fetch the current flats from all sources">Scrape now</button>
+      <div class="btn-group" (keydown.escape)="sourcesOpen = false">
+        <button type="button" class="btn btn-sm btn-success text-nowrap scrape-now" (click)="triggerScrape()"
+          [disabled]="busy || selectedSources.length === 0" [title]="scrapeTitle">Scrape now</button>
+        <!-- With one source (or none loaded) there is nothing to choose. -->
+        @if (availableSources.length > 1) {
+          <button
+            type="button"
+            class="btn btn-sm btn-success dropdown-toggle dropdown-toggle-split d-flex align-items-center gap-1 scrape-sources-toggle"
+            aria-haspopup="true"
+            [attr.aria-expanded]="sourcesOpen"
+            aria-controls="scrape-sources"
+            title="Choose the sources to scrape"
+            [disabled]="busy"
+            (click)="toggleSourcesMenu()"
+          >
+            @if (!allSourcesSelected) {
+              <span class="badge text-bg-light scrape-sources-count">{{ selectedSources.length }}/{{ availableSources.length }}</span>
+            }
+            <span class="visually-hidden">Choose the sources to scrape</span>
+          </button>
+          @if (sourcesOpen) {
+            <div id="scrape-sources" class="dropdown-menu dropdown-menu-end show p-3 small scrape-sources" data-bs-popper="static">
+              <h2 class="h6 mb-2">Sources to scrape</h2>
+              @for (source of availableSources; track source) {
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" [id]="'scrape-source-' + source"
+                    [checked]="!excludedSources.has(source)" (change)="toggleSource(source)">
+                  <label class="form-check-label" [for]="'scrape-source-' + source">{{ sourceLabel(source) }}</label>
+                </div>
+              }
+              <p class="mb-0 mt-2 text-body-secondary">Sources left out keep the flats of their last scrape.</p>
+            </div>
+          }
+        }
+      </div>
     }
 
     @if (scraping) {
@@ -175,6 +222,13 @@ const STATUS_TONE: Record<ScrapingStatus, string> = {
     .scrape-error {
       max-width: 22rem;
     }
+    .scrape-sources {
+      width: 16rem;
+      box-shadow: var(--bs-box-shadow);
+    }
+    .scrape-sources-count {
+      font-size: 0.6875rem;
+    }
     .scrape-error .btn-close {
       flex-shrink: 0;
       font-size: 0.625rem;
@@ -202,6 +256,11 @@ export class ScrapeControlComponent implements OnInit {
   busy = false;
   error: string | null = null;
   detailsOpen = false;
+  sourcesOpen = false;
+  /** The sources a scrape can run, in the backend's order; empty until loaded (or if they cannot be). */
+  availableSources: string[] = [];
+  /** Sources unticked in the sources menu; remembered in this browser. */
+  readonly excludedSources = new Set<string>(readExcludedSources());
   lastRun: ScrapeRun | null = null;
   lastSuccessfulRun: ScrapeRun | null = null;
 
@@ -218,7 +277,42 @@ export class ScrapeControlComponent implements OnInit {
     return `Last scrape ${run.timeAgo}${outcome} · ${run.flats} flats`;
   }
 
+  /** The sources "Scrape now" runs. */
+  get selectedSources(): string[] {
+    return this.availableSources.filter(source => !this.excludedSources.has(source));
+  }
+
+  get allSourcesSelected(): boolean {
+    return this.selectedSources.length === this.availableSources.length;
+  }
+
+  get scrapeTitle(): string {
+    if (this.allSourcesSelected) {
+      return 'Fetch the current flats from all sources';
+    }
+    return this.selectedSources.length === 0
+      ? 'Choose at least one source to scrape'
+      : `Fetch the current flats from ${this.selectedSources.map(sourceLabel).join(', ')}`;
+  }
+
+  readonly sourceLabel = sourceLabel;
+
+  toggleSourcesMenu(): void {
+    this.sourcesOpen = !this.sourcesOpen;
+    this.detailsOpen = false;
+  }
+
+  toggleSource(source: string): void {
+    if (!this.excludedSources.delete(source)) {
+      this.excludedSources.add(source);
+    }
+    writeExcludedSources([...this.excludedSources]);
+  }
+
   ngOnInit(): void {
+    this.scrapeStatus.sources$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(sources => this.availableSources = sources);
     this.scrapeStatus.status$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(status => this.updateStatus(status));
@@ -227,13 +321,16 @@ export class ScrapeControlComponent implements OnInit {
   triggerScrape(): void {
     this.error = null;
     this.busy = true;
-    this.scrapeStatus.triggerScrape()
+    this.sourcesOpen = false;
+    // All of them (or none known): no list, the backend scrapes all
+    const sources = this.allSourcesSelected ? undefined : this.selectedSources;
+    this.scrapeStatus.triggerScrape(sources)
       .pipe(finalize(() => this.busy = false))
       .subscribe({
         next: (response) => {
           if (response.success) {
             this.scraping = true;
-            this.toasts.show('Scrape started', 'info');
+            this.toasts.show(sources ? `Scrape started: ${sources.map(sourceLabel).join(', ')}` : 'Scrape started', 'info');
           } else {
             this.error = response.message || 'Scrape failed';
           }
@@ -263,8 +360,9 @@ export class ScrapeControlComponent implements OnInit {
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
-    if (this.detailsOpen && !this.host.nativeElement.contains(event.target as Node)) {
+    if (!this.host.nativeElement.contains(event.target as Node)) {
       this.detailsOpen = false;
+      this.sourcesOpen = false;
     }
   }
 
@@ -309,6 +407,29 @@ function toRun(history: ScrapingHistoryDto, now: Date): ScrapeRun {
     end: history.endTimeUtc ? parseUtcDate(history.endTimeUtc) : null,
     timeAgo: formatTimeAgo(start, now),
     flats: history.flatsScrapedCount,
-    errorMessage: history.errorMessage ?? null
+    errorMessage: history.errorMessage ?? null,
+    sources: history.sources?.length ? history.sources.map(sourceLabel).join(', ') : null
   };
+}
+
+function sourceLabel(source: string): string {
+  return sourceBadge(source).label;
+}
+
+// localStorage throws in some private windows and when storage is blocked; the choice is then just not remembered.
+function readExcludedSources(): string[] {
+  try {
+    const stored: unknown = JSON.parse(localStorage.getItem(EXCLUDED_SCRAPE_SOURCES_KEY) ?? '[]');
+    return Array.isArray(stored) ? stored.filter((source): source is string => typeof source === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeExcludedSources(sources: string[]): void {
+  try {
+    localStorage.setItem(EXCLUDED_SCRAPE_SOURCES_KEY, JSON.stringify(sources));
+  } catch {
+    // Not remembered, see readExcludedSources
+  }
 }

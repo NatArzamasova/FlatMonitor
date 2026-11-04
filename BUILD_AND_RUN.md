@@ -46,7 +46,7 @@ dotnet run -- scrape --source OhneMakler,ImmobilienScout24
 The sources are `OhneMakler`, `ImmobilienScout24` and `Immowelt`, scraped in that order. An unknown name stops with
 the list of valid ones.
 
-Immowelt alone takes about 15 minutes (a pause of 3 s between its ~260 pages: ~9 results pages, one expose per
+Immowelt alone takes about 25 minutes (a pause of 5 s between its ~260 pages: ~9 results pages, one expose per
 flat). While a scrape runs, Windows is kept from going to sleep (see [Immowelt and Chrome](#immowelt-and-chrome)).
 
 Exploring a site's pages for parser work (not part of a scrape):
@@ -92,13 +92,14 @@ data (no details) and the run continues.
 | `Scrapers:ImmobilienScout24:Headless` | `false` | Run the IS24 browser without a window (the robot guard may need a person) |
 | `Scrapers:ImmobilienScout24:SearchUrl` | Karlsruhe flats for sale | First IS24 listings page; pagination starts there |
 | `Scrapers:ImmobilienScout24:SaveDebugPages` | `false` | Save the first IS24 page to the temp directory when it has no listings (e.g. the robot guard); the error names the file |
-| `Scrapers:Sources` | (empty: all) | Sources a scrape runs, comma-separated; `scrape --source` sets it on the CLI. E.g. `Scrapers__Sources=OhneMakler,ImmobilienScout24` keeps `POST /api/scrape` off Immowelt |
+| `Scrapers:Sources` | (empty: all) | Sources a scrape runs, comma-separated; `scrape --source` sets it on the CLI. E.g. `Scrapers__Sources=OhneMakler,ImmobilienScout24` keeps `POST /api/scrape` off Immowelt (a scrape can also choose among these per run) |
 | `Scrapers:Immowelt:CdpUrl` | `http://127.0.0.1:9222` | Where the debug Chrome listens (`127.0.0.1`, not `localhost`: Chrome listens on IPv4 only) |
 | `Scrapers:Immowelt:LaunchChrome` | `true` | Start Chrome if none listens at `CdpUrl`, and close it after the run |
 | `Scrapers:Immowelt:ChromePath` | (empty: found) | `chrome.exe` to start; empty looks in `Program Files`, `Program Files (x86)` and `%LOCALAPPDATA%\Google\Chrome\Application` |
 | `Scrapers:Immowelt:ChromeUserDataDir` | `%LOCALAPPDATA%\FlatMonitorChrome` | Profile of the started Chrome (keeps the passed robot check) |
 | `Scrapers:Immowelt:SearchUrl` | Karlsruhe flats to buy, no auctions | First results page; pages 2.. are opened by URL (`&page=N`) |
-| `Scrapers:Immowelt:PauseBetweenPagesMs` | `3000` | Pause between two pages (results pages and exposes); faster looks like a robot to DataDome. 5 s passed a full run; 3 s is being tried |
+| `Scrapers:Immowelt:PauseBetweenPagesMs` | `5000` | Pause between two pages (results pages and exposes); faster looks like a robot to DataDome. 5 s passed a full run; 3 s got the exposes blocked |
+| `Scrapers:Immowelt:RobotCheckWaitSeconds` | `600` | When DataDome shows its robot check (results page or expose), the scraper brings its tab to the front and waits this long for you to pass it, then goes on. `0`: no waiting |
 | `Scrapers:Immowelt:SaveDebugPages` | `false` | Save a page without data (e.g. the DataDome guard) to the temp directory; the error names the file |
 
 Relative paths are resolved against the content root, which is the `FlatMonitor/` project directory: `dotnet run`
@@ -139,8 +140,12 @@ Unexpected errors return `500` with `success: false` and the generic message "An
 the details are only in the server log.
 
 - `GET /api/flats/aggregated` — Returns aggregated flat statistics
-- `POST /api/scrape` — Queues a manual scrape (`202`, `data` = job id and queue time); `409` while one is queued or running
-- `GET /api/scrape/status` — Whether a scrape is in progress, plus the last and last successful run
+- `POST /api/scrape` — Queues a manual scrape (`202`, `data` = job id and queue time); `409` while one is queued or running.
+  Optional body `{ "sources": ["OhneMakler", "ImmobilienScout24"] }` scrapes only those (any case; `400` for none or an
+  unknown one); the sources left out keep their flats. "Scrape now" in the header has a menu to choose them
+- `GET /api/scrape/sources` — The sources a scrape can run (those of `Scrapers:Sources`)
+- `GET /api/scrape/status` — Whether a scrape is in progress, plus the last and last successful run (with the `sources` it
+  scraped; `null` for runs from before they were recorded)
 - `POST /api/scrape/cancel` — Cancels the queued or running scrape (`data` = whether there was one)
 - `GET /swagger` — Swagger UI (development only)
 
@@ -224,7 +229,8 @@ The Immowelt error is in the scrape summary; the other sources are not affected 
 | `No Chrome to attach to at http://127.0.0.1:9222` | `LaunchChrome` is off and no debug Chrome runs: start it by hand (above) |
 | `Chrome not found (...)` | Chrome is installed elsewhere: set `Scrapers:Immowelt:ChromePath` |
 | `Chrome started but does not answer ...` | A window of the `FlatMonitorChrome` profile is open without the debugging port: close it, scrape again |
-| `... blocked by DataDome: pass the robot check ...` | Start Chrome by hand, pass the check on immowelt.de, scrape again |
+| Warning `DataDome shows its robot check ...: pass it in the Chrome window` | Solve the check in the Chrome tab that came to the front; the scrape goes on by itself (CLI and UI alike) |
+| `... blocked by DataDome, the robot check was not passed ...` | Nobody passed it within `RobotCheckWaitSeconds`: scrape again and solve it while it waits |
 | `... no search data, has the page changed?` | immowelt changed its pages: the parsers need work (`explore-immowelt --cdp`, `SaveDebugPages`) |
 | Warning `the connection to Chrome is lost` | Windows slept or Chrome was closed mid-run: the remaining flats keep their list data. Scrape plugged in |
 

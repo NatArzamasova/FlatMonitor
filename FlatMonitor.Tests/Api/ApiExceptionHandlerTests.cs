@@ -3,6 +3,7 @@ using System.Text.Json;
 using FlatMonitor.Api;
 using FlatMonitor.Api.Controllers;
 using FlatMonitor.Api.Services;
+using FlatMonitor.Scraping;
 using FlatMonitor.Storage;
 using FluentAssertions;
 using Microsoft.AspNetCore.Builder;
@@ -95,6 +96,7 @@ public class ApiExceptionHandlingPipelineTests
         builder.Services.AddSingleton(snapshots.Object);
         builder.Services.AddSingleton(Mock.Of<IFlatAggregationRepository>());
         builder.Services.AddSingleton(Mock.Of<IScrapingHistoryRepository>());
+        builder.Services.AddSingleton(new AvailableScraperSources(ScraperSources.All));
 
         _app = builder.Build();
         _app.UseExceptionHandler();

@@ -12,6 +12,15 @@ public static class ImmobilienScout24Selectors
     /// <summary>The same listing cards as <see cref="ListingCardXPath"/>, as a CSS selector for Playwright.</summary>
     public const string ListingCardCss = "div[class*='listing-card'][data-obid]";
 
+    /// <summary>The "next page" button of the results page, only while it is enabled.</summary>
+    public const string NextPageButtonCss = "button[data-testid='pagination-button-next']:not([disabled])";
+
+    /// <summary>
+    /// The "deny all" button of the Usercentrics cookie banner (<c>#usercentrics-root</c>), which covers the page and
+    /// takes the clicks meant for the "next page" button. Playwright's selectors reach into the banner's shadow DOM.
+    /// </summary>
+    public const string CookieBannerDenyButtonCss = "[data-testid='uc-deny-all-button']";
+
     /// <summary>The card attribute holding the listing ID.</summary>
     public const string IdAttribute = "data-obid";
 

@@ -40,6 +40,9 @@ public sealed class ScraperCoordinator
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
+    /// <summary>The sources this coordinator can scrape, in registration order.</summary>
+    public IReadOnlyList<string> Sources => _scrapers.Select(scraper => scraper.Source).ToList();
+
     /// <summary>
     /// Scrapes all sources at the same time and publishes each one that succeeded as soon as it has finished. They are
     /// different sites, each in its own browser or HttpClient; only their database work is taken one call at a time
@@ -52,16 +55,19 @@ public sealed class ScraperCoordinator
     /// A callback rather than <see cref="IProgress{T}"/>: callers write it to the same DbContext, so it runs inside the
     /// database lock and must finish before the next database call.
     /// </param>
-    public async Task<ScrapeSummary> ScrapeAllSourcesAsync(Func<int, Task>? onBatchSaved = null, CancellationToken ct = default)
+    /// <param name="sources">The sources to scrape, by <see cref="IScraper.Source"/>; <c>null</c>: all. The others keep their rows.</param>
+    public async Task<ScrapeSummary> ScrapeAllSourcesAsync(
+        Func<int, Task>? onBatchSaved = null, CancellationToken ct = default, IReadOnlyCollection<string>? sources = null)
     {
+        var scrapers = sources == null ? _scrapers : _scrapers.Where(scraper => sources.Contains(scraper.Source));
         var database = new ScrapeDatabaseLock();
         await _repository.BeginRunAsync(ct);
         SourceResult[] results;
         try
         {
             // Materialized first, so every source has started before the first one is awaited
-            var sources = _scrapers.Select(scraper => ScrapeAndPublishAsync(scraper, database, onBatchSaved, ct)).ToList();
-            results = await Task.WhenAll(sources);
+            var running = scrapers.Select(scraper => ScrapeAndPublishAsync(scraper, database, onBatchSaved, ct)).ToList();
+            results = await Task.WhenAll(running);
         }
         finally
         {

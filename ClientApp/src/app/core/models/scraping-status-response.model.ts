@@ -15,4 +15,6 @@ export interface ScrapingHistoryDto {
   status: ScrapingStatus;
   errorMessage?: string | null;
   flatsScrapedCount: number;
+  /** The sources the run scraped, e.g. `['OhneMakler', 'ImmobilienScout24']`; missing for runs from before it was recorded. */
+  sources?: string[] | null;
 }

@@ -141,6 +141,19 @@ describe('FlatsService', () => {
     });
   });
 
+  describe('getScrapeSources', () => {
+    it('reads the sources a scrape can run', () => {
+      let sources: string[] | undefined;
+      service.getScrapeSources().subscribe(result => sources = result);
+
+      const req = httpMock.expectOne('/api/scrape/sources');
+      expect(req.request.method).toBe('GET');
+      req.flush({ success: true, message: 'ok', data: ['OhneMakler', 'Immowelt'] });
+
+      expect(sources).toEqual(['OhneMakler', 'Immowelt']);
+    });
+  });
+
   describe('triggerScrape', () => {
     it('should trigger a scrape job', () => {
       const mockResponse: ScrapeResponse = {
@@ -159,6 +172,14 @@ describe('FlatsService', () => {
       expect(req.request.method).toBe('POST');
       expect(req.request.body).toEqual({});
       req.flush(mockResponse);
+    });
+
+    it('sends the chosen sources', () => {
+      service.triggerScrape(['OhneMakler', 'ImmobilienScout24']).subscribe();
+
+      const req = httpMock.expectOne('/api/scrape');
+      expect(req.request.body).toEqual({ sources: ['OhneMakler', 'ImmobilienScout24'] });
+      req.flush({ success: true, message: 'Scrape job queued' });
     });
 
     it('should handle scrape failure', () => {

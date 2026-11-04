@@ -40,7 +40,8 @@ There is no `report` command: statistics are served by the web API (see [BUILD_A
 
 **Run modes:**
 - `scrape` — fetches current flats from all active sources, enriches with detail pages, yields unfiltered flats to `ScraperCoordinator`. `ScraperCoordinator` filters by allowed districts (normalizing names), batch-saves filtered flats to SQLite (every 20 flats to avoid memory bloat)
-- web server (no command, the default) — REST API read by the Angular frontend: current offers, aggregations by district and rooms and their history, filter presets; `POST /api/scrape` queues a scrape job that runs the same pipeline as `scrape`
+- web server (no command, the default) — REST API read by the Angular frontend: current offers, aggregations by district and rooms and their history, filter presets; `POST /api/scrape` queues a scrape job that runs the same pipeline as `scrape`, for all sources or the ones it names
+  (`ScrapingHistories.Sources` records which)
 - `scrape --source <names>` — the same, for the named sources only (`Scrapers:Sources` does it for the web server)
 - `explore-is24` — opens ImmobilienScout24 in the browser and saves the listings page HTML for analysis
 - `explore-immowelt [--headless | --cdp]` — saves two Immowelt results pages and an expose to `data/explore/Immowelt/`
@@ -55,7 +56,8 @@ There is no `report` command: statistics are served by the web API (see [BUILD_A
 - **Immowelt needs the user's Chrome** — DataDome blocks `HttpClient` and Playwright's own browser, so the Immowelt
   scraper attaches to the installed Chrome over CDP (`127.0.0.1:9222`), starting it if needed (own profile
   `FlatMonitorChrome`). Never add automation/headless flags or evasion. Pages are read from their JSON data scripts,
-  3 s apart (5 s passed a full run; 3 s is being tried). See [FlatMonitor/immowelt.md](FlatMonitor/immowelt.md) and [BUILD_AND_RUN.md](BUILD_AND_RUN.md#immowelt-and-chrome)
+  5 s apart (3 s got the exposes blocked by DataDome). On DataDome's robot check the scraper brings its tab to the
+  front and waits (`RobotCheckWaitSeconds`, 10 min) for the user to solve it; it never solves it itself. See [FlatMonitor/immowelt.md](FlatMonitor/immowelt.md) and [BUILD_AND_RUN.md](BUILD_AND_RUN.md#immowelt-and-chrome)
 - **Keep-awake during a scrape** — `ScrapeRunService` holds a Windows power request (`KeepSystemAwake`) for the
   whole run: Modern Standby cut the Chrome connection mid-run. A no-op outside Windows
 - **Cross-source duplicates** — many flats are listed on several sources (188 of 246 Immowelt flats also on IS24).

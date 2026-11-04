@@ -38,3 +38,33 @@ public static class ScraperSources
         return selected;
     }
 }
+
+/// <summary>
+/// The sources this process can scrape (those of <see cref="ScraperSources.ConfigurationKey"/>), in the order of
+/// <see cref="ScraperSources.All"/>. A scrape started from the API runs all of them or the ones it names.
+/// </summary>
+public sealed record AvailableScraperSources(IReadOnlyList<string> Names)
+{
+    /// <summary>
+    /// The sources a run scrapes: all available for <c>null</c>, otherwise the <paramref name="requested"/> ones (any
+    /// case), in the order of <see cref="Names"/>. Throws <see cref="ArgumentException"/> for none, or for one that is
+    /// not available.
+    /// </summary>
+    public IReadOnlyList<string> Select(IEnumerable<string>? requested)
+    {
+        if (requested == null)
+            return Names;
+
+        var selected = new HashSet<string>();
+        foreach (var name in requested)
+        {
+            selected.Add(Names.FirstOrDefault(source => source.Equals(name?.Trim(), StringComparison.OrdinalIgnoreCase))
+                ?? throw new ArgumentException($"'{name}' is no source to scrape; the sources are {string.Join(", ", Names)}."));
+        }
+
+        if (selected.Count == 0)
+            throw new ArgumentException("Select at least one source to scrape.");
+
+        return Names.Where(selected.Contains).ToList();
+    }
+}

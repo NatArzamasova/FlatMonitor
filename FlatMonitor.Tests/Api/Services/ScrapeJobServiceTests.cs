@@ -44,6 +44,23 @@ public class ScrapeJobServiceTests
     }
 
     [Test]
+    public async Task TryQueueJob_PassesTheSourcesOnToTheRunner()
+    {
+        _jobService.TryQueueJob(["OhneMakler"], out var queued).Should().BeTrue();
+
+        var job = await _jobService.DequeueAsync(CancellationToken.None);
+
+        job.JobId.Should().Be(queued!.JobId);
+        job.Sources.Should().Equal("OhneMakler");
+    }
+
+    [Test]
+    public void TryQueueJob_WithoutSources_QueuesAllSources()
+    {
+        QueueJob().Sources.Should().BeNull();
+    }
+
+    [Test]
     public void TryQueueJob_WhileAJobIsQueued_IsRefused()
     {
         QueueJob();

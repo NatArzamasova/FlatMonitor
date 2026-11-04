@@ -32,8 +32,15 @@ export class FlatsService {
       .pipe(unwrapApiResponse());
   }
 
-  triggerScrape(): Observable<ScrapeResponse> {
-    return this.http.post<ScrapeResponse>(`${this.apiUrl}/scrape`, {});
+  /** Starts a scrape of `sources` (the backend's source names); without them, of all sources. */
+  triggerScrape(sources?: readonly string[]): Observable<ScrapeResponse> {
+    return this.http.post<ScrapeResponse>(`${this.apiUrl}/scrape`, sources ? { sources } : {});
+  }
+
+  /** The sources a scrape can run, in the backend's order. */
+  getScrapeSources(): Observable<string[]> {
+    return this.http.get<ApiResponse<string[]>>(`${this.apiUrl}/scrape/sources`)
+      .pipe(unwrapApiResponse());
   }
 
   getScrapeStatus(): Observable<ScrapingStatusResponse> {

@@ -23,7 +23,8 @@ public class ImmoweltOptionsTests
             ChromePath = null,
             ChromeUserDataDir = @"%LOCALAPPDATA%\FlatMonitorChrome",
             SearchUrl = ImmoweltOptions.DefaultSearchUrl,
-            PauseBetweenPagesMs = 3_000,
+            PauseBetweenPagesMs = 5_000,
+            RobotCheckWaitSeconds = 600,
             SaveDebugPages = false,
         });
     }
@@ -47,6 +48,7 @@ public class ImmoweltOptionsTests
             ["Scrapers:Immowelt:ChromeUserDataDir"] = @"D:\Profiles\Scraper",
             ["Scrapers:Immowelt:SearchUrl"] = "https://example.org/search",
             ["Scrapers:Immowelt:PauseBetweenPagesMs"] = "0",
+            ["Scrapers:Immowelt:RobotCheckWaitSeconds"] = "120",
             ["Scrapers:Immowelt:SaveDebugPages"] = "True",
         }));
 
@@ -58,6 +60,7 @@ public class ImmoweltOptionsTests
             ChromeUserDataDir = @"D:\Profiles\Scraper",
             SearchUrl = "https://example.org/search",
             PauseBetweenPagesMs = 0,
+            RobotCheckWaitSeconds = 120,
             SaveDebugPages = true,
         });
     }
@@ -68,6 +71,7 @@ public class ImmoweltOptionsTests
     [TestCase("ChromeUserDataDir")]
     [TestCase("SearchUrl")]
     [TestCase("PauseBetweenPagesMs")]
+    [TestCase("RobotCheckWaitSeconds")]
     [TestCase("SaveDebugPages")]
     public void FromConfiguration_WithAnEmptyValue_UsesTheDefault(string key)
     {
@@ -82,6 +86,7 @@ public class ImmoweltOptionsTests
     [TestCase("PauseBetweenPagesMs", "-1")]
     [TestCase("PauseBetweenPagesMs", "5s")]
     [TestCase("PauseBetweenPagesMs", "2.5")]
+    [TestCase("RobotCheckWaitSeconds", "-1")]
     [TestCase("SaveDebugPages", "yes")]
     [TestCase("LaunchChrome", "ja")]
     public void FromConfiguration_WithAnInvalidValue_FailsWithTheSettingsName(string key, string value)

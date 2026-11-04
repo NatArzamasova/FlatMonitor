@@ -20,19 +20,24 @@ public class ScrapeExecutionService
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
+    /// <summary>The sources a run can scrape.</summary>
+    public IReadOnlyList<string> Sources => _coordinator.Sources;
+
     /// <summary>
     /// Scrapes all sources and refreshes the aggregations. FlatsSnapshots is never cleared: each source that
     /// succeeds replaces its rows, a failed source keeps the previous ones (see <see cref="ScraperCoordinator"/>).
     /// So a run that fails, is canceled or only partly succeeds leaves consistent data and needs nothing restored.
     /// </summary>
+    /// <param name="sources">The sources to scrape; <c>null</c>: all (<see cref="Sources"/>).</param>
     public async Task<ScrapeSummary> ExecuteAsync(
         Func<int, Task>? onBatchSaved = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IReadOnlyCollection<string>? sources = null)
     {
         ScrapeSummary summary;
         try
         {
-            summary = await _coordinator.ScrapeAllSourcesAsync(onBatchSaved, cancellationToken);
+            summary = await _coordinator.ScrapeAllSourcesAsync(onBatchSaved, cancellationToken, sources);
         }
         catch (OperationCanceledException)
         {

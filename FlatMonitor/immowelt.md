@@ -31,7 +31,9 @@ Consequences:
   only), opens its own tab, and closes only that tab. If no Chrome listens there, the scraper starts the installed
   Chrome itself (`LaunchChrome`, on by default) with the command line below — the same browser DataDome let through,
   no automation flags — and closes it after the run; a Chrome the user started stays open. The robot check, passed
-  once in that profile, persists in its cookies. If Chrome cannot be started (not installed, `LaunchChrome` off, the
+  once in that profile, persists in its cookies. When DataDome shows the check during a run (results page or expose),
+  `ImmoweltRobotCheck` brings the scraper's tab to the front and waits up to `RobotCheckWaitSeconds` (10 min) for the
+  user to solve it, reading the tab every 2 s; then the run goes on. It never touches the check itself. If Chrome cannot be started (not installed, `LaunchChrome` off, the
   profile already open without the debugging port), the source fails at start and `ScraperCoordinator` records it as a
   source error — the other sources still run and immowelt keeps its previous rows. A scrape started from the web
   server (`POST /api/scrape`) behaves the same.
@@ -40,8 +42,8 @@ Consequences:
   get blocked, clicking the card (with the search as referrer) is the next thing to try.
 - Pause between pages (5 s in the spike; configurable). Opening pages back to back is what DataDome calls
   "übermenschliche Geschwindigkeit". ~9 list pages + ~270 exposes ≈ 25 min per run. 5 s passed a full run
-  (run 53, 2026-11-02, ~0.6 s of each 5.6 s was loading); the default is now **3 s** (≈ 15 min), being tried. If
-  DataDome blocks it, go back to 5 s (`Scrapers:Immowelt:PauseBetweenPagesMs`).
+  (run 53, 2026-11-02, ~0.6 s of each 5.6 s was loading). 3 s (≈ 15 min) was tried next and DataDome blocked the
+  exposes mid-run (2026-11-04), so the default is back at **5 s** (`Scrapers:Immowelt:PauseBetweenPagesMs`).
 - No further evasion (fingerprint spoofing, captcha services, proxies). If DataDome blocks the attached Chrome during
   normal runs, drop immowelt as a source rather than escalate.
 

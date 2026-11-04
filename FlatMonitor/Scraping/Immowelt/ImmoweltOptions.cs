@@ -22,7 +22,10 @@ public sealed record ImmoweltOptions
         "https://www.immowelt.de/classified-search?distributionTypes=Buy&estateTypes=Apartment&locations=AD08DE5585";
 
     /// <summary>Opening pages back to back looks like a robot to DataDome ("übermenschliche Geschwindigkeit").</summary>
-    public const int DefaultPauseBetweenPagesMs = 3_000;
+    public const int DefaultPauseBetweenPagesMs = 5_000;
+
+    /// <summary>Time for the user to pass DataDome's robot check in the scraper's tab.</summary>
+    public const int DefaultRobotCheckWaitSeconds = 600;
 
     /// <summary>Chrome's own profile for the scraper: recent Chrome refuses remote debugging on the default profile.</summary>
     public const string DefaultChromeUserDataDir = @"%LOCALAPPDATA%\FlatMonitorChrome";
@@ -51,6 +54,12 @@ public sealed record ImmoweltOptions
     /// <summary>The pause between two pages, list pages and exposes alike.</summary>
     public int PauseBetweenPagesMs { get; init; } = DefaultPauseBetweenPagesMs;
 
+    /// <summary>
+    /// When DataDome shows its robot check, how long the scraper keeps the tab open and waits for the user to pass it
+    /// (<see cref="ImmoweltRobotCheck"/>). 0: do not wait, fail (results page) or keep the card data (expose) at once.
+    /// </summary>
+    public int RobotCheckWaitSeconds { get; init; } = DefaultRobotCheckWaitSeconds;
+
     /// <summary>Saves a page without data (for example the DataDome guard) to the temp directory.</summary>
     public bool SaveDebugPages { get; init; }
 
@@ -67,6 +76,7 @@ public sealed record ImmoweltOptions
             ChromeUserDataDir = ReadString(section, nameof(ChromeUserDataDir)) ?? defaults.ChromeUserDataDir,
             SearchUrl = ReadString(section, nameof(SearchUrl)) ?? defaults.SearchUrl,
             PauseBetweenPagesMs = ReadNonNegativeInt(section, nameof(PauseBetweenPagesMs)) ?? defaults.PauseBetweenPagesMs,
+            RobotCheckWaitSeconds = ReadNonNegativeInt(section, nameof(RobotCheckWaitSeconds)) ?? defaults.RobotCheckWaitSeconds,
             SaveDebugPages = ReadBool(section, nameof(SaveDebugPages)) ?? defaults.SaveDebugPages,
         };
     }

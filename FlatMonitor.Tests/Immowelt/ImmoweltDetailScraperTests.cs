@@ -43,8 +43,11 @@ public class ImmoweltDetailScraperTests
             .Callback((string url, PageGotoOptions? _) => _openedUrls.Add(url))
             .ReturnsAsync(() => _status is { } status ? Mock.Of<IResponse>(r => r.Status == status) : null);
         _page.Setup(p => p.ContentAsync()).ReturnsAsync(() => _html);
+        _page.Setup(p => p.IsClosed).Returns(false);
+        _page.Setup(p => p.BringToFrontAsync()).Returns(Task.CompletedTask);
 
-        _scraper = new ImmoweltDetailScraper(_page.Object, new ImmoweltOptions { PauseBetweenPagesMs = 0 }, _htmlPages, _logger);
+        _scraper = new ImmoweltDetailScraper(
+            _page.Object, new ImmoweltOptions { PauseBetweenPagesMs = 0, RobotCheckWaitSeconds = 0 }, _htmlPages, _logger);
     }
 
     [TearDown]
@@ -158,6 +161,27 @@ public class ImmoweltDetailScraperTests
         _openedUrls.Should().ContainSingle();
         _logger.Entries.Should().ContainSingle(e => e.Level == LogLevel.Warning)
             .Which.Message.Should().Contain("DataDome").And.Contain("robot check");
+    }
+
+    [Test]
+    public async Task EnrichAsync_RobotCheckPassedInTheTab_AppliesTheExposeAndKeepsOpeningExposes()
+    {
+        var options = new ImmoweltOptions { PauseBetweenPagesMs = 0, RobotCheckWaitSeconds = 10 };
+        var scraper = new ImmoweltDetailScraper(_page.Object, options, _htmlPages, _logger,
+            new ImmoweltRobotCheck(_page.Object, options, _logger, TimeSpan.FromMilliseconds(1)));
+        var reads = 0;
+        _page.Setup(p => p.ContentAsync()).ReturnsAsync(() => ++reads <= 3 ? DataDomePage : ExposePage);
+
+        var first = await scraper.EnrichAsync(Card(listingId: "A1"), default);
+        var second = await scraper.EnrichAsync(Card(url: Url + "-2", listingId: "B2"), default);
+
+        first.Should().NotBeNull();
+        first!.CommissionPercent.Should().NotBeNull("the expose shown after the check is applied");
+        second!.CommissionPercent.Should().NotBeNull();
+        _openedUrls.Should().Equal(Url, Url + "-2");
+        _page.Verify(p => p.BringToFrontAsync(), Times.Once);
+        Directory.GetFiles(_htmlPages.Directory, "A1*").Select(File.ReadAllText)
+            .Should().Contain(ExposePage, "the expose shown after the check is kept");
     }
 
     [Test]

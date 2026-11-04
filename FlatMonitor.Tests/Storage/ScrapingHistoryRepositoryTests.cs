@@ -91,7 +91,7 @@ public class ScrapingHistoryRepositoryTests
         var repository = new ScrapingHistoryRepository(context);
 
         // Act
-        var runId = await repository.StartAsync();
+        var runId = await repository.StartAsync(["OhneMakler"]);
         var running = await context.ScrapingHistories.AsNoTracking().SingleAsync();
         await repository.AddProgressAsync(runId, 20);
         await repository.AddProgressAsync(runId, 5);
@@ -117,7 +117,7 @@ public class ScrapingHistoryRepositoryTests
         await connection.OpenAsync();
         await using var context = await CreateSqliteContextAsync(connection);
         var repository = new ScrapingHistoryRepository(context);
-        var runId = await repository.StartAsync();
+        var runId = await repository.StartAsync(["OhneMakler"]);
         context.FlatAggregations.Add(new DailyFlatAggregation
         {
             ScrapingDate = DateOnly.FromDateTime(DateTime.UtcNow), District = "Oststadt", RoomsCount = 2, Count = 1, AvgPricePerMeter = 5000m,
@@ -133,13 +133,27 @@ public class ScrapingHistoryRepositoryTests
     }
 
     [Test]
+    public async Task StartAsync_RecordsTheSourcesOfTheRun()
+    {
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var context = await CreateSqliteContextAsync(connection);
+
+        await new ScrapingHistoryRepository(context).StartAsync(["OhneMakler", "ImmobilienScout24"]);
+
+        var run = await context.ScrapingHistories.AsNoTracking().SingleAsync();
+        run.Sources.Should().Be("OhneMakler,ImmobilienScout24");
+        run.SourceList.Should().Equal("OhneMakler", "ImmobilienScout24");
+    }
+
+    [Test]
     public async Task StartAsync_DoesNotKeepTheRunTracked()
     {
         await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
         await connection.OpenAsync();
         await using var context = await CreateSqliteContextAsync(connection);
 
-        await new ScrapingHistoryRepository(context).StartAsync();
+        await new ScrapingHistoryRepository(context).StartAsync(["OhneMakler"]);
 
         context.ChangeTracker.Entries().Should().BeEmpty();
     }

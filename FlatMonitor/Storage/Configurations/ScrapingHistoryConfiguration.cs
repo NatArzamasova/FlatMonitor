@@ -17,5 +17,7 @@ internal sealed class ScrapingHistoryConfiguration : IEntityTypeConfiguration<Sc
         builder.Property(h => h.Status).IsRequired().HasMaxLength(50).HasConversion<string>();
         builder.Property(h => h.ErrorMessage).HasMaxLength(500);
         builder.Property(h => h.FlatsScrapedCount).IsRequired().HasDefaultValue(0);
+        builder.Property(h => h.Sources).HasMaxLength(200);
+        builder.Ignore(h => h.SourceList);
     }
 }

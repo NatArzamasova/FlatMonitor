@@ -30,7 +30,7 @@ public class ScrapeRunServiceTests
     {
         _historyCalls = [];
         _history = new Mock<IScrapingHistoryRepository>();
-        _history.Setup(h => h.StartAsync(It.IsAny<CancellationToken>()))
+        _history.Setup(h => h.StartAsync(It.IsAny<IReadOnlyCollection<string>>(), It.IsAny<CancellationToken>()))
             .Callback(() => _historyCalls.Add("start")).ReturnsAsync(RunId);
         _history.Setup(h => h.AddProgressAsync(RunId, It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .Callback<int, int, CancellationToken>((_, flats, _) => _historyCalls.Add($"progress {flats}")).Returns(Task.CompletedTask);
@@ -62,6 +62,37 @@ public class ScrapeRunServiceTests
         result.Status.Should().Be(ScrapingStatus.Successful);
         result.Summary!.TotalFlats.Should().Be(25);
         _historyCalls.Should().Equal("start", "progress 20", "progress 5", "complete Successful");
+    }
+
+    [Test]
+    public async Task RunAsync_RecordsAllSourcesInTheHistory()
+    {
+        // Act
+        await CreateService(
+            new FakeFlatScraper("OhneMakler") { Flats = [FakeFlatScraper.CreateFlat("1")] },
+            new FakeFlatScraper("Immowelt") { Flats = [FakeFlatScraper.CreateFlat("2")] }).RunAsync();
+
+        // Assert
+        _history.Verify(h => h.StartAsync(
+            It.Is<IReadOnlyCollection<string>>(s => s.SequenceEqual(new[] { "OhneMakler", "Immowelt" })), It.IsAny<CancellationToken>()));
+    }
+
+    [Test]
+    public async Task RunAsync_WithSources_ScrapesAndRecordsOnlyThose()
+    {
+        // Arrange
+        var selected = new FakeFlatScraper("OhneMakler") { Flats = [FakeFlatScraper.CreateFlat("1")] };
+        var leftOut = new FakeFlatScraper("Immowelt") { Flats = [FakeFlatScraper.CreateFlat("2")] };
+
+        // Act
+        var result = await CreateService(selected, leftOut).RunAsync(["ohnemakler"]);
+
+        // Assert
+        result.Status.Should().Be(ScrapingStatus.Successful);
+        result.Summary!.FlatsPerSource.Keys.Should().Equal("OhneMakler");
+        leftOut.SessionStarted.Should().BeFalse("a source left out is not scraped");
+        _history.Verify(h => h.StartAsync(
+            It.Is<IReadOnlyCollection<string>>(s => s.SequenceEqual(new[] { "OhneMakler" })), It.IsAny<CancellationToken>()));
     }
 
     [Test]
@@ -141,7 +172,7 @@ public class ScrapeRunServiceTests
         // Arrange
         using var cts = new CancellationTokenSource();
         cts.Cancel();
-        _history.Setup(h => h.StartAsync(It.IsAny<CancellationToken>())).ThrowsAsync(new OperationCanceledException(cts.Token));
+        _history.Setup(h => h.StartAsync(It.IsAny<IReadOnlyCollection<string>>(), It.IsAny<CancellationToken>())).ThrowsAsync(new OperationCanceledException(cts.Token));
         var scraper = new FakeFlatScraper("OhneMakler") { Flats = [FakeFlatScraper.CreateFlat("1")] };
 
         // Act
