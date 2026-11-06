@@ -197,8 +197,8 @@ public sealed class FlatRepository : IFlatRepository
 
     public async Task<List<ArchivedOffer>> GetArchivedOffersAsync(CancellationToken ct = default)
     {
-        // Per flat no longer in FlatsSnapshots: its latest run and its first-seen time. Runs never overlap, so the
-        // latest run is also the one that scraped it last.
+        // Per flat no longer in FlatsSnapshots: its earliest and latest run and its first-seen time. Runs never overlap,
+        // so the latest run is also the one that scraped it last.
         var latest = _dbContext.FlatsArchive
             .Where(a => !_dbContext.FlatsSnapshots.Any(s => s.Source == a.Source && s.ListingId == a.ListingId))
             .GroupBy(a => new { a.Source, a.ListingId })
@@ -207,6 +207,7 @@ public sealed class FlatRepository : IFlatRepository
                 g.Key.Source,
                 g.Key.ListingId,
                 RunId = g.Max(a => a.ScrapingHistoryId),
+                FirstRunId = g.Min(a => a.ScrapingHistoryId),
                 FirstSeenUtc = g.Min(a => EF.Property<DateTime>(a, "CreatedAtUtc")),
             });
 
@@ -215,6 +216,9 @@ public sealed class FlatRepository : IFlatRepository
                 join a in _dbContext.FlatsArchive
                     on new { flat.Source, flat.ListingId, ScrapingHistoryId = flat.RunId }
                     equals new { a.Source, a.ListingId, a.ScrapingHistoryId }
+                join first in _dbContext.FlatsArchive
+                    on new { flat.Source, flat.ListingId, ScrapingHistoryId = flat.FirstRunId }
+                    equals new { first.Source, first.ListingId, first.ScrapingHistoryId }
                 orderby a.ScrapedAtUtc descending
                 select new ArchivedOffer
                 {
@@ -234,6 +238,7 @@ public sealed class FlatRepository : IFlatRepository
                     CommissionPercent = a.CommissionPercent,
                     FirstSeenUtc = flat.FirstSeenUtc,
                     LastSeenUtc = a.ScrapedAtUtc,
+                    FirstPriceEur = first.PriceEur,
                 })
             .ToListAsync(ct);
 

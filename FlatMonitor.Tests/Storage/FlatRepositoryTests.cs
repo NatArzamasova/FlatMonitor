@@ -862,7 +862,32 @@ public class FlatRepositoryTests
         });
         offer.LastSeenUtc.Should().Be(Scraped(2));
         offer.FirstSeenUtc.Should().BeCloseTo(firstSeen.CreatedAtUtc, TimeSpan.FromMilliseconds(1));
+        offer.FirstPriceEur.Should().Be(300000, "the price of its earliest run");
         result[1].LastSeenUtc.Should().Be(Scraped(1));
+    }
+
+    [Test]
+    public async Task GetArchivedOffersAsync_FirstPrice_IsThePriceOfTheEarliestRun()
+    {
+        // Arrange: 1 is seen with three prices, 2 once, 3 without a price at first
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatRepository(repoContext);
+        await PublishAsync(repoContext, repo, CreateFlat("1") with { PriceEur = 320000 }, CreateFlat("3"));
+        await PublishAsync(repoContext, repo, CreateFlat("1") with { PriceEur = 300000 }, CreateFlat("3") with { PriceEur = 200000 });
+        await PublishAsync(repoContext, repo, CreateFlat("1") with { PriceEur = 310000 }, CreateFlat("2") with { PriceEur = 250000 });
+        await PublishAsync(repoContext, repo, CreateFlat("4"));
+
+        // Act
+        var result = await repo.GetArchivedOffersAsync();
+
+        // Assert
+        result.ToDictionary(o => o.ListingId!, o => (o.FirstPriceEur, o.PriceEur)).Should().BeEquivalentTo(new Dictionary<string, (int?, int?)>
+        {
+            ["1"] = (320000, 310000),
+            ["2"] = (250000, 250000),
+            ["3"] = (null, 200000),
+        });
     }
 
     [Test]

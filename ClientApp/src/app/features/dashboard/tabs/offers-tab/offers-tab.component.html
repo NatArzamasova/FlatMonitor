@@ -2,7 +2,7 @@
      `lastSeen` its filter. -->
 <div class="fill-column">
   @if (loading) {
-    <app-loading-skeleton [columns]="archived ? 14 : 11" [cardsOnSmallScreens]="true"></app-loading-skeleton>
+    <app-loading-skeleton [columns]="archived ? 15 : 11" [cardsOnSmallScreens]="true"></app-loading-skeleton>
   }
 
   @if (!loading && currentOffers.length > 0) {
@@ -95,6 +95,13 @@
             <th appSortableHeader [sort]="sort" column="district" sortLabel="District" (sortRequested)="onSort($event)">District</th>
             <th appSortableHeader class="text-center" [sort]="sort" column="roomsCount" sortLabel="Rooms" (sortRequested)="onSort($event)">Rooms</th>
             <th appSortableHeader class="text-end" [sort]="sort" column="priceEur" sortLabel="Price" (sortRequested)="onSort($event)">Price (€)</th>
+            <!-- $any: the template is also checked for Current Offers, whose sort has no such columns. -->
+            @if (archived) {
+              <th appSortableHeader class="text-end" [sort]="sort" [column]="$any('firstPriceEur')" sortLabel="First Price"
+                (sortRequested)="onSort($event)">
+                <abbr title="The price when the flat was first seen">First price (€)</abbr>
+              </th>
+            }
             <th appSortableHeader class="text-end" [sort]="sort" column="livingAreaSqm" sortLabel="Living Area" (sortRequested)="onSort($event)">Living area (m²)</th>
             <th appSortableHeader class="text-end" [sort]="sort" column="pricePerMeter" sortLabel="Price per Square Meter" (sortRequested)="onSort($event)">Price/m² (€)</th>
             <th appSortableHeader class="text-end" [sort]="sort" column="serviceChargeEur" sortLabel="Hausgeld" (sortRequested)="onSort($event)">
@@ -141,6 +148,9 @@
                     [title]="'Was ' + (row.offer.originalPriceEur | currency: 'EUR': 'symbol': '1.0-0') + ' when first listed'">−{{ row.discountPercentage | number: '1.0-1' }} %</span>
                 }
               </td>
+              @if (row.archive; as archive) {
+                <td class="text-end offer-first-price">{{ archive.firstPriceEur != null ? (archive.firstPriceEur | currency: 'EUR': 'symbol': '1.0-0') : '-' }}</td>
+              }
               <td class="text-end">{{ row.offer.livingAreaSqm ? (row.offer.livingAreaSqm | number: '1.0-1') : '-' }}</td>
               <td class="text-end offer-price-per-meter">{{ row.offer.pricePerMeter ? (row.offer.pricePerMeter | currency: 'EUR': 'symbol': '1.0-0') : '-' }}</td>
               <td class="text-end offer-service-charge">{{ row.offer.serviceChargeEur != null ? (row.offer.serviceChargeEur | currency: 'EUR': 'symbol': '1.0-0') : '-' }}</td>
@@ -154,10 +164,10 @@
                 }
               </td>
               <td class="text-end offer-availability" [title]="row.offer.availability ?? ''">{{ row.offer.availability || '-' }}</td>
-              @if (row.seen; as seen) {
-                <td class="text-end text-nowrap offer-first-seen">{{ seen.firstSeenUtc | date: 'dd.MM.yyyy' }}</td>
-                <td class="text-end text-nowrap offer-last-seen">{{ seen.lastSeenUtc | date: 'dd.MM.yyyy' }}</td>
-                <td class="text-end offer-days-listed">{{ seen.daysListed ?? '-' }}</td>
+              @if (row.archive; as archive) {
+                <td class="text-end text-nowrap offer-first-seen">{{ archive.firstSeenUtc | date: 'dd.MM.yyyy' }}</td>
+                <td class="text-end text-nowrap offer-last-seen">{{ archive.lastSeenUtc | date: 'dd.MM.yyyy' }}</td>
+                <td class="text-end offer-days-listed">{{ archive.daysListed ?? '-' }}</td>
               }
               <td>
                 <!-- The pill names the portal; with a usable URL it is also the row's link. -->

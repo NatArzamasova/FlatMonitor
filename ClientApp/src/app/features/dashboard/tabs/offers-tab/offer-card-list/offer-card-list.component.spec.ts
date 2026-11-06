@@ -152,7 +152,7 @@ describe('OfferCardListComponent', () => {
       // Midday UTC, so the dates are the same in every time zone the specs may run in
       const archived = (daysListed: number | null): OfferRow => ({
         ...row({ district: 'Mitte' }),
-        seen: { firstSeenUtc: '2026-10-02T12:00:00Z', lastSeenUtc: '2026-10-29T12:00:00Z', daysListed }
+        archive: { firstSeenUtc: '2026-10-02T12:00:00Z', lastSeenUtc: '2026-10-29T12:00:00Z', daysListed, firstPriceEur: null }
       });
       render([archived(27), archived(1), archived(null), row({ district: 'Weststadt' })]);
 
@@ -162,8 +162,20 @@ describe('OfferCardListComponent', () => {
       expect(cards()[3].querySelector('.offer-card-seen')).toBeNull();
     });
 
+    it('shows the first price of an archived offer only when it differs from the last one', () => {
+      const archived = (priceEur: number, firstPriceEur: number | null): OfferRow => ({
+        ...row({ district: 'Mitte', priceEur }),
+        archive: { firstSeenUtc: '2026-10-02T12:00:00Z', lastSeenUtc: '2026-10-29T12:00:00Z', daysListed: 27, firstPriceEur }
+      });
+      render([archived(280000, 300000), archived(280000, 280000), archived(280000, null)]);
+
+      expect(text(cards()[0], '.offer-card-first-price')).toBe('First price: 300.000 €');
+      expect(cards()[1].querySelector('.offer-card-first-price')).toBeNull();
+      expect(cards()[2].querySelector('.offer-card-first-price')).toBeNull();
+    });
+
     it('says in the link of an archived offer that it is probably no longer online', () => {
-      render([{ ...fullRow, seen: { firstSeenUtc: '2026-10-02T12:00:00Z', lastSeenUtc: '2026-10-29T12:00:00Z', daysListed: 27 } }]);
+      render([{ ...fullRow, archive: { firstSeenUtc: '2026-10-02T12:00:00Z', lastSeenUtc: '2026-10-29T12:00:00Z', daysListed: 27, firstPriceEur: null } }]);
 
       expect(cards()[0].querySelector('.source-link')!.getAttribute('aria-label'))
         .toBe('Open the offer on ImmobilienScout24 (probably no longer online)');

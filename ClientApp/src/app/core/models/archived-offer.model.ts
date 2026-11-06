@@ -9,4 +9,9 @@ export interface ArchivedOffer extends FlatOffer {
   firstSeenUtc: string;
   /** When the flat was last seen, ISO 8601 in UTC. */
   lastSeenUtc: string;
+  /**
+   * The price when the flat was first seen; with `priceEur` (the last one) it shows how the price changed while
+   * it was online. `originalPriceEur` is the portal's own original price.
+   */
+  firstPriceEur?: number;
 }

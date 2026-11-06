@@ -14,11 +14,13 @@ import { LastSeenFilter, OFFER_LIST_IMPORTS, OFFER_LIST_STYLES, OfferListTab } f
 /** An archived offer with its listing time, computed once per load so the table can sort by it. */
 export type ArchiveListOffer = ArchivedOffer & { daysListed: number | null };
 
-export type ArchiveSortColumn = OfferSortColumn | 'firstSeenUtc' | 'lastSeenUtc' | 'daysListed';
+export type ArchiveSortColumn = OfferSortColumn | 'firstPriceEur' | 'firstSeenUtc' | 'lastSeenUtc' | 'daysListed';
 
-/** The columns of Current Offers, with the archive's three before Source, as in the table. */
+/** The columns of Current Offers with the archive's: first price after Price, the dates before Source, as in the table. */
 const ARCHIVE_SORT_COLUMNS: readonly SortColumnOption<ArchiveSortColumn>[] = [
-  ...OFFER_SORT_COLUMNS.filter(item => item.column !== 'source'),
+  ...OFFER_SORT_COLUMNS.flatMap(item => item.column === 'priceEur'
+    ? [item, { column: 'firstPriceEur' as const, label: 'First Price' }]
+    : item.column === 'source' ? [] : [item]),
   { column: 'firstSeenUtc', label: 'First Seen' },
   { column: 'lastSeenUtc', label: 'Last Seen' },
   { column: 'daysListed', label: 'Days Listed' },
@@ -26,8 +28,8 @@ const ARCHIVE_SORT_COLUMNS: readonly SortColumnOption<ArchiveSortColumn>[] = [
 ];
 
 /**
- * The flats no longer offered (`GET /api/flats/archived-offers`): the Current Offers table with first seen, last
- * seen and days listed, and a "Last seen" filter. Shares the template and filters of Current Offers
+ * The flats no longer offered (`GET /api/flats/archived-offers`): the Current Offers table with the first price,
+ * first seen, last seen and days listed, and a "Last seen" filter. Shares the template and filters of Current Offers
  * (`OfferListTab`); sorted by last seen, newest first, until another column is chosen.
  */
 @Component({
@@ -82,12 +84,17 @@ export class ArchiveTabComponent extends OfferListTab<ArchiveListOffer, ArchiveS
     this.lastSeen.days = null;
   }
 
-  /** The archived photo, and when the flat was seen. */
+  /** The archived photo, when the flat was seen and its first price. */
   protected override toRow(offer: ArchiveListOffer): OfferRow<ArchiveListOffer> {
     return {
       ...super.toRow(offer),
       previewUrl: archivedPreviewUrl(offer),
-      seen: { firstSeenUtc: offer.firstSeenUtc, lastSeenUtc: offer.lastSeenUtc, daysListed: offer.daysListed }
+      archive: {
+        firstSeenUtc: offer.firstSeenUtc,
+        lastSeenUtc: offer.lastSeenUtc,
+        daysListed: offer.daysListed,
+        firstPriceEur: offer.firstPriceEur ?? null
+      }
     };
   }
 }

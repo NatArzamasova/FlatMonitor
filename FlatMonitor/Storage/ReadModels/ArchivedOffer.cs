@@ -12,4 +12,10 @@ public sealed class ArchivedOffer : FlatOffer
 
     /// <summary>When the flat was last seen: when its latest archived run scraped it.</summary>
     public DateTime LastSeenUtc { get; set; }
+
+    /// <summary>
+    /// The price in its earliest archived run; with <see cref="FlatOffer.PriceEur"/> (the last one) it shows how the
+    /// price changed while we saw the flat. The portal's own original price is <see cref="FlatOffer.OriginalPriceEur"/>.
+    /// </summary>
+    public int? FirstPriceEur { get; set; }
 }

@@ -11,14 +11,16 @@ export interface SortColumnOption<C extends string> {
   label: string;
 }
 
-/** When an archived offer was seen; the Archive tab's rows have it, those of Current Offers do not. */
-export interface SeenDates {
+/** What only an archived offer has; the Archive tab's rows have it, those of Current Offers do not. */
+export interface ArchiveDetails {
   /** ISO 8601 in UTC. */
   firstSeenUtc: string;
   /** ISO 8601 in UTC. */
   lastSeenUtc: string;
   /** Whole days between first and last seen; `null` if unknown. */
   daysListed: number | null;
+  /** The price when the flat was first seen; `null` if unknown. */
+  firstPriceEur: number | null;
 }
 
 /** An offer with its display state, shared by the table and the cards of the Current Offers and Archive tabs. */
@@ -32,7 +34,7 @@ export interface OfferRow<T extends FlatOffer = FlatOffer> {
   /** The title photo shown by hovering over the ⓘ; `null` without one. */
   previewUrl: string | null;
   /** Only for an archived offer, which is probably no longer online. */
-  seen?: SeenDates;
+  archive?: ArchiveDetails;
 }
 
 /**
@@ -60,7 +62,7 @@ export function openOfferOnClick(row: OfferRow, event: MouseEvent): void {
  */
 export function openOfferLabel(row: OfferRow): string {
   const label = `Open the offer on ${row.offer.source || 'its portal'}`;
-  return row.seen ? `${label} (probably no longer online)` : label;
+  return row.archive ? `${label} (probably no longer online)` : label;
 }
 
 /** The sortable columns in table order, with the names used by the header buttons and the cards' sort control. */

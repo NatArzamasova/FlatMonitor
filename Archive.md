@@ -1,6 +1,7 @@
 # Flats Archive: Implementation Plan
 
-**Status:** steps 1–5 implemented (.NET: 817 tests passed; Angular: 664 specs passed, `ng build` clean).
+**Status:** steps 1–5 implemented, including the first price (.NET: 818 tests passed; Angular: 668 specs
+passed, `ng build` clean).
 
 ## Goal
 
@@ -92,6 +93,7 @@ One row per flat; the backend computes:
 | all `FlatOffer` fields | from the flat's **latest** archive row (highest `ScrapingHistoryId`) |
 | `LastSeenUtc` | `MAX(ScrapedAtUtc)` of its archive rows |
 | `FirstSeenUtc` | `MIN(CreatedAtUtc)` of its archive rows (first seen in `FlatsSnapshots`, also for backfilled rows) |
+| `FirstPriceEur` | `PriceEur` of its **earliest** archive row (lowest `ScrapingHistoryId`) |
 | `HasPreview` | `FlatPreviewsArchive` has a row for `(Source, ListingId)` |
 
 The frontend derives "days listed" from the two dates; there's no need to store it.
@@ -192,7 +194,9 @@ Flats removed before this feature are gone, so the archive history starts with t
   `DateTime LastSeenUtc`.
 - `IFlatRepository.GetArchivedOffersAsync`: one LINQ query, which EF translates into a single SQL statement (checked).
   - It groups `FlatsArchive` by `(Source, ListingId)` where no `FlatsSnapshots` row matches (`NOT EXISTS`), takes
-    `MAX(ScrapingHistoryId)` and `MIN(CreatedAtUtc)`, and joins back to the latest row by the primary key.
+    `MAX(ScrapingHistoryId)`, `MIN(ScrapingHistoryId)` and `MIN(CreatedAtUtc)`, and joins back to the latest and
+    the earliest row by the primary key.
+  - `FirstPriceEur` is the earliest row's `PriceEur`.
   - `LastSeenUtc` is that latest row's `ScrapedAtUtc`, since runs never overlap, so there's no `MAX(ScrapedAtUtc)`.
   - `HasPreview` is an `EXISTS` on `FlatPreviewsArchive`. The result is ordered by last seen, newest first.
   - `MIN(...)` bypasses the UTC converter, so both dates are given `DateTimeKind.Utc` afterwards and the JSON carries
@@ -205,7 +209,8 @@ Flats removed before this feature are gone, so the archive history starts with t
 - Tests:
   - `FlatRepositoryTests` (SQLite): removed flats listed once with the latest run's values, most recently seen first;
     flats still offered or offered again left out; a source that kept its flats; first seen is the earliest for a
-    flat removed twice; UTC dates; `HasPreview` from the archived photo; empty archive.
+    flat removed twice; first price from the earliest run (also when that one had no price); UTC dates;
+    `HasPreview` from the archived photo; empty archive.
   - `FlatPreviewRepositoryTests`: archived photo also after the current one is gone; `null` without one.
   - `FlatsControllerTests`: archived offers response; archived preview 200 (from the archive, not the current
     previews) / 404 / not a photo type; cancellation token passed on.
@@ -223,22 +228,26 @@ Flats removed before this feature are gone, so the archive history starts with t
   - Subclasses add filters through the hooks `applyExtraFilters`, `extraFilterChips`, `removeExtraFilterChip` and
     `resetExtraFilters`, and change rows through `toRow`.
 - **One template for both tabs:** `offers-tab.component.html`.
-  - Its `archived` flag adds the three columns, 14 skeleton columns and the archive's empty state.
+  - Its `archived` flag adds four columns, 15 skeleton columns and the archive's empty state. The columns are
+    **First price (€)** right after Price, and First seen, Last seen and Days before Source.
   - `lastSeen` (a `LastSeenFilter`, `null` in Current Offers) adds the filter.
-  - The three archive headers pass their column as `$any(...)`, because the template is also type-checked for
+  - The four archive headers pass their column as `$any(...)`, because the template is also type-checked for
     Current Offers, whose sort has no such columns.
   - Shared imports and styles: `OFFER_LIST_IMPORTS`, `OFFER_LIST_STYLES`.
-- `offer-row.ts`: `OfferRow<T>` is generic and has an optional `seen` (`SeenDates`). `openOfferLabel` adds
+- `offer-row.ts`: `OfferRow<T>` is generic and has an optional `archive` (`ArchiveDetails`: first and last seen,
+  days listed, first price). `openOfferLabel` adds
   "(probably no longer online)" for such rows. `SortColumnOption<C>` describes a sortable column.
 - `OfferCardListComponent<C>` is generic over its sort columns (`[columns]`, default those of Current Offers).
-  It shows "Seen: first – last (N days)" for rows with `seen`.
+  It shows "Seen: first – last (N days)" for rows with `archive`, and "First price: …" when it differs from the
+  last price.
 - `ArchiveTabComponent` (`features/dashboard/tabs/archive-tab/`):
   - It loads `getArchivedOffers()` and adds `daysListed` to each offer, so the table can sort by it.
   - Its sort starts at Last seen, newest first. The "Last seen" filter defaults to **all**, so nothing is hidden
     while the archive is still small. It shows the archived photo.
   - Route `archive`, nav link "Archive" after History.
 - Specs: `archive-tab.component.spec.ts` (loading, days, reload, error text, skeleton, columns, dates, archived photo,
-  link hint, default and days sort, cards, last-seen filter with chip/reset/common filters, empty state);
+  link hint, first price column and sort, default and days sort, cards, last-seen filter with chip/reset/common
+  filters, empty state);
   `archive.utils.spec.ts`; additions to the preview utils, flats service, card list, offers tab (none of the
   archive's extras) and dashboard (four tabs, `/archive`) specs.
 
@@ -254,8 +263,8 @@ Flats removed before this feature are gone, so the archive history starts with t
   `FlatPreviewsArchive` only by new listings. The DB grows by about 0.5 MB plus new photos, not by about 13 MB.
 - The Archive tab lists the flats that left `FlatsSnapshots`, with plausible first and last seen dates.
 
-## Open questions
+## Decisions (former open questions)
 
-- Archive photo: keep the **first** photo (planned) or replace it with the latest one?
-- Archive tab: should it also show the **price at first sight** (price drops before removal)? It's cheap to add in
-  step 4 (`PriceEur` of the earliest archive row).
+- Archive photo: keep the **first** photo, as planned and implemented in step 3.
+- Archive tab: also show the **price at first sight**, to see price drops before removal. It's added to steps 4
+  and 5 (see "First price" there).

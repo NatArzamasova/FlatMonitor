@@ -26,12 +26,12 @@ describe('ArchiveTabComponent', () => {
   const recent: ArchivedOffer = {
     district: 'Durlach', roomsCount: 3, priceEur: 389000, livingAreaSqm: 82, pricePerMeter: 4744,
     url: 'https://www.immobilienscout24.de/expose/161', source: 'ImmobilienScout24', listingId: '161', hasPreview: true,
-    firstSeenUtc: daysAgo(10), lastSeenUtc: daysAgo(3)
+    firstSeenUtc: daysAgo(10), lastSeenUtc: daysAgo(3), firstPriceEur: 410000
   };
   const old: ArchivedOffer = {
     district: 'Weststadt', roomsCount: 2, priceEur: 265000, livingAreaSqm: 58, pricePerMeter: 4569,
     url: 'https://www.immowelt.de/expose/7', source: 'Immowelt', listingId: '7', hasPreview: false,
-    firstSeenUtc: daysAgo(61), lastSeenUtc: daysAgo(60)
+    firstSeenUtc: daysAgo(61), lastSeenUtc: daysAgo(60), firstPriceEur: 265000
   };
 
   const load = (offers: ArchivedOffer[]) => {
@@ -106,11 +106,11 @@ describe('ArchiveTabComponent', () => {
       expect(element().querySelector('.alert-danger')!.textContent).toContain('Error loading archived offers: Network error');
     });
 
-    it('renders fourteen skeleton columns while loading', () => {
+    it('renders fifteen skeleton columns while loading', () => {
       flatsService.getArchivedOffers.and.returnValue(NEVER);
       fixture.detectChanges();
 
-      expect(element().querySelectorAll('app-loading-skeleton thead th').length).toBe(14);
+      expect(element().querySelectorAll('app-loading-skeleton thead th').length).toBe(15);
     });
   });
 
@@ -119,6 +119,19 @@ describe('ArchiveTabComponent', () => {
       load([recent]);
 
       expect(headers().slice(-4)).toEqual(['First seen', 'Last seen', 'Days', 'Source']);
+    });
+
+    it('has First price right after Price', () => {
+      load([recent]);
+
+      expect(headers().slice(3, 6)).toEqual(['Price (€)', 'First price (€)', 'Living area (m²)']);
+    });
+
+    it('shows the first price next to the last one, and - without one', () => {
+      load([recent, { ...old, firstPriceEur: undefined }]);
+
+      expect(cell(rows()[0], '.offer-first-price')).toBe('410.000 €');
+      expect(cell(rows()[1], '.offer-first-price')).toBe('-');
     });
 
     it('has one cell per header in every row', () => {
@@ -163,6 +176,16 @@ describe('ArchiveTabComponent', () => {
       expect(lastSeenHeader.getAttribute('aria-sort')).toBe('descending');
     });
 
+    it('sorts by the first price through its header', () => {
+      load([recent, old]);
+
+      const header = Array.from(element().querySelectorAll('thead th')).find(th => th.textContent!.includes('First price'))!;
+      (header.querySelector('button') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      expect(component.filteredOffers.map(offer => offer.firstPriceEur)).toEqual([265000, 410000]);
+    });
+
     it('sorts by the days listed through its header', () => {
       load([recent, old]);
 
@@ -179,6 +202,7 @@ describe('ArchiveTabComponent', () => {
       const options = Array.from(element().querySelectorAll('#offerCardSort option')).map(option => option.textContent!.trim());
       expect(options).toContain('Last Seen');
       expect(options.slice(-4)).toEqual(['First Seen', 'Last Seen', 'Days Listed', 'Source']);
+      expect(options.slice(2, 4)).toEqual(['Price', 'First Price']);
     });
 
     it('shows when the flat was seen on the cards', () => {

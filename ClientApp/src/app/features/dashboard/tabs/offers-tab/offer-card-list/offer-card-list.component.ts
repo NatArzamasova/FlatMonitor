@@ -9,8 +9,8 @@ import { OfferPreviewComponent } from '../offer-preview/offer-preview.component'
 /**
  * The offers as cards, for small screens where the table would scroll sideways:
  * `<app-offer-card-list [rows]="offerRows" [sort]="sort" [columns]="sortColumns" (sortRequested)="onSort($event)">`.
- * `columns` are the sortable columns (default: those of Current Offers); a row with `seen` (Archive) shows when
- * the flat was seen.
+ * `columns` are the sortable columns (default: those of Current Offers); a row with `archive` (Archive tab) shows
+ * when the flat was seen and, when it differs from the last one, its first price.
  * Its sort control emits the same `sortRequested` as the table's header buttons: choosing a column sorts it
  * ascending, the direction button asks for the current column again, which toggles the direction. Below the sort
  * control the list scrolls inside the height its host gets (`.card-list-fill`).
@@ -70,14 +70,19 @@ import { OfferPreviewComponent } from '../offer-preview/offer-preview.component'
                   <span class="text-body-secondary">Provision:</span>&ngsp;<span class="text-nowrap">{{ row.offer.commissionPercent | number: '1.0-3' }} %</span>
                 </div>
               }
-              @if (row.seen; as seen) {
+              @if (row.archive; as archive) {
                 <div class="small mt-1 offer-card-seen">
                   <span class="text-body-secondary">Seen:</span>
-                  {{ seen.firstSeenUtc | date: 'dd.MM.yyyy' }} – {{ seen.lastSeenUtc | date: 'dd.MM.yyyy' }}
-                  @if (seen.daysListed !== null) {
-                    <span class="text-body-secondary">({{ seen.daysListed }} {{ seen.daysListed === 1 ? 'day' : 'days' }})</span>
+                  {{ archive.firstSeenUtc | date: 'dd.MM.yyyy' }} – {{ archive.lastSeenUtc | date: 'dd.MM.yyyy' }}
+                  @if (archive.daysListed !== null) {
+                    <span class="text-body-secondary">({{ archive.daysListed }} {{ archive.daysListed === 1 ? 'day' : 'days' }})</span>
                   }
                 </div>
+                @if (archive.firstPriceEur !== null && archive.firstPriceEur !== row.offer.priceEur) {
+                  <div class="small mt-1 offer-card-first-price">
+                    <span class="text-body-secondary">First price:</span> {{ archive.firstPriceEur | currency: 'EUR': 'symbol': '1.0-0' }}
+                  </div>
+                }
               }
               @if (row.offer.availability) {
                 <div class="small mt-1 text-truncate offer-card-availability" [title]="row.offer.availability">
