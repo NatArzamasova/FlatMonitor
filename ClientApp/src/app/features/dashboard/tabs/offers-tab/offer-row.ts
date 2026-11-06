@@ -5,9 +5,25 @@ import { EnergyClassBadge } from '../../../../core/utils/energy-class.utils';
 export type OfferSortColumn =
   'district' | 'roomsCount' | 'priceEur' | 'livingAreaSqm' | 'pricePerMeter' | 'serviceChargeEur' | 'commissionPercent' | 'energyEfficiencyClass' | 'source';
 
-/** An offer with its display state, shared by the table and the cards of the Current Offers tab. */
-export interface OfferRow {
-  offer: FlatOffer;
+/** A sortable column with the name used by the header buttons and the cards' sort control. */
+export interface SortColumnOption<C extends string> {
+  column: C;
+  label: string;
+}
+
+/** When an archived offer was seen; the Archive tab's rows have it, those of Current Offers do not. */
+export interface SeenDates {
+  /** ISO 8601 in UTC. */
+  firstSeenUtc: string;
+  /** ISO 8601 in UTC. */
+  lastSeenUtc: string;
+  /** Whole days between first and last seen; `null` if unknown. */
+  daysListed: number | null;
+}
+
+/** An offer with its display state, shared by the table and the cards of the Current Offers and Archive tabs. */
+export interface OfferRow<T extends FlatOffer = FlatOffer> {
+  offer: T;
   discountPercentage: number | null;
   hasLink: boolean;
   source: SourceBadge;
@@ -15,6 +31,8 @@ export interface OfferRow {
   energyClass: EnergyClassBadge | null;
   /** The title photo shown by hovering over the ⓘ; `null` without one. */
   previewUrl: string | null;
+  /** Only for an archived offer, which is probably no longer online. */
+  seen?: SeenDates;
 }
 
 /**
@@ -36,13 +54,17 @@ export function openOfferOnClick(row: OfferRow, event: MouseEvent): void {
   window.open(row.offer.url, '_blank', 'noopener,noreferrer');
 }
 
-/** `Open the offer on ImmobilienScout24`; the title of a clickable row or card and of its source link. */
+/**
+ * `Open the offer on ImmobilienScout24`; the title of a clickable row or card and of its source link. For an archived
+ * offer it adds that the listing is probably gone: portals often still show it, as sold or reserved.
+ */
 export function openOfferLabel(row: OfferRow): string {
-  return `Open the offer on ${row.offer.source || 'its portal'}`;
+  const label = `Open the offer on ${row.offer.source || 'its portal'}`;
+  return row.seen ? `${label} (probably no longer online)` : label;
 }
 
 /** The sortable columns in table order, with the names used by the header buttons and the cards' sort control. */
-export const OFFER_SORT_COLUMNS: readonly { column: OfferSortColumn; label: string }[] = [
+export const OFFER_SORT_COLUMNS: readonly SortColumnOption<OfferSortColumn>[] = [
   { column: 'district', label: 'District' },
   { column: 'roomsCount', label: 'Rooms' },
   { column: 'priceEur', label: 'Price' },

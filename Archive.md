@@ -1,6 +1,6 @@
 # Flats Archive: Implementation Plan
 
-**Status:** steps 1–4 implemented (.NET: 817 tests passed).
+**Status:** steps 1–5 implemented (.NET: 817 tests passed; Angular: 664 specs passed, `ng build` clean).
 
 ## Goal
 
@@ -210,19 +210,37 @@ Flats removed before this feature are gone, so the archive history starts with t
   - `FlatsControllerTests`: archived offers response; archived preview 200 (from the archive, not the current
     previews) / 404 / not a photo type; cancellation token passed on.
 
-### 5. Frontend: Archive tab
+### 5. Frontend: Archive tab ✅ DONE
 
-- `ArchivedOffer` model and `FlatsService.getArchivedOffers()`; `archivedPreviewUrl()` next to `offerPreviewUrl()`.
-- `ArchiveTabComponent` (`features/dashboard/tabs/archive-tab/`), route `archive`, nav link in
-  `dashboard.component.html`.
-- Reuse rather than copy: the shared filter toolbar, preset bar, sortable header, `OfferPreviewComponent` and
-  `offer-row.ts` helpers. If the filter and sort code of `OffersTabComponent` would be duplicated, move it into a
-  helper both tabs use first, as a separate refactoring step with no behavior change and the existing offers
-  specs staying green.
-- Columns and filters as in the UI section; default sort Last seen, newest first; an empty state when nothing has
-  been archived yet.
-- Specs: loads and lists archived offers; sorting and the last-seen filter; preview URL uses the archive endpoint;
-  reload through `DataReloadService`; the nav shows four tabs.
+- `ArchivedOffer` model (`core/models/archived-offer.model.ts`) and `FlatsService.getArchivedOffers()`;
+  `archivedPreviewUrl()` next to `offerPreviewUrl()`.
+- `core/utils/archive.utils.ts`: `daysListed()` (whole days between first and last seen), `filterByLastSeen()`,
+  `LAST_SEEN_PERIODS` and `lastSeenPeriodLabel()`. The new chip kind `lastSeenWithin` is added to `FilterChip`.
+- **Refactoring, with no behavior change:** the logic of `OffersTabComponent` (URL filters, presets, filters, chips,
+  sort, loading, reload) moved into the abstract base `OfferListTab<T, K>` (`offers-tab/offer-list-tab.ts`).
+  - It keeps the member names the existing offers spec uses, and that spec passes unchanged.
+  - `OffersTabComponent` now only names its source (`getCurrentOffers`), its sort and its columns.
+  - Subclasses add filters through the hooks `applyExtraFilters`, `extraFilterChips`, `removeExtraFilterChip` and
+    `resetExtraFilters`, and change rows through `toRow`.
+- **One template for both tabs:** `offers-tab.component.html`.
+  - Its `archived` flag adds the three columns, 14 skeleton columns and the archive's empty state.
+  - `lastSeen` (a `LastSeenFilter`, `null` in Current Offers) adds the filter.
+  - The three archive headers pass their column as `$any(...)`, because the template is also type-checked for
+    Current Offers, whose sort has no such columns.
+  - Shared imports and styles: `OFFER_LIST_IMPORTS`, `OFFER_LIST_STYLES`.
+- `offer-row.ts`: `OfferRow<T>` is generic and has an optional `seen` (`SeenDates`). `openOfferLabel` adds
+  "(probably no longer online)" for such rows. `SortColumnOption<C>` describes a sortable column.
+- `OfferCardListComponent<C>` is generic over its sort columns (`[columns]`, default those of Current Offers).
+  It shows "Seen: first – last (N days)" for rows with `seen`.
+- `ArchiveTabComponent` (`features/dashboard/tabs/archive-tab/`):
+  - It loads `getArchivedOffers()` and adds `daysListed` to each offer, so the table can sort by it.
+  - Its sort starts at Last seen, newest first. The "Last seen" filter defaults to **all**, so nothing is hidden
+    while the archive is still small. It shows the archived photo.
+  - Route `archive`, nav link "Archive" after History.
+- Specs: `archive-tab.component.spec.ts` (loading, days, reload, error text, skeleton, columns, dates, archived photo,
+  link hint, default and days sort, cards, last-seen filter with chip/reset/common filters, empty state);
+  `archive.utils.spec.ts`; additions to the preview utils, flats service, card list, offers tab (none of the
+  archive's extras) and dashboard (four tabs, `/archive`) specs.
 
 ### 6. Docs
 

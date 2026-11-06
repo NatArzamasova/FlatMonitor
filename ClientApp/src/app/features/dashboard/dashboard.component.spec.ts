@@ -21,6 +21,7 @@ describe('DashboardComponent (Shell) routing', () => {
     const flatsServiceSpy = jasmine.createSpyObj('FlatsService', [
       'getAggregated',
       'getCurrentOffers',
+      'getArchivedOffers',
       'getHistory',
       'getScrapeStatus',
       'triggerScrape',
@@ -29,6 +30,7 @@ describe('DashboardComponent (Shell) routing', () => {
     flatsServiceSpy.getScrapeStatus.and.returnValue(of({ isScrapingInProgress: false }));
     flatsServiceSpy.getAggregated.and.returnValue(apiResult({ success: true, data: [], message: 'Success' }));
     flatsServiceSpy.getCurrentOffers.and.returnValue(apiResult({ success: true, data: [], message: 'Success' }));
+    flatsServiceSpy.getArchivedOffers.and.returnValue(apiResult({ success: true, data: [], message: 'Success' }));
     flatsServiceSpy.getHistory.and.returnValue(apiResult({ success: true, data: [], message: 'Success' }));
 
     TestBed.configureTestingModule({
@@ -98,8 +100,9 @@ describe('DashboardComponent (Shell) routing', () => {
     await harness.navigateByUrl('/offers');
 
     const links = Array.from(harness.routeNativeElement!.querySelectorAll('nav[aria-label="Dashboard tabs"] a')) as HTMLAnchorElement[];
-    expect(links.map(link => link.getAttribute('href'))).toEqual(['/overview', '/offers', '/history']);
-    expect(links.map(link => link.classList.contains('active'))).toEqual([false, true, false]);
+    expect(links.map(link => link.getAttribute('href'))).toEqual(['/overview', '/offers', '/history', '/archive']);
+    expect(links.map(link => link.textContent!.trim())).toEqual(['Dashboard', 'Current Offers', 'History', 'Archive']);
+    expect(links.map(link => link.classList.contains('active'))).toEqual([false, true, false, false]);
     expect(links[1].getAttribute('aria-current')).toBe('page');
   });
 
@@ -113,6 +116,14 @@ describe('DashboardComponent (Shell) routing', () => {
 
     expect(router.url).toBe('/history');
     expect(rendered('app-history-tab')).toBeTruthy();
+  });
+
+  it('renders the archive tab on /archive', async () => {
+    await harness.navigateByUrl('/archive');
+
+    expect(rendered('app-archive-tab')).toBeTruthy();
+    expect(rendered('app-offers-tab')).toBeNull();
+    expect(TestBed.inject(FlatsService).getArchivedOffers).toHaveBeenCalled();
   });
 
   it('shows the scrape control and a reload button in the header, not on the Dashboard tab', async () => {

@@ -1,274 +1,36 @@
-import { Component, DestroyRef, OnInit, inject } from '@angular/core';
-import { CurrencyPipe, DecimalPipe } from '@angular/common';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
-import { finalize, skip } from 'rxjs/operators';
+import { Component, inject } from '@angular/core';
+import { Observable } from 'rxjs';
 import { FlatsService } from '../../../../core/services/flats.service';
-import { DataReloadService } from '../../../../core/services/data-reload.service';
-import { FilterPresetsService } from '../../../../core/services/filter-presets.service';
-import { filterByDistricts, filterByMaximum, filterByPriceRange, filterByRooms, filterBySelection } from '../../../../core/utils/filter.utils';
 import { FlatOffer } from '../../../../core/models/flat-offer.model';
-import { isHttpUrl } from '../../../../core/utils/url.utils';
-import { offerPreviewUrl } from '../../../../core/utils/preview.utils';
-import { sourceBadge } from '../../../../core/utils/source.utils';
-import { ENERGY_CLASSES, energyClassBadge, energyClassRank, normalizeEnergyClass } from '../../../../core/utils/energy-class.utils';
-import { normalizeRooms } from '../../../../core/utils/rooms.utils';
-import { distinctSorted } from '../../../../core/utils/collection.utils';
-import { describeLoadError } from '../../../../core/utils/api-response.utils';
+import { energyClassRank } from '../../../../core/utils/energy-class.utils';
 import { TableSort } from '../../../../core/utils/table-sort';
-import { SortableHeaderComponent } from '../../../../shared/sortable-header/sortable-header.component';
-import { MultiSelectFilterComponent } from '../../../../shared/multi-select-filter/multi-select-filter.component';
-import { LoadingSkeletonComponent } from '../../../../shared/loading-skeleton/loading-skeleton.component';
-import { EmptyStateComponent } from '../../../../shared/empty-state/empty-state.component';
-import { StartScrapeButtonComponent } from '../../start-scrape-button/start-scrape-button.component';
-import { DismissibleAlertComponent } from '../../../../shared/dismissible-alert/dismissible-alert.component';
-import { FilterToolbarComponent } from '../../../../shared/filter-toolbar/filter-toolbar.component';
-import { FilterChip, buildFilterChips } from '../../../../core/utils/filter-chips.utils';
-import { FilterPresetBarComponent } from '../../../../shared/filter-preset-bar/filter-preset-bar.component';
-import { OfferCardListComponent } from './offer-card-list/offer-card-list.component';
-import { OfferPreviewComponent } from './offer-preview/offer-preview.component';
-import { OfferRow, OfferSortColumn, openOfferLabel, openOfferOnClick } from './offer-row';
+import { OFFER_SORT_COLUMNS, OfferSortColumn } from './offer-row';
+import { LastSeenFilter, OFFER_LIST_IMPORTS, OFFER_LIST_STYLES, OfferListTab } from './offer-list-tab';
 
-
+/** The flats offered now (FlatsSnapshots). */
 @Component({
   selector: 'app-offers-tab',
   standalone: true,
   host: { class: 'fill-column' },
-  imports: [
-    CurrencyPipe,
-    DecimalPipe,
-    FormsModule,
-    SortableHeaderComponent,
-    MultiSelectFilterComponent,
-    LoadingSkeletonComponent,
-    EmptyStateComponent,
-    StartScrapeButtonComponent,
-    DismissibleAlertComponent,
-    FilterPresetBarComponent,
-    FilterToolbarComponent,
-    OfferCardListComponent,
-    OfferPreviewComponent
-  ],
+  imports: OFFER_LIST_IMPORTS,
   templateUrl: './offers-tab.component.html',
-  styles: [`
-    /* The 30 px thumbnail with little padding keeps the rows about as high as rows of text. */
-    .data-table tbody td {
-      vertical-align: middle;
-    }
-    .offer-photo-col,
-    .offer-photo {
-      width: 1%;
-    }
-    .offer-photo {
-      padding-top: 0.125rem;
-      padding-bottom: 0.125rem;
-    }
-  `]
+  styles: [OFFER_LIST_STYLES]
 })
-export class OffersTabComponent implements OnInit {
+export class OffersTabComponent extends OfferListTab<FlatOffer, OfferSortColumn> {
   private readonly flatsService = inject(FlatsService);
-  private readonly dataReload = inject(DataReloadService);
-  private readonly route = inject(ActivatedRoute);
-  private readonly filterPresets = inject(FilterPresetsService);
-  private readonly destroyRef = inject(DestroyRef);
+
+  readonly archived = false;
+  readonly lastSeen: LastSeenFilter | null = null;
+  readonly sortColumns = OFFER_SORT_COLUMNS;
 
   // Energy classes sort by the scale (A+ first), not alphabetically; unknown ones last.
   readonly sort = new TableSort<FlatOffer, OfferSortColumn>({
     energyEfficiencyClass: offer => energyClassRank(offer.energyEfficiencyClass)
   });
 
-  currentOffers: FlatOffer[] = [];
-  filteredOffers: FlatOffer[] = [];
-  /** `filteredOffers` with the per-row display state, computed once per filter/sort change. */
-  offerRows: OfferRow[] = [];
-  loading = false;
-  error: string | null = null;
+  protected readonly loadErrorTexts = { fallback: 'Failed to load offers', httpPrefix: 'Error loading offers' };
 
-  selectedDistricts: string[] = [];
-  selectedRooms: number[] = [];
-  /** Normalized classes (`A+` … `H`). */
-  selectedEnergyClasses: string[] = [];
-  priceRangeMax: number | null = null;
-  /** Highest Provision in percent; `0` = commission-free only, `null` = no limit. */
-  commissionMax: number | null = null;
-  availableDistricts: string[] = [];
-  availableRooms: number[] = [];
-  /** The classes of the scale that some offer has, best first. */
-  availableEnergyClasses: string[] = [];
-  /** The active filters as chips, updated with the table. */
-  filterChips: FilterChip[] = [];
-
-  ngOnInit(): void {
-    const districtsFromUrl = this.loadInitialFiltersFromUrl();
-    this.followActivePreset(districtsFromUrl);
-    this.loadCurrentOffers();
-
-    // The header's refresh button and finished scrapes.
-    this.dataReload.reload$
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => this.loadCurrentOffers());
+  protected fetchOffers(): Observable<FlatOffer[]> {
+    return this.flatsService.getCurrentOffers();
   }
-
-  hasChangedPrice(offer: FlatOffer): boolean {
-    return offer.priceEur != null &&
-      offer.originalPriceEur != null &&
-      offer.priceEur !== offer.originalPriceEur;
-  }
-
-  getDiscountPercentage(offer: FlatOffer): number | null {
-    if (!this.hasChangedPrice(offer) || offer.originalPriceEur! <= 0) {
-      return null;
-    }
-
-    const discountPercentage = ((offer.originalPriceEur! - offer.priceEur!) / offer.originalPriceEur!) * 100;
-    return discountPercentage > 0 ? discountPercentage : null;
-  }
-
-  /**
-   * Reads the filters a link brought along (`?district=…&rooms=…&preset=<id>|none`, see the Dashboard's row links).
-   * Such a tab is usually a new browser tab, whose app does not know the preset chosen where the link was clicked,
-   * so it would fall back to the default preset. With districts or a `preset` in the URL, the URL's preset
-   * (`none` when it names none) becomes the active one instead, and the URL's districts are the selection.
-   * Returns whether the URL set the districts.
-   */
-  private loadInitialFiltersFromUrl(): boolean {
-    const params = this.route.snapshot.queryParamMap;
-    this.selectedDistricts = params.getAll('district');
-    this.selectedRooms = params.getAll('rooms')
-      .map(value => normalizeRooms(Number(value)))
-      .filter((value): value is number => value !== undefined);
-
-    const presetParam = params.get('preset');
-    const districtsFromUrl = this.selectedDistricts.length > 0 || presetParam !== null;
-    if (districtsFromUrl) {
-      this.filterPresets.selectPreset(parsePresetParam(presetParam));
-    }
-    return districtsFromUrl;
-  }
-
-  /**
-   * Applies the active preset's districts now and whenever another preset is chosen. Districts from the URL win
-   * over the preset that is active when the tab opens (its first emission is skipped); no preset (`null`) shows all
-   * districts.
-   */
-  private followActivePreset(districtsFromUrl: boolean): void {
-    this.filterPresets.activePreset$
-      .pipe(
-        skip(districtsFromUrl ? 1 : 0),
-        takeUntilDestroyed(this.destroyRef)
-      )
-      .subscribe(preset => {
-        this.selectedDistricts = [...(preset?.districts ?? [])];
-        this.updateDistrictOptions();
-        this.applyFilters();
-      });
-  }
-
-  loadCurrentOffers(): void {
-    this.loading = true;
-    this.error = null;
-    this.flatsService.getCurrentOffers()
-      .pipe(finalize(() => this.loading = false))
-      .subscribe({
-        next: (offers) => {
-          this.currentOffers = offers;
-          this.updateAvailableFilters();
-          this.applyFilters();
-        },
-        error: (err) => {
-          this.error = describeLoadError(err, 'Failed to load offers', 'Error loading offers');
-        }
-      });
-  }
-
-  private updateAvailableFilters(): void {
-    this.updateDistrictOptions();
-    this.availableRooms = distinctSorted(this.currentOffers.map(offer => normalizeRooms(offer.roomsCount)), (a, b) => a - b);
-    const classes = new Set(this.currentOffers.map(offer => normalizeEnergyClass(offer.energyEfficiencyClass)));
-    // Selected classes stay choosable after a reload without them, so they can still be deselected
-    this.availableEnergyClasses = ENERGY_CLASSES.filter(energyClass =>
-      classes.has(energyClass) || this.selectedEnergyClasses.includes(energyClass));
-  }
-
-  /** Districts from the data plus selected ones without offers, so a preset's districts can always be deselected. */
-  private updateDistrictOptions(): void {
-    this.availableDistricts = distinctSorted([...this.currentOffers.map(offer => offer.district), ...this.selectedDistricts]);
-  }
-
-  applyFilters(): void {
-    let filtered = this.currentOffers;
-    filtered = filterByDistricts(filtered, this.selectedDistricts, offer => offer.district);
-    filtered = filterByRooms(
-      filtered,
-      this.selectedRooms,
-      offer => normalizeRooms(offer.roomsCount)
-    );
-    filtered = filterBySelection(filtered, this.selectedEnergyClasses, offer => normalizeEnergyClass(offer.energyEfficiencyClass));
-    filtered = filterByPriceRange(filtered, null, this.priceRangeMax, offer => offer.priceEur);
-    filtered = filterByMaximum(filtered, this.commissionMax, offer => offer.commissionPercent);
-
-    this.filteredOffers = this.sort.apply(filtered);
-    this.filterChips = buildFilterChips({
-      districts: this.selectedDistricts,
-      rooms: this.selectedRooms,
-      energyClasses: this.selectedEnergyClasses,
-      priceMax: this.priceRangeMax,
-      commissionMax: this.commissionMax
-    });
-    this.offerRows = this.filteredOffers.map(offer => ({
-      offer,
-      discountPercentage: this.getDiscountPercentage(offer),
-      hasLink: isHttpUrl(offer.url),
-      source: sourceBadge(offer.source),
-      energyClass: energyClassBadge(offer.energyEfficiencyClass),
-      previewUrl: offerPreviewUrl(offer)
-    }));
-  }
-
-  removeFilterChip(chip: FilterChip): void {
-    switch (chip.kind) {
-      case 'district':
-        this.selectedDistricts = this.selectedDistricts.filter(district => district !== chip.value);
-        break;
-      case 'rooms':
-        this.selectedRooms = this.selectedRooms.filter(rooms => rooms !== chip.value);
-        break;
-      case 'energyClass':
-        this.selectedEnergyClasses = this.selectedEnergyClasses.filter(energyClass => energyClass !== chip.value);
-        break;
-      case 'priceMax':
-        this.priceRangeMax = null;
-        break;
-      case 'commissionMax':
-        this.commissionMax = null;
-        break;
-    }
-    this.applyFilters();
-  }
-
-  /** Clears every filter and the preset (keeping a preset whose districts were all removed would only show it as modified). */
-  resetFilters(): void {
-    this.selectedDistricts = [];
-    this.selectedRooms = [];
-    this.selectedEnergyClasses = [];
-    this.priceRangeMax = null;
-    this.commissionMax = null;
-    this.filterPresets.selectPreset(null);
-    this.applyFilters();
-  }
-
-  readonly openOffer = openOfferOnClick;
-  readonly openOfferLabel = openOfferLabel;
-
-  onSort(column: OfferSortColumn): void {
-    this.sort.toggle(column);
-    this.applyFilters();
-  }
-}
-
-/** `preset=12` → 12; `none`, a missing or an invalid value → `null` (no preset). */
-function parsePresetParam(value: string | null): number | null {
-  const id = Number(value);
-  return value !== null && Number.isInteger(id) && id > 0 ? id : null;
 }

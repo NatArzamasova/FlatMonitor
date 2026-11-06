@@ -6,7 +6,9 @@ export type FilterChip =
   | { kind: 'district'; value: string; label: string }
   | { kind: 'rooms'; value: number; label: string }
   | { kind: 'energyClass'; value: string; label: string }
-  | { kind: 'priceMax' | 'commissionMax'; value: number; label: string };
+  | { kind: 'priceMax' | 'commissionMax'; value: number; label: string }
+  /** Archive tab: last seen at most `value` days ago. */
+  | { kind: 'lastSeenWithin'; value: number; label: string };
 
 export interface ActiveFilters {
   districts?: readonly string[];

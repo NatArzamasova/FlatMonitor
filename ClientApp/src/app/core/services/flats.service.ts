@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { ApiResponse } from '../models/api-response.model';
 import { FlatAggregation } from '../models/flat-aggregation.model';
 import { FlatOffer } from '../models/flat-offer.model';
+import { ArchivedOffer } from '../models/archived-offer.model';
 import { FlatHistory } from '../models/flat-history.model';
 import { CancelScrapeResponse, ScrapeResponse } from '../models/scrape-response.model';
 import { ScrapingStatusResponse } from '../models/scraping-status-response.model';
@@ -24,6 +25,12 @@ export class FlatsService {
 
   getCurrentOffers(): Observable<FlatOffer[]> {
     return this.http.get<ApiResponse<FlatOffer[]>>(`${this.apiUrl}/flats/current-offers`)
+      .pipe(unwrapApiResponse());
+  }
+
+  /** The flats no longer offered, most recently seen first. */
+  getArchivedOffers(): Observable<ArchivedOffer[]> {
+    return this.http.get<ApiResponse<ArchivedOffer[]>>(`${this.apiUrl}/flats/archived-offers`)
       .pipe(unwrapApiResponse());
   }
 

@@ -4,6 +4,7 @@ import { FlatsService } from './flats.service';
 import { ApiResponse } from '../models/api-response.model';
 import { FlatAggregation } from '../models/flat-aggregation.model';
 import { FlatOffer } from '../models/flat-offer.model';
+import { ArchivedOffer } from '../models/archived-offer.model';
 import { FlatHistory } from '../models/flat-history.model';
 import { ApiResponseError } from '../utils/api-response.utils';
 import { ScrapeResponse } from '../models/scrape-response.model';
@@ -114,6 +115,22 @@ describe('FlatsService', () => {
 
       expect(error).toEqual(jasmine.any(ApiResponseError));
       expect((error as ApiResponseError).message).toBe('No offers');
+    });
+  });
+
+  describe('getArchivedOffers', () => {
+    it('should fetch the archived offers and return the unwrapped data', () => {
+      const offers: ArchivedOffer[] = [{
+        district: 'Mitte', source: 'OhneMakler', firstSeenUtc: '2026-10-02T08:00:00Z', lastSeenUtc: '2026-10-29T08:00:00Z'
+      }];
+      let result: ArchivedOffer[] | undefined;
+
+      service.getArchivedOffers().subscribe(data => result = data);
+
+      const req = httpMock.expectOne('/api/flats/archived-offers');
+      expect(req.request.method).toBe('GET');
+      req.flush({ success: true, data: offers, message: 'Success' });
+      expect(result).toEqual(offers);
     });
   });
 

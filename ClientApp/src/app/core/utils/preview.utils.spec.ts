@@ -1,4 +1,4 @@
-import { offerPreviewUrl } from './preview.utils';
+import { archivedPreviewUrl, offerPreviewUrl } from './preview.utils';
 
 describe('offerPreviewUrl', () => {
   it('is the API path of the offer\'s photo', () => {
@@ -16,5 +16,16 @@ describe('offerPreviewUrl', () => {
     expect(offerPreviewUrl({ source: 'OhneMakler', listingId: '1' })).toBeNull();
     expect(offerPreviewUrl({ listingId: '1', hasPreview: true })).toBeNull();
     expect(offerPreviewUrl({ source: 'OhneMakler', hasPreview: true })).toBeNull();
+  });
+});
+
+describe('archivedPreviewUrl', () => {
+  it("is the API path of the offer's archived photo", () => {
+    expect(archivedPreviewUrl({ source: 'Immowelt', listingId: 'a b', hasPreview: true }))
+      .toBe('/api/flats/Immowelt/a%20b/archived-preview');
+  });
+
+  it('is null without a preview', () => {
+    expect(archivedPreviewUrl({ source: 'Immowelt', listingId: '1', hasPreview: false })).toBeNull();
   });
 });

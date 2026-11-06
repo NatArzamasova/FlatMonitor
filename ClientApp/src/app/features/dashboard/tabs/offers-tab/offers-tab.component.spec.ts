@@ -1070,6 +1070,18 @@ describe('OffersTabComponent', () => {
       expect(row.cells[8].querySelector('.ee-badge')).not.toBeNull();
       expect(row.cells[9].classList).toContain('offer-availability');
     });
+
+    it("has none of the archive's columns, its Last seen filter or its link hint", () => {
+      flatsService.getCurrentOffers.and.returnValue(apiResult(mockOffersResponse));
+      fixture.detectChanges();
+
+      const headers = Array.from(fixture.nativeElement.querySelectorAll('thead th') as NodeListOf<HTMLElement>)
+        .map(th => th.textContent!.trim());
+      expect(headers).not.toContain('Last seen');
+      expect(headers.length).toBe(11);
+      expect(fixture.nativeElement.querySelector('#lastSeenWithin')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.source-link').getAttribute('aria-label')).toBe('Open the offer on OhneMakler');
+    });
   });
 
   describe('EE Class column', () => {

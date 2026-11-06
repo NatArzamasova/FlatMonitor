@@ -1,14 +1,16 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { CurrencyPipe, DecimalPipe } from '@angular/common';
+import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
 import { FlatOffer } from '../../../../../core/models/flat-offer.model';
-import { TableSort } from '../../../../../core/utils/table-sort';
+import { SortDirection } from '../../../../../core/utils/table-sort';
 import { roomsLabel } from '../../../../../core/utils/filter-chips.utils';
-import { OFFER_SORT_COLUMNS, OfferRow, OfferSortColumn, openOfferLabel, openOfferOnClick } from '../offer-row';
+import { OFFER_SORT_COLUMNS, OfferRow, OfferSortColumn, SortColumnOption, openOfferLabel, openOfferOnClick } from '../offer-row';
 import { OfferPreviewComponent } from '../offer-preview/offer-preview.component';
 
 /**
- * The current offers as cards, for small screens where the table would scroll sideways:
- * `<app-offer-card-list [rows]="offerRows" [sort]="sort" (sortRequested)="onSort($event)">`.
+ * The offers as cards, for small screens where the table would scroll sideways:
+ * `<app-offer-card-list [rows]="offerRows" [sort]="sort" [columns]="sortColumns" (sortRequested)="onSort($event)">`.
+ * `columns` are the sortable columns (default: those of Current Offers); a row with `seen` (Archive) shows when
+ * the flat was seen.
  * Its sort control emits the same `sortRequested` as the table's header buttons: choosing a column sorts it
  * ascending, the direction button asks for the current column again, which toggles the direction. Below the sort
  * control the list scrolls inside the height its host gets (`.card-list-fill`).
@@ -16,7 +18,7 @@ import { OfferPreviewComponent } from '../offer-preview/offer-preview.component'
 @Component({
   selector: 'app-offer-card-list',
   standalone: true,
-  imports: [CurrencyPipe, DecimalPipe, OfferPreviewComponent],
+  imports: [CurrencyPipe, DatePipe, DecimalPipe, OfferPreviewComponent],
   template: `
     <div class="d-flex align-items-center gap-2 mb-2 offer-sort">
       <label for="offerCardSort" class="form-label mb-0 filter-label">Sort by:</label>
@@ -66,6 +68,15 @@ import { OfferPreviewComponent } from '../offer-preview/offer-preview.component'
                 <div class="small mt-1 offer-card-commission">
                   <!-- &ngsp; is a space Angular keeps; it removes whitespace-only text between two elements. -->
                   <span class="text-body-secondary">Provision:</span>&ngsp;<span class="text-nowrap">{{ row.offer.commissionPercent | number: '1.0-3' }} %</span>
+                </div>
+              }
+              @if (row.seen; as seen) {
+                <div class="small mt-1 offer-card-seen">
+                  <span class="text-body-secondary">Seen:</span>
+                  {{ seen.firstSeenUtc | date: 'dd.MM.yyyy' }} – {{ seen.lastSeenUtc | date: 'dd.MM.yyyy' }}
+                  @if (seen.daysListed !== null) {
+                    <span class="text-body-secondary">({{ seen.daysListed }} {{ seen.daysListed === 1 ? 'day' : 'days' }})</span>
+                  }
                 </div>
               }
               @if (row.offer.availability) {
@@ -141,12 +152,14 @@ import { OfferPreviewComponent } from '../offer-preview/offer-preview.component'
     }
   `]
 })
-export class OfferCardListComponent {
+export class OfferCardListComponent<C extends string = OfferSortColumn> {
   @Input({ required: true }) rows: readonly OfferRow[] = [];
-  @Input({ required: true }) sort!: TableSort<FlatOffer, OfferSortColumn>;
-  @Output() sortRequested = new EventEmitter<OfferSortColumn>();
+  /** The table's sort (a `TableSort`): the cards show and change the same order. */
+  @Input({ required: true }) sort!: { readonly column: C | null; readonly direction: SortDirection };
+  /** The sortable columns, in table order. */
+  @Input() columns: readonly SortColumnOption<C>[] = OFFER_SORT_COLUMNS as readonly SortColumnOption<string>[] as readonly SortColumnOption<C>[];
+  @Output() sortRequested = new EventEmitter<C>();
 
-  readonly columns = OFFER_SORT_COLUMNS;
   readonly openOffer = openOfferOnClick;
   readonly openOfferLabel = openOfferLabel;
 

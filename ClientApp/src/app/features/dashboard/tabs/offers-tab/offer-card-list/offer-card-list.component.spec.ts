@@ -49,7 +49,7 @@ describe('OfferCardListComponent', () => {
       imports: [OfferCardListComponent],
       providers: [provideAppLocale()]
     }).compileComponents();
-    fixture = TestBed.createComponent(OfferCardListComponent);
+    fixture = TestBed.createComponent(OfferCardListComponent<OfferSortColumn>);
     component = fixture.componentInstance;
     sort = new TableSort<FlatOffer, OfferSortColumn>();
     requested = [];
@@ -148,6 +148,27 @@ describe('OfferCardListComponent', () => {
       expect(cards()[1].querySelector('.ee-badge')).toBeNull();
     });
 
+    it('shows when an archived offer was seen, and nothing for a current one', () => {
+      // Midday UTC, so the dates are the same in every time zone the specs may run in
+      const archived = (daysListed: number | null): OfferRow => ({
+        ...row({ district: 'Mitte' }),
+        seen: { firstSeenUtc: '2026-10-02T12:00:00Z', lastSeenUtc: '2026-10-29T12:00:00Z', daysListed }
+      });
+      render([archived(27), archived(1), archived(null), row({ district: 'Weststadt' })]);
+
+      expect(text(cards()[0], '.offer-card-seen')).toBe('Seen: 02.10.2026 – 29.10.2026 (27 days)');
+      expect(text(cards()[1], '.offer-card-seen')).toBe('Seen: 02.10.2026 – 29.10.2026 (1 day)');
+      expect(text(cards()[2], '.offer-card-seen')).toBe('Seen: 02.10.2026 – 29.10.2026');
+      expect(cards()[3].querySelector('.offer-card-seen')).toBeNull();
+    });
+
+    it('says in the link of an archived offer that it is probably no longer online', () => {
+      render([{ ...fullRow, seen: { firstSeenUtc: '2026-10-02T12:00:00Z', lastSeenUtc: '2026-10-29T12:00:00Z', daysListed: 27 } }]);
+
+      expect(cards()[0].querySelector('.source-link')!.getAttribute('aria-label'))
+        .toBe('Open the offer on ImmobilienScout24 (probably no longer online)');
+    });
+
     it('leaves the rooms out of the title when they are unknown', () => {
       render([row({ district: 'Mitte' })]);
 
@@ -162,6 +183,17 @@ describe('OfferCardListComponent', () => {
       const options = Array.from(sortSelect().options).map(option => option.textContent!.trim());
       expect(options).toEqual(['Default order', ...OFFER_SORT_COLUMNS.map(item => item.label)]);
       expect(directionButton().disabled).toBeTrue();
+    });
+
+    it('offers the columns it is given', () => {
+      fixture.componentRef.setInput('columns', [{ column: 'priceEur', label: 'Price' }, { column: 'lastSeenUtc', label: 'Last Seen' }]);
+      render([fullRow]);
+
+      sortSelect().value = 'lastSeenUtc';
+      sortSelect().dispatchEvent(new Event('change'));
+
+      expect(Array.from(sortSelect().options).map(option => option.textContent!.trim())).toEqual(['Default order', 'Price', 'Last Seen']);
+      expect(requested).toEqual(['lastSeenUtc' as OfferSortColumn]);
     });
 
     it('asks for the chosen column, like a click on its header', () => {

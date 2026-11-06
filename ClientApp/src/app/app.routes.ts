@@ -3,6 +3,7 @@ import { RedirectFunction, Router, Routes } from '@angular/router';
 import { DashboardComponent } from './features/dashboard/dashboard.component';
 import { OverviewTabComponent } from './features/dashboard/tabs/overview-tab/overview-tab.component';
 import { OffersTabComponent } from './features/dashboard/tabs/offers-tab/offers-tab.component';
+import { ArchiveTabComponent } from './features/dashboard/tabs/archive-tab/archive-tab.component';
 import { FilterPresetsPageComponent } from './features/filter-presets/filter-presets-page.component';
 
 // Overview rows used to open `/?tab=offers&district=…&rooms=…`; keep those links working.
@@ -25,7 +26,8 @@ export const routes: Routes = [
         path: 'history',
         loadComponent: () => import('./features/dashboard/tabs/history-tab/history-tab.component')
           .then(m => m.HistoryTabComponent)
-      }
+      },
+      { path: 'archive', component: ArchiveTabComponent }
     ]
   },
   // Opened in its own browser tab from the dashboard header, so it has no tab navigation.

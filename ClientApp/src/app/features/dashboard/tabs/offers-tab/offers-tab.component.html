@@ -1,6 +1,8 @@
+<!-- Shared by Current Offers and Archive (OfferListTab): `archived` adds the archive's columns and texts,
+     `lastSeen` its filter. -->
 <div class="fill-column">
   @if (loading) {
-    <app-loading-skeleton [columns]="11" [cardsOnSmallScreens]="true"></app-loading-skeleton>
+    <app-loading-skeleton [columns]="archived ? 14 : 11" [cardsOnSmallScreens]="true"></app-loading-skeleton>
   }
 
   @if (!loading && currentOffers.length > 0) {
@@ -63,13 +65,25 @@
             title="Shows offers whose buyer's commission is at most this many percent; 0 = commission-free only"
           />
         </div>
+
+        @if (lastSeen; as lastSeen) {
+          <div class="d-flex align-items-center gap-1">
+            <label for="lastSeenWithin" class="form-label mb-0 filter-label">Last seen:</label>
+            <select id="lastSeenWithin" class="form-select form-select-sm w-auto"
+              [(ngModel)]="lastSeen.days" (ngModelChange)="applyFilters()">
+              @for (period of lastSeenPeriods; track period.days) {
+                <option [ngValue]="period.days">{{ period.label }}</option>
+              }
+            </select>
+          </div>
+        }
       </div>
     </app-filter-toolbar>
   }
 
   @if (!loading && filteredOffers.length > 0) {
     <!-- Below md the offers are cards (no sideways scrolling); from md the table. Both stay in the DOM. -->
-    <app-offer-card-list class="d-md-none card-list-fill" [rows]="offerRows" [sort]="sort"
+    <app-offer-card-list class="d-md-none card-list-fill" [rows]="offerRows" [sort]="sort" [columns]="sortColumns"
       (sortRequested)="onSort($event)"></app-offer-card-list>
 
     <div class="table-card table-card-fill d-none d-md-block">
@@ -95,6 +109,17 @@
             </th>
             <!-- Not sortable: free text such as "sofort" or "01.03.2027" has no meaningful order. -->
             <th class="text-end">Availability</th>
+            <!-- $any: the template is also checked for Current Offers, whose sort has no such columns. -->
+            @if (archived) {
+              <th appSortableHeader class="text-end" [sort]="sort" [column]="$any('firstSeenUtc')" sortLabel="First Seen"
+                (sortRequested)="onSort($event)">First seen</th>
+              <th appSortableHeader class="text-end" [sort]="sort" [column]="$any('lastSeenUtc')" sortLabel="Last Seen"
+                (sortRequested)="onSort($event)">Last seen</th>
+              <th appSortableHeader class="text-end" [sort]="sort" [column]="$any('daysListed')" sortLabel="Days Listed"
+                (sortRequested)="onSort($event)">
+                <abbr title="Days between first and last seen">Days</abbr>
+              </th>
+            }
             <th appSortableHeader [sort]="sort" column="source" sortLabel="Source" (sortRequested)="onSort($event)">Source</th>
           </tr>
         </thead>
@@ -129,6 +154,11 @@
                 }
               </td>
               <td class="text-end offer-availability" [title]="row.offer.availability ?? ''">{{ row.offer.availability || '-' }}</td>
+              @if (row.seen; as seen) {
+                <td class="text-end text-nowrap offer-first-seen">{{ seen.firstSeenUtc | date: 'dd.MM.yyyy' }}</td>
+                <td class="text-end text-nowrap offer-last-seen">{{ seen.lastSeenUtc | date: 'dd.MM.yyyy' }}</td>
+                <td class="text-end offer-days-listed">{{ seen.daysListed ?? '-' }}</td>
+              }
               <td>
                 <!-- The pill names the portal; with a usable URL it is also the row's link. -->
                 @if (row.hasLink) {
@@ -154,10 +184,15 @@
   }
 
   @if (!loading && !error && currentOffers.length === 0) {
-    <app-empty-state icon="inbox" heading="No current offers yet"
-      message="Start a scrape to fetch the current flats from all sources.">
-      <app-start-scrape-button></app-start-scrape-button>
-    </app-empty-state>
+    @if (archived) {
+      <app-empty-state icon="inbox" heading="No archived offers yet"
+        message="A flat shows up here once a scrape of its source no longer finds it."></app-empty-state>
+    } @else {
+      <app-empty-state icon="inbox" heading="No current offers yet"
+        message="Start a scrape to fetch the current flats from all sources.">
+        <app-start-scrape-button></app-start-scrape-button>
+      </app-empty-state>
+    }
   }
 
   @if (error) {
