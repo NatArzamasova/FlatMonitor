@@ -1,6 +1,6 @@
 # Flats Archive: Implementation Plan
 
-**Status:** steps 1–2 implemented (.NET: 797 tests passed).
+**Status:** steps 1–3 implemented (.NET: 804 tests passed).
 
 ## Goal
 
@@ -173,14 +173,18 @@ Flats removed before this feature are gone, so the archive history starts with t
   - Tests that publish on SQLite get a run row from `Storage/TestRuns.cs`. `ScrapeBackgroundServiceTests` seeds its
     existing flat directly instead, because it expects only the job's run.
 
-### 3. Archive photos once
+### 3. Archive photos once ✅ DONE
 
 - `FlatPreviewRepository.SaveAsync`: in the same `SaveChanges`, insert into `FlatPreviewsArchive` the previews whose
-  `(Source, ListingId)` it does not have yet. It's one query per source batch, like the existing lookup. Detach them
-  afterwards, as now.
-- `RemoveStalePreviewsAsync` stays as is: it touches only `FlatPreviews`.
-- Tests: first save archives the photo; a later save with a new photo updates `FlatPreviews` but not the archive;
-  publishing a source without the flat deletes its `FlatPreviews` row and keeps the archived one.
+  `(Source, ListingId)` it doesn't have yet. It's one ids-only query per source batch, like the existing lookup.
+  A flat that appears twice in one batch is archived with its first photo. The archive rows are detached afterwards,
+  also after a failed save, like the current previews.
+- `RemoveStalePreviewsAsync` is unchanged: it touches only `FlatPreviews`. `FlatPreviewDownloader` is unchanged too:
+  it still decides from `FlatPreviews` whether to download.
+- Tests (`FlatPreviewRepositoryTests`): the first save archives the photo with every field; a new photo replaces
+  the current one but not the archived one; the same flat twice in a batch is archived once; a flat that came back
+  gets its photo stored again and keeps the archived one; archiving is per source; nothing stays tracked; a failed
+  save archives nothing. `FlatRepositoryTests`: publishing a source without a flat keeps its archived photo.
 
 ### 4. Archived offers API
 

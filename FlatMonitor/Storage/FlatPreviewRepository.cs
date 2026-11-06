@@ -22,7 +22,7 @@ public sealed class FlatPreviewRepository : IFlatPreviewRepository
         if (previews.Count == 0)
             return;
 
-        var tracked = new List<FlatPreview>();
+        var tracked = new List<FlatPreviewRecord>();
         foreach (var bySource in previews.GroupBy(p => p.Source))
         {
             var ids = bySource.Select(p => p.ListingId).Distinct().ToList();
@@ -30,9 +30,22 @@ public sealed class FlatPreviewRepository : IFlatPreviewRepository
                 .Where(p => p.Source == bySource.Key && ids.Contains(p.ListingId))
                 .ToDictionaryAsync(p => p.ListingId, ct);
             tracked.AddRange(existing.Values);
+            var archived = (await _dbContext.FlatPreviewsArchive.AsNoTracking()
+                .Where(p => p.Source == bySource.Key && ids.Contains(p.ListingId))
+                .Select(p => p.ListingId)
+                .ToListAsync(ct)).ToHashSet();
 
             foreach (var preview in bySource)
             {
+                // The first photo of a flat goes into the archive as well, in the same SaveChanges; it stays there
+                // when the portal changes the photo or the flat is removed
+                if (archived.Add(preview.ListingId))
+                {
+                    var first = ArchivedFlatPreview.From(preview);
+                    _dbContext.FlatPreviewsArchive.Add(first);
+                    tracked.Add(first);
+                }
+
                 if (existing.TryGetValue(preview.ListingId, out var row))
                 {
                     row.ImageUrl = preview.ImageUrl;

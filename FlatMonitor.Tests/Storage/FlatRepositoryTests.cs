@@ -846,6 +846,9 @@ public class FlatRepositoryTests
         var previews = await dbContext.FlatPreviews.Select(p => new { p.Source, p.ListingId }).ToListAsync();
         previews.Select(p => (p.Source, p.ListingId)).Should().BeEquivalentTo([("OhneMakler", "2"), ("ImmobilienScout24", "1")]);
         repoContext.ChangeTracker.Entries<FlatPreview>().Should().BeEmpty();
+        // The archived photos stay, also of the removed flats
+        (await dbContext.FlatPreviewsArchive.Select(p => p.Source + "/" + p.ListingId).ToListAsync())
+            .Should().BeEquivalentTo("OhneMakler/1", "OhneMakler/2", "OhneMakler/9", "ImmobilienScout24/1");
     }
 
     [Test]
