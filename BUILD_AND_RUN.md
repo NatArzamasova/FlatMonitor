@@ -207,11 +207,15 @@ npm run build
 ```
 
 ### Database issues
-The SQLite database is created automatically on first run. To reset:
+The SQLite database is created automatically on first run, and migrated to the current schema on every start.
+To reset:
 ```bash
 rm FlatMonitor/data/listings.db
 dotnet run
 ```
+A reset also deletes the archive (`FlatsArchive`, `FlatPreviewsArchive`: every scrape's flats and their photos,
+see [Archive.md](Archive.md)), which no scrape can bring back. Copy `listings.db` somewhere first if you may still
+need it.
 
 ### More detailed scrape logs
 All output goes through `ILogger`. At the default `Information` level you see pages, saved batches (every 20 flats)

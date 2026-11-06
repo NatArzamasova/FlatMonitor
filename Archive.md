@@ -1,6 +1,6 @@
 # Flats Archive: Implementation Plan
 
-**Status:** steps 1–5 implemented, including the first price (.NET: 818 tests passed; Angular: 668 specs
+**Status:** implemented, steps 1–6, including the first price (.NET: 818 tests passed; Angular: 668 specs
 passed, `ng build` clean).
 
 ## Goal
@@ -251,10 +251,15 @@ Flats removed before this feature are gone, so the archive history starts with t
   `archive.utils.spec.ts`; additions to the preview utils, flats service, card list, offers tab (none of the
   archive's extras) and dashboard (four tabs, `/archive`) specs.
 
-### 6. Docs
+### 6. Docs ✅ DONE
 
-- `CLAUDE.md` (data flow: archive at publish, photo once), `WohnungMonitor.md` (tables, endpoints, archive tab),
-  `BUILD_AND_RUN.md` if anything about running changes.
+- `CLAUDE.md`: the database holds the archive and must not be deleted without a backup; a design note "Archive"
+  (key, foreign key, when a flat counts as archived, storage estimate); the data flow (archive at publish in the same
+  transaction, first photo kept for good, the API reads `FlatsArchive`); archived offers in the web server's API.
+- `WohnungMonitor.md`: the archive under storage layers, the Archive tab, the two endpoints, and the list of
+  implemented tables (it now also names `FlatsSnapshots_Staging` and `FlatPreviews`, which it lacked).
+- `BUILD_AND_RUN.md`: "Database issues" says the database is migrated on every start, and that a reset also deletes
+  the archive, which no scrape brings back.
 
 ## Verification
 

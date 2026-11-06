@@ -36,11 +36,14 @@ There is no `report` command: statistics are served by the web API (see [BUILD_A
 
 **Two storage layers:**
 1. **SQLite database** (`FlatMonitor/data/listings.db`, set in `FlatMonitor/appsettings.json`) — **canonical source of truth**. Persists all flats with source attribution. Used for all reads, aggregations, and statistics. Git-ignored.
+   It also holds the **archive** for later analysis: `FlatsArchive` (every published flat of every run, never updated
+   or deleted) and `FlatPreviewsArchive` (each flat's first photo, once). It cannot be scraped again, so never delete
+   or rebuild the database without a backup. See [Archive.md](Archive.md)
 2. **Snapshot files** (`data/snapshots/{source}/{utc-timestamp}.jsonl`) — optional backups for debugging only. JSON Lines format (one flat per line). Do NOT use snapshots as source for database rebuilds; snapshots may contain stale or unfiltered data.
 
 **Run modes:**
 - `scrape` — fetches current flats from all active sources, enriches with detail pages, yields unfiltered flats to `ScraperCoordinator`. `ScraperCoordinator` filters by allowed districts (normalizing names), batch-saves filtered flats to SQLite (every 20 flats to avoid memory bloat)
-- web server (no command, the default) — REST API read by the Angular frontend: current offers, aggregations by district and rooms and their history, filter presets; `POST /api/scrape` queues a scrape job that runs the same pipeline as `scrape`, for all sources or the ones it names
+- web server (no command, the default) — REST API read by the Angular frontend: current offers, archived offers (no longer offered), aggregations by district and rooms and their history, filter presets; `POST /api/scrape` queues a scrape job that runs the same pipeline as `scrape`, for all sources or the ones it names
   (`ScrapingHistories.Sources` records which)
 - `scrape --source <names>` — the same, for the named sources only (`Scrapers:Sources` does it for the web server)
 - `explore-is24` — opens ImmobilienScout24 in the browser and saves the listings page HTML for analysis
@@ -65,6 +68,10 @@ There is no `report` command: statistics are served by the web API (see [BUILD_A
   have one with the same district, price, living area and normalized title. Within one source such flats stay
   different (identical units in a new building)
 - **"Removed" ambiguity** — removal is inferred from absence in latest scrape (could be sold, delisted, or scrape miss); no ground truth from the site
+- **Archive** — `FlatsArchive` has the columns of `FlatsSnapshots` plus `ScrapingHistoryId` (key: Source, ListingId,
+  run; foreign key to `ScrapingHistories`, restrict). A flat is **archived** (Archive tab) when it has archive rows
+  but none in `FlatsSnapshots`; a flat found again leaves the Archive tab by itself. About 0.5 MB of rows per scrape;
+  photos (about 97% of a flat's bytes) are stored once per listing, so 100 scrapes take about 200–250 MB
 
 ## Parallel: MCP Servers
 
@@ -142,14 +149,17 @@ dotnet test
      - Fetch all pages → Parse listing cards → Enrich with detail pages → Yield unfiltered flats one by one (`IAsyncEnumerable<Flat>`)
      - `ScraperCoordinator` takes them in batches of 20, filters by `KarlsruheDistricts.All` and saves each batch to the
        staging table `FlatsSnapshots_Staging`
-     - When a source finishes with flats, its rows in `FlatsSnapshots` are replaced in one transaction; a source that
-       fails or finds nothing keeps its rows of the previous run. `FlatsSnapshots` is never cleared
+     - When a source finishes with flats, its rows in `FlatsSnapshots` are replaced and the same rows are added to
+       `FlatsArchive` with the run's id, in one transaction; a source that fails or finds nothing keeps its rows of the
+       previous run and archives nothing. `FlatsSnapshots` is never cleared, `FlatsArchive` never changed
      - District names normalized during filtering (see [FILTERING.md](FILTERING.md))
      - Each saved batch's title photos are downloaded into `FlatPreviews` (hover preview in Current Offers); a failed
-       photo only leaves that flat without one, and publishing a source deletes the previews of flats it no longer has
+       photo only leaves that flat without one, and publishing a source deletes the previews of flats it no longer has.
+       A flat's first photo is also saved to `FlatPreviewsArchive`, and kept there for good
      - Each saved batch is appended to the source's snapshot file (debugging only)
      - Result: a `ScrapeSummary` (flats saved per source, errors of failed sources)
    
 2. **Aggregate**: after the sources are scraped, the aggregations (€/m² by district and rooms) are computed and stored in `FlatAggregations`
 
-3. **API**: the web API reads `FlatsSnapshots` and `FlatAggregations` (canonical source) and serves the Angular frontend
+3. **API**: the web API reads `FlatsSnapshots`, `FlatAggregations` and, for the Archive tab, `FlatsArchive` (canonical
+   source) and serves the Angular frontend

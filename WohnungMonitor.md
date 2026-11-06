@@ -62,6 +62,12 @@ by implementing the `IScraper` interface.
    the list card's gallery on Immowelt), `FlatPreviewDownloader` downloads it per saved batch with a plain
    `HttpClient` (the picture servers are not behind the robot guards) and skips an unchanged URL. Publishing a source
    deletes its previews of flats it no longer has. A photo that fails leaves only that flat without a preview.
+   **Archive** (for analyses not known yet, see [Archive.md](Archive.md)): publishing a source also adds its flats to
+   `FlatsArchive`, one row per flat per run, with all columns of `FlatsSnapshots` plus `ScrapingHistoryId` (the run).
+   Its rows are never updated or deleted. Each flat's first photo goes to `FlatPreviewsArchive` once, linked to its
+   archive rows by `(Source, ListingId)`. That's about 0.5 MB of rows per scrape plus the photos of new listings,
+   about 200–250 MB for 100 weekly scrapes. The archive cannot be scraped again: back up `listings.db` before
+   deleting or replacing it.
 2. **Snapshot files (debugging backup, gitignored)** — each scrape appends the saved
    flats to `FlatMonitor/data/snapshots/{source}/{utc-timestamp}.jsonl`, one line per
    flat. Never used to rebuild or validate the database.
@@ -75,6 +81,8 @@ by implementing the `IScraper` interface.
 - Multi-select filtering with flexible grouping modes
 - Manual "Scrape" button to trigger scraping on-demand
 - Auto-refresh on page load and after scrape
+- Archive tab (`/archive`): the flats no longer offered, with the Current Offers table and filters plus first price,
+  first seen, last seen, days listed and a "Last seen" period filter, most recently seen first
 - District filter presets: applied from a dropdown in each tab, managed on the `/presets` page
   ("⚙ Configure filters" in the top right corner opens it in a new browser tab)
 
@@ -85,6 +93,9 @@ by implementing the `IScraper` interface.
 - `GET /api/districts` — all tracked Karlsruhe districts, sorted
 - `GET /api/flats/{source}/{listingId}/preview` — the flat's title photo (the image itself, 404 without one); shown
   as the thumbnail in the first column of Current Offers (offers with `hasPreview`), larger while hovered
+- `GET /api/flats/archived-offers` — the flats in `FlatsArchive` that are no longer in `FlatsSnapshots`, one per flat
+  with the values of its latest run, plus `firstSeenUtc`, `lastSeenUtc` and `firstPriceEur`; most recently seen first
+- `GET /api/flats/{source}/{listingId}/archived-preview` — the flat's archived (first) photo, like `preview`
 - All responses use standard JSON structure with proper HTTP status codes
 
 ### Multi-source architecture
@@ -189,8 +200,9 @@ the flat came from:
 
 ### SQLite schema (planned, not implemented)
 
-> The tables below are the original plan. The implemented tables are `FlatsSnapshots`,
-> `ScrapingHistories`, `FlatAggregations` and `FilterPresets`; their configuration is in
+> The tables below are the original plan. The implemented tables are `FlatsSnapshots` (with its staging table
+> `FlatsSnapshots_Staging`), `ScrapingHistories`, `FlatAggregations`, `FilterPresets`, `FlatPreviews`, and the
+> archive `FlatsArchive` and `FlatPreviewsArchive` ([Archive.md](Archive.md)); their configuration is in
 > `FlatMonitor/Storage/Configurations/`, the schema history in `FlatMonitor/Migrations/`.
 
 **`Snapshots` table** — one row per scrape run per source:
