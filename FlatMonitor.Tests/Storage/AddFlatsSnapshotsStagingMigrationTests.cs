@@ -81,7 +81,7 @@ public class AddFlatsSnapshotsStagingMigrationTests
             PriceEur = 300000,
             ScrapedAtUtc = DateTime.UtcNow,
         }]);
-        await repository.PublishSourceAsync("OhneMakler");
+        await repository.PublishSourceAsync("OhneMakler", await TestRuns.AddAsync(_dbContext));
 
         await using var readContext = new FlatsDbContext(new DbContextOptionsBuilder<FlatsDbContext>().UseSqlite(_connection).Options);
         var row = await readContext.FlatsSnapshots.SingleAsync();

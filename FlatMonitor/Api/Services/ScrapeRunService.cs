@@ -59,7 +59,7 @@ public sealed class ScrapeRunService
         using var awake = KeepSystemAwake.Start($"FlatMonitor scrape run {runId}", _logger);
         try
         {
-            var summary = await _execution.ExecuteAsync(flats => _history.AddProgressAsync(runId, flats, ct), ct, selected);
+            var summary = await _execution.ExecuteAsync(runId, flats => _history.AddProgressAsync(runId, flats, ct), ct, selected);
 
             if (summary.Success)
             {

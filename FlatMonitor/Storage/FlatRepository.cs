@@ -64,7 +64,7 @@ public sealed class FlatRepository : IFlatRepository
         }
     }
 
-    public async Task<int> PublishSourceAsync(string source, CancellationToken ct = default)
+    public async Task<int> PublishSourceAsync(string source, int scrapingHistoryId, CancellationToken ct = default)
     {
         var staged = await _dbContext.FlatsSnapshotsStaging.AsNoTracking()
             .Where(s => s.Source == source)
@@ -74,26 +74,40 @@ public sealed class FlatRepository : IFlatRepository
             .ToDictionaryAsync(s => s.ListingId, ct);
         var now = DateTime.UtcNow;
 
-        // Update the flats still offered, add the new ones, delete the rest: one SaveChanges, so one transaction
+        // Update the flats still offered, add the new ones, delete the rest, and archive every published flat with the
+        // run: one SaveChanges, so one transaction. The archive always holds exactly what was published.
         foreach (var row in staged)
         {
+            PublishedFlat published;
             if (removed.Remove(row.ListingId, out var existing))
             {
                 existing.UpdateFrom(row);
                 _dbContext.Entry(existing).Property<DateTime>("UpdatedAtUtc").CurrentValue = now;
+                published = existing;
             }
             else
             {
-                var published = PublishedFlat.From(row);
+                published = PublishedFlat.From(row);
                 SetAuditDates(_dbContext.Entry(published), now);
                 _dbContext.FlatsSnapshots.Add(published);
             }
+
+            Archive(published, scrapingHistoryId, now);
         }
         _dbContext.FlatsSnapshots.RemoveRange(removed.Values);
         await RemoveStalePreviewsAsync(source, staged.Select(row => row.ListingId).ToHashSet(), ct);
 
-        await _dbContext.SaveChangesAsync(ct);
-        DetachFlatRows();
+        try
+        {
+            await _dbContext.SaveChangesAsync(ct);
+        }
+        finally
+        {
+            // Also after a failed save: the other sources go on with the shared context, and its next SaveChanges
+            // would write this source's rows (archive rows included) after all, or fail on them again
+            DetachFlatRows();
+            DetachPreviews();
+        }
         return staged.Count;
     }
 
@@ -117,6 +131,19 @@ public sealed class FlatRepository : IFlatRepository
         _dbContext.FlatPreviews.RemoveRange(stale);
     }
 
+    /// <summary>
+    /// Adds the published flat to FlatsArchive as of this run. Its CreatedAtUtc is the published row's, so it keeps
+    /// meaning "first seen"; UpdatedAtUtc is when it was archived.
+    /// </summary>
+    private void Archive(PublishedFlat published, int scrapingHistoryId, DateTime now)
+    {
+        var archived = ArchivedFlat.From(published, scrapingHistoryId);
+        var entry = _dbContext.FlatsArchive.Add(archived);
+        entry.Property<DateTime>("CreatedAtUtc").CurrentValue =
+            _dbContext.Entry(published).Property<DateTime>("CreatedAtUtc").CurrentValue;
+        entry.Property<DateTime>("UpdatedAtUtc").CurrentValue = now;
+    }
+
     private static void SetAuditDates(EntityEntry entry, DateTime now)
     {
         entry.Property("CreatedAtUtc").CurrentValue = now;
@@ -134,6 +161,13 @@ public sealed class FlatRepository : IFlatRepository
                 || e.Metadata.FindOwnership()?.PrincipalEntityType.ClrType.IsAssignableTo(typeof(FlatRecord)) == true)
             .ToList();
         foreach (var entry in flatEntries)
+            entry.State = EntityState.Detached;
+    }
+
+    /// <summary>Stops tracking the previews a publish marked for deletion; after a successful save there are none.</summary>
+    private void DetachPreviews()
+    {
+        foreach (var entry in _dbContext.ChangeTracker.Entries<FlatPreview>().ToList())
             entry.State = EntityState.Detached;
     }
 

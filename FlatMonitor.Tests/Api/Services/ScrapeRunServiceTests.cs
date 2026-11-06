@@ -184,10 +184,26 @@ public class ScrapeRunServiceTests
         scraper.SessionStarted.Should().BeFalse("the scrape never started");
     }
 
-    private ScrapeRunService CreateService(params IScraper[] scrapers)
+    [Test]
+    public async Task RunAsync_PublishesTheSourcesWithItsRun()
+    {
+        // Arrange
+        var flats = new Mock<IFlatRepository>();
+        flats.Setup(r => r.PublishSourceAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        // Act
+        await CreateService(flats, new FakeFlatScraper("OhneMakler") { Flats = [FakeFlatScraper.CreateFlat("1")] }).RunAsync();
+
+        // Assert: the archive gets the run's id from the scrape history
+        flats.Verify(r => r.PublishSourceAsync("OhneMakler", RunId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    private ScrapeRunService CreateService(params IScraper[] scrapers) => CreateService(new Mock<IFlatRepository>(), scrapers);
+
+    private ScrapeRunService CreateService(Mock<IFlatRepository> flats, params IScraper[] scrapers)
     {
         var coordinator = new ScraperCoordinator(
-            scrapers, new Mock<IFlatRepository>().Object, new Mock<IFlatPreviewDownloader>().Object, new JsonlBackupWriter(new StorageOptions(_dataDir, "Data Source=:memory:")), NullLogger<ScraperCoordinator>.Instance);
+            scrapers, flats.Object, new Mock<IFlatPreviewDownloader>().Object, new JsonlBackupWriter(new StorageOptions(_dataDir, "Data Source=:memory:")), NullLogger<ScraperCoordinator>.Instance);
         var execution = new ScrapeExecutionService(_aggregations.Object, coordinator, NullLogger<ScrapeExecutionService>.Instance);
         return new ScrapeRunService(_history.Object, execution, _logger);
     }

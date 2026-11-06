@@ -2,6 +2,7 @@ using FlatMonitor.Api.Services;
 using FlatMonitor.Models;
 using FlatMonitor.Storage;
 using FlatMonitor.Tests.Scraping.Common;
+using FlatMonitor.Tests.Storage;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -32,7 +33,7 @@ public class ScrapeStartupRecoveryTests
         _logger = new ListLogger<ScrapeStartupRecovery>();
 
         await _flats.AddToRunAsync([FakeFlatScraper.CreateFlat("published")]);
-        await _flats.PublishSourceAsync("OhneMakler");
+        await _flats.PublishSourceAsync("OhneMakler", await TestRuns.AddAsync(_dbContext));
         await _flats.BeginRunAsync();
         await _flats.AddToRunAsync([FakeFlatScraper.CreateFlat("staged")]);
     }

@@ -1,6 +1,6 @@
 # Flats Archive: Implementation Plan
 
-**Status:** step 1 implemented (.NET: 790 tests passed).
+**Status:** steps 1–2 implemented (.NET: 797 tests passed).
 
 ## Goal
 
@@ -152,15 +152,26 @@ Flats removed before this feature are gone, so the archive history starts with t
   `Storage/AddFlatsArchiveMigrationTests` (run per flat across statuses, flat older than every run left out,
   values and first-seen time kept, previews copied, current tables kept).
 
-### 2. Archive at publish time
+### 2. Archive at publish time ✅ DONE
 
-- Pass the `runId` down: `ScrapeExecutionService.ExecuteAsync(runId, …)` → `ScraperCoordinator.ScrapeAllSourcesAsync(runId, …)`
-  → `IFlatRepository.PublishSourceAsync(source, runId, ct)`.
-- `PublishSourceAsync` adds an `ArchivedFlat` for every staged row, with `CreatedAtUtc` taken from the published row,
-  in the existing `SaveChanges`. `DetachFlatRows` already detaches every `FlatRecord`, archive rows included.
-- Tests (`FlatRepositoryTests`, `ScraperCoordinatorTests`): published rows are archived with the run id; existing
-  flats keep their first-seen `CreatedAtUtc` in the archive; a failed or empty source archives nothing; a second run
-  adds a second set of rows and changes none of the first; a failing save archives nothing (same transaction).
+- The run id is passed down as a required first parameter: `ScrapeRunService` (its `runId`) →
+  `ScrapeExecutionService.ExecuteAsync(scrapingHistoryId, …)` → `ScraperCoordinator.ScrapeAllSourcesAsync(scrapingHistoryId, …)`
+  → `IFlatRepository.PublishSourceAsync(source, scrapingHistoryId, ct)`.
+- `PublishSourceAsync` adds an `ArchivedFlat` for every published row in the existing `SaveChanges`. `CreatedAtUtc`
+  is the published row's (first seen) and `UpdatedAtUtc` is the time it was archived.
+- `PublishSourceAsync` now detaches its rows (flats, archive rows, previews marked for deletion) **also after a
+  failed save**, as `AddToRunAsync` already did. The other sources go on with the shared context, and its next
+  `SaveChanges` must not retry the failed source's rows.
+- Tests:
+  - `FlatRepositoryTests`: archived with the run and every field; only the published source, not removed flats;
+    the next run adds rows and leaves the earlier ones as they were; first-seen time kept; a failing archive write
+    publishes nothing and leaves nothing tracked.
+  - `ScraperCoordinatorTests`, `ScrapeExecutionServiceTests`, `ScrapeRunServiceTests`: the run id reaches
+    `PublishSourceAsync`.
+  - `ScrapeBackgroundServiceTests`: end to end, a job archives its published flats with its run, and a failed source
+    archives nothing.
+  - Tests that publish on SQLite get a run row from `Storage/TestRuns.cs`. `ScrapeBackgroundServiceTests` seeds its
+    existing flat directly instead, because it expects only the job's run.
 
 ### 3. Archive photos once
 

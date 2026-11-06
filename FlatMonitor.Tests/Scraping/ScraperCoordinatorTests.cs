@@ -16,6 +16,9 @@ using static FakeFlatScraper;
 [TestFixture]
 public class ScraperCoordinatorTests
 {
+    /// <summary>The run whose published flats are archived; mocked, so any id.</summary>
+    private const int RunId = 7;
+
     private Mock<IFlatRepository> _mockRepository = null!;
     private Mock<IFlatPreviewDownloader> _mockPreviews = null!;
     private List<List<Flat>> _previewBatches = null!;
@@ -40,8 +43,8 @@ public class ScraperCoordinatorTests
             .Returns(Task.CompletedTask);
         _mockRepository.Setup(r => r.BeginRunAsync(It.IsAny<CancellationToken>()))
             .Callback(() => _runCalls.Add("begin")).Returns(Task.CompletedTask);
-        _mockRepository.Setup(r => r.PublishSourceAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<string, CancellationToken>((source, _) => _runCalls.Add("publish " + source)).ReturnsAsync(1);
+        _mockRepository.Setup(r => r.PublishSourceAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Callback<string, int, CancellationToken>((source, _, _) => _runCalls.Add("publish " + source)).ReturnsAsync(1);
         _mockRepository.Setup(r => r.DiscardRunAsync(It.IsAny<CancellationToken>()))
             .Callback(() => _runCalls.Add("discard")).Returns(Task.CompletedTask);
 
@@ -80,7 +83,7 @@ public class ScraperCoordinatorTests
         var scraper2 = new StubScraper("ImmobilienScout24", CreateFlat("2", "Durlach"));
 
         // Act
-        var summary = await CreateCoordinator(scraper1, scraper2).ScrapeAllSourcesAsync();
+        var summary = await CreateCoordinator(scraper1, scraper2).ScrapeAllSourcesAsync(RunId);
 
         // Assert
         scraper1.Calls.Should().Be(1);
@@ -91,6 +94,18 @@ public class ScraperCoordinatorTests
     }
 
     [Test]
+    public async Task ScrapeAllSourcesAsync_PublishesEachSourceWithTheRun()
+    {
+        // Act
+        await CreateCoordinator(new StubScraper("OhneMakler", CreateFlat("1")), new StubScraper("ImmobilienScout24", CreateFlat("2")))
+            .ScrapeAllSourcesAsync(RunId);
+
+        // Assert: the run's id goes into the archive
+        _mockRepository.Verify(r => r.PublishSourceAsync("OhneMakler", RunId, It.IsAny<CancellationToken>()), Times.Once);
+        _mockRepository.Verify(r => r.PublishSourceAsync("ImmobilienScout24", RunId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
     public async Task ScrapeAllSourcesAsync_SavesEachSourceSeparately()
     {
         // Arrange
@@ -98,7 +113,7 @@ public class ScraperCoordinatorTests
         var scraper2 = new StubScraper("ImmobilienScout24", CreateFlat("2", "Durlach"));
 
         // Act
-        await CreateCoordinator(scraper1, scraper2).ScrapeAllSourcesAsync();
+        await CreateCoordinator(scraper1, scraper2).ScrapeAllSourcesAsync(RunId);
 
         // Assert: the sources run in parallel, so their batches may come in either order, but never mixed
         _savedBatches.Select(b => b.Single().ListingId).Should().BeEquivalentTo(["1", "2"]);
@@ -114,7 +129,7 @@ public class ScraperCoordinatorTests
         var scraper = new FakeFlatScraper("OhneMakler") { Flats = flats };
 
         // Act
-        var summary = await CreateCoordinator(scraper).ScrapeAllSourcesAsync();
+        var summary = await CreateCoordinator(scraper).ScrapeAllSourcesAsync(RunId);
 
         // Assert
         _savedBatches.Select(b => b.Count).Should().Equal(20, 4);
@@ -132,7 +147,7 @@ public class ScraperCoordinatorTests
         var reported = new List<int>();
 
         // Act
-        var summary = await CreateCoordinator(scraper).ScrapeAllSourcesAsync(count =>
+        var summary = await CreateCoordinator(scraper).ScrapeAllSourcesAsync(RunId, count =>
         {
             reported.Add(count);
             return Task.CompletedTask;
@@ -160,7 +175,7 @@ public class ScraperCoordinatorTests
         };
 
         // Act
-        await CreateCoordinator(scraper).ScrapeAllSourcesAsync();
+        await CreateCoordinator(scraper).ScrapeAllSourcesAsync(RunId);
 
         // Assert
         savedWhenLastFlatProduced.Should().Be(20);
@@ -174,7 +189,7 @@ public class ScraperCoordinatorTests
         flats.Add(CreateFlat("outside", "Bad Schönborn"));
 
         // Act
-        await CreateCoordinator(new StubScraper("OhneMakler", [.. flats])).ScrapeAllSourcesAsync();
+        await CreateCoordinator(new StubScraper("OhneMakler", [.. flats])).ScrapeAllSourcesAsync(RunId);
 
         // Assert
         var file = SnapshotFiles("OhneMakler").Should().ContainSingle().Subject;
@@ -189,7 +204,7 @@ public class ScraperCoordinatorTests
         var working = new StubScraper("ImmobilienScout24", CreateFlat("2", "Durlach"));
 
         // Act
-        var summary = await CreateCoordinator(empty, working).ScrapeAllSourcesAsync();
+        var summary = await CreateCoordinator(empty, working).ScrapeAllSourcesAsync(RunId);
 
         // Assert
         summary.Success.Should().BeFalse();
@@ -204,7 +219,7 @@ public class ScraperCoordinatorTests
     {
         // Act
         var summary = await CreateCoordinator(new StubScraper("OhneMakler", CreateFlat("1", "Bad Schönborn")))
-            .ScrapeAllSourcesAsync();
+            .ScrapeAllSourcesAsync(RunId);
 
         // Assert
         summary.Errors.Should().Equal("OhneMakler: no flats found");
@@ -218,7 +233,7 @@ public class ScraperCoordinatorTests
         var working = new StubScraper("ImmobilienScout24", CreateFlat("2", "Durlach"));
 
         // Act
-        var summary = await CreateCoordinator(timingOut, working).ScrapeAllSourcesAsync();
+        var summary = await CreateCoordinator(timingOut, working).ScrapeAllSourcesAsync(RunId);
 
         // Assert
         summary.Errors.Should().Equal("OhneMakler: The request timed out");
@@ -233,7 +248,7 @@ public class ScraperCoordinatorTests
         var working = new StubScraper("ImmobilienScout24", CreateFlat("2", "Waldstadt"));
 
         // Act
-        var summary = await CreateCoordinator(failing, working).ScrapeAllSourcesAsync();
+        var summary = await CreateCoordinator(failing, working).ScrapeAllSourcesAsync(RunId);
 
         // Assert
         summary.Errors.Should().Equal("OhneMakler: Network error");
@@ -250,7 +265,7 @@ public class ScraperCoordinatorTests
         var working = new FakeFlatScraper("OhneMakler") { Flats = [CreateFlat("1", "Durlach")] };
 
         // Act
-        var summary = await CreateCoordinator(failing, working).ScrapeAllSourcesAsync();
+        var summary = await CreateCoordinator(failing, working).ScrapeAllSourcesAsync(RunId);
 
         // Assert
         summary.Errors.Should().ContainSingle().Which.Should().Be("ImmobilienScout24: Login failed");
@@ -265,7 +280,7 @@ public class ScraperCoordinatorTests
         var scraper = new StubScraper("OhneMakler", flats) { Error = new HttpRequestException("Detail page timeout") };
 
         // Act
-        var summary = await CreateCoordinator(scraper).ScrapeAllSourcesAsync();
+        var summary = await CreateCoordinator(scraper).ScrapeAllSourcesAsync(RunId);
 
         // Assert
         summary.Errors.Should().Equal("OhneMakler: Detail page timeout");
@@ -281,8 +296,8 @@ public class ScraperCoordinatorTests
         // Arrange: the first source registered yields its flats only once a later one is published. One source after
         // another, it would wait for ever (the gate times out); in parallel, the later source gets past it first.
         var ohneMaklerPublished = new TaskCompletionSource();
-        _mockRepository.Setup(r => r.PublishSourceAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<string, CancellationToken>((source, _) =>
+        _mockRepository.Setup(r => r.PublishSourceAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Callback<string, int, CancellationToken>((source, _, _) =>
             {
                 _runCalls.Add("publish " + source);
                 if (source == "OhneMakler")
@@ -295,7 +310,7 @@ public class ScraperCoordinatorTests
         var first = new StubScraper("OhneMakler", CreateFlat("1"));
 
         // Act
-        var summary = await CreateCoordinator(waiting, failing, empty, first).ScrapeAllSourcesAsync();
+        var summary = await CreateCoordinator(waiting, failing, empty, first).ScrapeAllSourcesAsync(RunId);
 
         // Assert: failed and empty sources are not published, and do not stop the others
         _runCalls.Should().Equal("begin", "publish OhneMakler", "publish ImmobilienScout24", "discard");
@@ -323,7 +338,7 @@ public class ScraperCoordinatorTests
             .ToArray<IScraper>();
 
         // Act
-        var summary = await CreateCoordinator(scrapers).ScrapeAllSourcesAsync(_ => DatabaseCall());
+        var summary = await CreateCoordinator(scrapers).ScrapeAllSourcesAsync(RunId, _ => DatabaseCall());
 
         // Assert
         summary.TotalFlats.Should().Be(135);
@@ -345,7 +360,7 @@ public class ScraperCoordinatorTests
         var scraper = new StubScraper("ImmobilienScout24", CreateFlat("1") with { Source = "Other" });
 
         // Act
-        await CreateCoordinator(scraper).ScrapeAllSourcesAsync();
+        await CreateCoordinator(scraper).ScrapeAllSourcesAsync(RunId);
 
         // Assert
         Saved.Should().ContainSingle().Which.Source.Should().Be("ImmobilienScout24");
@@ -356,12 +371,12 @@ public class ScraperCoordinatorTests
     public async Task ScrapeAllSourcesAsync_WhenPublishingFails_RecordsASourceErrorAndScrapesOtherSources()
     {
         // Arrange
-        _mockRepository.Setup(r => r.PublishSourceAsync("OhneMakler", It.IsAny<CancellationToken>()))
+        _mockRepository.Setup(r => r.PublishSourceAsync("OhneMakler", It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Database locked"));
         var next = new StubScraper("ImmobilienScout24", CreateFlat("2"));
 
         // Act
-        var summary = await CreateCoordinator(new StubScraper("OhneMakler", CreateFlat("1")), next).ScrapeAllSourcesAsync();
+        var summary = await CreateCoordinator(new StubScraper("OhneMakler", CreateFlat("1")), next).ScrapeAllSourcesAsync(RunId);
 
         // Assert
         summary.Errors.Should().Equal("OhneMakler: Database locked");
@@ -384,7 +399,7 @@ public class ScraperCoordinatorTests
         };
 
         // Act
-        var act = () => CreateCoordinator(scraper).ScrapeAllSourcesAsync(ct: cts.Token);
+        var act = () => CreateCoordinator(scraper).ScrapeAllSourcesAsync(RunId, ct: cts.Token);
 
         // Assert
         await act.Should().ThrowAsync<OperationCanceledException>();
@@ -400,7 +415,7 @@ public class ScraperCoordinatorTests
             .ThrowsAsync(new InvalidOperationException("Database locked"));
 
         // Act
-        var summary = await CreateCoordinator(new StubScraper("OhneMakler", CreateFlat("1"))).ScrapeAllSourcesAsync();
+        var summary = await CreateCoordinator(new StubScraper("OhneMakler", CreateFlat("1"))).ScrapeAllSourcesAsync(RunId);
 
         // Assert
         summary.Success.Should().BeTrue();
@@ -416,7 +431,7 @@ public class ScraperCoordinatorTests
         var scraper = new StubScraper("OhneMakler", CreateFlat("1"));
 
         // Act
-        var act = () => CreateCoordinator(scraper).ScrapeAllSourcesAsync();
+        var act = () => CreateCoordinator(scraper).ScrapeAllSourcesAsync(RunId);
 
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("Database locked");
@@ -440,7 +455,7 @@ public class ScraperCoordinatorTests
         var other = new GatedScraper("ImmobilienScout24", new TaskCompletionSource().Task, CreateFlat("3"));
 
         // Act
-        var act = () => CreateCoordinator(scraper, other).ScrapeAllSourcesAsync(ct: cts.Token);
+        var act = () => CreateCoordinator(scraper, other).ScrapeAllSourcesAsync(RunId, ct: cts.Token);
 
         // Assert: both were running; the run ends with the staging table emptied, nothing published
         await act.Should().ThrowAsync<OperationCanceledException>();
@@ -455,7 +470,7 @@ public class ScraperCoordinatorTests
     public async Task ScrapeAllSourcesAsync_SavesFlatWithNormalizedDistrict(string scraped, string expected)
     {
         // Act
-        await CreateCoordinator(new StubScraper("OhneMakler", CreateFlat("1", scraped))).ScrapeAllSourcesAsync();
+        await CreateCoordinator(new StubScraper("OhneMakler", CreateFlat("1", scraped))).ScrapeAllSourcesAsync(RunId);
 
         // Assert
         Saved.Should().ContainSingle().Which.District.Should().Be(expected);
@@ -484,7 +499,7 @@ public class ScraperCoordinatorTests
         };
 
         // Act
-        await CreateCoordinator(new StubScraper("ImmobilienScout24", flat)).ScrapeAllSourcesAsync();
+        await CreateCoordinator(new StubScraper("ImmobilienScout24", flat)).ScrapeAllSourcesAsync(RunId);
 
         // Assert
         Saved.Should().ContainSingle().Which.Should().Be(flat with { District = "Rüppurr" });
@@ -496,7 +511,7 @@ public class ScraperCoordinatorTests
     public async Task ScrapeAllSourcesAsync_FiltersOutFlatOutsideAllowedDistricts(string? scraped)
     {
         // Act
-        await CreateCoordinator(new StubScraper("OhneMakler", CreateFlat("1", scraped!))).ScrapeAllSourcesAsync();
+        await CreateCoordinator(new StubScraper("OhneMakler", CreateFlat("1", scraped!))).ScrapeAllSourcesAsync(RunId);
 
         // Assert
         _mockRepository.Verify(r => r.AddToRunAsync(It.IsAny<List<Flat>>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -510,7 +525,7 @@ public class ScraperCoordinatorTests
         flats.AddRange([CreateFlat("outside1", "Bad Schönborn"), CreateFlat("outside2", "Ettlingen"), CreateFlat("none", null!)]);
 
         // Act
-        await CreateCoordinator(new StubScraper("ImmobilienScout24", [.. flats])).ScrapeAllSourcesAsync();
+        await CreateCoordinator(new StubScraper("ImmobilienScout24", [.. flats])).ScrapeAllSourcesAsync(RunId);
 
         // Assert
         _logger.Messages.Should().Contain("ImmobilienScout24: skipped 2 listings outside the tracked districts")
@@ -526,7 +541,7 @@ public class ScraperCoordinatorTests
         flats.AddRange([CreateFlat("none1", null!), CreateFlat("none2", "")]);
 
         // Act
-        await CreateCoordinator(new StubScraper("ImmobilienScout24", [.. flats])).ScrapeAllSourcesAsync();
+        await CreateCoordinator(new StubScraper("ImmobilienScout24", [.. flats])).ScrapeAllSourcesAsync(RunId);
 
         // Assert
         _logger.Entries.Should().ContainSingle(e => e.Level == LogLevel.Warning && e.Message.Contains("district"))
@@ -545,7 +560,7 @@ public class ScraperCoordinatorTests
         flats.Add(CreateFlat("outside", "Bad Schönborn"));
 
         // Act
-        await CreateCoordinator(new StubScraper("OhneMakler", [.. flats])).ScrapeAllSourcesAsync();
+        await CreateCoordinator(new StubScraper("OhneMakler", [.. flats])).ScrapeAllSourcesAsync(RunId);
 
         // Assert
         var entry = _logger.Entries.Should().ContainSingle(e => e.Message.Contains("parse health")).Subject;
@@ -570,7 +585,7 @@ public class ScraperCoordinatorTests
             .ToArray();
 
         // Act
-        await CreateCoordinator(new StubScraper("OhneMakler", flats)).ScrapeAllSourcesAsync();
+        await CreateCoordinator(new StubScraper("OhneMakler", flats)).ScrapeAllSourcesAsync(RunId);
 
         // Assert
         _logger.Entries.Should().ContainSingle(e => e.Message.Contains("parse health"))
@@ -580,7 +595,7 @@ public class ScraperCoordinatorTests
     [Test]
     public async Task ScrapeAllSourcesAsync_ASourceWithoutSavedFlats_LogsNoParseHealth()
     {
-        await CreateCoordinator(new StubScraper("OhneMakler", CreateFlat("outside", "Bad Schönborn"))).ScrapeAllSourcesAsync();
+        await CreateCoordinator(new StubScraper("OhneMakler", CreateFlat("outside", "Bad Schönborn"))).ScrapeAllSourcesAsync(RunId);
 
         _logger.Messages.Should().NotContain(m => m.Contains("parse health"));
     }
@@ -591,7 +606,7 @@ public class ScraperCoordinatorTests
         // Act
         await CreateCoordinator(new StubScraper("OhneMakler",
                 CreateFlat("1", "Oberreut"), CreateFlat("2", "Bad Schönborn"), CreateFlat("3", "KA-Innenstadt-West")))
-            .ScrapeAllSourcesAsync();
+            .ScrapeAllSourcesAsync(RunId);
 
         // Assert: only flats 1 and 3, with normalized districts
         Saved.Select(f => (f.ListingId, f.District)).Should().Equal(("1", "Oberreut"), ("3", "Innenstadt-West"));
@@ -606,7 +621,7 @@ public class ScraperCoordinatorTests
             .ToArray();
 
         // Act
-        await CreateCoordinator(new StubScraper("OhneMakler", flats)).ScrapeAllSourcesAsync();
+        await CreateCoordinator(new StubScraper("OhneMakler", flats)).ScrapeAllSourcesAsync(RunId);
 
         // Assert: the same flats as saved, batch by batch, so none of another district
         _previewBatches.Should().HaveCount(2);
@@ -656,7 +671,7 @@ public class ScraperCoordinatorTests
         var flats = Enumerable.Range(1, 25).Select(i => CreateFlat(i.ToString())).ToArray();
 
         // Act
-        await CreateCoordinator(new StubScraper("OhneMakler", flats)).ScrapeAllSourcesAsync();
+        await CreateCoordinator(new StubScraper("OhneMakler", flats)).ScrapeAllSourcesAsync(RunId);
 
         // Assert
         _logger.Entries.Where(e => e.Level == LogLevel.Information && e.Message.Contains("saved"))
@@ -671,7 +686,7 @@ public class ScraperCoordinatorTests
         var error = new HttpRequestException("Network error");
 
         // Act
-        await CreateCoordinator(new StubScraper("OhneMakler") { Error = error }).ScrapeAllSourcesAsync();
+        await CreateCoordinator(new StubScraper("OhneMakler") { Error = error }).ScrapeAllSourcesAsync(RunId);
 
         // Assert
         var entry = _logger.Entries.Should().ContainSingle(e => e.Level == LogLevel.Error).Subject;
@@ -695,7 +710,7 @@ public class ScraperCoordinatorTests
         };
 
         // Act
-        var act = () => CreateCoordinator(scraper).ScrapeAllSourcesAsync(ct: cts.Token);
+        var act = () => CreateCoordinator(scraper).ScrapeAllSourcesAsync(RunId, ct: cts.Token);
 
         // Assert
         await act.Should().ThrowAsync<OperationCanceledException>();

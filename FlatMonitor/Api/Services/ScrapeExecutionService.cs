@@ -28,8 +28,10 @@ public class ScrapeExecutionService
     /// succeeds replaces its rows, a failed source keeps the previous ones (see <see cref="ScraperCoordinator"/>).
     /// So a run that fails, is canceled or only partly succeeds leaves consistent data and needs nothing restored.
     /// </summary>
+    /// <param name="scrapingHistoryId">The run (ScrapingHistories) whose published flats are archived.</param>
     /// <param name="sources">The sources to scrape; <c>null</c>: all (<see cref="Sources"/>).</param>
     public async Task<ScrapeSummary> ExecuteAsync(
+        int scrapingHistoryId,
         Func<int, Task>? onBatchSaved = null,
         CancellationToken cancellationToken = default,
         IReadOnlyCollection<string>? sources = null)
@@ -37,7 +39,7 @@ public class ScrapeExecutionService
         ScrapeSummary summary;
         try
         {
-            summary = await _coordinator.ScrapeAllSourcesAsync(onBatchSaved, cancellationToken, sources);
+            summary = await _coordinator.ScrapeAllSourcesAsync(scrapingHistoryId, onBatchSaved, cancellationToken, sources);
         }
         catch (OperationCanceledException)
         {

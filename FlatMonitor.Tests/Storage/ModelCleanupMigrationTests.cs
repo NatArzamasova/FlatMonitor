@@ -102,7 +102,7 @@ public class ModelCleanupMigrationTests
                 Url = "https://example.org/1",
                 ScrapedAtUtc = new DateTime(2026, 10, 29, 8, 7, 49, DateTimeKind.Utc),
             }]);
-            await repository.PublishSourceAsync("OhneMakler");
+            await repository.PublishSourceAsync("OhneMakler", await TestRuns.AddAsync(dbContext));
         }
 
         await using var readContext = CreateContext();

@@ -536,12 +536,12 @@ public class FlatRepositoryTests
         var options = CreateSqliteOptions();
         await using var repoContext = await CreateContextAsync(options);
         var repo = new FlatRepository(repoContext);
-        await PublishAsync(repo, CreateFlat("1"), CreateFlat("2"), CreateFlat("1", source: "ImmobilienScout24"));
+        await PublishAsync(repoContext, repo, CreateFlat("1"), CreateFlat("2"), CreateFlat("1", source: "ImmobilienScout24"));
 
         // Act: this run finds OhneMakler 2 (with a new price) and 3
         await repo.BeginRunAsync();
         await repo.AddToRunAsync([CreateFlat("2") with { PriceEur = 250000 }, CreateFlat("3")]);
-        var published = await repo.PublishSourceAsync("OhneMakler");
+        var published = await repo.PublishSourceAsync("OhneMakler", await TestRuns.AddAsync(repoContext));
 
         // Assert
         published.Should().Be(2);
@@ -558,13 +558,13 @@ public class FlatRepositoryTests
         var options = CreateSqliteOptions();
         await using var repoContext = await CreateContextAsync(options);
         var repo = new FlatRepository(repoContext);
-        await PublishAsync(repo, CreateFlat("1"));
+        await PublishAsync(repoContext, repo, CreateFlat("1"));
         var firstSeen = await AuditDatesAsync(options, "1");
 
         // Act
         await repo.BeginRunAsync();
         await repo.AddToRunAsync([CreateFlat("1") with { Title = "Updated" }, CreateFlat("2")]);
-        await repo.PublishSourceAsync("OhneMakler");
+        await repo.PublishSourceAsync("OhneMakler", await TestRuns.AddAsync(repoContext));
 
         // Assert
         var still = await AuditDatesAsync(options, "1");
@@ -591,7 +591,7 @@ public class FlatRepositoryTests
 
         // Act
         await repo.AddToRunAsync([flat]);
-        await repo.PublishSourceAsync("OhneMakler");
+        await repo.PublishSourceAsync("OhneMakler", await TestRuns.AddAsync(repoContext));
 
         // Assert
         await using var dbContext = new FlatsDbContext(options);
@@ -607,11 +607,11 @@ public class FlatRepositoryTests
         var options = CreateSqliteOptions();
         await using var repoContext = await CreateContextAsync(options);
         var repo = new FlatRepository(repoContext);
-        await PublishAsync(repo, CreateFlat("1"), CreateFlat("2"));
+        await PublishAsync(repoContext, repo, CreateFlat("1"), CreateFlat("2"));
 
         // Act
         await repo.AddToRunAsync([CreateFlat("1"), CreateFlat("3")]);
-        await repo.PublishSourceAsync("OhneMakler");
+        await repo.PublishSourceAsync("OhneMakler", await TestRuns.AddAsync(repoContext));
 
         // Assert
         repoContext.ChangeTracker.Entries().Should().BeEmpty();
@@ -624,7 +624,7 @@ public class FlatRepositoryTests
         var options = CreateSqliteOptions();
         await using var repoContext = await CreateContextAsync(options);
         var repo = new FlatRepository(repoContext);
-        await PublishAsync(repo, CreateFlat("published"));
+        await PublishAsync(repoContext, repo, CreateFlat("published"));
         await repo.AddToRunAsync([CreateFlat("leftover")]);
 
         // Act
@@ -645,7 +645,7 @@ public class FlatRepositoryTests
         var repo = new FlatRepository(repoContext);
         await repo.BeginRunAsync();
         await repo.AddToRunAsync([CreateFlat("1"), CreateFlat("2", source: "ImmobilienScout24")]);
-        await repo.PublishSourceAsync("OhneMakler");
+        await repo.PublishSourceAsync("OhneMakler", await TestRuns.AddAsync(repoContext));
 
         // Act
         await repo.DiscardRunAsync();
@@ -669,14 +669,19 @@ public class FlatRepositoryTests
         staging.Should().NotBeEmpty().And.Equal(live);
     }
 
-    /// <summary>Publishes the flats as a finished run would: stage, publish each source, empty the staging table.</summary>
-    private static async Task PublishAsync(FlatRepository repo, params Flat[] flats)
+    /// <summary>
+    /// Publishes the flats as a finished run would: stage, publish each source, empty the staging table. Returns the
+    /// run's id.
+    /// </summary>
+    private static async Task<int> PublishAsync(FlatsDbContext dbContext, FlatRepository repo, params Flat[] flats)
     {
+        var runId = await TestRuns.AddAsync(dbContext);
         await repo.BeginRunAsync();
         await repo.AddToRunAsync([.. flats]);
         foreach (var source in flats.Select(f => f.Source).Distinct())
-            await repo.PublishSourceAsync(source);
+            await repo.PublishSourceAsync(source, runId);
         await repo.DiscardRunAsync();
+        return runId;
     }
 
     private static async Task<(DateTime CreatedAtUtc, DateTime UpdatedAtUtc)> AuditDatesAsync(
@@ -703,6 +708,121 @@ public class FlatRepositoryTests
         Source = source,
     };
 
+    // ==================== ARCHIVE ====================
+
+    [Test]
+    public async Task PublishSourceAsync_ArchivesEveryPublishedFlatWithTheRun()
+    {
+        // Arrange
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatRepository(repoContext);
+        var flat = CreateFlat("1") with
+        {
+            PostalCode = "76131", District = "Oststadt", PriceEur = 300000, OriginalPriceEur = 320000, RoomsCount = 3,
+            LivingAreaSqm = 75, CommissionPercent = 3.57, Details = new FlatDetails { Heating = "Gas", BuildYear = 1976 },
+        };
+        var runId = await TestRuns.AddAsync(repoContext);
+
+        // Act
+        await repo.AddToRunAsync([flat, CreateFlat("2")]);
+        await repo.PublishSourceAsync("OhneMakler", runId);
+
+        // Assert
+        await using var dbContext = new FlatsDbContext(options);
+        var archived = await dbContext.FlatsArchive.OrderBy(a => a.ListingId).ToListAsync();
+        archived.Select(a => (a.ListingId, a.ScrapingHistoryId)).Should().Equal(("1", runId), ("2", runId));
+        archived[0].Should().BeEquivalentTo(ArchivedFlat.From(PublishedFlat.From(flat), runId), o => o
+            .Using<DateTime>(c => c.Subject.Should().BeCloseTo(c.Expectation, TimeSpan.FromMilliseconds(1))).WhenTypeIs<DateTime>());
+    }
+
+    [Test]
+    public async Task PublishSourceAsync_ArchivesOnlyThePublishedSourceAndNotTheRemovedFlats()
+    {
+        // Arrange: the previous run published OhneMakler 1; this run stages OhneMakler 2 and ImmobilienScout24 1
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatRepository(repoContext);
+        var firstRun = await PublishAsync(repoContext, repo, CreateFlat("1"));
+        var runId = await TestRuns.AddAsync(repoContext);
+        await repo.BeginRunAsync();
+        await repo.AddToRunAsync([CreateFlat("2"), CreateFlat("1", source: "ImmobilienScout24")]);
+
+        // Act: ImmobilienScout24 fails and is not published
+        await repo.PublishSourceAsync("OhneMakler", runId);
+
+        // Assert
+        await using var dbContext = new FlatsDbContext(options);
+        (await dbContext.FlatsArchive.Select(a => new { a.Source, a.ListingId, a.ScrapingHistoryId }).ToListAsync())
+            .Should().BeEquivalentTo([
+                new { Source = "OhneMakler", ListingId = "1", ScrapingHistoryId = firstRun },
+                new { Source = "OhneMakler", ListingId = "2", ScrapingHistoryId = runId },
+            ]);
+    }
+
+    [Test]
+    public async Task PublishSourceAsync_InTheNextRun_AddsRowsAndLeavesTheEarlierOnesAsTheyWere()
+    {
+        // Arrange
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatRepository(repoContext);
+        var firstRun = await PublishAsync(repoContext, repo, CreateFlat("1") with { PriceEur = 300000 });
+
+        // Act: the price dropped
+        var secondRun = await PublishAsync(repoContext, repo, CreateFlat("1") with { PriceEur = 280000 });
+
+        // Assert
+        await using var dbContext = new FlatsDbContext(options);
+        (await dbContext.FlatsArchive.OrderBy(a => a.ScrapingHistoryId).Select(a => new { a.ScrapingHistoryId, a.PriceEur }).ToListAsync())
+            .Should().Equal(new { ScrapingHistoryId = firstRun, PriceEur = (int?)300000 }, new { ScrapingHistoryId = secondRun, PriceEur = (int?)280000 });
+    }
+
+    [Test]
+    public async Task PublishSourceAsync_ArchivesTheFirstSeenTimeOfAFlatStillOffered()
+    {
+        // Arrange
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatRepository(repoContext);
+        await PublishAsync(repoContext, repo, CreateFlat("1"));
+        var firstSeen = await AuditDatesAsync(options, "1");
+
+        // Act
+        var secondRun = await PublishAsync(repoContext, repo, CreateFlat("1"), CreateFlat("2"));
+
+        // Assert
+        await using var dbContext = new FlatsDbContext(options);
+        var archived = await dbContext.FlatsArchive.Where(a => a.ScrapingHistoryId == secondRun).ToDictionaryAsync(a => a.ListingId);
+        var still = dbContext.Entry(archived["1"]);
+        still.Property<DateTime>("CreatedAtUtc").CurrentValue.Should().Be(firstSeen.CreatedAtUtc);
+        still.Property<DateTime>("UpdatedAtUtc").CurrentValue.Should().BeAfter(firstSeen.UpdatedAtUtc);
+        var added = dbContext.Entry(archived["2"]);
+        added.Property<DateTime>("CreatedAtUtc").CurrentValue.Should().Be((await AuditDatesAsync(options, "2")).CreatedAtUtc);
+    }
+
+    [Test]
+    public async Task PublishSourceAsync_WhenTheArchiveCannotBeWritten_PublishesNothing()
+    {
+        // Arrange: an unknown run fails the archive's foreign key
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatRepository(repoContext);
+        await PublishAsync(repoContext, repo, CreateFlat("1"));
+        await repo.BeginRunAsync();
+        await repo.AddToRunAsync([CreateFlat("2")]);
+
+        // Act
+        var publish = () => repo.PublishSourceAsync("OhneMakler", scrapingHistoryId: 999);
+
+        // Assert: one transaction, so FlatsSnapshots keeps the previous run; and nothing is left for the next save
+        await publish.Should().ThrowAsync<DbUpdateException>();
+        repoContext.ChangeTracker.Entries().Should().BeEmpty();
+        await using var dbContext = new FlatsDbContext(options);
+        (await dbContext.FlatsSnapshots.Select(s => s.ListingId).ToListAsync()).Should().Equal("1");
+        (await dbContext.FlatsArchive.Select(a => a.ListingId).ToListAsync()).Should().Equal("1");
+    }
+
     // ==================== PREVIEWS ====================
 
     [Test]
@@ -712,14 +832,14 @@ public class FlatRepositoryTests
         var options = CreateSqliteOptions();
         await using var repoContext = await CreateContextAsync(options);
         var repo = new FlatRepository(repoContext);
-        await PublishAsync(repo, CreateFlat("1"), CreateFlat("2"), CreateFlat("1", source: "ImmobilienScout24"));
+        await PublishAsync(repoContext, repo, CreateFlat("1"), CreateFlat("2"), CreateFlat("1", source: "ImmobilienScout24"));
         await new FlatPreviewRepository(repoContext).SaveAsync(
             [Preview("OhneMakler", "1"), Preview("OhneMakler", "2"), Preview("OhneMakler", "9"), Preview("ImmobilienScout24", "1")]);
 
         // Act: this run finds OhneMakler 2 and 3
         await repo.BeginRunAsync();
         await repo.AddToRunAsync([CreateFlat("2"), CreateFlat("3")]);
-        await repo.PublishSourceAsync("OhneMakler");
+        await repo.PublishSourceAsync("OhneMakler", await TestRuns.AddAsync(repoContext));
 
         // Assert: the other source's previews stay
         await using var dbContext = new FlatsDbContext(options);
@@ -734,7 +854,7 @@ public class FlatRepositoryTests
         var options = CreateSqliteOptions();
         await using var repoContext = await CreateContextAsync(options);
         var repo = new FlatRepository(repoContext);
-        await PublishAsync(repo, CreateFlat("1"), CreateFlat("2"), CreateFlat("1", source: "ImmobilienScout24"));
+        await PublishAsync(repoContext, repo, CreateFlat("1"), CreateFlat("2"), CreateFlat("1", source: "ImmobilienScout24"));
         await new FlatPreviewRepository(repoContext).SaveAsync([Preview("OhneMakler", "1")]);
 
         var result = await repo.GetCurrentOffersAsync();

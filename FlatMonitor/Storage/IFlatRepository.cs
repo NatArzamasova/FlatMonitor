@@ -23,10 +23,11 @@ public interface IFlatRepository
     Task AddToRunAsync(List<Flat> flats, CancellationToken ct = default);
 
     /// <summary>
-    /// Replaces the source's rows in FlatsSnapshots with the run's rows of that source, in one transaction.
-    /// A flat that was already there keeps its CreatedAtUtc. Returns the number of rows the source now has.
+    /// Replaces the source's rows in FlatsSnapshots with the run's rows of that source and adds them to FlatsArchive
+    /// as of run <paramref name="scrapingHistoryId"/> (ScrapingHistories), in one transaction. A flat that was
+    /// already there keeps its CreatedAtUtc, in the archive too. Returns the number of rows the source now has.
     /// </summary>
-    Task<int> PublishSourceAsync(string source, CancellationToken ct = default);
+    Task<int> PublishSourceAsync(string source, int scrapingHistoryId, CancellationToken ct = default);
 
     /// <summary>Ends a run: empties the staging table. FlatsSnapshots keeps whatever was published.</summary>
     Task DiscardRunAsync(CancellationToken ct = default);

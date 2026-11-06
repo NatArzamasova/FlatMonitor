@@ -80,6 +80,9 @@ public class ScrapeExecutionServiceTests
 [TestFixture]
 public class ScrapeExecutionServiceExecuteTests
 {
+    /// <summary>The run whose published flats are archived; mocked, so any id.</summary>
+    private const int RunId = 7;
+
     private Mock<IFlatRepository> _mockFlatRepository = null!;
     private Mock<IFlatAggregationRepository> _mockAggregationRepository = null!;
     private ListLogger<ScrapeExecutionService> _logger = null!;
@@ -96,8 +99,8 @@ public class ScrapeExecutionServiceExecuteTests
             .Callback(() => _calls.Add("begin")).Returns(Task.CompletedTask);
         _mockFlatRepository.Setup(r => r.AddToRunAsync(It.IsAny<List<Flat>>(), It.IsAny<CancellationToken>()))
             .Callback(() => _calls.Add("add")).Returns(Task.CompletedTask);
-        _mockFlatRepository.Setup(r => r.PublishSourceAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<string, CancellationToken>((source, _) => _calls.Add($"publish {source}")).ReturnsAsync(1);
+        _mockFlatRepository.Setup(r => r.PublishSourceAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Callback<string, int, CancellationToken>((source, _, _) => _calls.Add($"publish {source}")).ReturnsAsync(1);
         _mockFlatRepository.Setup(r => r.DiscardRunAsync(It.IsAny<CancellationToken>()))
             .Callback(() => _calls.Add("discard")).Returns(Task.CompletedTask);
         _mockAggregationRepository = new Mock<IFlatAggregationRepository>();
@@ -121,12 +124,13 @@ public class ScrapeExecutionServiceExecuteTests
         var service = CreateService(new FakeFlatScraper("OhneMakler") { Flats = [FakeFlatScraper.CreateFlat("1")] });
 
         // Act
-        var result = await service.ExecuteAsync();
+        var result = await service.ExecuteAsync(RunId);
 
         // Assert
         result.Success.Should().BeTrue();
         _calls.Should().Equal("begin", "add", "publish OhneMakler", "discard", "refresh");
         _logger.Messages.Should().Equal("Refreshing flat aggregations");
+        _mockFlatRepository.Verify(r => r.PublishSourceAsync("OhneMakler", RunId, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test]
@@ -138,7 +142,7 @@ public class ScrapeExecutionServiceExecuteTests
         var reported = new List<int>();
 
         // Act
-        var result = await service.ExecuteAsync(count =>
+        var result = await service.ExecuteAsync(RunId, count =>
         {
             reported.Add(count);
             return Task.CompletedTask;
@@ -158,7 +162,7 @@ public class ScrapeExecutionServiceExecuteTests
         var service = CreateService(failing, working);
 
         // Act
-        var result = await service.ExecuteAsync();
+        var result = await service.ExecuteAsync(RunId);
 
         // Assert
         result.Success.Should().BeFalse();
@@ -175,7 +179,7 @@ public class ScrapeExecutionServiceExecuteTests
         var service = CreateService(new FakeFlatScraper { Flats = [FakeFlatScraper.CreateFlat("1")] });
 
         // Act
-        var act = () => service.ExecuteAsync();
+        var act = () => service.ExecuteAsync(RunId);
 
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("Disk full");
@@ -187,8 +191,8 @@ public class ScrapeExecutionServiceExecuteTests
         // Arrange: the first source is published, then the second one (running in parallel) cancels the run
         using var cts = new CancellationTokenSource();
         var ohneMaklerPublished = new TaskCompletionSource();
-        _mockFlatRepository.Setup(r => r.PublishSourceAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<string, CancellationToken>((source, _) =>
+        _mockFlatRepository.Setup(r => r.PublishSourceAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Callback<string, int, CancellationToken>((source, _, _) =>
             {
                 _calls.Add($"publish {source}");
                 ohneMaklerPublished.TrySetResult();
@@ -206,7 +210,7 @@ public class ScrapeExecutionServiceExecuteTests
         var service = CreateService(published, canceled);
 
         // Act
-        var act = () => service.ExecuteAsync(cancellationToken: cts.Token);
+        var act = () => service.ExecuteAsync(RunId, cancellationToken: cts.Token);
 
         // Assert
         await act.Should().ThrowAsync<OperationCanceledException>();
@@ -233,7 +237,7 @@ public class ScrapeExecutionServiceExecuteTests
         var service = CreateService(scraper);
 
         // Act
-        var act = () => service.ExecuteAsync(cancellationToken: cts.Token);
+        var act = () => service.ExecuteAsync(RunId, cancellationToken: cts.Token);
 
         // Assert
         await act.Should().ThrowAsync<OperationCanceledException>();

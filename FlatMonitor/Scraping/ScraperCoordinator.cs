@@ -55,9 +55,13 @@ public sealed class ScraperCoordinator
     /// A callback rather than <see cref="IProgress{T}"/>: callers write it to the same DbContext, so it runs inside the
     /// database lock and must finish before the next database call.
     /// </param>
+    /// <param name="scrapingHistoryId">The run (ScrapingHistories) whose published flats are archived (FlatsArchive).</param>
     /// <param name="sources">The sources to scrape, by <see cref="IScraper.Source"/>; <c>null</c>: all. The others keep their rows.</param>
     public async Task<ScrapeSummary> ScrapeAllSourcesAsync(
-        Func<int, Task>? onBatchSaved = null, CancellationToken ct = default, IReadOnlyCollection<string>? sources = null)
+        int scrapingHistoryId,
+        Func<int, Task>? onBatchSaved = null,
+        CancellationToken ct = default,
+        IReadOnlyCollection<string>? sources = null)
     {
         var scrapers = sources == null ? _scrapers : _scrapers.Where(scraper => sources.Contains(scraper.Source));
         var database = new ScrapeDatabaseLock();
@@ -66,7 +70,7 @@ public sealed class ScraperCoordinator
         try
         {
             // Materialized first, so every source has started before the first one is awaited
-            var running = scrapers.Select(scraper => ScrapeAndPublishAsync(scraper, database, onBatchSaved, ct)).ToList();
+            var running = scrapers.Select(scraper => ScrapeAndPublishAsync(scraper, scrapingHistoryId, database, onBatchSaved, ct)).ToList();
             results = await Task.WhenAll(running);
         }
         finally
@@ -88,7 +92,7 @@ public sealed class ScraperCoordinator
 
     /// <summary>Scrapes one source and publishes it; any failure but cancellation is returned, not thrown.</summary>
     private async Task<SourceResult> ScrapeAndPublishAsync(
-        IScraper scraper, ScrapeDatabaseLock database, Func<int, Task>? onBatchSaved, CancellationToken ct)
+        IScraper scraper, int scrapingHistoryId, ScrapeDatabaseLock database, Func<int, Task>? onBatchSaved, CancellationToken ct)
     {
         // Lets every source start before the first one runs synchronously up to its first await
         await Task.Yield();
@@ -106,7 +110,7 @@ public sealed class ScraperCoordinator
                 return new SourceResult(scraper.Source, saved, $"{scraper.Source}: no flats found");
             }
 
-            var published = await database.RunAsync(() => _repository.PublishSourceAsync(scraper.Source, ct), ct);
+            var published = await database.RunAsync(() => _repository.PublishSourceAsync(scraper.Source, scrapingHistoryId, ct), ct);
             _logger.LogInformation("{Source}: published {Count} flats", scraper.Source, published);
             return new SourceResult(scraper.Source, saved, Error: null);
         }

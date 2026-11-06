@@ -38,10 +38,12 @@ public class ScrapeBackgroundServiceTests
 
         await using var dbContext = CreateDbContext();
         await dbContext.Database.EnsureCreatedAsync();
-        var repository = new FlatRepository(dbContext);
-        await repository.AddToRunAsync([FakeFlatScraper.CreateFlat("existing")]);
-        await repository.PublishSourceAsync("OhneMakler");
-        await repository.DiscardRunAsync();
+        // Written directly, not published: a publish needs a run, and the tests expect only the job's run
+        var existing = PublishedFlat.From(FakeFlatScraper.CreateFlat("existing"));
+        var entry = dbContext.FlatsSnapshots.Add(existing);
+        entry.Property("CreatedAtUtc").CurrentValue = DateTime.UtcNow.AddDays(-1);
+        entry.Property("UpdatedAtUtc").CurrentValue = DateTime.UtcNow.AddDays(-1);
+        await dbContext.SaveChangesAsync();
     }
 
     [TearDown]
@@ -93,6 +95,8 @@ public class ScrapeBackgroundServiceTests
         history.FlatsScrapedCount.Should().Be(2);
         history.EndTimeUtc.Should().NotBeNull();
         (await dbContext.FlatsSnapshots.Select(s => s.ListingId).ToListAsync()).Should().BeEquivalentTo("1", "2");
+        (await dbContext.FlatsArchive.Select(a => new { a.ListingId, a.ScrapingHistoryId }).ToListAsync())
+            .Should().BeEquivalentTo([new { ListingId = "1", ScrapingHistoryId = history.Id }, new { ListingId = "2", ScrapingHistoryId = history.Id }]);
     }
 
     [Test]
@@ -169,6 +173,8 @@ public class ScrapeBackgroundServiceTests
         (await dbContext.FlatsSnapshots.Select(s => s.Source + "/" + s.ListingId).OrderBy(k => k).ToListAsync())
             .Should().Equal("ImmobilienScout24/2", "OhneMakler/existing");
         (await dbContext.FlatsSnapshotsStaging.AnyAsync()).Should().BeFalse();
+        (await dbContext.FlatsArchive.Select(a => a.Source + "/" + a.ListingId).ToListAsync())
+            .Should().Equal("ImmobilienScout24/2");
     }
 
     [Test]
