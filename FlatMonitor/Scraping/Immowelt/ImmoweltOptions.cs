@@ -24,6 +24,9 @@ public sealed record ImmoweltOptions
     /// <summary>Opening pages back to back looks like a robot to DataDome ("übermenschliche Geschwindigkeit").</summary>
     public const int DefaultPauseBetweenPagesMs = 5_000;
 
+    /// <summary>The longest pause: each pause is drawn at random between the shortest and this.</summary>
+    public const int DefaultMaxPauseBetweenPagesMs = 10_000;
+
     /// <summary>Time for the user to pass DataDome's robot check in the scraper's tab.</summary>
     public const int DefaultRobotCheckWaitSeconds = 600;
 
@@ -51,8 +54,14 @@ public sealed record ImmoweltOptions
     /// <summary>The first results page; the scraper opens the further pages by URL (<see cref="ImmoweltPages.PageUrl"/>).</summary>
     public string SearchUrl { get; init; } = DefaultSearchUrl;
 
-    /// <summary>The pause between two pages, list pages and exposes alike.</summary>
+    /// <summary>
+    /// The shortest pause between two pages, list pages and exposes alike. Each pause is drawn at random between this
+    /// and <see cref="MaxPauseBetweenPagesMs"/> (<see cref="NextPause"/>).
+    /// </summary>
     public int PauseBetweenPagesMs { get; init; } = DefaultPauseBetweenPagesMs;
+
+    /// <summary>The longest pause between two pages; not below <see cref="PauseBetweenPagesMs"/> (equal: a fixed pause).</summary>
+    public int MaxPauseBetweenPagesMs { get; init; } = DefaultMaxPauseBetweenPagesMs;
 
     /// <summary>
     /// When DataDome shows its robot check, how long the scraper keeps the tab open and waits for the user to pass it
@@ -63,12 +72,22 @@ public sealed record ImmoweltOptions
     /// <summary>Saves a page without data (for example the DataDome guard) to the temp directory.</summary>
     public bool SaveDebugPages { get; init; }
 
+    /// <summary>
+    /// The pause before the next page: a whole number of milliseconds from <see cref="PauseBetweenPagesMs"/> to
+    /// <see cref="MaxPauseBetweenPagesMs"/>, both included (a maximum below the minimum counts as the minimum).
+    /// </summary>
+    public TimeSpan NextPause(Random? random = null)
+    {
+        var max = Math.Max(PauseBetweenPagesMs, MaxPauseBetweenPagesMs);
+        return TimeSpan.FromMilliseconds((random ?? Random.Shared).NextInt64(PauseBetweenPagesMs, (long)max + 1));
+    }
+
     public static ImmoweltOptions FromConfiguration(IConfiguration configuration)
     {
         var section = configuration.GetSection(SectionName);
         var defaults = new ImmoweltOptions();
 
-        return new ImmoweltOptions
+        var options = new ImmoweltOptions
         {
             CdpUrl = ReadString(section, nameof(CdpUrl)) ?? defaults.CdpUrl,
             LaunchChrome = ReadBool(section, nameof(LaunchChrome)) ?? defaults.LaunchChrome,
@@ -76,9 +95,16 @@ public sealed record ImmoweltOptions
             ChromeUserDataDir = ReadString(section, nameof(ChromeUserDataDir)) ?? defaults.ChromeUserDataDir,
             SearchUrl = ReadString(section, nameof(SearchUrl)) ?? defaults.SearchUrl,
             PauseBetweenPagesMs = ReadNonNegativeInt(section, nameof(PauseBetweenPagesMs)) ?? defaults.PauseBetweenPagesMs,
+            MaxPauseBetweenPagesMs = ReadNonNegativeInt(section, nameof(MaxPauseBetweenPagesMs)) ?? defaults.MaxPauseBetweenPagesMs,
             RobotCheckWaitSeconds = ReadNonNegativeInt(section, nameof(RobotCheckWaitSeconds)) ?? defaults.RobotCheckWaitSeconds,
             SaveDebugPages = ReadBool(section, nameof(SaveDebugPages)) ?? defaults.SaveDebugPages,
         };
+
+        return options.MaxPauseBetweenPagesMs >= options.PauseBetweenPagesMs
+            ? options
+            : throw new InvalidOperationException(
+                $"Configuration '{SectionName}:{nameof(MaxPauseBetweenPagesMs)}' ({options.MaxPauseBetweenPagesMs}) must not be " +
+                $"below '{SectionName}:{nameof(PauseBetweenPagesMs)}' ({options.PauseBetweenPagesMs}).");
     }
 
     private static string? ReadString(IConfiguration section, string key) =>

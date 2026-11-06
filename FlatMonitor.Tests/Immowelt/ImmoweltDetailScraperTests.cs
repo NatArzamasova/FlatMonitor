@@ -47,7 +47,7 @@ public class ImmoweltDetailScraperTests
         _page.Setup(p => p.BringToFrontAsync()).Returns(Task.CompletedTask);
 
         _scraper = new ImmoweltDetailScraper(
-            _page.Object, new ImmoweltOptions { PauseBetweenPagesMs = 0, RobotCheckWaitSeconds = 0 }, _htmlPages, _logger);
+            _page.Object, new ImmoweltOptions { PauseBetweenPagesMs = 0, MaxPauseBetweenPagesMs = 0, RobotCheckWaitSeconds = 0 }, _htmlPages, _logger);
     }
 
     [TearDown]
@@ -166,7 +166,7 @@ public class ImmoweltDetailScraperTests
     [Test]
     public async Task EnrichAsync_RobotCheckPassedInTheTab_AppliesTheExposeAndKeepsOpeningExposes()
     {
-        var options = new ImmoweltOptions { PauseBetweenPagesMs = 0, RobotCheckWaitSeconds = 10 };
+        var options = new ImmoweltOptions { PauseBetweenPagesMs = 0, MaxPauseBetweenPagesMs = 0, RobotCheckWaitSeconds = 10 };
         var scraper = new ImmoweltDetailScraper(_page.Object, options, _htmlPages, _logger,
             new ImmoweltRobotCheck(_page.Object, options, _logger, TimeSpan.FromMilliseconds(1)));
         var reads = 0;

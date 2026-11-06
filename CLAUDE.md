@@ -56,7 +56,7 @@ There is no `report` command: statistics are served by the web API (see [BUILD_A
 - **Immowelt needs the user's Chrome** — DataDome blocks `HttpClient` and Playwright's own browser, so the Immowelt
   scraper attaches to the installed Chrome over CDP (`127.0.0.1:9222`), starting it if needed (own profile
   `FlatMonitorChrome`). Never add automation/headless flags or evasion. Pages are read from their JSON data scripts,
-  5 s apart (3 s got the exposes blocked by DataDome). On DataDome's robot check the scraper brings its tab to the
+  5 to 10 s apart, at random (3 s got the exposes blocked by DataDome). On DataDome's robot check the scraper brings its tab to the
   front and waits (`RobotCheckWaitSeconds`, 10 min) for the user to solve it; it never solves it itself. See [FlatMonitor/immowelt.md](FlatMonitor/immowelt.md) and [BUILD_AND_RUN.md](BUILD_AND_RUN.md#immowelt-and-chrome)
 - **Keep-awake during a scrape** — `ScrapeRunService` holds a Windows power request (`KeepSystemAwake`) for the
   whole run: Modern Standby cut the Chrome connection mid-run. A no-op outside Windows

@@ -8,7 +8,7 @@ using Microsoft.Playwright;
 
 /// <summary>
 /// Enriches a card with its expose page, opened by URL in the scraper's tab after
-/// <see cref="ImmoweltOptions.PauseBetweenPagesMs"/>. Saves each expose through the <see cref="HtmlPageArchive"/>
+/// a pause of <see cref="ImmoweltOptions.NextPause"/>. Saves each expose through the <see cref="HtmlPageArchive"/>
 /// before parsing it, so a page that fails to parse is kept. On DataDome's robot check it waits for the user to pass
 /// it (<see cref="ImmoweltRobotCheck"/>). One instance per run: if the check is not passed, the run's remaining flats
 /// keep their card data without opening their exposes.
@@ -54,7 +54,7 @@ internal sealed class ImmoweltDetailScraper
             return card;
 
         // Every expose follows another page (a results page or the previous expose)
-        await Task.Delay(_options.PauseBetweenPagesMs, ct);
+        await Task.Delay(_options.NextPause(), ct);
 
         _logger.LogDebug("Immowelt: listing {ListingId}: opening expose {Url}", card.ListingId, card.Url);
         var gotoOptions = new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded, Timeout = NavigationTimeoutMs };

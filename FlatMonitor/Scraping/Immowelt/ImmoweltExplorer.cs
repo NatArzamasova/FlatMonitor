@@ -20,7 +20,7 @@ public sealed class ImmoweltExplorer
     /// <summary>
     /// Pages opened back to back look like a robot to DataDome ("übermenschliche Geschwindigkeit"): the scraper's default.
     /// </summary>
-    private const int PauseBetweenPagesMs = ImmoweltOptions.DefaultPauseBetweenPagesMs;
+    private static readonly ImmoweltOptions Pauses = new();
 
     private readonly string _outputDirectory;
     private readonly bool _headless;
@@ -66,9 +66,9 @@ public sealed class ImmoweltExplorer
             return false;
         }
 
-        await Task.Delay(PauseBetweenPagesMs, ct);
+        await Task.Delay(Pauses.NextPause(), ct);
         await OpenAndSaveAsync(page, SearchUrl + "&page=2", "list_page2", waitForExposeLinks: true, ct);
-        await Task.Delay(PauseBetweenPagesMs, ct);
+        await Task.Delay(Pauses.NextPause(), ct);
         await OpenAndSaveAsync(page, firstPage.ExposeUrls[0], "expose", waitForExposeLinks: false, ct);
         return true;
     }

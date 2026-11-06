@@ -40,7 +40,7 @@ public class ImmoweltFlatsPageFetcherTests
     }
 
     private ImmoweltFlatsPageFetcher CreateFetcher() =>
-        new(_page.Object, new ImmoweltOptions { SearchUrl = SearchUrl, PauseBetweenPagesMs = 0, RobotCheckWaitSeconds = 0 },
+        new(_page.Object, new ImmoweltOptions { SearchUrl = SearchUrl, PauseBetweenPagesMs = 0, MaxPauseBetweenPagesMs = 0, RobotCheckWaitSeconds = 0 },
             NullLogger.Instance);
 
     private static string PageUrl(int page) => ImmoweltPages.PageUrl(SearchUrl, page);
@@ -79,7 +79,7 @@ public class ImmoweltFlatsPageFetcherTests
     [Test]
     public async Task FetchAllPagesAsync_RobotCheckPassedInTheTab_GoesOnWithAllPages()
     {
-        var options = new ImmoweltOptions { SearchUrl = SearchUrl, PauseBetweenPagesMs = 0, RobotCheckWaitSeconds = 10 };
+        var options = new ImmoweltOptions { SearchUrl = SearchUrl, PauseBetweenPagesMs = 0, MaxPauseBetweenPagesMs = 0, RobotCheckWaitSeconds = 10 };
         var fetcher = new ImmoweltFlatsPageFetcher(_page.Object, options, NullLogger.Instance,
             new ImmoweltRobotCheck(_page.Object, options, NullLogger.Instance, TimeSpan.FromMilliseconds(1)));
         var reads = 0;

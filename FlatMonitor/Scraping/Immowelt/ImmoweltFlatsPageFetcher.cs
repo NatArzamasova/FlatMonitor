@@ -35,7 +35,7 @@ internal sealed class ImmoweltFlatsPageFetcher
 
     /// <summary>
     /// Yields results page 1, then pages 2..⌈totalCount / <see cref="PageSize"/>⌉ (at most <see cref="MaxPages"/>),
-    /// with <see cref="ImmoweltOptions.PauseBetweenPagesMs"/> between two pages. On DataDome's robot check it waits for
+    /// with a pause of <see cref="ImmoweltOptions.NextPause"/> between two pages. On DataDome's robot check it waits for
     /// the user to pass it (<see cref="ImmoweltRobotCheck"/>). A page without search data (the check not passed, a
     /// changed page) throws, on page 1 as on a later page: stopping early would look like a successful scrape with
     /// fewer flats.
@@ -53,7 +53,7 @@ internal sealed class ImmoweltFlatsPageFetcher
 
         for (var pageNumber = 2; pageNumber <= lastPage; pageNumber++)
         {
-            await Task.Delay(_options.PauseBetweenPagesMs, ct);
+            await Task.Delay(_options.NextPause(), ct);
             yield return await FetchPageAsync(pageNumber, ct);
         }
     }

@@ -43,7 +43,8 @@ Consequences:
 - Pause between pages (5 s in the spike; configurable). Opening pages back to back is what DataDome calls
   "übermenschliche Geschwindigkeit". ~9 list pages + ~270 exposes ≈ 25 min per run. 5 s passed a full run
   (run 53, 2026-11-02, ~0.6 s of each 5.6 s was loading). 3 s (≈ 15 min) was tried next and DataDome blocked the
-  exposes mid-run (2026-11-04), so the default is back at **5 s** (`Scrapers:Immowelt:PauseBetweenPagesMs`).
+  exposes mid-run (2026-11-04), so the pause is back at 5 s at least, now drawn at random from **5 to 10 s**
+  (`Scrapers:Immowelt:PauseBetweenPagesMs`, `MaxPauseBetweenPagesMs`): ≈ 35 to 40 min per run.
 - No further evasion (fingerprint spoofing, captcha services, proxies). If DataDome blocks the attached Chrome during
   normal runs, drop immowelt as a source rather than escalate.
 
@@ -160,7 +161,7 @@ Some listings publish a street (`location.address.street`, e.g. "Yorckstraße 49
 
 ```
 Scraping/Immowelt/
-├── ImmoweltOptions.cs                (CdpUrl, SearchUrl, PauseBetweenPagesMs, SaveDebugPages)
+├── ImmoweltOptions.cs                (CdpUrl, SearchUrl, PauseBetweenPagesMs, MaxPauseBetweenPagesMs, SaveDebugPages)
 ├── ImmoweltBrowser.cs                (attach over CDP, open a tab; disposing closes only the tab)
 ├── ImmoweltScraper.cs                (FlatScraper; Session over one tab)
 ├── ImmoweltPages.cs                  (SourceName, PageUrl(searchUrl, n), ReadDataScript(html, name))
