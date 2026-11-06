@@ -1,6 +1,6 @@
 # Flats Archive: Implementation Plan
 
-**Status:** planned, nothing implemented yet.
+**Status:** step 1 implemented (.NET: 790 tests passed).
 
 ## Goal
 
@@ -101,8 +101,10 @@ The frontend derives "days listed" from the two dates; there's no need to store 
 The migration fills the archive with what we have today, so the tab and analyses don't start from nothing:
 
 - `FlatPreviewsArchive` ← all of `FlatPreviews` (`INSERT … SELECT`).
-- `FlatsArchive` ← all of `FlatsSnapshots`. Each row gets the latest `Successful`/`PartialFailed` run with
-  `StartTimeUtc <= ScrapedAtUtc`, which is the run that published it.
+- `FlatsArchive` ← all of `FlatsSnapshots`. Each row gets the latest run with `StartTimeUtc <= ScrapedAtUtc`, which
+  is the run that published it. Its status doesn't matter: runs never overlap, and a canceled or failed run may
+  still have published sources. A flat older than every run is left out (none in practice), because the run id is
+  part of the key.
 
 Flats removed before this feature are gone, so the archive history starts with this migration.
 
@@ -130,19 +132,25 @@ Flats removed before this feature are gone, so the archive history starts with t
 
 ## Steps
 
-### 1. Backend model and migration
+### 1. Backend model and migration ✅ DONE
 
 - `ArchivedFlat : FlatRecord` with `int ScrapingHistoryId` (`Models/FlatRecord.cs`) and `static From(FlatRecord, int runId)`.
-- `FlatRecordConfiguration<T>`: make the key and the unique index overridable (`protected virtual ConfigureKey`), so
+- `FlatRecordConfiguration<T>`: the key and the unique index are overridable (`protected virtual ConfigureKey`), so
   `ArchivedFlatConfiguration` (table `FlatsArchive`, prefix `idx_Archive_`) keys on `(Source, ListingId,
-  ScrapingHistoryId)`, indexes `ScrapingHistoryId`, and has no `(Source, Url, Address)` unique index. The other two
-  tables stay as they are.
-- `ArchivedFlatPreview` (or `FlatPreview` mapped a second time via a shared configuration base) → table
-  `FlatPreviewsArchive`.
+  ScrapingHistoryId)` and has no `(Source, Url, Address)` unique index. The other two tables are unchanged, and the
+  migration doesn't touch them.
+- `ScrapingHistoryId` is a foreign key to `ScrapingHistories` with `Restrict`: a run that has archived flats can't
+  be deleted. Its index is `idx_Archive_ScrapingHistoryId`.
+- `FlatPreviewRecord`: a new abstract base of `FlatPreview` and `ArchivedFlatPreview` (`static From(FlatPreviewRecord)`),
+  mapped by the shared `FlatPreviewRecordConfiguration<T>` → tables `FlatPreviews` and `FlatPreviewsArchive`. There's
+  no foreign key to `FlatsArchive`.
 - `FlatsDbContext`: `DbSet<ArchivedFlat> FlatsArchive`, `DbSet<ArchivedFlatPreview> FlatPreviewsArchive`.
-- Migration `AddFlatsArchive` with the backfill SQL above (`migrationBuilder.Sql`).
-- Tests: the model has both tables with the intended keys and indexes; the backfill on a seeded SQLite database
-  assigns the right run ids and copies every preview.
+- Migration `20261106075202_AddFlatsArchive` with the backfill SQL above (`migrationBuilder.Sql`).
+- Tests: `Models/FlatRecordTests`, `Models/FlatPreviewTests` (`From` copies every field);
+  `Storage/FlatsArchiveModelTests` (keys, indexes, foreign key, same columns as `FlatsSnapshots` plus the run id,
+  the other tables keep their keys, two runs of a flat side by side, unknown run rejected);
+  `Storage/AddFlatsArchiveMigrationTests` (run per flat across statuses, flat older than every run left out,
+  values and first-seen time kept, previews copied, current tables kept).
 
 ### 2. Archive at publish time
 

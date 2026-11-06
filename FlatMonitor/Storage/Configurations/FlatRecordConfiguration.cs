@@ -35,6 +35,36 @@ internal sealed class StagedFlatConfiguration : FlatRecordConfiguration<StagedFl
     }
 }
 
+/// <summary>
+/// The FlatsArchive table: one row per flat per run that published it, never updated or deleted. Same columns as
+/// FlatsSnapshots plus the run's id; keyed by (Source, ListingId, ScrapingHistoryId), which also serves reading one
+/// flat's rows. No (Source, Url, Address) unique index: the same flat is in every run.
+/// </summary>
+internal sealed class ArchivedFlatConfiguration : FlatRecordConfiguration<ArchivedFlat>
+{
+    public ArchivedFlatConfiguration() : base("FlatsArchive", indexPrefix: "idx_Archive_")
+    {
+    }
+
+    protected override void ConfigureKey(EntityTypeBuilder<ArchivedFlat> builder)
+    {
+        builder.HasKey(a => new { a.Source, a.ListingId, a.ScrapingHistoryId });
+    }
+
+    protected override void ConfigureIndexes(EntityTypeBuilder<ArchivedFlat> builder)
+    {
+        // Restrict: a run with archived flats cannot be deleted, so the archive never loses rows by accident
+        builder.HasOne<ScrapingHistory>()
+            .WithMany()
+            .HasForeignKey(a => a.ScrapingHistoryId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // The foreign key's index, for reading one run's rows
+        builder.HasIndex(a => a.ScrapingHistoryId)
+            .HasDatabaseName("idx_Archive_ScrapingHistoryId");
+    }
+}
+
 /// <summary>The columns of a flats table, its details flattened into the same row.</summary>
 internal abstract class FlatRecordConfiguration<T> : IEntityTypeConfiguration<T> where T : FlatRecord
 {
@@ -47,6 +77,18 @@ internal abstract class FlatRecordConfiguration<T> : IEntityTypeConfiguration<T>
         _indexPrefix = indexPrefix;
     }
 
+    /// <summary>
+    /// The key and the unique index: by default one row per (Source, ListingId), unique by (Source, Url, Address).
+    /// </summary>
+    protected virtual void ConfigureKey(EntityTypeBuilder<T> builder)
+    {
+        builder.HasKey(s => new { s.Source, s.ListingId });
+
+        builder.HasIndex(s => new { s.Source, s.Url, s.Address })
+            .IsUnique()
+            .HasDatabaseName($"{_indexPrefix}Source_Url_Address");
+    }
+
     /// <summary>Indexes beyond the key and the unique index; SQLite index names are per database.</summary>
     protected virtual void ConfigureIndexes(EntityTypeBuilder<T> builder)
     {
@@ -54,7 +96,7 @@ internal abstract class FlatRecordConfiguration<T> : IEntityTypeConfiguration<T>
 
     public void Configure(EntityTypeBuilder<T> builder)
     {
-        builder.HasKey(s => new { s.Source, s.ListingId });
+        ConfigureKey(builder);
         builder.ToTable(_table);
 
         builder.Property(s => s.Source)
@@ -142,11 +184,6 @@ internal abstract class FlatRecordConfiguration<T> : IEntityTypeConfiguration<T>
                 .HasColumnName("Availability")
                 .HasMaxLength(100);
         });
-
-        // Indexes
-        builder.HasIndex(s => new { s.Source, s.Url, s.Address })
-            .IsUnique()
-            .HasDatabaseName($"{_indexPrefix}Source_Url_Address");
 
         ConfigureIndexes(builder);
 

@@ -1,9 +1,10 @@
 namespace FlatMonitor.Models;
 
 /// <summary>
-/// A <see cref="Flat"/> as stored in a flats table. Both tables have the same columns:
-/// <see cref="PublishedFlat"/> (FlatsSnapshots, what the API serves) and <see cref="StagedFlat"/>
-/// (FlatsSnapshots_Staging, the running scrape until its sources are published).
+/// A <see cref="Flat"/> as stored in a flats table. All three tables have the same columns:
+/// <see cref="PublishedFlat"/> (FlatsSnapshots, what the API serves), <see cref="StagedFlat"/>
+/// (FlatsSnapshots_Staging, the running scrape until its sources are published) and <see cref="ArchivedFlat"/>
+/// (FlatsArchive, every run's published flats; it adds the run's id).
 /// </summary>
 public abstract class FlatRecord
 {
@@ -85,6 +86,29 @@ public sealed class PublishedFlat : FlatRecord
         var published = new PublishedFlat { Source = record.Source, ListingId = record.ListingId, ScrapedAtUtc = record.ScrapedAtUtc };
         published.UpdateFrom(record);
         return published;
+    }
+}
+
+/// <summary>
+/// A row of the FlatsArchive table: a flat as one scrape run published it. Every run adds a row per published flat;
+/// rows are never updated or deleted, so the table keeps every run's data for later analysis.
+/// </summary>
+public sealed class ArchivedFlat : FlatRecord
+{
+    /// <summary>The run (ScrapingHistories) that published the flat; with Source and ListingId the row's key.</summary>
+    public required int ScrapingHistoryId { get; init; }
+
+    public static ArchivedFlat From(FlatRecord record, int scrapingHistoryId)
+    {
+        var archived = new ArchivedFlat
+        {
+            Source = record.Source,
+            ListingId = record.ListingId,
+            ScrapedAtUtc = record.ScrapedAtUtc,
+            ScrapingHistoryId = scrapingHistoryId,
+        };
+        archived.UpdateFrom(record);
+        return archived;
     }
 }
 

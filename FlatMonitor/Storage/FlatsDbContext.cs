@@ -11,6 +11,8 @@ public class FlatsDbContext : DbContext
     public DbSet<DailyFlatAggregation> FlatAggregations { get; set; }
     public DbSet<FilterPreset> FilterPresets { get; set; }
     public DbSet<FlatPreview> FlatPreviews { get; set; }
+    public DbSet<ArchivedFlat> FlatsArchive { get; set; }
+    public DbSet<ArchivedFlatPreview> FlatPreviewsArchive { get; set; }
 
     public FlatsDbContext(DbContextOptions<FlatsDbContext> options) : base(options)
     {
