@@ -737,6 +737,33 @@ public class FlatRepositoryTests
     }
 
     [Test]
+    public async Task PublishSourceAsync_WithDetails_ArchivesWithoutEfWarnings()
+    {
+        // Arrange: a flat still offered (its row is updated) and a new one, both with details; EF's warnings are kept
+        var warnings = new List<string>();
+        var options = new DbContextOptionsBuilder<FlatsDbContext>()
+            .UseSqlite($"Data Source={Path.Combine(Path.GetTempPath(), $"test_{Guid.NewGuid()}.db")}")
+            .LogTo(warnings.Add, Microsoft.Extensions.Logging.LogLevel.Warning)
+            .Options;
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatRepository(repoContext);
+        await PublishAsync(repoContext, repo, CreateFlat("1") with { Details = new FlatDetails { Heating = "Gas" } });
+        warnings.Clear();
+
+        // Act
+        await PublishAsync(repoContext, repo,
+            CreateFlat("1") with { Details = new FlatDetails { Heating = "Öl" } },
+            CreateFlat("2") with { Details = new FlatDetails { Heating = "Fernwärme" } });
+
+        // Assert: e.g. "The same entity is being tracked as different entity types" (10001) for shared details
+        warnings.Should().BeEmpty();
+        await using var dbContext = new FlatsDbContext(options);
+        (await dbContext.FlatsArchive.OrderBy(a => a.ScrapingHistoryId).ThenBy(a => a.ListingId)
+                .Select(a => a.ListingId + " " + a.Details!.Heating).ToListAsync())
+            .Should().Equal("1 Gas", "1 Öl", "2 Fernwärme");
+    }
+
+    [Test]
     public async Task PublishSourceAsync_ArchivesOnlyThePublishedSourceAndNotTheRemovedFlats()
     {
         // Arrange: the previous run published OhneMakler 1; this run stages OhneMakler 2 and ImmobilienScout24 1

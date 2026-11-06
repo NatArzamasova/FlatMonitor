@@ -108,6 +108,9 @@ public sealed class ArchivedFlat : FlatRecord
             ScrapingHistoryId = scrapingHistoryId,
         };
         archived.UpdateFrom(record);
+        // Its own copy: EF tracks the details as owned by their row, and one instance owned by the published and the
+        // archived row would be tracked as both (warning 10001 on every publish)
+        archived.Details = record.Details?.Copy();
         return archived;
     }
 }

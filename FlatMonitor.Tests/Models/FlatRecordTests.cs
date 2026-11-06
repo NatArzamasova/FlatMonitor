@@ -35,4 +35,24 @@ public class FlatRecordTests
         archived.ScrapingHistoryId.Should().Be(75);
         archived.Should().BeEquivalentTo(published);
     }
+
+    [Test]
+    public void ArchivedFlatFrom_GivesTheRowItsOwnDetails()
+    {
+        // EF tracks owned details per owner: one instance in two rows is tracked as both
+        var published = Published();
+
+        var archived = ArchivedFlat.From(published, scrapingHistoryId: 75);
+
+        archived.Details.Should().NotBeSameAs(published.Details);
+        archived.Details.Should().BeEquivalentTo(published.Details);
+    }
+
+    [Test]
+    public void ArchivedFlatFrom_WithoutDetails_HasNone()
+    {
+        var published = PublishedFlat.From(new Flat { Source = "OhneMakler", ListingId = "1", ScrapedAtUtc = DateTime.UtcNow });
+
+        ArchivedFlat.From(published, scrapingHistoryId: 75).Details.Should().BeNull();
+    }
 }
