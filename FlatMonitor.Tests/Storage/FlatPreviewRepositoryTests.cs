@@ -189,6 +189,26 @@ public class FlatPreviewRepositoryTests
     }
 
     [Test]
+    public async Task GetArchivedAsync_ReturnsTheArchivedPhoto_AlsoAfterTheCurrentOneIsGone()
+    {
+        await _repository.SaveAsync([Preview("1", "https://pictures.example/1.jpg", [0xFF, 0xD8])]);
+        await _dbContext.FlatPreviews.ExecuteDeleteAsync();
+
+        var archived = await _repository.GetArchivedAsync("OhneMakler", "1");
+
+        archived.Should().NotBeNull();
+        archived!.Data.Should().Equal(0xFF, 0xD8);
+        archived.ContentType.Should().Be("image/jpeg");
+        (await _repository.GetAsync("OhneMakler", "1")).Should().BeNull();
+    }
+
+    [Test]
+    public async Task GetArchivedAsync_WithoutArchivedPhoto_IsNull()
+    {
+        (await _repository.GetArchivedAsync("OhneMakler", "missing")).Should().BeNull();
+    }
+
+    [Test]
     public async Task GetAsync_WithoutPreview_IsNull()
     {
         (await _repository.GetAsync("OhneMakler", "missing")).Should().BeNull();

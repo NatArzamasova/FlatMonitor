@@ -30,9 +30,21 @@ public class FlatsController : ApiControllerBase
     /// </summary>
     [HttpGet("{source}/{listingId}/preview")]
     [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Client)]
-    public async Task<IActionResult> GetPreviewAsync(string source, string listingId, CancellationToken ct = default)
+    public async Task<IActionResult> GetPreviewAsync(string source, string listingId, CancellationToken ct = default) =>
+        PreviewFile(await _previewRepository.GetAsync(source, listingId, ct));
+
+    /// <summary>
+    /// The archived (first) title photo of a flat, for an archived offer with <see cref="FlatOffer.HasPreview"/>; like
+    /// <see cref="GetPreviewAsync"/> otherwise.
+    /// </summary>
+    [HttpGet("{source}/{listingId}/archived-preview")]
+    [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Client)]
+    public async Task<IActionResult> GetArchivedPreviewAsync(string source, string listingId, CancellationToken ct = default) =>
+        PreviewFile(await _previewRepository.GetArchivedAsync(source, listingId, ct));
+
+    /// <summary>The photo with its stored type, if that is a photo format (<see cref="FlatPreview.ContentTypes"/>); else 404.</summary>
+    private IActionResult PreviewFile(FlatPreviewRecord? preview)
     {
-        var preview = await _previewRepository.GetAsync(source, listingId, ct);
         if (preview == null || !FlatPreview.ContentTypes.Contains(preview.ContentType))
             return NotFound();
 
@@ -52,6 +64,14 @@ public class FlatsController : ApiControllerBase
     {
         var offers = await _flatRepository.GetCurrentOffersAsync(ct);
         return Ok(Success(offers, "Current offers fetched successfully"));
+    }
+
+    /// <summary>The flats no longer offered, most recently seen first (<see cref="ArchivedOffer"/>).</summary>
+    [HttpGet("archived-offers")]
+    public async Task<ActionResult<ApiResponse<List<ArchivedOffer>>>> GetArchivedOffersAsync(CancellationToken ct = default)
+    {
+        var offers = await _flatRepository.GetArchivedOffersAsync(ct);
+        return Ok(Success(offers, "Archived offers fetched successfully"));
     }
 
     [HttpGet("aggregated")]

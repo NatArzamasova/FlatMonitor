@@ -823,6 +823,147 @@ public class FlatRepositoryTests
         (await dbContext.FlatsArchive.Select(a => a.ListingId).ToListAsync()).Should().Equal("1");
     }
 
+    // ==================== ARCHIVED OFFERS ====================
+
+    private static DateTime Scraped(int day) => new(2026, 11, day, 8, 0, 0, DateTimeKind.Utc);
+
+    [Test]
+    public async Task GetArchivedOffersAsync_ListsTheRemovedFlatsWithTheirLatestValues_MostRecentlySeenFirst()
+    {
+        // Arrange: 1 is seen in two runs (its price drops), 2 in one; both are gone in the third run
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatRepository(repoContext);
+        await PublishAsync(repoContext, repo,
+            CreateFlat("1") with { PriceEur = 300000, ScrapedAtUtc = Scraped(1) },
+            CreateFlat("2") with { ScrapedAtUtc = Scraped(1) });
+        var firstSeen = await AuditDatesAsync(options, "1");
+        await PublishAsync(repoContext, repo,
+            CreateFlat("1") with
+            {
+                District = "Oststadt", RoomsCount = 3, PriceEur = 280000, OriginalPriceEur = 300000,
+                LivingAreaSqm = 75, CommissionPercent = 3.57, ScrapedAtUtc = Scraped(2),
+                Details = new FlatDetails { Availability = "sofort", EnergyEfficiencyClass = "B", ServiceChargeEur = 250 },
+            },
+            CreateFlat("3") with { ScrapedAtUtc = Scraped(2) });
+        await PublishAsync(repoContext, repo, CreateFlat("3") with { ScrapedAtUtc = Scraped(3) });
+
+        // Act
+        var result = await repo.GetArchivedOffersAsync();
+
+        // Assert
+        result.Select(o => o.ListingId).Should().Equal("1", "2");
+        var offer = result[0];
+        offer.Should().BeEquivalentTo(new
+        {
+            Source = "OhneMakler", ListingId = "1", Url = "/immobilie/1/", District = "Oststadt", RoomsCount = 3.0,
+            PriceEur = 280000, OriginalPriceEur = 300000, PricePerMeter = 3733, LivingAreaSqm = 75.0, CommissionPercent = 3.57,
+            Availability = "sofort", EnergyEfficiencyClass = "B", ServiceChargeEur = 250, HasPreview = false,
+        });
+        offer.LastSeenUtc.Should().Be(Scraped(2));
+        offer.FirstSeenUtc.Should().BeCloseTo(firstSeen.CreatedAtUtc, TimeSpan.FromMilliseconds(1));
+        result[1].LastSeenUtc.Should().Be(Scraped(1));
+    }
+
+    [Test]
+    public async Task GetArchivedOffersAsync_LeavesOutTheFlatsStillOrAgainOffered()
+    {
+        // Arrange: 1 is missed by the second run and found again by the third; 2 is offered throughout
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatRepository(repoContext);
+        await PublishAsync(repoContext, repo, CreateFlat("1"), CreateFlat("2"));
+        await PublishAsync(repoContext, repo, CreateFlat("2"));
+        (await repo.GetArchivedOffersAsync()).Select(o => o.ListingId).Should().Equal("1");
+
+        // Act
+        await PublishAsync(repoContext, repo, CreateFlat("1"), CreateFlat("2"));
+
+        // Assert
+        (await repo.GetArchivedOffersAsync()).Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task GetArchivedOffersAsync_KeepsTheFlatsOfAnotherSource_WhileThatSourceKeepsThem()
+    {
+        // Arrange: ImmobilienScout24 is not scraped in the second run (or fails), so it keeps its flat
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatRepository(repoContext);
+        await PublishAsync(repoContext, repo, CreateFlat("1"), CreateFlat("1", source: "ImmobilienScout24"));
+
+        // Act
+        await PublishAsync(repoContext, repo, CreateFlat("2"));
+
+        // Assert: the same listing id at another source is another flat
+        (await repo.GetArchivedOffersAsync()).Select(o => o.Source + "/" + o.ListingId).Should().Equal("OhneMakler/1");
+    }
+
+    [Test]
+    public async Task GetArchivedOffersAsync_FirstSeenIsTheEarliest_ForAFlatRemovedTwice()
+    {
+        // Arrange: 1 is removed, comes back as a new FlatsSnapshots row (a new CreatedAtUtc), and is removed again
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatRepository(repoContext);
+        await PublishAsync(repoContext, repo, CreateFlat("1") with { ScrapedAtUtc = Scraped(1) }, CreateFlat("2"));
+        var firstSeen = await AuditDatesAsync(options, "1");
+        await PublishAsync(repoContext, repo, CreateFlat("2"));
+        await PublishAsync(repoContext, repo, CreateFlat("1") with { ScrapedAtUtc = Scraped(3) }, CreateFlat("2"));
+        (await AuditDatesAsync(options, "1")).CreatedAtUtc.Should().BeAfter(firstSeen.CreatedAtUtc);
+        await PublishAsync(repoContext, repo, CreateFlat("2"));
+
+        // Act
+        var offer = (await repo.GetArchivedOffersAsync()).Should().ContainSingle().Subject;
+
+        // Assert
+        offer.FirstSeenUtc.Should().BeCloseTo(firstSeen.CreatedAtUtc, TimeSpan.FromMilliseconds(1));
+        offer.LastSeenUtc.Should().Be(Scraped(3));
+    }
+
+    [Test]
+    public async Task GetArchivedOffersAsync_ReturnsUtcDates()
+    {
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatRepository(repoContext);
+        await PublishAsync(repoContext, repo, CreateFlat("1"));
+        await PublishAsync(repoContext, repo, CreateFlat("2"));
+
+        var offer = (await repo.GetArchivedOffersAsync()).Single();
+
+        offer.FirstSeenUtc.Kind.Should().Be(DateTimeKind.Utc);
+        offer.LastSeenUtc.Kind.Should().Be(DateTimeKind.Utc);
+    }
+
+    [Test]
+    public async Task GetArchivedOffersAsync_TellsWhichOffersHaveAnArchivedPhoto()
+    {
+        // Arrange: publishing the second run deletes the current previews of 1 and 2; their archived photos stay
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+        var repo = new FlatRepository(repoContext);
+        await PublishAsync(repoContext, repo, CreateFlat("1"), CreateFlat("2"));
+        await new FlatPreviewRepository(repoContext).SaveAsync([Preview("OhneMakler", "1")]);
+
+        // Act
+        await PublishAsync(repoContext, repo, CreateFlat("3"));
+        var result = await repo.GetArchivedOffersAsync();
+
+        // Assert
+        result.ToDictionary(o => o.ListingId!, o => o.HasPreview)
+            .Should().Equal(new Dictionary<string, bool> { ["1"] = true, ["2"] = false });
+    }
+
+    [Test]
+    public async Task GetArchivedOffersAsync_WithAnEmptyArchive_ReturnsNothing()
+    {
+        var options = CreateSqliteOptions();
+        await using var repoContext = await CreateContextAsync(options);
+
+        (await new FlatRepository(repoContext).GetArchivedOffersAsync()).Should().BeEmpty();
+    }
+
     // ==================== PREVIEWS ====================
 
     [Test]

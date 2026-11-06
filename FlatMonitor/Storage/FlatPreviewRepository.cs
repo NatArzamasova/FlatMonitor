@@ -77,4 +77,8 @@ public sealed class FlatPreviewRepository : IFlatPreviewRepository
     public Task<FlatPreview?> GetAsync(string source, string listingId, CancellationToken ct = default) =>
         _dbContext.FlatPreviews.AsNoTracking()
             .FirstOrDefaultAsync(p => p.Source == source && p.ListingId == listingId, ct);
+
+    public Task<ArchivedFlatPreview?> GetArchivedAsync(string source, string listingId, CancellationToken ct = default) =>
+        _dbContext.FlatPreviewsArchive.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Source == source && p.ListingId == listingId, ct);
 }

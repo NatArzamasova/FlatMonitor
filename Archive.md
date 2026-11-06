@@ -1,6 +1,6 @@
 # Flats Archive: Implementation Plan
 
-**Status:** steps 1–3 implemented (.NET: 804 tests passed).
+**Status:** steps 1–4 implemented (.NET: 817 tests passed).
 
 ## Goal
 
@@ -186,18 +186,29 @@ Flats removed before this feature are gone, so the archive history starts with t
   gets its photo stored again and keeps the archived one; archiving is per source; nothing stays tracked; a failed
   save archives nothing. `FlatRepositoryTests`: publishing a source without a flat keeps its archived photo.
 
-### 4. Archived offers API
+### 4. Archived offers API ✅ DONE
 
-- Read model `ArchivedOffer : FlatOffer` with `DateTime FirstSeenUtc`, `DateTime LastSeenUtc`.
-- `IFlatRepository.GetArchivedOffersAsync`: group `FlatsArchive` by `(Source, ListingId)` where no `FlatsSnapshots`
-  row matches, take `MAX(ScrapingHistoryId)`, `MAX(ScrapedAtUtc)` and `MIN(CreatedAtUtc)`, then join back to the
-  latest row. Two LINQ queries, or one raw SQL query if EF's translation is poor. Check the generated SQL.
+- Read model `ArchivedOffer : FlatOffer` (`Storage/ReadModels/ArchivedOffer.cs`) with `DateTime FirstSeenUtc`,
+  `DateTime LastSeenUtc`.
+- `IFlatRepository.GetArchivedOffersAsync`: one LINQ query, which EF translates into a single SQL statement (checked).
+  - It groups `FlatsArchive` by `(Source, ListingId)` where no `FlatsSnapshots` row matches (`NOT EXISTS`), takes
+    `MAX(ScrapingHistoryId)` and `MIN(CreatedAtUtc)`, and joins back to the latest row by the primary key.
+  - `LastSeenUtc` is that latest row's `ScrapedAtUtc`, since runs never overlap, so there's no `MAX(ScrapedAtUtc)`.
+  - `HasPreview` is an `EXISTS` on `FlatPreviewsArchive`. The result is ordered by last seen, newest first.
+  - `MIN(...)` bypasses the UTC converter, so both dates are given `DateTimeKind.Utc` afterwards and the JSON carries
+    a `Z`.
 - `IFlatPreviewRepository.GetArchivedAsync(source, listingId)`.
 - `FlatsController`: `GET api/flats/archived-offers` (`ApiResponse<List<ArchivedOffer>>`) and
-  `GET api/flats/{source}/{listingId}/archived-preview`. The latter works like `preview`: same content-type
-  allow-list, `nosniff` and one-hour client cache.
-- Tests: a flat still in `FlatsSnapshots` is not listed; a removed flat is listed once with the values of its latest
-  run and the right first/last seen; a flat that comes back drops out of the list; preview endpoint 200/404.
+  `GET api/flats/{source}/{listingId}/archived-preview`.
+  - The preview endpoint shares the private `PreviewFile` helper with `preview`: same content-type allow-list,
+    `nosniff` and one-hour client cache.
+- Tests:
+  - `FlatRepositoryTests` (SQLite): removed flats listed once with the latest run's values, most recently seen first;
+    flats still offered or offered again left out; a source that kept its flats; first seen is the earliest for a
+    flat removed twice; UTC dates; `HasPreview` from the archived photo; empty archive.
+  - `FlatPreviewRepositoryTests`: archived photo also after the current one is gone; `null` without one.
+  - `FlatsControllerTests`: archived offers response; archived preview 200 (from the archive, not the current
+    previews) / 404 / not a photo type; cancellation token passed on.
 
 ### 5. Frontend: Archive tab
 

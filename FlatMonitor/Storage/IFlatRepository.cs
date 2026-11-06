@@ -33,4 +33,10 @@ public interface IFlatRepository
     Task DiscardRunAsync(CancellationToken ct = default);
 
     Task<List<FlatOffer>> GetCurrentOffersAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// The flats in FlatsArchive that are not in FlatsSnapshots any more, one per flat with the values of its latest
+    /// archived run, most recently seen first. A flat that is offered again is not among them.
+    /// </summary>
+    Task<List<ArchivedOffer>> GetArchivedOffersAsync(CancellationToken ct = default);
 }

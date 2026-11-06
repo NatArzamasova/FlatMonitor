@@ -62,6 +62,20 @@ public class FlatsControllerTests
     }
 
     [Test]
+    public async Task GetArchivedOffersAsync_ReturnsSuccessfulApiResponse()
+    {
+        var offers = new List<ArchivedOffer> { new() { District = "Zentrum", Source = "source", LastSeenUtc = DateTime.UtcNow } };
+        _flatRepository.Setup(r => r.GetArchivedOffersAsync(It.IsAny<CancellationToken>())).ReturnsAsync(offers);
+
+        var result = await _controller.GetArchivedOffersAsync();
+
+        var response = GetResponseValue(result);
+        response.Success.Should().BeTrue();
+        response.Data.Should().BeSameAs(offers);
+        response.Message.Should().Be("Archived offers fetched successfully");
+    }
+
+    [Test]
     public async Task GetAggregatedAsync_ReturnsSuccessfulApiResponse()
     {
         var aggregations = new List<FlatAggregation> { new() { District = "Innenstadt", Count = 2 } };
@@ -95,14 +109,19 @@ public class FlatsControllerTests
         _aggregationRepository.Setup(r => r.GetHistoryAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
         _aggregationRepository.Setup(r => r.GetLatestAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
         _flatRepository.Setup(r => r.GetCurrentOffersAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        _flatRepository.Setup(r => r.GetArchivedOffersAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
 
         await _controller.GetHistoryAsync(cts.Token);
         await _controller.GetAggregatedAsync(cts.Token);
         await _controller.GetCurrentOffersAsync(cts.Token);
+        await _controller.GetArchivedOffersAsync(cts.Token);
+        await _controller.GetArchivedPreviewAsync("OhneMakler", "1", cts.Token);
 
         _aggregationRepository.Verify(r => r.GetHistoryAsync(cts.Token), Times.Once);
         _aggregationRepository.Verify(r => r.GetLatestAsync(cts.Token), Times.Once);
         _flatRepository.Verify(r => r.GetCurrentOffersAsync(cts.Token), Times.Once);
+        _flatRepository.Verify(r => r.GetArchivedOffersAsync(cts.Token), Times.Once);
+        _previewRepository.Verify(r => r.GetArchivedAsync("OhneMakler", "1", cts.Token), Times.Once);
     }
 
     [Test]
@@ -139,6 +158,44 @@ public class FlatsControllerTests
             .ReturnsAsync(Preview("image/svg+xml", [1]));
 
         var result = await _controller.GetPreviewAsync("OhneMakler", "1");
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Test]
+    public async Task GetArchivedPreviewAsync_ReturnsTheArchivedImageWithItsContentType()
+    {
+        var data = new byte[] { 0xFF, 0xD8, 0xFF };
+        _previewRepository.Setup(r => r.GetArchivedAsync("ImmobilienScout24", "123", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ArchivedFlatPreview.From(Preview("image/webp", data)));
+
+        var result = await _controller.GetArchivedPreviewAsync("ImmobilienScout24", "123");
+
+        var file = result.Should().BeOfType<FileContentResult>().Subject;
+        file.FileContents.Should().Equal(data);
+        file.ContentType.Should().Be("image/webp");
+        _controller.Response.Headers.XContentTypeOptions.ToString().Should().Be("nosniff");
+        _previewRepository.Verify(r => r.GetAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Test]
+    public async Task GetArchivedPreviewAsync_WithoutPreview_ReturnsNotFound()
+    {
+        _previewRepository.Setup(r => r.GetArchivedAsync("OhneMakler", "1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ArchivedFlatPreview?)null);
+
+        var result = await _controller.GetArchivedPreviewAsync("OhneMakler", "1");
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Test]
+    public async Task GetArchivedPreviewAsync_WithAStoredTypeThatIsNoPhoto_ReturnsNotFound()
+    {
+        _previewRepository.Setup(r => r.GetArchivedAsync("OhneMakler", "1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ArchivedFlatPreview.From(Preview("text/html", [1])));
+
+        var result = await _controller.GetArchivedPreviewAsync("OhneMakler", "1");
 
         result.Should().BeOfType<NotFoundResult>();
     }

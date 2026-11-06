@@ -194,4 +194,55 @@ public sealed class FlatRepository : IFlatRepository
                 })
                 .ToListAsync(ct);
     }
+
+    public async Task<List<ArchivedOffer>> GetArchivedOffersAsync(CancellationToken ct = default)
+    {
+        // Per flat no longer in FlatsSnapshots: its latest run and its first-seen time. Runs never overlap, so the
+        // latest run is also the one that scraped it last.
+        var latest = _dbContext.FlatsArchive
+            .Where(a => !_dbContext.FlatsSnapshots.Any(s => s.Source == a.Source && s.ListingId == a.ListingId))
+            .GroupBy(a => new { a.Source, a.ListingId })
+            .Select(g => new
+            {
+                g.Key.Source,
+                g.Key.ListingId,
+                RunId = g.Max(a => a.ScrapingHistoryId),
+                FirstSeenUtc = g.Min(a => EF.Property<DateTime>(a, "CreatedAtUtc")),
+            });
+
+        var offers = await (
+                from flat in latest
+                join a in _dbContext.FlatsArchive
+                    on new { flat.Source, flat.ListingId, ScrapingHistoryId = flat.RunId }
+                    equals new { a.Source, a.ListingId, a.ScrapingHistoryId }
+                orderby a.ScrapedAtUtc descending
+                select new ArchivedOffer
+                {
+                    District = a.District,
+                    RoomsCount = a.RoomsCount,
+                    PriceEur = a.PriceEur,
+                    OriginalPriceEur = a.OriginalPriceEur,
+                    PricePerMeter = a.PricePerMeter,
+                    LivingAreaSqm = a.LivingAreaSqm,
+                    Url = a.Url,
+                    Source = a.Source,
+                    ListingId = a.ListingId,
+                    HasPreview = _dbContext.FlatPreviewsArchive.Any(p => p.Source == a.Source && p.ListingId == a.ListingId),
+                    Availability = a.Details == null ? null : a.Details.Availability,
+                    EnergyEfficiencyClass = a.Details == null ? null : a.Details.EnergyEfficiencyClass,
+                    ServiceChargeEur = a.Details == null ? null : a.Details.ServiceChargeEur,
+                    CommissionPercent = a.CommissionPercent,
+                    FirstSeenUtc = flat.FirstSeenUtc,
+                    LastSeenUtc = a.ScrapedAtUtc,
+                })
+            .ToListAsync(ct);
+
+        // An aggregate bypasses the column's converter: the dates are UTC, so the API writes them with "Z"
+        foreach (var offer in offers)
+        {
+            offer.FirstSeenUtc = DateTime.SpecifyKind(offer.FirstSeenUtc, DateTimeKind.Utc);
+            offer.LastSeenUtc = DateTime.SpecifyKind(offer.LastSeenUtc, DateTimeKind.Utc);
+        }
+        return offers;
+    }
 }

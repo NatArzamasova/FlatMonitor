@@ -20,4 +20,7 @@ public interface IFlatPreviewRepository
 
     /// <summary>The flat's preview, or <c>null</c> if it has none.</summary>
     Task<FlatPreview?> GetAsync(string source, string listingId, CancellationToken ct = default);
+
+    /// <summary>The flat's archived (first) photo, or <c>null</c> if it has none.</summary>
+    Task<ArchivedFlatPreview?> GetArchivedAsync(string source, string listingId, CancellationToken ct = default);
 }
